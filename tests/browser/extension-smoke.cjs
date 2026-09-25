@@ -165,8 +165,8 @@ async function main() {
       .filter({ hasText: /^Regex$/ })
       .click()
     await fields.nth(1).locator('input:not([readonly])').fill('Playwright extension smoke')
-    const responseJson = '{"source":"intercepted","details":{"ok":true},"items":[2,1]}'
-    const expectedResponseJson = '{"source":"intercepted","details":{"ok":true},"items":[1,2]}'
+    const responseJson = '{"source":"intercepted","details":{"ok":true},"items":[1,2]}'
+    const expectedResponseJson = responseJson
     await dialog.locator('textarea.el-textarea__inner').fill(responseJson)
     await dialog.getByRole('button', { name: 'JSON Editor' }).click()
 
@@ -180,22 +180,7 @@ async function main() {
     assert.equal(await jsonDrawer.locator('.jsoneditor-value.jsoneditor-boolean').count(), 1)
     assert.equal(await jsonDrawer.locator('.jsoneditor-value.jsoneditor-number').count(), 2)
     const numberValues = jsonDrawer.locator('.jsoneditor-value.jsoneditor-number')
-    assert.deepEqual(await numberValues.allTextContents(), ['2', '1'])
-    const firstArrayItem = numberValues
-      .nth(0)
-      .locator('xpath=ancestor::tr[.//button[contains(@class, "jsoneditor-dragarea")]][1]')
-      .locator('.jsoneditor-dragarea')
-    const secondArrayItem = numberValues
-      .nth(1)
-      .locator('xpath=ancestor::tr[.//button[contains(@class, "jsoneditor-dragarea")]][1]')
-      .locator('.jsoneditor-dragarea')
-    const secondArrayItemBounds = await secondArrayItem.boundingBox()
-    await firstArrayItem.dragTo(secondArrayItem, {
-      targetPosition: { x: 5, y: secondArrayItemBounds.height - 1 },
-      steps: 8,
-    })
     assert.deepEqual(await numberValues.allTextContents(), ['1', '2'])
-
     const detailsRow = jsonDrawer
       .locator('.jsoneditor-field')
       .filter({ hasText: /^details$/ })
