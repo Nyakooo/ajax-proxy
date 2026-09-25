@@ -166,7 +166,7 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - [ ] 建立与新 Logo 协调的颜色、字体、图标和界面视觉规范。
 - [x] 设计新的面板信息架构和关键操作流程，再确定组件实现方案；已映射现有功能与拟议结构，定义组合规则创建、筛选、启停、V3 恢复及错误状态，并把阶段 5 新功能与已确认范围分开。见 `docs/V3-PANEL-IA.zh.md`；具体布局和组件仍待原型验证。
 - [ ] 将 Vue 2 迁移到 Vue 3，并更新状态管理、路由、国际化和 UI 组件依赖。
-- [ ] 以 PrimeVue 4 作为首选组件层，先试用其主题化（styled）模式和自定义设计 token，利用成熟交互组件，同时建立 Ajax Proxy 自己的品牌视觉。
+- [x] 以 PrimeVue 4 作为首选组件层，先试用其主题化（styled）模式和自定义设计 token，利用成熟交互组件，同时建立 Ajax Proxy 自己的品牌视觉；独立 Vue 3 / Vite 原型使用 PrimeVue 4.5.5 Aura 派生 token，并通过 Chrome Stable 与 Edge Stable 检查桌面 / 窄布局、搜索空态和浅 / 深主题。实现仍未替换 V2 面板。见 `docs/V3-UI-PROTOTYPE.zh.md`。
 - [ ] 原型验证 PrimeVue 4 的 Pass Through / unstyled 能力；只有当主题 token 无法达到所需的独特视觉时，才选择 Tailwind CSS v4 完全接管样式。
 - [ ] Tailwind CSS 与 UnoCSS 都是构建期样式工具，不提供完整的表格、表单、弹层等交互组件；不同时采用二者。若需要 utility-first 样式，优先评估 Tailwind CSS v4 的 Vite 集成和团队可维护性。
 - [ ] 对所选 UI 方案执行按需组件引入，并比较生产环境 JS / CSS 体积、交互质量、可访问性和自定义成本。
@@ -440,4 +440,5 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - 2026-09-25：建立 Ajax Proxy V3 品牌方向，沿用深青色和浏览器窗口识别资产，将请求 / 响应路径与代理节点形成新 SVG mark；新增可重复图标生成器，输出 48 / 128 px 启用彩色与停用灰阶 PNG，并生成 16 / 24 / 48 / 128 px 预览矩阵。SVG 渲染、尺寸断言和预览已检查。面板横向 lockup 的浅 / 深背景变体与完整 design tokens 后续再单独结项。完成 90 / 190 项（47.4%）。
 - 2026-09-25：完成 Logo 多场景规范：SVG 增加深色面板状态，`pnpm brand:icons` 重复生成 128 px 深色 mark，并在同一预览矩阵检查扩展图标多尺寸、停用状态以及浅 / 深背景 panel lockup；修正预览资源路径并重新目视检查。Prettier 检查通过。完整 UI design tokens 尚未结项。完成 91 / 190 项（47.9%）。
 - 2026-09-25：根据现有 V2 面板源码建立阶段 4 IA 与关键流程设计，映射顶栏、拦截 / 重定向规则 CRUD、标签 / 搜索、组合规则 editor、备份恢复及错误 / 空态；明确 V2 数据不迁移，阶段 5 的排序 / 批量操作 / 历史诊断仍只是提案。信息架构覆盖启停、规则保存、筛选和恢复的成功 / 失败路径；PrimeVue 页面布局和组件选择仍待原型验证。文档 Prettier 检查通过。完成 92 / 190 项（48.4%）。
+- 2026-09-25：新增与 `vue-panels` / 扩展生产入口隔离的 `@proxy/v3-ui-prototype`，使用 Vue 3.5.43、PrimeVue 4.5.5 styled Aura 主题和 Ajax Proxy teal token，按需引入 Button / InputText / Tag / ToggleSwitch；不依赖 PrimeIcons 字体。Chrome Stable 154.0.8037.58、Edge Stable 153.0.4234.48 均通过 production preview 400 px 窄布局、搜索空态、深色主题 smoke；Playwright Chromium 另验证工作区切换、创建和清除搜索。全仓 lint（341 条历史 warning、0 error）、格式检查、依赖边界检查、全包构建与扩展 smoke 通过；原型产物 311.91 kB JS / 9.57 kB CSS（gzip 78.33 / 2.69 kB）。Vue 2 生产面板未改动。通过 PrimeVue styled 原型项，Pass Through / unstyled 对比、生产包纳入和最终 UI 迁移继续保留。完成 93 / 190 项（48.9%）。
 - GitHub 里程碑：[阶段 0](https://github.com/Nyakooo/ajax-proxy/milestone/1)、[阶段 1](https://github.com/Nyakooo/ajax-proxy/milestone/2)、[阶段 2](https://github.com/Nyakooo/ajax-proxy/milestone/3)、[阶段 3](https://github.com/Nyakooo/ajax-proxy/milestone/4)、[阶段 4](https://github.com/Nyakooo/ajax-proxy/milestone/5)、[阶段 5](https://github.com/Nyakooo/ajax-proxy/milestone/6)、[阶段 6](https://github.com/Nyakooo/ajax-proxy/milestone/7)、[阶段 7](https://github.com/Nyakooo/ajax-proxy/milestone/8)；已复现缺陷：[issue #56](https://github.com/Nyakooo/ajax-proxy/issues/56)。
