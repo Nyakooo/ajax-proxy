@@ -55,7 +55,9 @@ export interface V3ValidationIssue {
 export type V3BackupValidation =
   { ok: true; data: V3Backup } | { ok: false; issues: V3ValidationIssue[] }
 
-export type V3BackupParseResult = V3BackupValidation
+export type V3BackupParseResult =
+  | { ok: true; data: V3Backup; warnings: V3ValidationIssue[] }
+  | { ok: false; issues: V3ValidationIssue[] }
 
 function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -248,7 +250,21 @@ export function parseV3BackupJson(text: string): V3BackupParseResult {
     const message = error instanceof Error ? error.message : String(error)
     return { ok: false, issues: [{ path: '$', message: `Invalid JSON: ${message}` }] }
   }
-  return validateV3Backup(value)
+  const validation = validateV3Backup(value)
+  if (!validation.ok) return validation
+
+  const data = JSON.parse(JSON.stringify(validation.data)) as V3Backup
+  const warnings: V3ValidationIssue[] = []
+  data.rules.forEach((rule, index) => {
+    const code = rule.response?.replace.code
+    if (typeof code !== 'string' || code.trim() === '') return
+    warnings.push({
+      path: `rules[${index}].response.replace.code`,
+      message: 'Imported function code is untrusted and will not run until explicitly enabled.',
+    })
+    if (rule.response?.enabled) rule.response.enabled = false
+  })
+  return { ok: true, data, warnings }
 }
 
 export function formatV3ValidationIssues(issues: V3ValidationIssue[]) {

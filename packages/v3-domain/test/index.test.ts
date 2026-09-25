@@ -65,7 +65,10 @@ describe('V3 backup schema', () => {
   })
 
   it('parses a JSON backup and returns readable syntax and field errors', () => {
-    expect(parseV3BackupJson(`\uFEFF${JSON.stringify(validBackup)}`)).toMatchObject({ ok: true })
+    expect(parseV3BackupJson(`\uFEFF${JSON.stringify(validBackup)}`)).toMatchObject({
+      ok: true,
+      warnings: [],
+    })
     const syntaxError = parseV3BackupJson('{ invalid')
     expect(syntaxError).toMatchObject({
       ok: false,
@@ -83,5 +86,28 @@ describe('V3 backup schema', () => {
         'rules[0].match.url: Expected a non-empty string.'
       )
     }
+  })
+
+  it('warns about imported function code and disables the function action', () => {
+    const backup = structuredClone(validBackup)
+    backup.rules[0].response = {
+      enabled: true,
+      replace: { code: '() => ({ body: "untrusted" })' },
+    }
+
+    const result = parseV3BackupJson(JSON.stringify(backup))
+
+    expect(result).toMatchObject({ ok: true })
+    if (result.ok) {
+      expect(result.data.rules[0].enabled).toBe(true)
+      expect(result.data.rules[0].response?.enabled).toBe(false)
+      expect(result.warnings).toEqual([
+        {
+          path: 'rules[0].response.replace.code',
+          message: 'Imported function code is untrusted and will not run until explicitly enabled.',
+        },
+      ])
+    }
+    expect(backup.rules[0].response.enabled).toBe(true)
   })
 })
