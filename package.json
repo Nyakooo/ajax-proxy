@@ -32,6 +32,7 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "browser:smoke": "node ./tests/browser/runtime-smoke.cjs",
+    "v3:browser:smoke": "pnpm -C packages/v3-domain build && node ./tests/browser/v3-runtime-smoke.cjs",
     "extension:smoke": "node ./tests/browser/extension-smoke.cjs",
     "editor:smoke": "node ./tests/browser/json-editor-error-smoke.cjs",
     "clean:build": "rm -rf ./packages/code-editor/lib ./packages/json-editor/lib ./packages/proxy-lib/lib ./packages/proxy-lib/types ./packages/protocol/lib ./packages/protocol/types ./packages/shared-utils/lib ./packages/shared-utils/types ./packages/v2-compatibility/lib ./packages/v2-compatibility/types ./packages/v3-domain/lib ./packages/v3-domain/types ./packages/shell-chrome/build ./packages/vue-panels/dist",

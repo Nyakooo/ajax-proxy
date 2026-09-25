@@ -5,7 +5,7 @@ import type { V3XHRConstructor } from '../src/v3XHR'
 
 afterEach(() => vi.restoreAllMocks())
 
-class FakeXHR {
+class FakeXHR extends EventTarget {
   readyState = 0
   responseType: XMLHttpRequestResponseType = ''
   status = 200
@@ -15,6 +15,10 @@ class FakeXHR {
   openArgs: unknown[] = []
   requestHeaders: Array<[string, string]> = []
   sentBody: Document | XMLHttpRequestBodyInit | null | undefined
+
+  constructor() {
+    super()
+  }
 
   open = vi.fn((...args: unknown[]) => {
     this.openArgs = args
@@ -31,6 +35,7 @@ class FakeXHR {
     this.readyState = 4
     this.responseText = body
     this.response = body
+    this.dispatchEvent(new Event('loadend'))
   }
 }
 
@@ -101,6 +106,36 @@ describe('createV3XHR', () => {
 
     expect(xhr.requestHeaders).toEqual([['x-test', 'value']])
     expect(xhr.sentBody).toBe(body)
+  })
+
+  it('forwards event listener this, target and currentTarget to the public proxy', () => {
+    const xhr = makeXHR([
+      rule('response', { response: { enabled: true, replace: { body: 'mock' } } }),
+    ])
+    const seen: Array<{
+      thisIsProxy: boolean
+      targetIsProxy: boolean
+      currentTargetIsProxy: boolean
+    }> = []
+    const listener: EventListener = function (this: XMLHttpRequest, event) {
+      seen.push({
+        thisIsProxy: this === xhr,
+        targetIsProxy: event.target === xhr,
+        currentTargetIsProxy: event.currentTarget === xhr,
+      })
+    }
+    const removedListener = vi.fn()
+    xhr.addEventListener('loadend', listener, { once: true })
+    xhr.addEventListener('loadend', removedListener)
+    xhr.removeEventListener('loadend', removedListener)
+
+    xhr.open('POST', 'https://example.test/api', true)
+    xhr.complete('network response')
+    xhr.open('POST', 'https://example.test/api', true)
+    xhr.complete('network response')
+
+    expect(seen).toEqual([{ thisIsProxy: true, targetIsProxy: true, currentTargetIsProxy: true }])
+    expect(removedListener).not.toHaveBeenCalled()
   })
 
   it('supports JSON responseType and fails open for unsupported types or malformed JSON replacement', () => {

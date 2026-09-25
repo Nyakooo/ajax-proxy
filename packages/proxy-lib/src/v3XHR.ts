@@ -68,8 +68,55 @@ export function createV3XHR(NativeXHR: V3XHRConstructor, options: V3XHROptions):
       super()
       let selected: V3Rule | undefined
       let replacement: Replacement | undefined
+      const listenerWrappers = new WeakMap<object, Map<string, Map<boolean, EventListener>>>()
+      const handlerProperties = new Map<
+        PropertyKey,
+        { original: unknown; wrapper: EventListener }
+      >()
 
-      return new Proxy(this, {
+      const wrapEvent = (event: Event, active: () => boolean) =>
+        new Proxy(event, {
+          get(target, property) {
+            if (property === 'target') return proxy
+            if (property === 'currentTarget' && active()) return proxy
+            const value = Reflect.get(target, property, target)
+            return typeof value === 'function' ? value.bind(target) : value
+          },
+        })
+
+      const wrapListener = (
+        listener: EventListenerOrEventListenerObject,
+        type: string,
+        capture: boolean
+      ) => {
+        let byType = listenerWrappers.get(listener)
+        if (!byType) {
+          byType = new Map()
+          listenerWrappers.set(listener, byType)
+        }
+        let byCapture = byType.get(type)
+        if (!byCapture) {
+          byCapture = new Map()
+          byType.set(type, byCapture)
+        }
+        let wrapper = byCapture.get(capture)
+        if (!wrapper) {
+          wrapper = (event) => {
+            let active = true
+            const wrappedEvent = wrapEvent(event, () => active)
+            try {
+              if (typeof listener === 'function') listener.call(proxy, wrappedEvent)
+              else listener.handleEvent.call(listener, wrappedEvent)
+            } finally {
+              active = false
+            }
+          }
+          byCapture.set(capture, wrapper)
+        }
+        return wrapper
+      }
+
+      const proxy = new Proxy(this, {
         get(target, property) {
           if (property === 'open') {
             return (...args: Parameters<XMLHttpRequest['open']>) => {
@@ -124,6 +171,37 @@ export function createV3XHR(NativeXHR: V3XHRConstructor, options: V3XHROptions):
             }
           }
 
+          if (property === 'addEventListener') {
+            return (
+              type: string,
+              listener: EventListenerOrEventListenerObject | null,
+              eventOptions?: boolean | AddEventListenerOptions
+            ) => {
+              if (!listener) return
+              const capture =
+                typeof eventOptions === 'boolean' ? eventOptions : (eventOptions?.capture ?? false)
+              target.addEventListener(type, wrapListener(listener, type, capture), eventOptions)
+            }
+          }
+
+          if (property === 'removeEventListener') {
+            return (
+              type: string,
+              listener: EventListenerOrEventListenerObject | null,
+              eventOptions?: boolean | EventListenerOptions
+            ) => {
+              if (!listener) return
+              const capture =
+                typeof eventOptions === 'boolean' ? eventOptions : (eventOptions?.capture ?? false)
+              const wrapper = listenerWrappers.get(listener)?.get(type)?.get(capture)
+              if (wrapper) target.removeEventListener(type, wrapper, eventOptions)
+            }
+          }
+
+          if (typeof property === 'string' && handlerProperties.has(property)) {
+            return handlerProperties.get(property)?.original
+          }
+
           if (
             property === 'response' ||
             property === 'responseText' ||
@@ -156,9 +234,22 @@ export function createV3XHR(NativeXHR: V3XHRConstructor, options: V3XHROptions):
           return typeof value === 'function' ? value.bind(target) : value
         },
         set(target, property, value) {
+          if (typeof property === 'string' && property.startsWith('on') && property in target) {
+            const prior = handlerProperties.get(property)
+            if (prior) target.removeEventListener(property.slice(2), prior.wrapper)
+            if (typeof value === 'function') {
+              const wrapper = wrapListener(value as EventListener, property.slice(2), false)
+              handlerProperties.set(property, { original: value, wrapper })
+              target.addEventListener(property.slice(2), wrapper)
+              return true
+            }
+            handlerProperties.delete(property)
+            return Reflect.set(target, property, value, target)
+          }
           return Reflect.set(target, property, value, target)
         },
       })
+      return proxy
     }
   }
 }
