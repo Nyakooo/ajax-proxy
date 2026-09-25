@@ -1,5 +1,6 @@
 export declare const V3_BACKUP_FORMAT: "ajax-proxy-backup";
 export declare const V3_BACKUP_VERSION: 3;
+export declare const V3_BACKUP_MAX_BYTES: number;
 export type V3Mode = 'interceptor' | 'redirector';
 export type V3Language = 'zh-CN' | 'en';
 export type JsonValue = string | number | boolean | null | JsonValue[] | {

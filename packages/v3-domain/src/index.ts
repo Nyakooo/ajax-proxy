@@ -1,5 +1,21 @@
 export const V3_BACKUP_FORMAT = 'ajax-proxy-backup' as const
 export const V3_BACKUP_VERSION = 3 as const
+export const V3_BACKUP_MAX_BYTES = 5 * 1024 * 1024
+
+const MAX_RULES = 5000
+const MAX_TAGS = 500
+const MAX_ID_LENGTH = 256
+const MAX_LABEL_LENGTH = 512
+const MAX_MATCH_URL_LENGTH = 4096
+const MAX_REDIRECT_URL_LENGTH = 4096
+const MAX_METHOD_LENGTH = 32
+const MAX_HEADERS = 100
+const MAX_HEADER_NAME_LENGTH = 256
+const MAX_HEADER_VALUE_LENGTH = 8192
+const MAX_HEADER_BYTES = 32768
+const MAX_FUNCTION_CODE_LENGTH = 65536
+const MAX_JSON_DEPTH = 64
+const MAX_JSON_NODES = 50000
 
 export type V3Mode = 'interceptor' | 'redirector'
 export type V3Language = 'zh-CN' | 'en'
@@ -68,11 +84,77 @@ function hasOnlyKeys(value: Record<string, unknown>, allowed: string[]) {
 }
 
 function isJsonValue(value: unknown): value is JsonValue {
-  if (value === null || typeof value === 'string' || typeof value === 'boolean') return true
-  if (typeof value === 'number') return Number.isFinite(value)
-  if (Array.isArray(value)) return value.every(isJsonValue)
-  if (!isObject(value)) return false
-  return Object.values(value).every(isJsonValue)
+  const pending: Array<{ value: unknown; depth: number }> = [{ value, depth: 0 }]
+  let nodes = 0
+  while (pending.length > 0) {
+    const current = pending.pop()!
+    nodes += 1
+    if (nodes > MAX_JSON_NODES || current.depth > MAX_JSON_DEPTH) return false
+    if (
+      current.value === null ||
+      typeof current.value === 'string' ||
+      typeof current.value === 'boolean'
+    )
+      continue
+    if (typeof current.value === 'number') {
+      if (!Number.isFinite(current.value)) return false
+      continue
+    }
+    if (Array.isArray(current.value)) {
+      for (const item of current.value) pending.push({ value: item, depth: current.depth + 1 })
+      continue
+    }
+    if (!isObject(current.value)) return false
+    for (const item of Object.values(current.value))
+      pending.push({ value: item, depth: current.depth + 1 })
+  }
+  return true
+}
+
+function isHttpToken(value: string) {
+  return /^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/.test(value)
+}
+
+function isHeaderValue(value: string) {
+  // eslint-disable-next-line no-control-regex
+  return !/[\r\n\0-\x08\x0B\x0C\x0E-\x1F\x7F]/.test(value)
+}
+
+function validateHeaders(value: unknown, path: string, issues: V3ValidationIssue[]) {
+  if (!isObject(value)) {
+    addIssue(issues, path, 'Expected a header map.')
+    return
+  }
+  const entries = Object.entries(value)
+  if (entries.length > MAX_HEADERS) {
+    addIssue(issues, path, `At most ${MAX_HEADERS} headers are allowed.`)
+  }
+  let totalBytes = 0
+  entries.forEach(([name, headerValue]) => {
+    totalBytes += new TextEncoder().encode(name).length
+    if (typeof headerValue === 'string') totalBytes += new TextEncoder().encode(headerValue).length
+    if (name.length === 0 || name.length > MAX_HEADER_NAME_LENGTH || !isHttpToken(name)) {
+      addIssue(
+        issues,
+        path,
+        `Header names must be valid HTTP tokens up to ${MAX_HEADER_NAME_LENGTH} characters.`
+      )
+    }
+    if (
+      typeof headerValue !== 'string' ||
+      headerValue.length > MAX_HEADER_VALUE_LENGTH ||
+      !isHeaderValue(headerValue)
+    ) {
+      addIssue(
+        issues,
+        path,
+        `Header values must be safe strings up to ${MAX_HEADER_VALUE_LENGTH} characters.`
+      )
+    }
+  })
+  if (totalBytes > MAX_HEADER_BYTES) {
+    addIssue(issues, path, `Combined header data must not exceed ${MAX_HEADER_BYTES} UTF-8 bytes.`)
+  }
 }
 
 function addIssue(issues: V3ValidationIssue[], path: string, message: string) {
@@ -88,17 +170,34 @@ function validateRule(value: unknown, index: number, issues: V3ValidationIssue[]
   if (!hasOnlyKeys(value, ['id', 'enabled', 'match', 'request', 'response'])) {
     addIssue(issues, path, 'Rule contains an unsupported field.')
   }
-  if (typeof value.id !== 'string' || value.id.trim() === '')
-    addIssue(issues, `${path}.id`, 'Expected a non-empty string.')
+  if (typeof value.id !== 'string' || value.id.trim() === '' || value.id.length > MAX_ID_LENGTH)
+    addIssue(issues, `${path}.id`, `Expected a non-empty string up to ${MAX_ID_LENGTH} characters.`)
   if (typeof value.enabled !== 'boolean') addIssue(issues, `${path}.enabled`, 'Expected a boolean.')
   if (!isObject(value.match) || !hasOnlyKeys(value.match, ['url', 'method', 'type'])) {
     addIssue(issues, `${path}.match`, 'Expected a URL matcher with supported fields only.')
   } else {
-    if (typeof value.match.url !== 'string' || value.match.url.trim() === '') {
-      addIssue(issues, `${path}.match.url`, 'Expected a non-empty string.')
+    if (
+      typeof value.match.url !== 'string' ||
+      value.match.url.trim() === '' ||
+      value.match.url.length > MAX_MATCH_URL_LENGTH
+    ) {
+      addIssue(
+        issues,
+        `${path}.match.url`,
+        `Expected a non-empty string up to ${MAX_MATCH_URL_LENGTH} characters.`
+      )
     }
-    if (value.match.method !== undefined && typeof value.match.method !== 'string') {
-      addIssue(issues, `${path}.match.method`, 'Expected a string when provided.')
+    if (
+      value.match.method !== undefined &&
+      (typeof value.match.method !== 'string' ||
+        value.match.method.length > MAX_METHOD_LENGTH ||
+        !isHttpToken(value.match.method))
+    ) {
+      addIssue(
+        issues,
+        `${path}.match.method`,
+        `Expected an HTTP method token up to ${MAX_METHOD_LENGTH} characters.`
+      )
     }
     if (
       value.match.type !== undefined &&
@@ -106,6 +205,13 @@ function validateRule(value: unknown, index: number, issues: V3ValidationIssue[]
       value.match.type !== 'regex'
     ) {
       addIssue(issues, `${path}.match.type`, 'Expected "normal" or "regex".')
+    }
+    if (value.match.type === 'regex' && typeof value.match.url === 'string') {
+      try {
+        new RegExp(value.match.url, 'i')
+      } catch {
+        addIssue(issues, `${path}.match.url`, 'Expected a valid regular expression.')
+      }
     }
   }
 
@@ -129,31 +235,50 @@ function validateRule(value: unknown, index: number, issues: V3ValidationIssue[]
       continue
     }
     if (actionName === 'request') {
-      if (typeof payload.url !== 'string' || payload.url.trim() === '') {
-        addIssue(issues, `${payloadPath}.url`, 'Expected a non-empty string.')
+      if (
+        typeof payload.url !== 'string' ||
+        payload.url.trim() === '' ||
+        payload.url.length > MAX_REDIRECT_URL_LENGTH
+      ) {
+        addIssue(
+          issues,
+          `${payloadPath}.url`,
+          `Expected a non-empty URL up to ${MAX_REDIRECT_URL_LENGTH} characters.`
+        )
+      } else {
+        try {
+          const target = new URL(payload.url, 'https://ajax-proxy.invalid/')
+          if (!['http:', 'https:'].includes(target.protocol)) {
+            addIssue(issues, `${payloadPath}.url`, 'Only HTTP(S) redirect URLs are allowed.')
+          }
+        } catch {
+          addIssue(issues, `${payloadPath}.url`, 'Expected a valid HTTP(S) or relative URL.')
+        }
       }
       continue
     }
     if (
       payload.status !== undefined &&
       (!Number.isInteger(payload.status) ||
-        (payload.status as number) < 100 ||
+        (payload.status as number) < 200 ||
         (payload.status as number) > 599)
     ) {
-      addIssue(issues, `${payloadPath}.status`, 'Expected an integer from 100 to 599.')
+      addIssue(issues, `${payloadPath}.status`, 'Expected an integer from 200 to 599.')
     }
-    if (
-      payload.headers !== undefined &&
-      (!isObject(payload.headers) ||
-        !Object.values(payload.headers).every((header) => typeof header === 'string'))
-    ) {
-      addIssue(issues, `${payloadPath}.headers`, 'Expected a string-valued header map.')
-    }
+    if (payload.headers !== undefined)
+      validateHeaders(payload.headers, `${payloadPath}.headers`, issues)
     if (payload.body !== undefined && !isJsonValue(payload.body)) {
       addIssue(issues, `${payloadPath}.body`, 'Expected a JSON value.')
     }
-    if (payload.code !== undefined && typeof payload.code !== 'string') {
-      addIssue(issues, `${payloadPath}.code`, 'Expected a string when provided.')
+    if (
+      payload.code !== undefined &&
+      (typeof payload.code !== 'string' || payload.code.length > MAX_FUNCTION_CODE_LENGTH)
+    ) {
+      addIssue(
+        issues,
+        `${payloadPath}.code`,
+        `Expected a string up to ${MAX_FUNCTION_CODE_LENGTH} characters.`
+      )
     }
   }
 
@@ -205,6 +330,8 @@ export function validateV3Backup(value: unknown): V3BackupValidation {
   if (!Array.isArray(value.tags)) {
     addIssue(issues, 'tags', 'Expected an array.')
   } else {
+    if (value.tags.length > MAX_TAGS)
+      addIssue(issues, 'tags', `At most ${MAX_TAGS} tags are allowed.`)
     const ids = new Set<string>()
     value.tags.forEach((tag, index) => {
       const path = `tags[${index}]`
@@ -212,12 +339,24 @@ export function validateV3Backup(value: unknown): V3BackupValidation {
         addIssue(issues, path, 'Expected a tag object with supported fields only.')
         return
       }
-      if (typeof tag.id !== 'string' || tag.id.trim() === '')
-        addIssue(issues, `${path}.id`, 'Expected a non-empty string.')
+      if (typeof tag.id !== 'string' || tag.id.trim() === '' || tag.id.length > MAX_ID_LENGTH)
+        addIssue(
+          issues,
+          `${path}.id`,
+          `Expected a non-empty string up to ${MAX_ID_LENGTH} characters.`
+        )
       else if (ids.has(tag.id)) addIssue(issues, `${path}.id`, 'Tag IDs must be unique.')
       else ids.add(tag.id)
-      if (typeof tag.name !== 'string' || tag.name.trim() === '')
-        addIssue(issues, `${path}.name`, 'Expected a non-empty string.')
+      if (
+        typeof tag.name !== 'string' ||
+        tag.name.trim() === '' ||
+        tag.name.length > MAX_LABEL_LENGTH
+      )
+        addIssue(
+          issues,
+          `${path}.name`,
+          `Expected a non-empty string up to ${MAX_LABEL_LENGTH} characters.`
+        )
       if (typeof tag.used !== 'boolean') addIssue(issues, `${path}.used`, 'Expected a boolean.')
     })
   }
@@ -228,6 +367,8 @@ export function validateV3Backup(value: unknown): V3BackupValidation {
       'Expected an array. Empty arrays are valid and clear the stored rules.'
     )
   } else {
+    if (value.rules.length > MAX_RULES)
+      addIssue(issues, 'rules', `At most ${MAX_RULES} rules are allowed.`)
     const ids = new Set<string>()
     value.rules.forEach((rule, index) => {
       validateRule(rule, index, issues)
@@ -243,6 +384,22 @@ export function validateV3Backup(value: unknown): V3BackupValidation {
 }
 
 export function parseV3BackupJson(text: string): V3BackupParseResult {
+  if (text.length > V3_BACKUP_MAX_BYTES) {
+    return {
+      ok: false,
+      issues: [
+        { path: '$', message: `Backup JSON must not exceed ${V3_BACKUP_MAX_BYTES} UTF-8 bytes.` },
+      ],
+    }
+  }
+  if (new TextEncoder().encode(text).length > V3_BACKUP_MAX_BYTES) {
+    return {
+      ok: false,
+      issues: [
+        { path: '$', message: `Backup JSON must not exceed ${V3_BACKUP_MAX_BYTES} UTF-8 bytes.` },
+      ],
+    }
+  }
   let value: unknown
   try {
     value = JSON.parse(text.replace(/^\uFEFF/, ''))
