@@ -1,5 +1,5 @@
 import { RE2JS } from 're2js'
-import type { V3Rule } from './index'
+import type { V3Rule } from './backup'
 
 const MAX_MATCH_INPUT_LENGTH = 65536
 const MAX_REGEX_LENGTH = 4096
