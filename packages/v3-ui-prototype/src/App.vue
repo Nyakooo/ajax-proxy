@@ -8,6 +8,13 @@ const darkMode = ref(false)
 const language = ref('简体中文')
 const section = ref('intercept')
 const search = ref('')
+const unstyledMode = import.meta.env.VITE_UI_UNSTYLED === 'true'
+const comparePassThrough =
+  new URLSearchParams(window.location.search).get('pt') === '1' || unstyledMode
+const passThroughCreateButton = {
+  root: 'ap-pt-button ap-pt-button-primary',
+  label: 'ap-pt-button-label',
+}
 const rules = ref([
   {
     id: 'rule-1',
@@ -156,7 +163,11 @@ function createRule() {
             <h1>{{ section === 'intercept' ? '拦截规则' : '重定向规则' }}</h1>
             <p>按原始请求条件匹配，并在一个规则中管理请求与响应行为。</p>
           </div>
-          <AppButton label="创建规则" @click="createRule" />
+          <AppButton
+            label="创建规则"
+            :pt="comparePassThrough ? passThroughCreateButton : undefined"
+            @click="createRule"
+          />
         </div>
 
         <div class="toolbar">
@@ -216,7 +227,14 @@ function createRule() {
         </div>
 
         <footer class="prototype-note">
-          PrimeVue 4 styled + Ajax Proxy tokens <span>·</span> 原型数据只保存在当前页面内存中
+          {{
+            unstyledMode
+              ? 'PrimeVue unstyled + Pass Through CSS'
+              : comparePassThrough
+                ? 'PrimeVue styled + Pass Through CTA'
+                : 'PrimeVue 4 styled + Ajax Proxy tokens'
+          }}
+          <span>·</span> 原型数据只保存在当前页面内存中
         </footer>
       </section>
     </section>

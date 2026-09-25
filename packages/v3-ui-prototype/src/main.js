@@ -27,15 +27,31 @@ const AjaxProxyPreset = definePreset(Aura, {
   },
 })
 
+const unstyled = import.meta.env.VITE_UI_UNSTYLED === 'true'
 const app = createApp(App)
-app.use(PrimeVue, {
-  theme: {
-    preset: AjaxProxyPreset,
-    options: {
-      darkModeSelector: '.app-dark',
+if (unstyled) {
+  app.use(PrimeVue, {
+    unstyled: true,
+    pt: {
+      button: { root: 'ap-pt-button', label: 'ap-pt-button-label' },
+      inputtext: { root: 'ap-pt-input' },
+      tag: { root: 'ap-pt-tag' },
+      toggleswitch: {
+        root: 'ap-pt-switch',
+        input: 'ap-pt-switch-input',
+        slider: 'ap-pt-switch-slider',
+        handle: 'ap-pt-switch-handle',
+      },
     },
-  },
-})
+  })
+} else {
+  app.use(PrimeVue, {
+    theme: {
+      preset: AjaxProxyPreset,
+      options: { darkModeSelector: '.app-dark' },
+    },
+  })
+}
 app.component('AppButton', PrimeButton)
 app.component('InputText', InputText)
 app.component('AppTag', PrimeTag)
