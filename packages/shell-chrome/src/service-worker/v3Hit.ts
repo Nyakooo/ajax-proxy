@@ -52,6 +52,9 @@ export function chromeBadgeV3(hit: V3Hit) {
       noticePanelsByServiceWorker(NoticeKey.V3_HIT, {
         rule_id: hit.rule_id,
         count: result.count,
+        match_url: hit.match_url,
+        method: hit.method,
+        url: hit.url ?? hit.match_url,
       })
     })
     .catch((error) => {

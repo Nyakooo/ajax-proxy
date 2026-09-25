@@ -494,6 +494,43 @@ input {
   padding-top: 9px;
 }
 
+.recent-match {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 14px;
+  padding: 11px 13px;
+  border: 1px solid color-mix(in srgb, var(--ap-teal), var(--ap-border) 72%);
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--ap-teal), var(--ap-raised) 96%);
+}
+
+.recent-match-copy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.recent-match-copy strong {
+  color: var(--ap-ink);
+  font-size: 11px;
+}
+
+.recent-match-copy code,
+.recent-match-copy small {
+  overflow-wrap: anywhere;
+  color: var(--ap-muted);
+  font-family: var(--ap-font-code);
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.recent-match-copy small {
+  font-family: var(--ap-font-ui);
+}
+
 .rule-row {
   min-height: 82px;
   gap: 15px;

@@ -1,6 +1,7 @@
 <script setup>
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { isV3HitNotice, NoticeFrom, NoticeKey, NoticeTo } from '@proxy/protocol'
 import RedirectRuleEditor from './components/RedirectRuleEditor.vue'
 import ResponseRuleEditor from './components/ResponseRuleEditor.vue'
 import { buildV3ResponseRule } from './services/v3ResponseDraft.js'
@@ -27,6 +28,7 @@ const editingResponseRule = ref(null)
 const responseEditorIssue = ref('')
 const config = ref(createEmptyConfig())
 const hitCounters = ref({})
+const recentMatch = ref(null)
 const languages = [
   { code: 'zh-CN', label: '简体中文', shortLabel: '中' },
   { code: 'en', label: 'English', shortLabel: 'EN' },
@@ -124,6 +126,39 @@ const resultCount = computed(() => {
   return t(key, { count: visibleRules.value.length })
 })
 
+function isPlainExtensionMessage(value) {
+  try {
+    if (typeof value !== 'object' || value === null || Array.isArray(value)) return false
+    const prototype = Object.getPrototypeOf(value)
+    if (prototype !== Object.prototype && prototype !== null) return false
+    const keys = Object.keys(value)
+    return keys.length === 4 && keys.every((key) => ['from', 'to', 'key', 'value'].includes(key))
+  } catch {
+    return false
+  }
+}
+
+function receiveExtensionMessage(message) {
+  if (
+    !isPlainExtensionMessage(message) ||
+    message.from !== NoticeFrom.SERVICE_WORKER ||
+    message.to !== NoticeTo.PANELS ||
+    message.key !== NoticeKey.V3_HIT ||
+    !isV3HitNotice(message.value)
+  ) {
+    return
+  }
+
+  const { rule_id: ruleId, count } = message.value
+  if (!config.value.rules.some((rule) => rule.id === ruleId)) return
+  if (count <= (hitCounters.value[ruleId] ?? 0)) return
+
+  hitCounters.value = { ...hitCounters.value, [ruleId]: count }
+  recentMatch.value = message.value
+}
+
+let removeExtensionMessageListener
+
 watch(darkMode, (dark) => {
   document.documentElement.classList.toggle('app-dark', dark)
 })
@@ -171,6 +206,9 @@ onMounted(async () => {
       hitCounters.value = result.snapshot.hitCounters
       if (result.snapshot.config) locale.value = result.snapshot.config.settings.language
       configReady.value = true
+      extensionRuntime.onMessage?.addListener(receiveExtensionMessage)
+      removeExtensionMessageListener = () =>
+        extensionRuntime.onMessage?.removeListener(receiveExtensionMessage)
     } else {
       operationError.value = t('editor.loadFailed', { error: result.error ?? 'invalid-data' })
     }
@@ -180,6 +218,8 @@ onMounted(async () => {
     loading.value = false
   }
 })
+
+onBeforeUnmount(() => removeExtensionMessageListener?.())
 
 async function persistConfig(nextConfig) {
   operationError.value = ''
@@ -475,6 +515,19 @@ async function moveRule(rule, targetRule) {
 
           <div v-if="!enabled" class="disabled-notice" role="status">
             {{ t('proxy.disabledNotice') }}
+          </div>
+
+          <div v-if="recentMatch" class="recent-match" role="status" aria-live="polite">
+            <div class="recent-match-copy">
+              <strong>{{ t('rules.recentMatch') }}</strong>
+              <code>
+                {{
+                  t('rules.matchedRequest', { method: recentMatch.method, url: recentMatch.url })
+                }}
+              </code>
+              <small>{{ t('rules.matchCondition', { url: recentMatch.match_url }) }}</small>
+            </div>
+            <AppTag :value="t('rules.matched')" severity="info" />
           </div>
 
           <div v-if="visibleRules.length" class="rule-list">

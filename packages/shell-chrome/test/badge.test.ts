@@ -113,6 +113,9 @@ describe('chromeBadge rule selection', () => {
     expect(mocks.noticePanelsByServiceWorker).toHaveBeenCalledWith('v3-hit', {
       rule_id: 'v3-rule',
       count: 2,
+      match_url: '/api',
+      method: 'POST',
+      url: '/api',
     })
   })
 

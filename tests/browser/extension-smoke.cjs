@@ -523,6 +523,15 @@ async function main() {
     }
     assert.equal(v3UiHitCount, beforeV3UiHit + 1)
 
+    await v3Panel.getByText('Most recent match across tabs').waitFor()
+    await v3Panel.getByText(/Matched request: POST http:\/\/127\.0\.0\.1:\d+\/api\/v3-ui/).waitFor()
+    await v3Panel.getByText('Matched', { exact: true }).waitFor()
+    const v3UiRuleRow = v3Panel.locator('.rule-row').filter({ hasText: '/api/v3-ui' })
+    await v3UiRuleRow
+      .locator('.hit-count strong')
+      .getByText(String(beforeV3UiHit + 1))
+      .waitFor()
+
     console.log(
       'Unpacked extension V2 and V3 panel persistence, Fetch interception, XHR, iframe, redirect, and service worker restart smoke passed'
     )

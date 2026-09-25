@@ -4,6 +4,7 @@ import {
   isValidRedirectors,
   isValidRegexPattern,
   isV3Hit,
+  isV3HitNotice,
   NoticeKey,
   StorageKey,
 } from '../src'
@@ -40,6 +41,50 @@ describe('V3 hit event validation', () => {
     expect(isV3Hit(Object.assign(Object.create({ inherited: true }), valid))).toBe(false)
     expect(
       isV3Hit(
+        new Proxy(
+          {},
+          {
+            getPrototypeOf: () => {
+              throw new Error('blocked')
+            },
+          }
+        )
+      )
+    ).toBe(false)
+  })
+})
+
+describe('V3 hit notice validation', () => {
+  const valid = {
+    rule_id: 'rule-1',
+    count: 1,
+    match_url: '/api',
+    method: 'GET',
+    url: 'https://site.test/api',
+  }
+
+  it('accepts a well-formed service-worker hit notice', () => {
+    expect(isV3HitNotice(valid)).toBe(true)
+  })
+
+  it('rejects missing, malformed, extra, or unsafe notice values', () => {
+    expect(isV3HitNotice(null)).toBe(false)
+    expect(isV3HitNotice({ ...valid, rule_id: '' })).toBe(false)
+    expect(isV3HitNotice({ ...valid, count: 0 })).toBe(false)
+    expect(isV3HitNotice({ ...valid, count: -1 })).toBe(false)
+    expect(isV3HitNotice({ ...valid, count: 1.5 })).toBe(false)
+    expect(isV3HitNotice({ ...valid, count: Number.MAX_SAFE_INTEGER + 1 })).toBe(false)
+    expect(isV3HitNotice({ ...valid, match_url: '' })).toBe(false)
+    expect(isV3HitNotice({ ...valid, method: '' })).toBe(false)
+    expect(isV3HitNotice({ ...valid, method: 1 })).toBe(false)
+    expect(isV3HitNotice({ ...valid, url: '' })).toBe(false)
+    expect(isV3HitNotice({ ...valid, extra: true })).toBe(false)
+    const missingUrl: Record<string, unknown> = { ...valid }
+    delete missingUrl.url
+    expect(isV3HitNotice(missingUrl)).toBe(false)
+    expect(isV3HitNotice(Object.assign(Object.create({ inherited: true }), valid))).toBe(false)
+    expect(
+      isV3HitNotice(
         new Proxy(
           {},
           {

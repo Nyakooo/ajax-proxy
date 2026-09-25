@@ -182,7 +182,8 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - [ ] 为 V3 JavaScript response function 接入 CodeMirror 6，并与受限 sandbox 执行能力连接；保持按需加载，导入代码不自动执行，错误和超时有明确反馈。
 - [x] 制作 JSON 调整交互原型，比较 CodeMirror 6 文本编辑、JSONEditor tree-only 和轻量树形编辑器；Chrome for Testing 154 与 Edge Stable 153 验证中文文本往返、结构操作、无效 JSON 保留及 1500 项样例。记录 chunk 体积、性能观察、原型局限和待验收项，见 `docs/V3-EDITOR-ASSESSMENT.zh.md`。
 - [x] 确认编辑器方向：函数编辑和 JSON 原始文本模式采用按需 CodeMirror 6；JSON 结构化编辑保留独立树形能力。JSONEditor 现有构建 chunk 为 262.79 kB gzip，不直接作为 V3 生产依赖；轻量树原型尚不具备生产所需的全部操作、撤销及大数据优化，需在生产实现阶段完善或另选方案。
-- [ ] 提供清楚的规则命中反馈与请求改写结果展示。
+- [x] V3 面板展示跨标签页最近一次已验证规则命中，包括原始请求 method / URL、规则匹配条件和“已匹配”状态；不将早期命中事件描述为请求改写或响应成功。
+- [ ] 统一 Fetch / XHR 生命周期后，再展示最终请求改写结果和失败原因。
 - [ ] 设计扩展启用状态和资源活动状态的持续可见提示，避免用户不清楚扩展正在工作。
 - [ ] 评估规则命中时的轻量视觉提示：在网页可视区域边缘显示短暂、柔和、有呼吸感的光晕，不遮挡页面内容、不拦截鼠标和触摸操作。
 - [ ] 通过扩展图标 / 徽章提示全局启用状态；当页面边缘光晕受浏览器、页面结构或站点策略限制时，仍提供可访问的替代提示。
@@ -344,7 +345,8 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 ### 纳入 V3 需求评估
 
 - [ ] **请求与响应 Headers 能力**：支持在自定义响应逻辑中读取、设置或修改所需的请求 / 响应头，并明确 Fetch 与 XHR 的能力差异、安全限制和配置方式。
-- [ ] **命中诊断**：提供可控的命中反馈或诊断信息，帮助用户理解规则是否命中、最终采用了什么处理方式；设计时评估日志量和性能开销。
+- [x] **即时命中反馈**：跨标签页显示最近一次规则命中及原始请求与匹配条件；当前事件不代表改写成功。
+- [ ] **命中诊断**：提供可控诊断信息，说明最终采用的处理方式或未命中原因；设计时评估日志量和性能开销，并与 Fetch / XHR 生命周期对齐。
 - [ ] **启用与命中视觉提示**：显示扩展启用状态，并在规则命中时提供轻量边缘光晕；优先评估网页视口边缘实现，要求不遮挡内容、避免频繁动画并提供减少动态效果选项。
 - [ ] **编辑防丢失**：规则编辑中途误关闭面板时，提供关闭确认、草稿保留或自动恢复机制。
 - [ ] **请求体修改的可行性评估**：明确是否纳入 V3，以及支持范围、大小限制、流式请求和 FormData 等边界；只有形成完整、可测试的设计后才实施。
@@ -460,4 +462,5 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - 2026-09-25：完成 JSON 编辑器诊断切片：JSON 解析失败从受支持浏览器错误信息提取可靠的 1-based 行 / 列（无法提取时不猜测，显示通用错误）；对象、数组、字符串与 null 示例一键填入，修复 JSON 后错误提示自动清除。Chrome for Testing 154.0.8037.57 与 Edge Stable 153.0.4234.48 真实扩展 smoke 均验证多行语法错误位置、对象示例、V3 保存回读和 Fetch 响应。149 项 Vitest、workspace build / staging、TypeScript、边界、format、受影响文件 lint 均通过。整体完成度 103 / 196（52.6%）。
 - 2026-09-25：完成 V3 JSON 编辑器选型原型阶段：单独比较原生文本框、按需 CodeMirror 6、JSONEditor tree-only 与轻量树形编辑。Chrome for Testing 154.0.8037.57、Edge Stable 153 通过键盘 JSON 编辑、中文文本往返、CodeMirror 撤销 / 重做、轻量树字段修改 / 新增、1500 项（249,826 bytes）样例预览，以及无效 JSON 保留 / 恢复检查；本轮未连接操作系统 IME，树形方案全键盘及屏幕阅读器验收保留。记录体积后确定函数 / JSON 文本模式方向为异步 CodeMirror、结构化 JSON 继续保留独立树形能力；JSONEditor 262.79 kB gzip 不纳入 V3 生产依赖，轻量树仍是未优化原型。修复原型构建落入生产 dist 的 staging 风险，加入隔离检查并确认打包后的 V2 `panels/` 与 V3 `panels-v3/` 均无原型资产。生产 V3 build、prototype build、149 项 Vitest、TypeScript、边界检查、受影响源码零告警 lint 和 Prettier 检查通过。整体完成度 105 / 196（53.6%）。
 - 2026-09-25：完成 CodeMirror 6 接入 V3 JSON response body：复用独立编辑器组件，增加行号、JSON 高亮、撤销 / 重做和 accessible name；CodeMirror 作为 V3 构建依赖，仅在打开响应规则编辑器时加载 310.22 kB（101.78 kB gzip）独立 chunk。扩展 smoke 验证打开前无 chunk 请求、打开后异步加载、无效 JSON 阻止保存、示例 / 修复 / V3 配置持久化闭环。Chrome for Testing 154 与 Edge Stable 153 的完整扩展 Fetch / XHR / service worker smoke 通过；149 项 Vitest、TypeScript、全 workspace build、包边界、改动文件 lint / Prettier 通过。V2 默认 `panels/` 未切换。整体完成度 106 / 197（53.8%）。
+- 2026-09-25：完成 V3 面板实时命中反馈切片：service worker 将经过校验的命中计数、规则条件和原始请求 method / URL 通知所有已打开面板；面板过滤严格扩展消息、未知规则与旧计数，并显示中英双语的跨标签页最近命中提示和逐规则实时计数。明确该早期事件只表示“已匹配”，不代表请求改写成功；最终 Fetch / XHR 结果与未命中原因留待统一生命周期诊断。全量 151 项 Vitest、整仓 build、TypeScript、包边界与 isolation、Chrome for Testing 154 / Edge Stable 153 扩展 smoke、受影响文件零告警 ESLint 与 Prettier 均通过。整体完成度 107 / 198（54.0%）。
 - GitHub 里程碑：[阶段 0](https://github.com/Nyakooo/ajax-proxy/milestone/1)、[阶段 1](https://github.com/Nyakooo/ajax-proxy/milestone/2)、[阶段 2](https://github.com/Nyakooo/ajax-proxy/milestone/3)、[阶段 3](https://github.com/Nyakooo/ajax-proxy/milestone/4)、[阶段 4](https://github.com/Nyakooo/ajax-proxy/milestone/5)、[阶段 5](https://github.com/Nyakooo/ajax-proxy/milestone/6)、[阶段 6](https://github.com/Nyakooo/ajax-proxy/milestone/7)、[阶段 7](https://github.com/Nyakooo/ajax-proxy/milestone/8)；已复现缺陷：[issue #56](https://github.com/Nyakooo/ajax-proxy/issues/56)。
