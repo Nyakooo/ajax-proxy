@@ -2,6 +2,8 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import RedirectRuleEditor from './components/RedirectRuleEditor.vue'
+import ResponseRuleEditor from './components/ResponseRuleEditor.vue'
+import { buildV3ResponseRule } from './services/v3ResponseDraft.js'
 import lightMark from '../../shell-chrome/icons/128.png'
 import darkMark from '../../../docs/brand/ajax-proxy-mark-dark.png'
 
@@ -20,6 +22,9 @@ const operationError = ref('')
 const editorOpen = ref(false)
 const editingRule = ref(null)
 const editorIssue = ref('')
+const responseEditorOpen = ref(false)
+const editingResponseRule = ref(null)
+const responseEditorIssue = ref('')
 const config = ref(createEmptyConfig())
 const hitCounters = ref({})
 const languages = [
@@ -203,8 +208,20 @@ function showEditor(rule = null) {
 }
 
 function createRule() {
-  if (ruleOperations && section.value === 'redirect' && !loading.value && !saving.value)
-    showEditor()
+  if (!ruleOperations || loading.value || saving.value) return
+  if (section.value === 'redirect') showEditor()
+  else {
+    responseEditorIssue.value = ''
+    editingResponseRule.value = null
+    responseEditorOpen.value = true
+  }
+}
+
+function showResponseEditor(rule = null) {
+  if (section.value !== 'intercept' || rule.response?.replace?.code) return
+  responseEditorIssue.value = ''
+  editingResponseRule.value = rule
+  responseEditorOpen.value = true
 }
 
 async function saveRedirectRule(fields) {
@@ -225,6 +242,36 @@ async function saveRedirectRule(fields) {
     return
   }
   if (await persistConfig({ ...current, rules: [...nextRules] })) editorOpen.value = false
+}
+
+async function saveResponseRule(fields) {
+  const current = config.value
+  const id = editingResponseRule.value?.id ?? createRuleId(current.rules)
+  const existing = editingResponseRule.value
+  const result = buildV3ResponseRule({
+    id,
+    match: fields.match,
+    statusDraft: fields.status,
+    bodyDraft: JSON.stringify(fields.body),
+    existingRule: existing ? { ...existing, enabled: fields.enabled } : undefined,
+  })
+  if (!result.ok) {
+    responseEditorIssue.value = t(
+      result.error === 'invalid-json'
+        ? 'responseEditor.invalidJson'
+        : 'responseEditor.invalidStatus'
+    )
+    return
+  }
+  const rule = result.rule
+  const nextRules = existing
+    ? ruleOperations.replaceV3Rule(current.rules, id, rule)
+    : ruleOperations.insertV3Rule(current.rules, rule, 0)
+  if (nextRules === current.rules) {
+    responseEditorIssue.value = t('editor.duplicateRule')
+    return
+  }
+  if (await persistConfig({ ...current, rules: [...nextRules] })) responseEditorOpen.value = false
 }
 
 function createRuleId(existingRules) {
@@ -250,12 +297,24 @@ async function setRuleEnabled(id, value) {
 }
 
 async function deleteRule(rule) {
-  if (section.value !== 'redirect' || !rule.request?.enabled) return
-  const keepResponse = Boolean(rule.response?.enabled)
-  const confirmationKey = keepResponse ? 'editor.confirmDeleteRedirect' : 'editor.confirmDelete'
+  const isRedirect = section.value === 'redirect'
+  const actionExists = isRedirect ? rule.request?.enabled : rule.response?.enabled
+  if (!actionExists) return
+  const keepOtherAction = isRedirect
+    ? Boolean(rule.response?.enabled)
+    : Boolean(rule.request?.enabled)
+  const confirmationKey = keepOtherAction
+    ? isRedirect
+      ? 'editor.confirmDeleteRedirect'
+      : 'editor.confirmDeleteResponse'
+    : 'editor.confirmDelete'
   if (!window.confirm(t(confirmationKey, { url: rule.match.url }))) return
-  const nextRules = keepResponse
-    ? ruleOperations.replaceV3Rule(config.value.rules, rule.id, withoutRedirectAction(rule))
+  const nextRules = keepOtherAction
+    ? ruleOperations.replaceV3Rule(
+        config.value.rules,
+        rule.id,
+        isRedirect ? withoutRedirectAction(rule) : withoutResponseAction(rule)
+      )
     : ruleOperations.deleteV3Rule(config.value.rules, rule.id)
   await persistConfig({ ...config.value, rules: [...nextRules] })
 }
@@ -264,6 +323,12 @@ function withoutRedirectAction(rule) {
   const ruleWithoutRedirect = { ...rule }
   delete ruleWithoutRedirect.request
   return ruleWithoutRedirect
+}
+
+function withoutResponseAction(rule) {
+  const ruleWithoutResponse = { ...rule }
+  delete ruleWithoutResponse.response
+  return ruleWithoutResponse
 }
 
 async function moveRule(rule, targetRule) {
@@ -383,10 +448,10 @@ async function moveRule(rule, targetRule) {
             </div>
             <AppButton
               :label="
-                section === 'redirect' ? t('rules.createRedirect') : t('rules.interceptEditorLater')
+                section === 'redirect' ? t('rules.createRedirect') : t('rules.createIntercept')
               "
               :pt="comparePassThrough ? passThroughCreateButton : undefined"
-              :disabled="section !== 'redirect' || loading || saving"
+              :disabled="loading || saving"
               @click="createRule"
             />
           </div>
@@ -481,6 +546,23 @@ async function moveRule(rule, targetRule) {
                     {{ t('editor.delete') }}
                   </button>
                 </template>
+                <template v-else>
+                  <button
+                    type="button"
+                    :disabled="saving || Boolean(rule.response?.replace?.code)"
+                    :title="
+                      rule.response?.replace?.code
+                        ? t('responseEditor.functionEditLater')
+                        : undefined
+                    "
+                    @click="showResponseEditor(rule)"
+                  >
+                    {{ t('editor.edit') }}
+                  </button>
+                  <button type="button" :disabled="saving" @click="deleteRule(rule)">
+                    {{ t('editor.delete') }}
+                  </button>
+                </template>
               </div>
             </article>
           </div>
@@ -492,7 +574,7 @@ async function moveRule(rule, targetRule) {
               {{ search ? t('rules.searchHint') : t('rules.createHint') }}
             </p>
             <AppButton
-              v-if="!search && section === 'redirect'"
+              v-if="!search"
               :label="t('rules.createFirst')"
               :disabled="loading || saving"
               @click="createRule"
@@ -527,6 +609,14 @@ async function moveRule(rule, targetRule) {
       :issue="editorIssue"
       @close="editorOpen = false"
       @save="saveRedirectRule"
+    />
+    <ResponseRuleEditor
+      :open="responseEditorOpen"
+      :rule="editingResponseRule"
+      :saving="saving"
+      :issue="responseEditorIssue"
+      @close="responseEditorOpen = false"
+      @save="saveResponseRule"
     />
   </div>
 </template>

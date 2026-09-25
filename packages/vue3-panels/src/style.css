@@ -657,6 +657,10 @@ input {
   color: var(--ap-ink);
 }
 
+.response-rule-editor {
+  width: min(620px, 100%);
+}
+
 .editor-heading,
 .editor-actions,
 .editor-field-row {
@@ -695,7 +699,8 @@ input {
 }
 
 .editor-field input,
-.editor-field select {
+.editor-field select,
+.editor-field textarea {
   width: 100%;
   min-height: var(--ap-control-height);
   padding: 7px 10px;
@@ -705,6 +710,25 @@ input {
   color: var(--ap-ink);
   font-size: 12px;
   font-weight: 400;
+}
+
+.editor-field textarea.response-json-input {
+  min-height: 190px;
+  resize: vertical;
+  font-family: var(--ap-font-mono, ui-monospace, SFMono-Regular, Consolas, monospace);
+  line-height: 1.5;
+  tab-size: 2;
+}
+
+.response-format-action {
+  align-items: flex-start;
+}
+
+.editor-field input:focus-visible,
+.editor-field select:focus-visible,
+.editor-field textarea:focus-visible {
+  outline: 2px solid var(--ap-teal);
+  outline-offset: 2px;
 }
 
 .editor-field small {
