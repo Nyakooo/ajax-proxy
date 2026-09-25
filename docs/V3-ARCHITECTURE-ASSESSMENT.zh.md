@@ -4,7 +4,7 @@
 
 ## 当前包与依赖方向
 
-以下箭头表示左侧包依赖右侧包，依据各包 `package.json` 的 workspace dependencies。图含当前全部 9 个 workspace 包；外部 npm dependencies 不展开。`@proxy/v3-domain` 提供 schema 校验和纯规则选择；proxy-lib 有组合 Fetch 原型依赖该包，但尚未替换扩展正在使用的 V2 runtime。
+以下箭头表示左侧包依赖右侧包，依据各包 `package.json` 的 workspace dependencies。图含当前全部 9 个 workspace 包；外部 npm dependencies 不展开。`@proxy/v3-domain` 提供 schema 校验和纯规则选择；proxy-lib 有组合 Fetch / XHR 原型依赖该包，但尚未替换扩展正在使用的 V2 runtime。
 
 ```mermaid
 flowchart LR
@@ -59,7 +59,7 @@ flowchart TD
 | ----------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
 | `protocol`                                                  | 现为 `@proxy/protocol`，只导出浏览器无关的消息 / storage key 常量                                                      | 保持为稳定叶子包；禁止依赖 Vue、Chrome API、storage 实现和业务包                                                  |
 | `shared-utils`                                              | Chrome 环境判断、storage、消息通知、badge 操作混在一个包                                                               | 按平台适配与存储职责继续拆分；核心规则不得依赖 UI 或 Chrome API                                                   |
-| `proxy-lib`                                                 | Fetch / XHR 拦截、重定向、函数执行、规则匹配；另有尚未接入扩展入口的 V3 Fetch 组合原型                                 | 按 rule domain、请求执行策略和浏览器拦截 adapter 拆内部 feature；只有定义和 adapter 接口通过公共入口暴露          |
+| `proxy-lib`                                                 | Fetch / XHR 拦截、重定向、函数执行、规则匹配；另有尚未接入扩展入口的 V3 Fetch / XHR 组合原型                           | 按 rule domain、请求执行策略和浏览器拦截 adapter 拆内部 feature；只有定义和 adapter 接口通过公共入口暴露          |
 | `v3-domain`                                                 | `@proxy/v3-domain`，纯 V3 backup envelope / 规则 schema、JSON 校验、V2 格式识别和 `selectV3Rule()` 纯选择器            | 扩展为浏览器无关的 V3 规则领域；不依赖扩展宿主、Vue 或 V2 转换                                                    |
 | `v2-compatibility`                                          | V2 字段与现有配置结构转换，类型依赖 proxy-lib；当前由 shell 启动和面板导入路径运行时调用                               | 该包是 V2 现存路径的真实依赖；迁移期间隔离其职责，V3 用版本识别 / 拒绝提示替代，不把转换能力带入新 schema         |
 | `shell-chrome`                                              | content script、document script、service worker、manifest 和 Webpack 打包                                              | 保留为 Chrome/Edge MV3 平台入口；service worker、content script、消息处理按运行上下文明确拆分                     |

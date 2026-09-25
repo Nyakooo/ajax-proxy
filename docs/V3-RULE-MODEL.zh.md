@@ -102,6 +102,8 @@ V3 备份使用独立标识，不通过字段猜测把旧文件转换成新格�
 - **XHR 响应替换**：XHR 的 `response`、`responseText`、`status` 等原生状态并非可任意写入。需用原型验证能否在不破坏事件顺序、`responseType` 和同步请求语义的条件下实现替换；若不能，应缩小 XHR 支持范围并在 UI 明示，不能宣称与 Fetch 完全一致。
 - **共同场景**：验证多条规则命中、规则禁用、重定向失败、函数异常 / 超时、请求循环风险、其他包装器共存、iframe、多标签和 service worker 状态更新。
 
+当前纯 XHR 原型将实现范围明确为：异步请求按原 URL / method 选择首条规则，支持同步完成的静态 HTTP(S) 重定向，以及空 / `text` / `json` responseType 的静态 body / status 替换；同步 XHR、函数 code、其他 responseType 和带 response headers 覆盖的 action 均 fail-open。它不改写响应头、不合成事件，也没有接入扩展 runtime。当前 Vitest 使用 FakeXHR 验证代理语义；浏览器原生 responseType 与事件顺序仍需真实浏览器验证，不能据此宣称 Fetch / XHR 等价。
+
 ## 待确认项
 
 1. 是否接受目标计算失败时继续原始请求、网络失败时不重试、响应转换失败时回退原响应。
