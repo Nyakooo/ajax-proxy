@@ -59,3 +59,4 @@ export declare enum NoticeKey {
     /**V3 rule hit event */
     V3_HIT = "ajax-proxy:notice:v3-hit"
 }
+export * from './v3Panel';
