@@ -1,40 +1,9 @@
+import type { V3Rule, V3Tag } from './rules';
 export declare const V3_BACKUP_FORMAT: "ajax-proxy-backup";
 export declare const V3_BACKUP_VERSION: 3;
 export declare const V3_BACKUP_MAX_BYTES: number;
 export type V3Mode = 'interceptor' | 'redirector';
 export type V3Language = 'zh-CN' | 'en';
-export type JsonValue = string | number | boolean | null | JsonValue[] | {
-    [key: string]: JsonValue;
-};
-export interface V3Tag {
-    id: string;
-    name: string;
-    used: boolean;
-}
-export interface V3Rule {
-    id: string;
-    enabled: boolean;
-    match: {
-        url: string;
-        method?: string;
-        type?: 'normal' | 'regex';
-    };
-    request?: {
-        enabled: boolean;
-        redirect: {
-            url: string;
-        };
-    };
-    response?: {
-        enabled: boolean;
-        replace: {
-            status?: number;
-            headers?: Record<string, string>;
-            body?: JsonValue;
-            code?: string;
-        };
-    };
-}
 export interface V3Backup {
     format: typeof V3_BACKUP_FORMAT;
     formatVersion: typeof V3_BACKUP_VERSION;

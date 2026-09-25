@@ -1,4 +1,4 @@
-import type { V3Rule } from './backup';
+import type { V3Rule } from './rules';
 export interface V3RequestMatchInput {
     url: string;
     method: string;
