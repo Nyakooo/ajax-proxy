@@ -1,5 +1,5 @@
 import { validateV3Backup } from '@proxy/v3-domain'
-import type { V3Backup, V3Rule } from '@proxy/v3-domain'
+import type { V3Backup, V3Rule, V3ValidationIssue } from '@proxy/v3-domain'
 import { NoticeTo } from '@proxy/protocol'
 import type { V3Hit } from '@proxy/protocol'
 import { createV3Fetch } from './fetch'
@@ -9,8 +9,11 @@ export interface V3RuntimeController {
   readonly fetch: typeof window.fetch
   readonly xhr: typeof window.XMLHttpRequest
   readonly backup: V3Backup | null
-  update(target: unknown): boolean
+  update(target: unknown): V3RuntimeUpdateResult
 }
+
+export type V3RuntimeUpdateResult =
+  { ok: true; status: 'updated' | 'cleared' } | { ok: false; issues: V3ValidationIssue[] }
 
 function notifyV3Match(host: Window, rule: V3Rule, request: { url: string; method: string }) {
   try {
@@ -50,12 +53,12 @@ export function createV3RuntimeController(
     update(target) {
       if (target === null) {
         backup = null
-        return true
+        return { ok: true, status: 'cleared' }
       }
       const result = validateV3Backup(target)
-      if (!result.ok) return false
+      if (!result.ok) return result
       backup = result.data
-      return true
+      return { ok: true, status: 'updated' }
     },
   }
 }

@@ -19,19 +19,23 @@ describe('createV3RuntimeController', () => {
     )
 
     expect(controller.backup).toBeNull()
-    expect(controller.update(backup)).toBe(true)
+    expect(controller.update(backup)).toEqual({ ok: true, status: 'updated' })
     const active = controller.backup
     expect(active).toEqual(backup)
 
-    expect(controller.update({ ...backup, formatVersion: 2 })).toBe(false)
+    const invalidUpdate = controller.update({ ...backup, formatVersion: 2 })
+    expect(invalidUpdate).toMatchObject({
+      ok: false,
+      issues: [{ path: 'formatVersion' }],
+    })
     expect(controller.backup).toBe(active)
 
     expect(
       controller.update({ ...backup, settings: { ...backup.settings, globalEnabled: false } })
-    ).toBe(true)
+    ).toEqual({ ok: true, status: 'updated' })
     expect(controller.backup?.settings.globalEnabled).toBe(false)
 
-    expect(controller.update(null)).toBe(true)
+    expect(controller.update(null)).toEqual({ ok: true, status: 'cleared' })
     expect(controller.backup).toBeNull()
   })
 })

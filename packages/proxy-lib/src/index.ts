@@ -15,6 +15,7 @@ import CreateFetch, { initInterceptorFetchState, OriginFetch } from './createFet
 import RedirectXHR, { initRedirectXHRState } from './redirectXHR'
 import RedirectFetch, { initRedirectFetchState } from './redirectFetch'
 import { createV3RuntimeController } from './v3/runtimeController'
+import { formatV3ValidationIssues } from '@proxy/v3-domain'
 import { warn } from './common'
 import {
   isValidGlobalState,
@@ -149,12 +150,14 @@ function updateRedirectors(target: unknown) {
 }
 
 function updateV3(target: unknown) {
-  if (!v3Runtime.update(target)) {
-    warn('invalid V3 configuration')
-    return
+  const result = v3Runtime.update(target)
+  if (!result.ok) {
+    warn('invalid V3 configuration', ...formatV3ValidationIssues(result.issues))
+    return result
   }
   globalState.v3_active = v3Runtime.backup !== null
   mountInstance()
+  return result
 }
 
 initState()

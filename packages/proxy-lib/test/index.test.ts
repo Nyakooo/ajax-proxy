@@ -123,15 +123,25 @@ describe('proxy lifecycle and page wrappers', () => {
       tags: [],
       rules: [],
     }
-    lib.updateV3(backup)
+    expect(lib.updateV3(backup)).toEqual({ ok: true, status: 'updated' })
 
     const invalidConfig = { ...backup, formatVersion: 2 }
-    lib.updateV3(invalidConfig)
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    expect(lib.updateV3(invalidConfig)).toMatchObject({
+      ok: false,
+      issues: [{ path: 'formatVersion' }],
+    })
+    expect(warn).toHaveBeenCalledWith(
+      'invalid V3 configuration',
+      'formatVersion: Expected version 3.'
+    )
 
     expect(await (await window.fetch('https://example.test/no-match')).text()).toBe('native')
     expect(window.fetch).not.toBe(pageFetch)
 
-    lib.updateV3({ ...backup, settings: { ...backup.settings, globalEnabled: false } })
+    expect(
+      lib.updateV3({ ...backup, settings: { ...backup.settings, globalEnabled: false } })
+    ).toEqual({ ok: true, status: 'updated' })
     expect(window.fetch).toBe(pageFetch)
   })
 
@@ -177,7 +187,7 @@ describe('proxy lifecycle and page wrappers', () => {
     )
     expect(window.fetch).toBe(pageWrapper)
 
-    lib.updateV3(null)
+    expect(lib.updateV3(null)).toEqual({ ok: true, status: 'cleared' })
     expect(await (await window.fetch(new Request('https://example.test/api'))).text()).toBe('v2')
   })
 

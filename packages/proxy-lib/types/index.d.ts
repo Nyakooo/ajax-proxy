@@ -11,7 +11,13 @@ declare function update<T extends IMatchRedirectContent[]>(redirectors: T): void
 declare function update<T extends IGlobalState>(state: T): void;
 declare function updateInterceptors(target: unknown): void;
 declare function updateRedirectors(target: unknown): void;
-declare function updateV3(target: unknown): void;
+declare function updateV3(target: unknown): {
+    ok: true;
+    status: "updated" | "cleared";
+} | {
+    ok: false;
+    issues: import("@proxy/v3-domain").V3ValidationIssue[];
+};
 declare const _default: {
     update: typeof update;
     updateInterceptors: typeof updateInterceptors;
