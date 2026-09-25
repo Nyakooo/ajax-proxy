@@ -1,4 +1,6 @@
-import { NoticeKey } from "./consts";
+import { NoticeKey } from './consts';
+/** Validate plain records received from extension messaging APIs. */
+export declare function isMessageRecord(value: unknown): value is Record<string, unknown>;
 /**
  * 通知 content -> document
  */

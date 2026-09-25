@@ -1,4 +1,4 @@
-import { RefGlobalState } from "./types";
+import { RefGlobalState } from './types';
 export declare const OriginXHR: {
     new (): XMLHttpRequest;
     prototype: XMLHttpRequest;

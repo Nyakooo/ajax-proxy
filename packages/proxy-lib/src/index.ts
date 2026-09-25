@@ -15,6 +15,12 @@ import CreateFetch, { initInterceptorFetchState, OriginFetch } from './createFet
 import RedirectXHR, { initRedirectXHRState } from './redirectXHR'
 import RedirectFetch, { initRedirectFetchState } from './redirectFetch'
 import { warn } from './common'
+import {
+  isValidGlobalState,
+  isValidInterceptors,
+  isValidMode,
+  isValidRedirectors,
+} from './validateState'
 
 // 初始化共享状态
 const globalState: RefGlobalState = {
@@ -38,43 +44,6 @@ function isProxyFetch(fetch: typeof window.fetch) {
 
 function isProxyXHR(xhr: typeof window.XMLHttpRequest) {
   return xhr === CreateXHR || xhr === RedirectXHR
-}
-
-function isIGlobalState(x: any): x is IGlobalState {
-  return x && x.hasOwnProperty('global_on') && x.hasOwnProperty('mode')
-}
-
-function isMode(x: any): x is IMode {
-  return typeof x === 'string' && ['interceptor', 'redirector'].includes(x)
-}
-
-function isArray(x: any): x is any[] {
-  return x && Array.isArray(x)
-}
-
-function isInterceptors(x: any): x is IMatchInterceptorContent[] {
-  for (let i = 0; i < x.length; i++) {
-    const target = x[i]
-    const bool = target.hasOwnProperty('match_url') && target.hasOwnProperty('switch_on')
-    if (!bool) {
-      return false
-    }
-  }
-  return true
-}
-
-function isRedirectors(x: any): x is IMatchRedirectContent[] {
-  for (let i = 0; i < x.length; i++) {
-    const target = x[i]
-    const bool =
-      target.hasOwnProperty('domain') &&
-      target.hasOwnProperty('switch_on') &&
-      target.hasOwnProperty('redirect_url')
-    if (!bool) {
-      return false
-    }
-  }
-  return true
 }
 
 // 初始化状态
@@ -128,30 +97,25 @@ function update<unknow>(target: unknow) {
     mountInstance()
   }
   // 修改模式
-  else if (isMode(target)) {
+  else if (isValidMode(target)) {
     globalState.value.mode = target
     // 需要更新一下实例
     mountInstance()
   }
   // 数组类型: 拦截列表、重定向列表
-  else if (isArray(target)) {
-    if (target.length > 0) {
-      // 修改拦截器
-      if (isInterceptors(target)) globalState.value.interceptor_matching_content = target
-      // 修改重定向
-      else if (isRedirectors(target)) globalState.value.redirector_matching_content = target
-    } else {
-      // 判断当前模式
-      // 清空拦截列表
+  else if (Array.isArray(target)) {
+    if (target.length === 0) {
+      // Preserve the legacy mode-dependent meaning for callers that still use update([]).
       if (globalState.value.mode === 'interceptor')
         globalState.value.interceptor_matching_content = []
-      // 清空重定向列表
       else globalState.value.redirector_matching_content = []
-    }
+    } else if (isValidInterceptors(target)) globalState.value.interceptor_matching_content = target
+    else if (isValidRedirectors(target)) globalState.value.redirector_matching_content = target
+    else warn('invalid rule list')
   }
   // 设置全部属性
   // 默认初始化时使用
-  else if (isIGlobalState(target)) {
+  else if (isValidGlobalState(target)) {
     // 替换全部
     globalState.value = target
     // 重新挂载实例
@@ -159,11 +123,37 @@ function update<unknow>(target: unknow) {
   } else warn('unknow type')
 }
 
+function updateInterceptors(target: unknown) {
+  if (!isValidInterceptors(target)) {
+    warn('invalid interceptor list')
+    return
+  }
+  globalState.value.interceptor_matching_content = target
+}
+
+function updateRedirectors(target: unknown) {
+  if (!isValidRedirectors(target)) {
+    warn('invalid redirector list')
+    return
+  }
+  globalState.value.redirector_matching_content = target
+}
+
 initState()
 
 export default {
   update,
+  updateInterceptors,
+  updateRedirectors,
 }
+
+export {
+  isRecord,
+  isValidGlobalState,
+  isValidInterceptors,
+  isValidMode,
+  isValidRedirectors,
+} from './validateState'
 
 export type {
   IFilterType,

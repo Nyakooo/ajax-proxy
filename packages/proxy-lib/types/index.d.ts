@@ -9,8 +9,13 @@ declare function update<T extends IMatchInterceptorContent[]>(interceptors: T): 
 declare function update<T extends IMatchRedirectContent[]>(redirectors: T): void;
 /**修改全部属性 */
 declare function update<T extends IGlobalState>(state: T): void;
+declare function updateInterceptors(target: unknown): void;
+declare function updateRedirectors(target: unknown): void;
 declare const _default: {
     update: typeof update;
+    updateInterceptors: typeof updateInterceptors;
+    updateRedirectors: typeof updateRedirectors;
 };
 export default _default;
+export { isRecord, isValidGlobalState, isValidInterceptors, isValidMode, isValidRedirectors, } from './validateState';
 export type { IFilterType, IGlobalState, IRequestMethod, IMode, IMatchInterceptorContent, IMatchRedirectContent, IRedirectHeader, OverrideType, RedirectType, RefGlobalState, };

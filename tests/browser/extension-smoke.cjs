@@ -113,7 +113,7 @@ async function main() {
   const contextOptions = {
     channel: process.env.BROWSER_EXECUTABLE_PATH ? undefined : 'chromium',
     executablePath: process.env.BROWSER_EXECUTABLE_PATH,
-    headless: true,
+    headless: process.env.EXTENSION_SMOKE_HEADLESS !== '0',
     args: [`--disable-extensions-except=${extensionPath}`, `--load-extension=${extensionPath}`],
   }
   let context

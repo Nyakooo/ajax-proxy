@@ -14,6 +14,7 @@ import {
 } from "@proxy/shared-utils";
 import { CONNECT_NAME, INIT_CURRENT_TITLE, NOTICE_KEY_REFRESH_GLOBAL_STATE } from "./consts";
 import { onLoadForDataConversion } from "@proxy/v2-compatibility";
+import { isPageBadgeHit } from "./messageValidation";
 
 // 在页面上插入代码
 const script = document.createElement("script");
@@ -65,8 +66,10 @@ initStorage().then(() => {
         NoticeTo.CONTENT,
         function (event) {
             const customEvent = event as CustomEvent
-            // 通知徽章上命中率需要变更
-            noticeServiceWorkerByContent(NoticeKey.BADGE_STATUS, customEvent.detail)
+            // 页面主世界事件可被网页脚本伪造，因此只将符合命中统计结构的数据转发。
+            if (isPageBadgeHit(customEvent.detail)) {
+                noticeServiceWorkerByContent(NoticeKey.BADGE_STATUS, customEvent.detail)
+            }
         },
         false
     );

@@ -1,71 +1,74 @@
-
 // console.log("Ajax proxy service_worker.js")
 
 import {
-    NoticeFrom,
-    NoticeTo,
-    NoticeKey,
-    initStorage,
-    noticePanelsByServiceWorker,
-} from "@proxy/shared-utils";
-import { injectEventListener } from "./event";
-import { useCurrentTitle } from "./notice";
-import { initDefaultSth } from "./init";
-import { chromeBadge } from "./badge";
-import { INIT_CURRENT_TITLE } from "../consts";
+  NoticeFrom,
+  NoticeTo,
+  NoticeKey,
+  initStorage,
+  noticePanelsByServiceWorker,
+  isMessageRecord,
+  isValidInterceptors,
+  isValidMode,
+  isValidRedirectors,
+} from '@proxy/shared-utils'
+import { injectEventListener } from './event'
+import { useCurrentTitle } from './notice'
+import { initDefaultSth } from './init'
+import { chromeBadge } from './badge'
+import { INIT_CURRENT_TITLE } from '../consts'
+import { isPageBadgeHit } from '../messageValidation'
 
-initStorage().then(() => {
+initStorage()
+  .then(() => {
     // 接收content 和 panels 传来的信息
-    chrome.runtime.onMessage.addListener((msg) => {
+    chrome.runtime.onMessage.addListener((msg, sender) => {
+      if (
+        !isMessageRecord(msg) ||
+        sender.id !== chrome.runtime.id ||
+        msg.to !== NoticeTo.SERVICE_WORKER
+      )
+        return
+      const { from, key, value } = msg
+      const isContentSender = Boolean(sender.tab)
+      const isPanelSender =
+        !sender.tab &&
+        typeof sender.url === 'string' &&
+        sender.url.startsWith(chrome.runtime.getURL(''))
 
-        if (msg.to === NoticeTo.SERVICE_WORKER) {
-            const { key, value } = msg
-            // 徽章
-            if ([NoticeFrom.CONTENT, NoticeFrom.PANELS].includes(msg.from)) {
-                // 当 panels 清空某个命中统计时
-                // 重新统计一下全局命中率
-                if (key === NoticeKey.BADGE_STATUS) chromeBadge(value)
-            }
-
-            if (msg.from === NoticeFrom.PANELS) {
-                // 判断启用状态
-                if (key === NoticeKey.GLOBAL_SWITCH) {
-                    chrome.action.setIcon({
-                        path: value ? "icons/128.png" : "icons/128g.png",
-                    });
-                    // 更新一下图标状态
-                    chromeBadge()
-                }
-                // 模式切换
-                if (key === NoticeKey.MODE) {
-                    chromeBadge();
-                }
-                // 拦截器列表
-                if (key === NoticeKey.INTERCEPT_LIST) {
-                    chromeBadge();
-                }
-                // 获取当前document.title [被动]
-                // panels -> service-worker -> connect.port.sender.tab.title -> panels
-                if (key === NoticeKey.GET_CURRENT_TITLE) {
-                    const title = useCurrentTitle()
-                    noticePanelsByServiceWorker(NoticeKey.GET_CURRENT_TITLE, title)
-                }
-            } else if (msg.from === NoticeFrom.CONTENT) {
-                // content -> service-worker -> panels
-                // 页面加载初始化当前title [主动]
-                if (key === INIT_CURRENT_TITLE) {
-                    // 接收content转发给panels
-                    noticePanelsByServiceWorker(NoticeKey.GET_CURRENT_TITLE, value)
-                }
-            }
+      if (from === NoticeFrom.CONTENT && isContentSender) {
+        if (key === INIT_CURRENT_TITLE && typeof value === 'string' && value.length <= 8192) {
+          noticePanelsByServiceWorker(NoticeKey.GET_CURRENT_TITLE, value)
+          return
         }
-    });
+        if (key === NoticeKey.BADGE_STATUS && isPageBadgeHit(value)) chromeBadge(value)
+        return
+      }
+
+      if (from !== NoticeFrom.PANELS || !isPanelSender) return
+      if (key === NoticeKey.BADGE_STATUS && value === null) {
+        // 面板清空统计后重新计算总徽章。
+        chromeBadge()
+      } else if (key === NoticeKey.GLOBAL_SWITCH && typeof value === 'boolean') {
+        chrome.action.setIcon({ path: value ? 'icons/128.png' : 'icons/128g.png' })
+        chromeBadge()
+      } else if (key === NoticeKey.MODE && isValidMode(value)) {
+        chromeBadge()
+      } else if (key === NoticeKey.INTERCEPT_LIST && isValidInterceptors(value)) {
+        chromeBadge()
+      } else if (key === NoticeKey.REDIRECT_LIST && isValidRedirectors(value)) {
+        chromeBadge()
+      } else if (key === NoticeKey.GET_CURRENT_TITLE && value === undefined) {
+        const title = useCurrentTitle()
+        noticePanelsByServiceWorker(NoticeKey.GET_CURRENT_TITLE, title)
+      }
+    })
 
     // 设置默认项
     initDefaultSth()
 
     // 注册其他监听列表
     injectEventListener()
-}).catch(error => {
+  })
+  .catch((error) => {
     console.error('[AjaxProxy] Service worker storage initialization failed', error)
-})
+  })

@@ -1,7 +1,6 @@
 
 // 和徽章相关的函数
 
-import { IRequestMethod } from "@proxy/lib";
 import { NoticeKey, StorageKey, setStorage, getRealStorage, noticePanelsByServiceWorker } from "@proxy/shared-utils";
 import { chromeNativeNotice } from "./notice";
 
@@ -62,7 +61,7 @@ async function syncRoutesAsHit(routes, match_url, method, rule_index?: number) {
 /**当前命中数据的结构体 */
 type BadgeHit = {
     match_url: string
-    method: IRequestMethod
+    method: string
 }
 // badge 右下角小徽章设置
 export async function chromeBadge(data?: BadgeHit) {

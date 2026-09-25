@@ -88,7 +88,7 @@ import { confirmFunc, promptFunc } from '@/shared/dialogs'
 import { typeIs } from '@/shared/data'
 import { Langs } from '@/lang/index'
 import exportFromJSON from 'export-from-json'
-import { NoticeFrom, NoticeTo, NoticeKey } from '@proxy/shared-utils'
+import { NoticeFrom, NoticeTo, NoticeKey, isMessageRecord } from '@proxy/shared-utils'
 import { onUploadForDataConversion } from '@proxy/v2-compatibility'
 export default {
   components: {
@@ -233,10 +233,14 @@ export default {
   mounted() {
     // 获取当前连接状态
     chrome.runtime &&
-      chrome.runtime.onMessage.addListener(({ from, to, key, value }) => {
-        if (from === NoticeFrom.SERVICE_WORKER && to === NoticeTo.PANELS) {
+      chrome.runtime.onMessage.addListener((message, sender) => {
+        if (sender.id !== chrome.runtime.id || sender.tab || !isMessageRecord(message)) return
+        if (typeof sender.url !== 'string' || !sender.url.startsWith(chrome.runtime.getURL(''))) return
+        if (message.from === NoticeFrom.SERVICE_WORKER && message.to === NoticeTo.PANELS &&
+            message.key === NoticeKey.GET_CURRENT_TITLE &&
+            (message.value === undefined || (typeof message.value === 'string' && message.value.length <= 8192))) {
           // 当前链接tab页
-          if (key === NoticeKey.GET_CURRENT_TITLE) this.currentTitle = value
+          this.currentTitle = typeof message.value === 'string' ? message.value : ''
         }
       })
     // 获取Title

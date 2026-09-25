@@ -87,7 +87,7 @@ import { uniqueId } from '@/shared/identity'
 import { useInterceptorRoutes, useTags } from '@/infrastructure/storage'
 import { useNotice } from '@/infrastructure/notice'
 import Tag from './tag'
-import { NoticeFrom, NoticeTo, NoticeKey } from '@proxy/shared-utils'
+import { NoticeFrom, NoticeTo, NoticeKey, isMessageRecord } from '@proxy/shared-utils'
 
 export default {
   components: {
@@ -247,10 +247,11 @@ export default {
     // 监听 准备刷新
     listenerFix() {
       chrome.runtime &&
-        chrome.runtime.onMessage.addListener(({ from, to, key }) => {
-          if (from === NoticeFrom.SERVICE_WORKER && to === NoticeTo.PANELS) {
-            if (key === NoticeKey.HIT_RATE) this.initList()
-          }
+        chrome.runtime.onMessage.addListener((message, sender) => {
+          if (sender.id !== chrome.runtime.id || sender.tab || !isMessageRecord(message)) return
+          if (typeof sender.url !== 'string' || !sender.url.startsWith(chrome.runtime.getURL(''))) return
+          if (message.from === NoticeFrom.SERVICE_WORKER && message.to === NoticeTo.PANELS &&
+              message.key === NoticeKey.HIT_RATE) this.initList()
         })
     },
   },

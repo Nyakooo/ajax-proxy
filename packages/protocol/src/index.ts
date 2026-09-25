@@ -1,4 +1,6 @@
 /**storage enums */
+export * from './validateState'
+
 export enum StorageKey {
   LANGUAGE = 'ajax-proxy:storage:language',
   /**全局开关 */

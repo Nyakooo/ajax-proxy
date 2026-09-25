@@ -1,9 +1,9 @@
 /**请求协议 */
-export type IRequestMethod = "ANY" | "GET" | "POST" | "PUT" | "DELETE" | "PATCH";
+export type IRequestMethod = 'ANY' | 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
 /**规则 */
-export type IFilterType = "normal" | "regex";
+export type IFilterType = 'normal' | 'regex';
 /**模式 */
-export type IMode = "interceptor" | "redirector";
+export type IMode = 'interceptor' | 'redirector';
 /**全局状态结构体 */
 export type RefGlobalState<T = IGlobalState> = {
     value: T;
@@ -31,7 +31,7 @@ export type IMatchInterceptorContent = {
     /**命中率 */
     hit?: number;
     /**状态码 */
-    status_code?: string;
+    status_code?: string | number;
     /**响应式类型 */
     override_type?: OverrideType;
     /**函数响应 */
