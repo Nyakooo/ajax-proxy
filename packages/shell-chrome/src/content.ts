@@ -17,17 +17,23 @@ import { onLoadForDataConversion } from "@proxy/v2-compatibility";
 import { isPageBadgeHit } from "./messageValidation";
 
 initStorage().then(async () => {
-    const { GLOBAL_SWITCH, MODE, INTERCEPT_LIST, REDIRECT_LIST } = StorageKey
-    const configKeys = [GLOBAL_SWITCH, MODE, INTERCEPT_LIST, REDIRECT_LIST]
+    const { GLOBAL_SWITCH, MODE, INTERCEPT_LIST, REDIRECT_LIST, V3_CONFIG } = StorageKey
+    const legacyConfigKeys = [GLOBAL_SWITCH, MODE, INTERCEPT_LIST, REDIRECT_LIST]
     chrome.storage.onChanged.addListener((changes, areaName) => {
-        if (areaName !== 'local' || !configKeys.some(key => Object.prototype.hasOwnProperty.call(changes, key))) return
-        const currentState = {
-            [GLOBAL_SWITCH]: getStorage(GLOBAL_SWITCH, false),
-            [MODE]: getStorage(MODE, 'interceptor'),
-            [INTERCEPT_LIST]: getStorage(INTERCEPT_LIST, []),
-            [REDIRECT_LIST]: getStorage(REDIRECT_LIST, []),
+        if (areaName !== 'local') return
+        const changedKeys = new Set(Object.keys(changes))
+        if (legacyConfigKeys.some(key => changedKeys.has(key))) {
+            const currentState = {
+                [GLOBAL_SWITCH]: getStorage(GLOBAL_SWITCH, false),
+                [MODE]: getStorage(MODE, 'interceptor'),
+                [INTERCEPT_LIST]: getStorage(INTERCEPT_LIST, []),
+                [REDIRECT_LIST]: getStorage(REDIRECT_LIST, []),
+            }
+            noticeDocumentByContent(NOTICE_KEY_REFRESH_GLOBAL_STATE, currentState)
         }
-        noticeDocumentByContent(NOTICE_KEY_REFRESH_GLOBAL_STATE, currentState)
+        if (changedKeys.has(V3_CONFIG)) {
+            noticeDocumentByContent(NoticeKey.V3_CONFIG, getStorage(V3_CONFIG, null))
+        }
     })
 
     // 发送当前tab页 title
@@ -49,6 +55,9 @@ initStorage().then(async () => {
     }
     const getGlobalSwtich = getData[StorageKey.GLOBAL_SWITCH] || false
     if (getGlobalSwtich) noticeDocumentByContent(NOTICE_KEY_REFRESH_GLOBAL_STATE, getData)
+    // V3 is stored independently from V2, and must also deliver a disabled
+    // configuration so the MAIN-world runtime can keep it cached without mounting.
+    noticeDocumentByContent(NoticeKey.V3_CONFIG, getData[StorageKey.V3_CONFIG] ?? null)
 
     // 长链接通信接收 service-worker -> document
     chrome.runtime.connect({ name: CONNECT_NAME });

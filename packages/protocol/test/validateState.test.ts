@@ -1,5 +1,20 @@
 import { describe, expect, it } from 'vitest'
-import { isValidInterceptors, isValidRedirectors, isValidRegexPattern } from '../src'
+import {
+  isValidInterceptors,
+  isValidRedirectors,
+  isValidRegexPattern,
+  NoticeKey,
+  StorageKey,
+} from '../src'
+
+describe('V3 protocol keys', () => {
+  it('adds separate V3 keys and preserves the V2 keys', () => {
+    expect(StorageKey.V3_CONFIG).toBe('ajax-proxy:storage:v3-config')
+    expect(NoticeKey.V3_CONFIG).toBe('ajax-proxy:notice:v3-config')
+    expect(StorageKey.REDIRECT_LIST).toBe('ajax-proxy:storage:redirect-list')
+    expect(NoticeKey.REDIRECT_LIST).toBe('ajax-proxy:notice:redirect-list')
+  })
+})
 
 describe('rule input validation', () => {
   it('accepts supported RE2 patterns and rejects unsupported or oversized patterns', () => {

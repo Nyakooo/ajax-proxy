@@ -68,6 +68,7 @@ export function createV3XHR(NativeXHR: V3XHRConstructor, options: V3XHROptions):
       super()
       let selected: V3Rule | undefined
       let replacement: Replacement | undefined
+      let stripSensitiveHeaders = false
       const listenerWrappers = new WeakMap<object, Map<string, Map<boolean, EventListener>>>()
       const handlerProperties = new Map<
         PropertyKey,
@@ -123,6 +124,7 @@ export function createV3XHR(NativeXHR: V3XHRConstructor, options: V3XHROptions):
               const [method, url, async] = args
               selected = undefined
               replacement = undefined
+              stripSensitiveHeaders = false
 
               // Synchronous XHR has different response and event timing. Leave it native.
               if (async === false) {
@@ -162,12 +164,27 @@ export function createV3XHR(NativeXHR: V3XHRConstructor, options: V3XHROptions):
               if (!targetUrl) return target.open(...args)
               args[1] = targetUrl
               try {
+                stripSensitiveHeaders = new URL(targetUrl).origin !== new URL(originalUrl).origin
                 return target.open(...args)
               } catch {
                 // open has not sent a request yet, so falling back is safe here.
                 args[1] = url
+                stripSensitiveHeaders = false
                 return target.open(...args)
               }
+            }
+          }
+
+          if (property === 'setRequestHeader') {
+            return (name: string, value: string) => {
+              if (
+                stripSensitiveHeaders &&
+                ['authorization', 'proxy-authorization', 'cookie', 'cookie2'].includes(
+                  name.toLowerCase()
+                )
+              )
+                return
+              return target.setRequestHeader(name, value)
             }
           }
 

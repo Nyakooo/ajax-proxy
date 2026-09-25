@@ -67,7 +67,12 @@ describe('createV3Fetch', () => {
     const request = new Request('https://example.test/api', {
       method: 'POST',
       body: 'request body',
-      headers: { 'x-original': 'kept' },
+      headers: {
+        'x-original': 'kept',
+        authorization: 'Bearer secret',
+        'proxy-authorization': 'Basic secret',
+        cookie: 'session=secret',
+      },
       credentials: 'include',
       cache: 'no-store',
     })
@@ -78,6 +83,9 @@ describe('createV3Fetch', () => {
     expect(redirected.url).toBe('https://target.test/post')
     expect(redirected.method).toBe('POST')
     expect(redirected.headers.get('x-original')).toBe('kept')
+    expect(redirected.headers.has('authorization')).toBe(false)
+    expect(redirected.headers.has('proxy-authorization')).toBe(false)
+    expect(redirected.headers.has('cookie')).toBe(false)
     expect(redirected.credentials).toBe('include')
     expect(redirected.cache).toBe('no-store')
     expect(await redirected.text()).toBe('request body')

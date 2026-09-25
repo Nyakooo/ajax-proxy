@@ -102,6 +102,8 @@ describe('createV3XHR', () => {
 
     xhr.open('POST', 'https://example.test/api', true)
     xhr.setRequestHeader('x-test', 'value')
+    xhr.setRequestHeader('Authorization', 'Bearer secret')
+    xhr.setRequestHeader('Cookie', 'session=secret')
     xhr.send(body)
 
     expect(xhr.requestHeaders).toEqual([['x-test', 'value']])

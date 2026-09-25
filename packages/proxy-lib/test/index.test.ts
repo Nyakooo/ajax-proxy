@@ -4,6 +4,7 @@ class ExistingXMLHttpRequest {
   readyState = 0
   responseText = ''
   response: unknown = ''
+  responseType = ''
   responseURL = ''
   status = 200
   statusText = 'OK'
@@ -34,6 +35,136 @@ afterEach(() => {
 })
 
 describe('proxy lifecycle and page wrappers', () => {
+  it('mounts the validated V3 backup on both Fetch and XHR', async () => {
+    vi.stubGlobal('XMLHttpRequest', ExistingXMLHttpRequest)
+    const dispatchedRequests: Array<{ url: string; body: string }> = []
+    const pageFetch = vi.fn(async (input: RequestInfo | URL) => {
+      const request = input instanceof Request ? input : new Request(input)
+      dispatchedRequests.push({ url: request.url, body: await request.clone().text() })
+      return new Response(JSON.stringify({ url: request.url, body: await request.text() }))
+    })
+    vi.stubGlobal('window', {
+      XMLHttpRequest: ExistingXMLHttpRequest,
+      fetch: pageFetch,
+      dispatchEvent: vi.fn(),
+      eval,
+    })
+    const { default: lib } = await import('../src/index')
+    lib.updateV3({
+      format: 'ajax-proxy-backup',
+      formatVersion: 3,
+      settings: { globalEnabled: true, mode: 'interceptor', language: 'en' },
+      tags: [],
+      rules: [
+        {
+          id: 'combined',
+          enabled: true,
+          match: { url: '/api', method: 'POST' },
+          request: { enabled: true, redirect: { url: 'https://mock.test/target' } },
+          response: {
+            enabled: true,
+            replace: { status: 201, body: { mocked: true } },
+          },
+        },
+      ],
+    })
+
+    const response = await window.fetch('https://example.test/api', {
+      method: 'POST',
+      body: 'request payload',
+    })
+    expect(await response.json()).toEqual({ mocked: true })
+    expect(response.status).toBe(201)
+    expect(pageFetch).toHaveBeenCalledOnce()
+    expect(dispatchedRequests).toEqual([
+      { url: 'https://mock.test/target', body: 'request payload' },
+    ])
+
+    const xhr = new window.XMLHttpRequest()
+    xhr.open('POST', 'https://example.test/api')
+    xhr.send('request payload')
+    expect(xhr.openedUrls).toEqual(['https://mock.test/target'])
+    expect(xhr.status).toBe(201)
+    expect(xhr.responseText).toBe('{"mocked":true}')
+    // V3 hits are not sent through the legacy V2 badge protocol.
+    expect(window.dispatchEvent).not.toHaveBeenCalled()
+  })
+
+  it('keeps an invalid V3 update from replacing an active configuration', async () => {
+    vi.stubGlobal('XMLHttpRequest', ExistingXMLHttpRequest)
+    const pageFetch = vi.fn(async () => new Response('native'))
+    vi.stubGlobal('window', {
+      XMLHttpRequest: ExistingXMLHttpRequest,
+      fetch: pageFetch,
+      dispatchEvent: vi.fn(),
+      eval,
+    })
+    const { default: lib } = await import('../src/index')
+    const backup = {
+      format: 'ajax-proxy-backup',
+      formatVersion: 3,
+      settings: { globalEnabled: true, mode: 'interceptor', language: 'en' },
+      tags: [],
+      rules: [],
+    }
+    lib.updateV3(backup)
+
+    const invalidConfig = { ...backup, formatVersion: 2 }
+    lib.updateV3(invalidConfig)
+
+    expect(await (await window.fetch('https://example.test/no-match')).text()).toBe('native')
+    expect(window.fetch).not.toBe(pageFetch)
+
+    lib.updateV3({ ...backup, settings: { ...backup.settings, globalEnabled: false } })
+    expect(window.fetch).toBe(pageFetch)
+  })
+
+  it('disables a captured V2 proxy while V3 owns state and restores it after V3 removal', async () => {
+    vi.stubGlobal('XMLHttpRequest', ExistingXMLHttpRequest)
+    const pageFetch = vi.fn(async () => new Response('native'))
+    vi.stubGlobal('window', {
+      XMLHttpRequest: ExistingXMLHttpRequest,
+      fetch: pageFetch,
+      dispatchEvent: vi.fn(),
+      eval,
+    })
+    const { default: lib } = await import('../src/index')
+    lib.update({
+      global_on: true,
+      mode: 'interceptor',
+      interceptor_matching_content: [
+        {
+          switch_on: true,
+          match_url: '/api',
+          override: 'v2',
+          status_code: '200',
+          override_type: 'json',
+        },
+      ],
+      redirector_matching_content: [],
+    })
+    const capturedV2Proxy = window.fetch
+    const pageWrapper = vi.fn((input: RequestInfo | URL, init?: RequestInit) =>
+      capturedV2Proxy(input, init)
+    )
+    window.fetch = pageWrapper
+
+    lib.updateV3({
+      format: 'ajax-proxy-backup',
+      formatVersion: 3,
+      settings: { globalEnabled: true, mode: 'interceptor', language: 'en' },
+      tags: [],
+      rules: [],
+    })
+    expect(await (await window.fetch(new Request('https://example.test/api'))).text()).toBe(
+      'native'
+    )
+    expect(window.fetch).toBe(pageWrapper)
+
+    lib.updateV3(null)
+    expect(await (await window.fetch(new Request('https://example.test/api'))).text()).toBe('v2')
+  })
+
   it('layers over wrappers present at injection and restores them when disabled', async () => {
     vi.stubGlobal('XMLHttpRequest', ExistingXMLHttpRequest)
     const pageFetch = vi.fn(async () => new Response('page fetch'))

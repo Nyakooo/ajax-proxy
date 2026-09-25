@@ -11,10 +11,12 @@ declare function update<T extends IMatchRedirectContent[]>(redirectors: T): void
 declare function update<T extends IGlobalState>(state: T): void;
 declare function updateInterceptors(target: unknown): void;
 declare function updateRedirectors(target: unknown): void;
+declare function updateV3(target: unknown): void;
 declare const _default: {
     update: typeof update;
     updateInterceptors: typeof updateInterceptors;
     updateRedirectors: typeof updateRedirectors;
+    updateV3: typeof updateV3;
 };
 export default _default;
 export { isRecord, isValidGlobalState, isValidInterceptors, isValidMode, isValidRedirectors, } from './validateState';

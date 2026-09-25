@@ -14,6 +14,10 @@ import CreateXHR, { initInterceptorXHRState, OriginXHR } from './createXHR'
 import CreateFetch, { initInterceptorFetchState, OriginFetch } from './createFetch'
 import RedirectXHR, { initRedirectXHRState } from './redirectXHR'
 import RedirectFetch, { initRedirectFetchState } from './redirectFetch'
+import { createV3Fetch } from './v3Fetch'
+import { createV3XHR } from './v3XHR'
+import { validateV3Backup } from '@proxy/v3-domain'
+import type { V3Backup } from '@proxy/v3-domain'
 import { warn } from './common'
 import {
   isValidGlobalState,
@@ -37,13 +41,21 @@ const globalState: RefGlobalState = {
 }
 const pageFetchAtLoad = window.fetch
 const pageXHRAtLoad = window.XMLHttpRequest
+let v3Backup: V3Backup | null = null
+
+const V3Fetch = createV3Fetch(pageFetchAtLoad, {
+  getRules: () => (v3Backup?.settings.globalEnabled ? v3Backup.rules : []),
+})
+const V3XHR = createV3XHR(pageXHRAtLoad, {
+  getRules: () => (v3Backup?.settings.globalEnabled ? v3Backup.rules : []),
+}) as unknown as typeof window.XMLHttpRequest
 
 function isProxyFetch(fetch: typeof window.fetch) {
-  return fetch === CreateFetch || fetch === RedirectFetch
+  return fetch === CreateFetch || fetch === RedirectFetch || fetch === V3Fetch
 }
 
 function isProxyXHR(xhr: typeof window.XMLHttpRequest) {
-  return xhr === CreateXHR || xhr === RedirectXHR
+  return xhr === CreateXHR || xhr === RedirectXHR || xhr === V3XHR
 }
 
 // 初始化状态
@@ -68,6 +80,12 @@ function mountInstance() {
   // 页面在扩展包装器外安装的包装器可能持有代理引用；不覆盖该表层，代理依共享状态停用。
   if (canManageXHR) window.XMLHttpRequest = OriginXHR
   if (canManageFetch) window.fetch = pageFetchAtLoad
+  if (v3Backup) {
+    if (!v3Backup.settings.globalEnabled) return
+    if (canManageXHR) window.XMLHttpRequest = V3XHR
+    if (canManageFetch) window.fetch = V3Fetch
+    return
+  }
   if (!global_on) return
 
   if (mode === 'interceptor') {
@@ -139,12 +157,30 @@ function updateRedirectors(target: unknown) {
   globalState.value.redirector_matching_content = target
 }
 
+function updateV3(target: unknown) {
+  if (target === null) {
+    v3Backup = null
+    globalState.v3_active = false
+    mountInstance()
+    return
+  }
+  const result = validateV3Backup(target)
+  if (!result.ok) {
+    warn('invalid V3 configuration')
+    return
+  }
+  v3Backup = result.data
+  globalState.v3_active = true
+  mountInstance()
+}
+
 initState()
 
 export default {
   update,
   updateInterceptors,
   updateRedirectors,
+  updateV3,
 }
 
 export {

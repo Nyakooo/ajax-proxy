@@ -5,7 +5,7 @@ export type IFilterType = 'normal' | 'regex'
 /**模式 */
 export type IMode = 'interceptor' | 'redirector'
 /**全局状态结构体 */
-export type RefGlobalState<T = IGlobalState> = { value: T }
+export type RefGlobalState<T = IGlobalState> = { value: T; v3_active?: boolean }
 /**响应式类型 */
 export type OverrideType = 'json' | 'function'
 /**重定向类型 */

@@ -57,6 +57,11 @@ window.addEventListener(
       case NoticeKey.REDIRECT_LIST:
         lib.updateRedirectors(data.value)
         break
+      // V3 config is independent from V2 mode/rule storage. The proxy library
+      // validates this untrusted page-world message before changing runtime state.
+      case NoticeKey.V3_CONFIG:
+        lib.updateV3(data.value)
+        break
     }
   },
   false

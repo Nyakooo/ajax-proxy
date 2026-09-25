@@ -26,9 +26,15 @@ async function redirectRequest(request: Request, targetUrl: string): Promise<Req
     throw new TypeError('V3 redirect targets must use HTTP or HTTPS.')
   }
   const body = request.body ? await request.clone().arrayBuffer() : undefined
+  const headers = new Headers(request.headers)
+  if (destination.origin !== new URL(request.url).origin) {
+    for (const name of ['authorization', 'proxy-authorization', 'cookie', 'cookie2']) {
+      headers.delete(name)
+    }
+  }
   return new Request(destination, {
     method: request.method,
-    headers: request.headers,
+    headers,
     body,
     credentials: request.credentials,
     mode: request.mode,

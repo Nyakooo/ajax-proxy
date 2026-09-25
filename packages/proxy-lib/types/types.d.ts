@@ -7,6 +7,7 @@ export type IMode = 'interceptor' | 'redirector';
 /**全局状态结构体 */
 export type RefGlobalState<T = IGlobalState> = {
     value: T;
+    v3_active?: boolean;
 };
 /**响应式类型 */
 export type OverrideType = 'json' | 'function';

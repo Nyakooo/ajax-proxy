@@ -14,7 +14,11 @@ function createEffectiveRequest(input: RequestInfo | URL, init?: RequestInit): R
 }
 
 export default async function CustomFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
-    if (!globalState.value.global_on || globalState.value.mode !== 'redirector') {
+    if (
+        globalState.v3_active ||
+        !globalState.value.global_on ||
+        globalState.value.mode !== 'redirector'
+    ) {
         return OriginFetch(input, init)
     }
     const request = createEffectiveRequest(input, init)

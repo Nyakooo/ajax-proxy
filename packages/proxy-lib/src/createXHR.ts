@@ -62,7 +62,12 @@ class CustomXHR extends XMLHttpRequest {
 
   // 规则匹配，修改响应内容
   private async maybeNeedModifyRes(origin_xhr_response: any) {
-    if (!globalState.value.global_on || globalState.value.mode !== 'interceptor') return
+    if (
+      globalState.v3_active ||
+      !globalState.value.global_on ||
+      globalState.value.mode !== 'interceptor'
+    )
+      return
     for (let i = 0; i < globalState.value.interceptor_matching_content.length; i++) {
       const target = globalState.value.interceptor_matching_content[i]
       const {

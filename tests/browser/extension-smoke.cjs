@@ -158,6 +158,11 @@ async function main() {
     await panel.locator('.switch-control .el-switch, .global-switch .el-switch').first().click()
     const page = await context.newPage()
     const secondPage = await context.newPage()
+    page.on('pageerror', (error) => console.error('Extension smoke page error:', error))
+    page.on('console', (message) => {
+      if (message.type() === 'error')
+        console.error('Extension smoke console error:', message.text())
+    })
     await page.goto(`http://127.0.0.1:${port}/`)
     await secondPage.goto(`http://127.0.0.1:${port}/`)
     const activeTab = await panel.evaluate(() =>
@@ -218,7 +223,6 @@ async function main() {
 
     const childFrame = page.frameLocator('#child-frame')
     await childFrame.locator('#frame-fetch').click()
-    await childFrame.locator('#frame-result').waitFor()
     await childFrame.locator('#frame-result').getByText('intercepted').waitFor()
 
     await page.locator('#fetch').click()
@@ -326,6 +330,62 @@ async function main() {
       JSON.parse(await secondPage.locator('#result').textContent()).url,
       `http://127.0.0.1:${port}/mock/echo`
     )
+
+    const v3ResponseBody = { source: 'v3-intercepted', ok: true }
+    await panel.evaluate(({ key, backup }) => chrome.storage.local.set({ [key]: backup }), {
+      key: 'ajax-proxy:storage:v3-config',
+      backup: {
+        format: 'ajax-proxy-backup',
+        formatVersion: 3,
+        settings: { globalEnabled: true, mode: 'interceptor', language: 'en' },
+        tags: [],
+        rules: [
+          {
+            id: 'v3-extension-smoke',
+            enabled: true,
+            match: { url: '/api/echo', method: 'POST' },
+            request: {
+              enabled: true,
+              redirect: { url: `http://127.0.0.1:${port}/mock/echo` },
+            },
+            response: {
+              enabled: true,
+              replace: { status: 202, body: v3ResponseBody },
+            },
+          },
+        ],
+      },
+    })
+    await page.reload()
+    assert.equal(await page.evaluate(() => XMLHttpRequest.UNSENT), 0)
+    const v3FetchResult = await page.evaluate(async () => {
+      const response = await fetch('/api/echo', { method: 'POST', body: 'v3 fetch' })
+      return { status: response.status, url: response.url, body: await response.json() }
+    })
+    assert.deepEqual(v3FetchResult, {
+      status: 202,
+      url: `http://127.0.0.1:${port}/mock/echo`,
+      body: v3ResponseBody,
+    })
+    const v3XhrResult = await page.evaluate(
+      () =>
+        new Promise((resolve) => {
+          const request = new XMLHttpRequest()
+          request.onload = () =>
+            resolve({
+              status: request.status,
+              url: request.responseURL,
+              body: JSON.parse(request.responseText),
+            })
+          request.open('POST', '/api/echo')
+          request.send('v3 xhr')
+        })
+    )
+    assert.deepEqual(v3XhrResult, {
+      status: 202,
+      url: `http://127.0.0.1:${port}/mock/echo`,
+      body: v3ResponseBody,
+    })
 
     await context.close()
     context = await chromium.launchPersistentContext(userDataDir, contextOptions)
