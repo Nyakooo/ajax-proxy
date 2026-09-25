@@ -96,9 +96,9 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - [ ] 统一模块命名、公共接口、类型定义和错误处理方式，减少重复实现及跨层耦合。
 - [x] 绘制并维护项目架构图、包依赖图和关键运行链路说明：`docs/V3-ARCHITECTURE-ASSESSMENT.zh.md` 现覆盖全部 9 个 workspace 包，以及面板→storage→content→MAIN proxy 配置同步、代理命中→content→service worker→badge 两条关键链路，并记录消息信任边界。
 - [x] 在修改核心行为前，为 Fetch Request method / URL 缺陷补充可复现回归测试；先确认测试失败，再实现修复并保留测试。
-- [ ] 设计组合式规则：同一条规则可按需同时定义请求重定向与响应拦截 / 替换，避免用户为同一接口维护两条割裂规则。
-- [ ] 明确组合规则的执行阶段和数据流：先匹配原始请求，再决定是否改写目标请求；请求完成后由同一规则决定是否替换响应。
-- [ ] 明确组合规则中各能力的独立启用方式、执行优先级、冲突规则、命中统计及失败回退行为。
+- [x] 设计组合式规则：同一条规则可独立启用请求重定向、响应替换或两者；两项都关闭时规则保持可保存但不参与运行时匹配，适配导入代码默认停用。
+- [x] 明确组合规则的执行阶段和数据流：使用原始 URL / method 选择并锁定第一条完整命中规则，请求 action 在网络前运行，response action 在响应后由同一规则运行；重定向目标不重新匹配。
+- [x] 明确组合规则中各能力的独立启用方式、执行优先级、冲突规则、命中统计及失败回退行为：规则列表 first-match；一次请求命中只计一次；匹配器故障继续查找，action 故障 fail-open 且不转交后续规则；重定向网络失败不重试。
 - [ ] 验证组合规则在 Fetch 与 XHR 上的行为一致性；对浏览器 API 限制或无法一致支持的部分给出明确边界。
 
 - [x] 明确规则优先级：拦截与重定向的 Fetch / XHR 均由列表中第一条启用且 URL / method 命中的规则负责；同一请求不叠加应用多条规则。
@@ -406,4 +406,5 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - 2026-09-25：阶段 3 最低浏览器兼容性验收完成。CI run [36106005756](https://github.com/Nyakooo/ajax-proxy/actions/runs/36106005756) 中 Chrome Stable、Edge Stable、Chrome 141 和 Edge 140 的运行时检查均通过，Chrome 141 与 Edge 140 的扩展 Fetch / XHR smoke 通过，build job 全部通过。更新兼容矩阵并确认最低主版本 Chrome 141 / Edge 140；阶段 3 的兼容性检查项勾选完成，全局完成 68 / 179 项（38.0%）。当前后续从阶段 2 未完成项继续。
 - 2026-09-25：补齐阶段 2 已登记的 XHR 通用事件转发审查线索。原生 XHR 的 readystatechange、loadstart、progress、abort、error、load、timeout、loadend 现转发为代理 XHR 上的合成事件；响应处理先于最终 readyState 事件，`this` / `target` 指向代理对象，原生 EventTarget 处理移除、once 和回调顺序。新增 Vitest 与真实扩展 smoke 验证，71 项单测、proxy-lib 类型检查、lint 和 Chromium extension smoke 通过。由于对应 XHR 生命周期计划项之前已计为完成，总体仍为 68 / 179（38.0%）；合成事件 `isTrusted=false` 及 upload 直通边界已记入问题文档。
 - 2026-09-25：补齐阶段 2 架构文档待办。更新当前 package manifest 依赖图（包括新建的 `@proxy/v3-domain`），并新增面板配置同步和请求命中上报两条时序图，标明 MAIN world 页面消息的不可信边界。`pnpm check:boundaries` 核实 9 个 workspace 包依赖无环；整体完成 69 / 179 项（38.5%）。
+- 2026-09-25：完成组合规则的 schema / 执行语义设计检查点。规则在原始 URL / method 上按列表顺序选择首条完整命中项并锁定到响应阶段；request 与 response action 独立启用，两者均停用的规则可保留但不参与匹配；命中只计一次，匹配异常继续查找、action 异常 fail-open 且不尝试后续规则，重定向网络错误不重试。method 规则为不区分大小写的精确比较，缺省 / `ANY` 为任意 method；`normal` URL 为区分大小写子串、`regex` 使用 RE2。Fetch / XHR 行为验证仍未完成，因此只勾选设计项、不提前勾选运行时验收项。更新 `docs/V3-RULE-MODEL.zh.md`；整体完成 72 / 179 项（40.2%）。
 - GitHub 里程碑：[阶段 0](https://github.com/Nyakooo/ajax-proxy/milestone/1)、[阶段 1](https://github.com/Nyakooo/ajax-proxy/milestone/2)、[阶段 2](https://github.com/Nyakooo/ajax-proxy/milestone/3)、[阶段 3](https://github.com/Nyakooo/ajax-proxy/milestone/4)、[阶段 4](https://github.com/Nyakooo/ajax-proxy/milestone/5)、[阶段 5](https://github.com/Nyakooo/ajax-proxy/milestone/6)、[阶段 6](https://github.com/Nyakooo/ajax-proxy/milestone/7)、[阶段 7](https://github.com/Nyakooo/ajax-proxy/milestone/8)；已复现缺陷：[issue #56](https://github.com/Nyakooo/ajax-proxy/issues/56)。
