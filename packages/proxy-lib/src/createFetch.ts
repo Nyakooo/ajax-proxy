@@ -10,11 +10,10 @@ export const OriginFetch = window.fetch.bind(window)
 export const initInterceptorFetchState = (state: RefGlobalState) => globalState = state
 
 function CustomFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
-    let fetchMethod: string | undefined | "ANY" = "ANY"
-    if (init) {
-        fetchMethod = init.method?.toUpperCase() || "ANY"
-    }
+    const request = input instanceof Request ? input : undefined
+    const fetchMethod = init?.method?.toUpperCase() || request?.method.toUpperCase() || "GET"
     return OriginFetch(input, init).then(async (response: Response) => {
+        const requestUrl = request?.url || response.url
         let txt: string | undefined;
         let status = response.status
         let statusText = response.statusText
@@ -36,13 +35,13 @@ function CustomFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Resp
                 // 判断是否存在协议匹配
                 if (method && ![fetchMethod, "ANY"].includes(method.toUpperCase())) continue
                 // 规则匹配
-                const matched = maybeMatching(response.url, match_url, filter_type);
+                const matched = maybeMatching(requestUrl, match_url, filter_type);
                 if (!matched) continue // 退出当前循环
                 _overrideType = override_type
                 if (override_type === "function") {
                     const ctx = getCtx(
-                        response.url,
-                        init?.method?.toUpperCase() || "GET",
+                        requestUrl,
+                        fetchMethod,
                         response.status,
                         status_code,
                         init?.body,
@@ -61,7 +60,7 @@ function CustomFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Resp
                     statusText = status_code
                 }
                 // 通知
-                notice(response.url, match_url, fetchMethod || "")
+                notice(requestUrl, match_url, fetchMethod)
             }
         }
 

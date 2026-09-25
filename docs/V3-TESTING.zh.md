@@ -31,13 +31,13 @@
 
 ## 当前覆盖率基线
 
-记录日期：2026-09-25。执行 `pnpm test:coverage`：1 个测试文件、7 个用例通过；workspace 全部 TypeScript 源码的当前总体覆盖率为：
+记录日期：2026-09-25。执行 `pnpm test:coverage`：2 个测试文件、10 个用例通过；workspace 全部 TypeScript 源码的当前总体覆盖率为：
 
 | 指标       |  基线 |
 | ---------- | ----: |
-| Statements | 3.29% |
-| Branches   | 2.34% |
-| Functions  | 2.77% |
-| Lines      | 3.31% |
+| Statements | 9.16% |
+| Branches   | 8.33% |
+| Functions  | 6.94% |
+| Lines      | 9.47% |
 
-本轮单元测试集中覆盖 `packages/proxy-lib/src/common.ts` 的 URL 匹配、忽略项和静态重定向规则；该文件 statements 覆盖率为 79.31%。浏览器 smoke 额外覆盖真实 Fetch / XHR 拦截和 JSON 编辑交互，但不计入 Vitest coverage。新增 `@proxy/protocol` 及其余 workspace 源码纳入整体统计后，总覆盖率从之前范围更窄的 8.46% 基线变为当前 3.29% statements；后续将分阶段增加各包测试。该基线不代表功能质量已经满足发布标准。
+本轮单元测试覆盖 `packages/proxy-lib/src/common.ts` 的 URL 匹配、忽略项和静态重定向，以及 `packages/proxy-lib/src/createFetch.ts` 的 Request method / URL 解析；createFetch statements 覆盖率为 81.25%。浏览器 smoke 额外覆盖真实 Fetch / XHR 拦截和 JSON 编辑交互，但不计入 Vitest coverage。整体覆盖率低于完整发布标准，后续将分阶段增加各包测试。该基线不代表功能质量已经满足发布标准。

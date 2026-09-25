@@ -16,7 +16,8 @@ async function main() {
         <script>
           const result = document.querySelector('#result')
           document.querySelector('#fetch').onclick = async () => {
-            const response = await fetch('/api/echo', { method: 'POST', body: 'test' })
+            const request = new Request('/api/echo', { method: 'POST', body: 'test' })
+            const response = await fetch(request)
             result.textContent = JSON.stringify({
               kind: 'fetch', status: response.status, body: await response.text()
             })

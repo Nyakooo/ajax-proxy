@@ -95,14 +95,15 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - [ ] 按领域划分核心模块，明确请求处理、规则匹配、状态管理、存储、消息通信和 UI 之间的依赖方向。
 - [ ] 统一模块命名、公共接口、类型定义和错误处理方式，减少重复实现及跨层耦合。
 - [ ] 绘制并维护项目架构图、包依赖图和关键运行链路说明。
-- [ ] 在修改核心行为前，为对应问题补充可复现的回归测试。
+- [x] 在修改核心行为前，为 Fetch Request method / URL 缺陷补充可复现回归测试；先确认测试失败，再实现修复并保留测试。
 - [ ] 设计组合式规则：同一条规则可按需同时定义请求重定向与响应拦截 / 替换，避免用户为同一接口维护两条割裂规则。
 - [ ] 明确组合规则的执行阶段和数据流：先匹配原始请求，再决定是否改写目标请求；请求完成后由同一规则决定是否替换响应。
 - [ ] 明确组合规则中各能力的独立启用方式、执行优先级、冲突规则、命中统计及失败回退行为。
 - [ ] 验证组合规则在 Fetch 与 XHR 上的行为一致性；对浏览器 API 限制或无法一致支持的部分给出明确边界。
 
 - [ ] 明确规则优先级：首条命中、多条叠加或其他策略；拦截与重定向采用一致规则。
-- [ ] 正确识别 `fetch(new Request(...))` 中的 method 和请求 URL。
+- [x] 修复拦截器模式下 `fetch(new Request(...))` 的 method / URL 匹配；先添加覆盖 Request method、init 覆盖、默认 GET 和 Request URL 的回归用例，再修复并通过单测及生产扩展 E2E。
+- [ ] 验证重定向模式下 `fetch(new Request(...))` 的 URL 与 method 识别及原生请求转发语义。
 - [ ] 重定向 Fetch 时保留 method、body、headers、credentials、signal、mode 等请求选项。
 - [ ] 修复异步自定义规则的 Promise / callback 完成语义。
 - [ ] 为未调用回调、抛出异常和超时定义明确的回退行为，避免请求无限等待。
@@ -378,4 +379,5 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - 2026-09-25：修复 `@proxy/v2-compatibility` 对 `@proxy/lib/types/types` 私有路径的依赖；`@proxy/lib` 根入口现导出兼容模块使用的类型。新增 `pnpm check:boundaries`，检查 7 个 workspace 包依赖图无环、跨包依赖有 manifest 声明且不导入深层源码路径（仅允许 JSON 编辑器 CSS 资源入口），并加入 CI。Node 24.21.0 clean build、四包 typecheck、7 项单测、边界检查、lint、格式检查与扩展 Fetch / XHR smoke 均通过。全源码 lint、声明文件生成策略、核心与 shared-utils 的职责边界以及浏览器最低版本品牌浏览器扩展验证仍未完成。当前核对项 33 / 178（18.5%），阶段 1 未验收，不提交。
 - 2026-09-25：完成阶段 1 工程基础验收。将纯消息 / storage key 常量提取到 `@proxy/protocol`，解除核心请求引擎对 Chrome storage / badge 工具包的依赖；拆分 Vue 面板 `common` 目录，校准 shell 包入口及兼容包公共类型。全包 lint / 格式债务门禁、声明漂移检查、8 包依赖边界 CI 和 Edge 140 固定版本浏览器矩阵完成；clean build、冻结安装、typecheck、7 项单测、lint / format、Chrome 141 最低版扩展 smoke、JSON 树形编辑全交互及错误定位 smoke、生产 ZIP / JS / CSS 体积测量通过。CodeMirror 6 评估说明了仅做文本编辑无法替代已验证的 JSON 树操作；异步拆分原型留在阶段 4。阶段 0 与阶段 1 验收完成，Edge 140 的远端 CI 首次结果仍待获取。
 - 2026-09-25：按阶段完成要求汇总并更新清单：41 / 178 项完成（23.0%）；阶段 0 与阶段 1 验收完成，已提交为独立工程基础检查点。Edge 140 固定版本 CI job 已配置，远端执行结果待 CI 提供。
+- 2026-09-25：阶段 2 修复已复现的拦截器 Fetch Request method / URL 缺陷。先添加并确认 3 项回归测试可复现旧问题，再修复 method 优先级（`init.method` > `Request.method` > 默认 GET）及 Request URL 匹配，并将相同 method / URL 用于通知与函数响应上下文；单测 10 项通过，Chrome 141 生产扩展 Fetch / XHR E2E 通过。重定向模式的 Request 输入仍待单独验证。当前完成 43 / 179 项（24.0%），此阶段子项准备独立提交。
 - GitHub 里程碑：[阶段 0](https://github.com/Nyakooo/ajax-proxy/milestone/1)、[阶段 1](https://github.com/Nyakooo/ajax-proxy/milestone/2)、[阶段 2](https://github.com/Nyakooo/ajax-proxy/milestone/3)、[阶段 3](https://github.com/Nyakooo/ajax-proxy/milestone/4)、[阶段 4](https://github.com/Nyakooo/ajax-proxy/milestone/5)、[阶段 5](https://github.com/Nyakooo/ajax-proxy/milestone/6)、[阶段 6](https://github.com/Nyakooo/ajax-proxy/milestone/7)、[阶段 7](https://github.com/Nyakooo/ajax-proxy/milestone/8)；已复现缺陷：[issue #56](https://github.com/Nyakooo/ajax-proxy/issues/56)。
