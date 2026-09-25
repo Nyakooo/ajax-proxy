@@ -12,6 +12,7 @@ async function main() {
     if (request.url === '/') {
       response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' })
       response.end(`<!doctype html>
+        <title>Extension Smoke Page</title>
         <iframe id="child-frame" src="/frame"></iframe>
         <button id="fetch">Fetch</button>
         <button id="xhr">XHR</button>
@@ -63,6 +64,7 @@ async function main() {
     if (request.url === '/frame') {
       response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' })
       response.end(`<!doctype html>
+        <title>Extension Smoke Frame</title>
         <button id="frame-fetch">Fetch from frame</button>
         <pre id="frame-result">ready</pre>
         <script>
@@ -131,6 +133,10 @@ async function main() {
     const secondPage = await context.newPage()
     await page.goto(`http://127.0.0.1:${port}/`)
     await secondPage.goto(`http://127.0.0.1:${port}/`)
+    const activeTab = await panel.evaluate(() =>
+      chrome.tabs.query({ active: true, lastFocusedWindow: true }).then((tabs) => tabs[0])
+    )
+    assert.equal(activeTab.title, 'Extension Smoke Page')
     await panel
       .locator('.response-container > .el-button, .response-container .table-toolbar > .el-button')
       .first()

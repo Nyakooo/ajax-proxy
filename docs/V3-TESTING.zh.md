@@ -31,13 +31,13 @@
 
 ## 当前覆盖率基线
 
-记录日期：2026-09-25。执行 `pnpm test:coverage`：9 个测试文件、51 个用例通过；workspace 全部 TypeScript 源码的当前总体覆盖率为：
+记录日期：2026-09-25。执行 `pnpm test:coverage`：10 个测试文件、52 个用例通过；workspace 全部 TypeScript 源码的当前总体覆盖率为：
 
 | 指标       |   基线 |
 | ---------- | -----: |
-| Statements | 54.86% |
-| Branches   | 51.77% |
-| Functions  | 52.38% |
-| Lines      | 56.36% |
+| Statements | 55.91% |
+| Branches   | 51.63% |
+| Functions  | 53.15% |
+| Lines      | 57.60% |
 
-本轮单元测试覆盖注入前页面包装器、扩展启停和模式更新、扩展外层页面包装器保留与同模式重新启用、扩展 storage cache 跨上下文事件 / 初始化竞态 / 初始化失败 / 配额写入失败、普通网页 localStorage 初始化 / 读写 / 清空 / 跨标签更新、V3 backup JSON 解析 / 字段路径错误 / V2 格式拒绝，以及规则 URL 匹配、Fetch Request / 响应边界、callback / Promise 处理、Fetch 与 XHR 首条命中、重定向 XHR method mismatch、同步 XHR `open()`、XHR 实例复用及函数异常回退、service worker 徽章按规则序号精确计数。proxy-lib 的 createFetch statements 覆盖率为 89.65%，createXHR 为 82.66%，redirectXHR 为 85.52%；storage 为 63.97%，V3 domain schema 为 60.86%，lib 生命周期入口为 65.67%，badge 为 72.34%。Chrome 扩展 smoke 在两个同时打开的标签页验证面板更新后 Fetch / XHR 拦截及 Fetch 重定向均能同步。浏览器 smoke 还覆盖 Request POST 参数、Response 元数据与 Content-Length 清理，以及 JSON 编辑交互，但不计入 Vitest coverage。整体覆盖率低于完整发布标准，后续将分阶段增加各包测试。该基线不代表功能质量已经满足发布标准。
+本轮单元测试覆盖注入前页面包装器、扩展启停和模式更新、扩展外层页面包装器保留与同模式重新启用、扩展 storage cache 跨上下文事件 / 初始化竞态 / 初始化失败 / 配额写入失败、普通网页 localStorage 初始化 / 读写 / 清空 / 跨标签更新、V3 backup JSON 解析 / 字段路径错误 / V2 格式拒绝、系统通知创建和点击，以及规则 URL 匹配、Fetch Request / 响应边界、callback / Promise 处理、Fetch 与 XHR 首条命中、重定向 XHR method mismatch、同步 XHR `open()`、XHR 实例复用及函数异常回退、service worker 徽章按规则序号精确计数。proxy-lib 的 createFetch statements 覆盖率为 89.65%，createXHR 为 82.66%，redirectXHR 为 85.52%；storage 为 63.97%，V3 domain schema 为 60.86%，service-worker notice 为 52.38%，lib 生命周期入口为 65.67%，badge 为 72.34%。Chrome 扩展 smoke 验证活动标签标题、多标签 / iframe 配置同步和同一持久化 profile 关闭重开后的 service worker 冷启动。浏览器 smoke 还覆盖 Request POST 参数、Response 元数据与 Content-Length 清理，以及 JSON 编辑交互，但不计入 Vitest coverage。整体覆盖率低于完整发布标准，后续将分阶段增加各包测试。该基线不代表功能质量已经满足发布标准。
