@@ -17,9 +17,9 @@ import { injectEventListener } from './event'
 import { useCurrentTitle } from './notice'
 import { initDefaultSth } from './init'
 import { chromeBadge } from './badge'
+import { chromeBadgeV3 } from './v3Hit'
 import { INIT_CURRENT_TITLE } from '../consts'
 import { isPageBadgeHit } from '../messageValidation'
-import { chromeBadgeV3 } from './badge'
 
 initStorage()
   .then(() => {

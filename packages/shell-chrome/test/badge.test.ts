@@ -35,7 +35,7 @@ vi.mock('../src/service-worker/notice', () => ({ chromeNativeNotice: vi.fn() }))
 vi.mock('@proxy/v3-domain', () => ({ validateV3Backup: mocks.validateV3Backup }))
 
 import { chromeBadge } from '../src/service-worker/badge'
-import { chromeBadgeV3 } from '../src/service-worker/badge'
+import { chromeBadgeV3 } from '../src/service-worker/v3Hit'
 
 afterEach(() => {
   vi.unstubAllGlobals()

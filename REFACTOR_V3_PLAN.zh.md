@@ -94,6 +94,7 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - [x] 设计清晰完整的项目目录和包结构，明确各包的职责与边界；`docs/V3-ARCHITECTURE-ASSESSMENT.zh.md` 记录 9 个 workspace 包的当前职责、依赖图、入口、目标边界和渐进迁移约定。
 - [ ] 按领域划分核心模块，明确请求处理、规则匹配、状态管理、存储、消息通信和 UI 之间的依赖方向。
 - [x] 将 V3 hit 消息类型和不可信页面事件校验集中到浏览器无关的 `@proxy/protocol`；proxy runtime 按共享类型发出事件，扩展宿主复用同一 guard，避免跨层重复定义 V3 消息契约。
+- [x] 将 service worker 中 V3 命中复核、串行计数和徽章渲染迁到 `v3Hit.ts`；`badge.ts` 保留 V2 统计和 V2/V3 徽章通道协调，不改变存储或计数语义。
 - [x] 将 V3 Fetch / XHR 执行器、单测和 browser smoke entry 收拢到 `proxy-lib/src/v3/` 与 `proxy-lib/test/v3/`，让新增 V3 feature 不与根目录的 V2 runtime 文件混排；不改变运行时 API。
 - [x] 将 Fetch / XHR 相同的 host `getRules` / `onMatched` 接口集中为 `V3RuntimeHostOptions`；保留现有 `V3FetchOptions` / `V3XHROptions` 类型名和模块入口，供旧调用代码平滑使用。
 - [x] 将 V3 backup schema / validation 放到 domain package 的 `backup.ts`，通过 `index.ts` 稳定导出入口；规则 matcher 从 `backup.ts` 单向依赖规则类型，避免 barrel 与匹配器互相导入。
@@ -426,4 +427,5 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - 2026-09-25：将 V3 hit event 类型与严格数据 guard 集中到 `@proxy/protocol`，proxy-lib、content script 和 service worker 共用消息契约；shell 显式声明 protocol 依赖，legacy badge event 保持原样。全量 98/98 Vitest、typecheck、package boundary、lint、format、生产 build、声明一致性检查和 Chrome Stable 扩展 Fetch/XHR smoke 通过。阶段 2 领域边界仍未整体结项。完成 78 / 183 项（42.6%）。
 - 2026-09-25：将 `JsonValue`、`V3Tag` 和 `V3Rule` 移到 `@proxy/v3-domain/rules.ts`，backup validator 和纯 matcher 改为直接依赖类型模块；package root API 与 backup 字段、规则行为保持不变。全量 98/98 Vitest、typecheck、package boundary、lint、format、domain build 与声明一致性检查通过。完成 79 / 184 项（42.9%）。
 - 2026-09-25：将 V3 Fetch / XHR runtime 共用的 host callbacks 抽为 `V3RuntimeHostOptions`，保留原有 `V3FetchOptions` / `V3XHROptions` 类型入口并从 proxy-lib 根公开稳定类型。全量 98/98 Vitest、typecheck、package boundary、lint、format、domain / proxy-lib build、声明一致性检查和 Chromium V3 Fetch/XHR runtime smoke 通过。完成 80 / 185 项（43.2%）。
+- 2026-09-25：将 service worker V3 active backup 复核、独立 counters 串行更新和 V3 badge 渲染移至 `v3Hit.ts`；V2 统计及徽章通道协调留在 `badge.ts`。定向 shell tests（7/7）、typecheck、package boundary、lint、format、完整 build 与 Chrome Stable 扩展 smoke 通过。完成 81 / 186 项（43.5%）。
 - GitHub 里程碑：[阶段 0](https://github.com/Nyakooo/ajax-proxy/milestone/1)、[阶段 1](https://github.com/Nyakooo/ajax-proxy/milestone/2)、[阶段 2](https://github.com/Nyakooo/ajax-proxy/milestone/3)、[阶段 3](https://github.com/Nyakooo/ajax-proxy/milestone/4)、[阶段 4](https://github.com/Nyakooo/ajax-proxy/milestone/5)、[阶段 5](https://github.com/Nyakooo/ajax-proxy/milestone/6)、[阶段 6](https://github.com/Nyakooo/ajax-proxy/milestone/7)、[阶段 7](https://github.com/Nyakooo/ajax-proxy/milestone/8)；已复现缺陷：[issue #56](https://github.com/Nyakooo/ajax-proxy/issues/56)。
