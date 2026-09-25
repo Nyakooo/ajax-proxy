@@ -53,22 +53,32 @@ export function createV3Fetch(fetcher: V3Fetch, options: V3FetchOptions): V3Fetc
     }
 
     let requestForResponse = originalRequest
+    let requestSnapshot: Request
     let networkResponse: Response
     const redirect = selection.rule.request
     if (redirect?.enabled) {
       try {
         requestForResponse = await redirectRequest(originalRequest, redirect.redirect.url)
+        requestSnapshot = requestForResponse.clone()
         networkResponse = await fetcher(requestForResponse)
       } catch (error) {
         // A construction/body replay failure can safely fall back before network dispatch.
         // Once the redirected request is dispatched, preserve its native network error.
         if (requestForResponse !== originalRequest) throw error
         requestForResponse = originalRequest
+        requestSnapshot = originalRequest.clone()
         networkResponse = await fetcher(input, init)
       }
     } else {
+      requestSnapshot = originalRequest.clone()
       networkResponse = await fetcher(input, init)
     }
-    return replaceFetchResponse(networkResponse, requestForResponse, selection.rule)
+    return replaceFetchResponse(
+      networkResponse,
+      requestForResponse,
+      selection.rule,
+      options.executeResponseFunction,
+      requestSnapshot
+    )
   }
 }

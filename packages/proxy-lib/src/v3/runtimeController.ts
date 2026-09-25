@@ -3,6 +3,7 @@ import type { V3Backup, V3Rule, V3ValidationIssue } from '@proxy/v3-domain'
 import { NoticeTo } from '@proxy/protocol'
 import type { V3Hit } from '@proxy/protocol'
 import { createV3Fetch } from './fetch'
+import { createV3ResponseFunctionExecutor } from './responseFunctionSandbox'
 import { createV3XHR } from './xhr'
 
 export interface V3RuntimeController {
@@ -40,6 +41,7 @@ export function createV3RuntimeController(
     getRules: () => (backup?.settings.globalEnabled ? backup.rules : []),
     onMatched: (rule: V3Rule, _index: number, request: { url: string; method: string }) =>
       notifyV3Match(host, rule, request),
+    executeResponseFunction: createV3ResponseFunctionExecutor(host),
   }
   const fetch = createV3Fetch(pageFetchAtLoad, options)
   const xhr = createV3XHR(pageXHRAtLoad, options) as unknown as typeof window.XMLHttpRequest

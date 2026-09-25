@@ -156,4 +156,92 @@ describe('createV3Fetch', () => {
 
     expect(fetcher).toHaveBeenCalledExactlyOnceWith(input, init)
   })
+
+  it('runs response functions on bounded text snapshots and applies validated changes', async () => {
+    const selectedRule = rule('function', {
+      response: { enabled: true, replace: { code: 'return { body: {} }' } },
+    })
+    const executeResponseFunction = vi.fn(async (_code, request, response) => ({
+      status: 201,
+      headers: { 'x-function': 'applied' },
+      body: { request: request.body, response: JSON.parse(response.body) },
+    }))
+    const fetcher = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      expect(init?.body).toBe('{"input":true}')
+      return new Response('{"native":true}', {
+        headers: { 'content-type': 'application/json', 'x-native': 'kept' },
+      })
+    })
+    const fetch = createV3Fetch(fetcher, {
+      getRules: () => [selectedRule],
+      executeResponseFunction,
+    })
+
+    const result = await fetch('https://example.test/api', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: '{"input":true}',
+    })
+
+    expect(executeResponseFunction).toHaveBeenCalledWith(
+      'return { body: {} }',
+      { url: 'https://example.test/api', method: 'POST', body: '{"input":true}' },
+      expect.objectContaining({ status: 200, body: '{"native":true}' })
+    )
+    expect(executeResponseFunction.mock.calls[0][2].statusText).toBe('')
+    expect(executeResponseFunction.mock.calls[0][2].headers).toEqual({
+      'content-type': 'application/json',
+      'x-native': 'kept',
+    })
+    expect(result.status).toBe(201)
+    expect(result.headers.get('x-function')).toBe('applied')
+    expect(result.headers.get('x-native')).toBe('kept')
+    expect(await result.json()).toEqual({
+      request: '{"input":true}',
+      response: { native: true },
+    })
+  })
+
+  it('fails open when a function rejects or returns an invalid result', async () => {
+    const selectedRule = rule('function', {
+      response: { enabled: true, replace: { code: 'throw new Error("no")' } },
+    })
+    const fetcher = vi.fn(
+      async () => new Response('native', { headers: { 'content-type': 'text/plain' } })
+    )
+    const rejected = createV3Fetch(fetcher, {
+      getRules: () => [selectedRule],
+      executeResponseFunction: async () => {
+        throw new Error('sandbox timeout')
+      },
+    })
+    const invalid = createV3Fetch(fetcher, {
+      getRules: () => [selectedRule],
+      executeResponseFunction: async () => ({ status: 200, unknown: true }),
+    })
+
+    expect(await (await rejected('https://example.test/api', { method: 'POST' })).text()).toBe(
+      'native'
+    )
+    expect(await (await invalid('https://example.test/api', { method: 'POST' })).text()).toBe(
+      'native'
+    )
+  })
+
+  it('does not expose binary response bodies to response functions', async () => {
+    const executeResponseFunction = vi.fn(async () => ({ body: 'changed' }))
+    const selectedRule = rule('function', {
+      response: { enabled: true, replace: { code: 'return { body: "changed" }' } },
+    })
+    const fetch = createV3Fetch(
+      async () =>
+        new Response(new Uint8Array([1, 2, 3]), { headers: { 'content-type': 'image/png' } }),
+      { getRules: () => [selectedRule], executeResponseFunction }
+    )
+
+    const result = await fetch('https://example.test/api', { method: 'POST' })
+
+    expect(executeResponseFunction).not.toHaveBeenCalled()
+    expect([...new Uint8Array(await result.arrayBuffer())]).toEqual([1, 2, 3])
+  })
 })

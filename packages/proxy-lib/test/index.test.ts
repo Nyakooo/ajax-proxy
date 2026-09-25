@@ -48,6 +48,8 @@ describe('proxy lifecycle and page wrappers', () => {
       XMLHttpRequest: ExistingXMLHttpRequest,
       fetch: pageFetch,
       dispatchEvent,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
       eval,
     })
     const { default: lib } = await import('../src/index')
@@ -113,6 +115,8 @@ describe('proxy lifecycle and page wrappers', () => {
       XMLHttpRequest: ExistingXMLHttpRequest,
       fetch: pageFetch,
       dispatchEvent: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
       eval,
     })
     const { default: lib } = await import('../src/index')
@@ -152,6 +156,8 @@ describe('proxy lifecycle and page wrappers', () => {
       XMLHttpRequest: ExistingXMLHttpRequest,
       fetch: pageFetch,
       dispatchEvent: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
       eval,
     })
     const { default: lib } = await import('../src/index')
@@ -198,6 +204,8 @@ describe('proxy lifecycle and page wrappers', () => {
       XMLHttpRequest: ExistingXMLHttpRequest,
       fetch: pageFetch,
       dispatchEvent: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
       eval,
     })
     const { default: lib } = await import('../src/index')
@@ -238,6 +246,8 @@ describe('proxy lifecycle and page wrappers', () => {
       XMLHttpRequest: ExistingXMLHttpRequest,
       fetch: originFetch,
       dispatchEvent: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
       eval,
     })
     const { default: lib } = await import('../src/index')

@@ -7,6 +7,7 @@ const staticFiles = ['manifest.json', 'icons/*'].map(file => {
     to: '.'
   }
 });
+staticFiles.push({ from: 'src/v3-sandbox/*', to: 'v3-sandbox/[name][ext]' });
 
 module.exports = {
   mode: 'production',

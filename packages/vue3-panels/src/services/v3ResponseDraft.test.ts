@@ -122,4 +122,26 @@ describe('V3 response drafts', () => {
       body: { new: true },
     })
   })
+
+  it('removes function source when switching an existing rule back to JSON mode', () => {
+    const result = buildV3ResponseRule({
+      existingRule: {
+        id: 'function-rule',
+        enabled: true,
+        match: { url: '/x' },
+        response: {
+          enabled: true,
+          replace: { code: 'return { body: true }', headers: { 'x-old': 'ignored' } },
+        },
+      },
+      bodyDraft: '{"ok":true}',
+    })
+
+    expect(result.ok).toBe(true)
+    expect(result.rule.response.replace).toEqual({
+      headers: { 'x-old': 'ignored' },
+      status: 200,
+      body: { ok: true },
+    })
+  })
 })

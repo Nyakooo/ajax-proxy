@@ -11,7 +11,11 @@ const backup = {
 
 describe('createV3RuntimeController', () => {
   it('owns V3 configuration lifecycle and retains active state on invalid updates', () => {
-    const host = { dispatchEvent: vi.fn() } as unknown as Window
+    const host = {
+      dispatchEvent: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    } as unknown as Window
     const controller = createV3RuntimeController(
       host,
       vi.fn(async () => new Response('native')) as typeof window.fetch,

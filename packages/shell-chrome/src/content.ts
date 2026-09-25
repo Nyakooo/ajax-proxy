@@ -17,6 +17,69 @@ import { onLoadForDataConversion } from "@proxy/v2-compatibility";
 import { isPageBadgeHit } from "./messageValidation";
 import { isV3Hit } from '@proxy/protocol'
 
+const V3_FUNCTION_SANDBOX_FRAME_ID = 'ajax-proxy-v3-function-sandbox'
+const V3_FUNCTION_SANDBOX_PATH = 'v3-sandbox/sandbox.html'
+let v3FunctionSandboxObserver: MutationObserver | undefined
+
+function hasEnabledV3Function(value: unknown): boolean {
+    try {
+        if (!value || typeof value !== 'object' || Array.isArray(value)) return false
+        const config = value as { settings?: { globalEnabled?: unknown }; rules?: unknown }
+        if (config.settings?.globalEnabled !== true || !Array.isArray(config.rules)) return false
+        return config.rules.some((candidate) => {
+            if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate)) return false
+            const rule = candidate as {
+                enabled?: unknown
+                response?: { enabled?: unknown; replace?: { code?: unknown } }
+            }
+            return rule.enabled === true &&
+                rule.response?.enabled === true &&
+                typeof rule.response.replace?.code === 'string' &&
+                rule.response.replace.code.trim() !== ''
+        })
+    } catch {
+        return false
+    }
+}
+
+function updateV3FunctionSandbox(value: unknown): void {
+    const shouldExist = hasEnabledV3Function(value)
+    const extensionUrl = chrome.runtime.getURL(V3_FUNCTION_SANDBOX_PATH)
+    const existing = document.getElementById(V3_FUNCTION_SANDBOX_FRAME_ID) as HTMLIFrameElement | null
+
+    if (!shouldExist) {
+        v3FunctionSandboxObserver?.disconnect()
+        v3FunctionSandboxObserver = undefined
+        existing?.remove()
+        return
+    }
+
+    const ensureFrame = () => {
+        if (!document.documentElement) return
+        const current = document.getElementById(V3_FUNCTION_SANDBOX_FRAME_ID) as HTMLIFrameElement | null
+        if (current?.getAttribute('src') === extensionUrl) return
+        current?.remove()
+        const frame = document.createElement('iframe')
+        frame.id = V3_FUNCTION_SANDBOX_FRAME_ID
+        frame.src = extensionUrl
+        frame.hidden = true
+        frame.setAttribute('aria-hidden', 'true')
+        frame.setAttribute('tabindex', '-1')
+        frame.title = 'Ajax Proxy V3 function sandbox'
+        document.documentElement.append(frame)
+    }
+
+    ensureFrame()
+    if (v3FunctionSandboxObserver) return
+    v3FunctionSandboxObserver = new MutationObserver(ensureFrame)
+    v3FunctionSandboxObserver.observe(document, {
+        childList: true,
+        subtree: true,
+        attributes: true,
+        attributeFilter: ['src', 'id'],
+    })
+}
+
 initStorage().then(async () => {
     const { GLOBAL_SWITCH, MODE, INTERCEPT_LIST, REDIRECT_LIST, V3_CONFIG } = StorageKey
     const legacyConfigKeys = [GLOBAL_SWITCH, MODE, INTERCEPT_LIST, REDIRECT_LIST]
@@ -33,7 +96,9 @@ initStorage().then(async () => {
             noticeDocumentByContent(NOTICE_KEY_REFRESH_GLOBAL_STATE, currentState)
         }
         if (changedKeys.has(V3_CONFIG)) {
-            noticeDocumentByContent(NoticeKey.V3_CONFIG, getStorage(V3_CONFIG, null))
+            const currentV3Config = getStorage(V3_CONFIG, null)
+            updateV3FunctionSandbox(currentV3Config)
+            noticeDocumentByContent(NoticeKey.V3_CONFIG, currentV3Config)
         }
     })
 
@@ -58,7 +123,9 @@ initStorage().then(async () => {
     if (getGlobalSwtich) noticeDocumentByContent(NOTICE_KEY_REFRESH_GLOBAL_STATE, getData)
     // V3 is stored independently from V2, and must also deliver a disabled
     // configuration so the MAIN-world runtime can keep it cached without mounting.
-    noticeDocumentByContent(NoticeKey.V3_CONFIG, getData[StorageKey.V3_CONFIG] ?? null)
+    const initialV3Config = getData[StorageKey.V3_CONFIG] ?? null
+    updateV3FunctionSandbox(initialV3Config)
+    noticeDocumentByContent(NoticeKey.V3_CONFIG, initialV3Config)
 
     // 长链接通信接收 service-worker -> document
     chrome.runtime.connect({ name: CONNECT_NAME });

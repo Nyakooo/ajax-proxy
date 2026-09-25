@@ -1,7 +1,8 @@
-import type { V3Rule, V3Tag } from './rules';
+import type { V3ResponseFunctionResult, V3Rule, V3Tag } from './rules';
 export declare const V3_BACKUP_FORMAT: "ajax-proxy-backup";
 export declare const V3_BACKUP_VERSION: 3;
 export declare const V3_BACKUP_MAX_BYTES: number;
+export declare const V3_FUNCTION_RESULT_MAX_BYTES: number;
 export type V3Mode = 'interceptor' | 'redirector';
 export type V3Language = 'zh-CN' | 'en';
 export interface V3Backup {
@@ -37,3 +38,11 @@ export type V3BackupParseResult = {
 export declare function validateV3Backup(value: unknown): V3BackupValidation;
 export declare function parseV3BackupJson(text: string): V3BackupParseResult;
 export declare function formatV3ValidationIssues(issues: V3ValidationIssue[]): string[];
+/** Validate and clone the JSON-only result returned by a V3 response function. */
+export declare function validateV3ResponseFunctionResult(value: unknown): {
+    ok: true;
+    data: V3ResponseFunctionResult;
+} | {
+    ok: false;
+    issue: string;
+};

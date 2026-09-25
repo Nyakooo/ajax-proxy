@@ -91,6 +91,7 @@ export function buildV3ResponseRule({
       },
     },
   }
+  delete rule.response.replace.code
 
   return { ok: true, rule }
 }

@@ -5,6 +5,7 @@ import { isV3HitNotice, NoticeFrom, NoticeKey, NoticeTo } from '@proxy/protocol'
 import RedirectRuleEditor from './components/RedirectRuleEditor.vue'
 import ResponseRuleEditor from './components/ResponseRuleEditor.vue'
 import { buildV3ResponseRule } from './services/v3ResponseDraft.js'
+import { validateFunctionResponseDraft } from './services/v3FunctionResponseDraft.js'
 import lightMark from '../../shell-chrome/icons/128.png'
 import darkMark from '../../../docs/brand/ajax-proxy-mark-dark.png'
 
@@ -258,7 +259,7 @@ function createRule() {
 }
 
 function showResponseEditor(rule = null) {
-  if (section.value !== 'intercept' || rule.response?.replace?.code) return
+  if (section.value !== 'intercept') return
   responseEditorIssue.value = ''
   editingResponseRule.value = rule
   responseEditorOpen.value = true
@@ -288,6 +289,36 @@ async function saveResponseRule(fields) {
   const current = config.value
   const id = editingResponseRule.value?.id ?? createRuleId(current.rules)
   const existing = editingResponseRule.value
+  if (fields.mode === 'function') {
+    const validation = validateFunctionResponseDraft(fields.code)
+    if (!validation.ok) {
+      responseEditorIssue.value = t(
+        validation.error === 'code-too-long'
+          ? 'responseEditor.functionCodeTooLong'
+          : 'responseEditor.functionCodeRequired'
+      )
+      return
+    }
+    const rule = {
+      ...(existing ?? {}),
+      id,
+      enabled: fields.enabled,
+      match: fields.match ?? existing?.match,
+      response: {
+        enabled: fields.responseEnabled,
+        replace: { code: validation.code },
+      },
+    }
+    const nextRules = existing
+      ? ruleOperations.replaceV3Rule(current.rules, id, rule)
+      : ruleOperations.insertV3Rule(current.rules, rule, 0)
+    if (nextRules === current.rules) {
+      responseEditorIssue.value = t('editor.duplicateRule')
+      return
+    }
+    if (await persistConfig({ ...current, rules: [...nextRules] })) responseEditorOpen.value = false
+    return
+  }
   const result = buildV3ResponseRule({
     id,
     match: fields.match,
@@ -600,16 +631,7 @@ async function moveRule(rule, targetRule) {
                   </button>
                 </template>
                 <template v-else>
-                  <button
-                    type="button"
-                    :disabled="saving || Boolean(rule.response?.replace?.code)"
-                    :title="
-                      rule.response?.replace?.code
-                        ? t('responseEditor.functionEditLater')
-                        : undefined
-                    "
-                    @click="showResponseEditor(rule)"
-                  >
+                  <button type="button" :disabled="saving" @click="showResponseEditor(rule)">
                     {{ t('editor.edit') }}
                   </button>
                   <button type="button" :disabled="saving" @click="deleteRule(rule)">

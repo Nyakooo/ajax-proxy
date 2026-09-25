@@ -8,7 +8,12 @@ const { chromium } = require('playwright')
 const extensionPath = path.resolve(__dirname, '../../packages/shell-chrome/build')
 const manifest = JSON.parse(fs.readFileSync(path.join(extensionPath, 'manifest.json'), 'utf8'))
 
-assert.equal(manifest.web_accessible_resources, undefined)
+assert.ok(
+  manifest.web_accessible_resources?.some((entry) =>
+    entry.resources.includes('v3-sandbox/sandbox.html')
+  ),
+  'only the function sandbox host page should be web accessible'
+)
 assert.ok(
   manifest.content_scripts.some(
     (script) =>
@@ -409,6 +414,52 @@ async function main() {
     )
     assert.equal(await serviceWorker.evaluate(() => chrome.action.getBadgeText({})), '+2')
 
+    const runtimeFunctionCode =
+      "return { status: 209, body: { source: 'v3-function', requestBody: request.body, response: JSON.parse(response.body) } }"
+    const functionRule = {
+      id: 'v3-function-extension-smoke',
+      enabled: true,
+      match: { url: '/api/function', method: 'POST' },
+      response: { enabled: true, replace: { code: runtimeFunctionCode } },
+    }
+    await serviceWorker.evaluate(
+      async ({ key, rule }) => {
+        const config = (await chrome.storage.local.get(key))[key]
+        await chrome.storage.local.set({ [key]: { ...config, rules: [...config.rules, rule] } })
+      },
+      { key: 'ajax-proxy:storage:v3-config', rule: functionRule }
+    )
+    await page.reload()
+    await page.waitForFunction(() =>
+      Boolean(document.getElementById('ajax-proxy-v3-function-sandbox'))
+    )
+    const functionFetchResult = await page.evaluate(async () => {
+      const response = await fetch('/api/function', { method: 'POST', body: 'function request' })
+      return { status: response.status, body: await response.json() }
+    })
+    assert.deepEqual(functionFetchResult, {
+      status: 209,
+      body: {
+        source: 'v3-function',
+        requestBody: 'function request',
+        response: { source: 'server', method: 'POST', body: 'function request' },
+      },
+    })
+    const functionXhrResult = await page.evaluate(
+      () =>
+        new Promise((resolve) => {
+          const request = new XMLHttpRequest()
+          request.onload = () =>
+            resolve({ status: request.status, body: JSON.parse(request.responseText) })
+          request.open('POST', '/api/function')
+          request.send('function request')
+        })
+    )
+    assert.deepEqual(functionXhrResult, {
+      status: 200,
+      body: { source: 'server', method: 'POST', body: 'function request' },
+    })
+
     await context.close()
     context = await chromium.launchPersistentContext(userDataDir, contextOptions)
     const restartedWorker =
@@ -428,6 +479,10 @@ async function main() {
 
     const v3Panel = await context.newPage()
     v3Panel.setDefaultTimeout(10000)
+    v3Panel.on('pageerror', (error) => console.error('V3 panel smoke page error:', error))
+    v3Panel.on('console', (message) => {
+      if (message.type() === 'error') console.error('V3 panel smoke console error:', message.text())
+    })
     let codeMirrorLoaded = false
     v3Panel.on('request', (request) => {
       if (request.resourceType() === 'script' && request.url().includes('CodeMirrorJsonEditor-')) {
@@ -445,14 +500,20 @@ async function main() {
       await englishButton.click()
       await v3Panel.reload()
     }
-    const editorChunkLoaded = v3Panel.waitForRequest(
-      (request) =>
-        request.resourceType() === 'script' && request.url().includes('CodeMirrorJsonEditor-')
-    )
     await v3Panel.getByRole('button', { name: 'Create intercept rule' }).click()
-    await editorChunkLoaded
-    assert.equal(codeMirrorLoaded, true, 'Opening a response rule editor should load CodeMirror')
     const responseEditor = v3Panel.getByRole('dialog')
+    await responseEditor
+      .locator('.cm-content[contenteditable="true"]')
+      .waitFor()
+      .catch(async (error) => {
+        console.error(
+          'V3 response editor body at CodeMirror wait failure:',
+          await v3Panel.locator('body').innerText()
+        )
+        await v3Panel.screenshot({ path: '/tmp/ajax-proxy-v3-panel-debug.png' })
+        throw error
+      })
+    assert.equal(codeMirrorLoaded, true, 'Opening a response rule editor should load CodeMirror')
     await responseEditor.locator('label.editor-field').nth(0).locator('input').fill('/api/v3-ui')
     await responseEditor.locator('.editor-field-row select').nth(1).selectOption('POST')
     await responseEditor.locator('.editor-field-row input[type="number"]').fill('203')
@@ -532,8 +593,72 @@ async function main() {
       .getByText(String(beforeV3UiHit + 1))
       .waitFor()
 
+    v3Panel.on('dialog', (dialog) => dialog.accept())
+    await v3Panel.getByRole('button', { name: 'Create intercept rule' }).click()
+    const functionEditor = v3Panel.getByRole('dialog')
+    await functionEditor.locator('label.editor-field').nth(0).locator('input').fill('/api/function')
+    await functionEditor.locator('.editor-field-row select').nth(1).selectOption('POST')
+    await functionEditor.locator('input[name="response-mode"][value="function"]').check({
+      force: true,
+    })
+    const functionCode =
+      "return { status: 209, body: { source: 'v3-function-ui', requestBody: request.body, response: JSON.parse(response.body) } }"
+    await functionEditor
+      .locator('.response-function-input .cm-content[contenteditable="true"]')
+      .fill(functionCode)
+    await functionEditor.locator('.function-enabled input').check({ force: true })
+    await functionEditor.getByRole('button', { name: 'Save' }).click()
+    await functionEditor.waitFor({ state: 'hidden' })
+
+    let functionUiRule
+    for (let attempt = 0; attempt < 40; attempt += 1) {
+      const currentConfig = await restartedWorker.evaluate(
+        async (key) => (await chrome.storage.local.get(key))[key],
+        'ajax-proxy:storage:v3-config'
+      )
+      functionUiRule = currentConfig.rules.find((rule) => rule.match.url === '/api/function')
+      if (functionUiRule) break
+      await new Promise((resolve) => setTimeout(resolve, 50))
+    }
+    assert.ok(functionUiRule, 'V3 panel should persist a function response rule')
+    assert.equal(functionUiRule.response.enabled, true)
+    assert.deepEqual(functionUiRule.response.replace, { code: functionCode })
+
+    await restartedPage.waitForFunction(() =>
+      Boolean(document.getElementById('ajax-proxy-v3-function-sandbox'))
+    )
+    const functionUiFetchResult = await restartedPage.evaluate(async () => {
+      const response = await fetch('/api/function', { method: 'POST', body: 'function request' })
+      return { status: response.status, body: await response.json() }
+    })
+    assert.deepEqual(functionUiFetchResult, {
+      status: 209,
+      body: {
+        source: 'v3-function-ui',
+        requestBody: 'function request',
+        response: { source: 'server', method: 'POST', body: 'function request' },
+      },
+    })
+    const functionUiXhrResult = await restartedPage.evaluate(
+      () =>
+        new Promise((resolve) => {
+          const request = new XMLHttpRequest()
+          request.onload = () =>
+            resolve({
+              status: request.status,
+              body: JSON.parse(request.responseText),
+            })
+          request.open('POST', '/api/function')
+          request.send('function request')
+        })
+    )
+    assert.deepEqual(functionUiXhrResult, {
+      status: 200,
+      body: { source: 'server', method: 'POST', body: 'function request' },
+    })
+
     console.log(
-      'Unpacked extension V2 and V3 panel persistence, Fetch interception, XHR, iframe, redirect, and service worker restart smoke passed'
+      'Unpacked extension V2 and V3 panel persistence, JSON and function Fetch interception, XHR, iframe, redirect, and service worker restart smoke passed'
     )
   } finally {
     await context?.close()

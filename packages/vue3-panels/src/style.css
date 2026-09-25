@@ -685,6 +685,8 @@ input {
 }
 
 .rule-editor {
+  max-height: calc(100vh - 40px);
+  overflow-y: auto;
   width: min(520px, 100%);
   padding: 22px;
   border: 1px solid var(--ap-border);
@@ -696,6 +698,36 @@ input {
 
 .response-rule-editor {
   width: min(620px, 100%);
+}
+
+.response-mode-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 18px;
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--ap-border);
+  border-radius: var(--ap-radius-control);
+  color: var(--ap-ink);
+  font-size: 12px;
+}
+
+.response-mode-picker legend {
+  padding: 0 5px;
+  color: var(--ap-muted);
+  font-weight: 600;
+}
+
+.response-mode-picker label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.response-mode-picker input,
+.function-enabled input {
+  accent-color: var(--ap-teal);
 }
 
 .editor-heading,
@@ -775,6 +807,33 @@ input {
   font-size: 12px;
   line-height: 1.5;
   tab-size: 2;
+}
+
+.response-function-input .cm-content {
+  min-height: 230px;
+}
+
+.function-response-fields small {
+  color: var(--ap-muted);
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.function-response-fields .function-safety-warning {
+  padding: 9px 10px;
+  border-left: 3px solid var(--ap-teal);
+  border-radius: 0 var(--ap-radius-control) var(--ap-radius-control) 0;
+  background: color-mix(in srgb, var(--ap-teal) 8%, var(--ap-card));
+  color: var(--ap-ink);
+}
+
+.function-response-fields .function-enabled {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
 }
 
 .response-format-action {

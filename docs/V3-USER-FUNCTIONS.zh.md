@@ -1,6 +1,6 @@
 # Ajax Proxy V3 自定义函数能力与安全边界
 
-状态：阶段 3 执行环境与风险要求已确定；sandbox 原型、面板提示和导入确认仍是后续实施项。
+状态：V3 Fetch 函数响应已接入隔离 sandbox 和编辑面板；逐次运行错误诊断 UI 与备份恢复界面的警告汇总仍待对应面板流程接入。
 
 ## 当前 V2 行为与风险
 
@@ -15,8 +15,12 @@ V2 的响应覆写和重定向函数都通过 `window.eval()` 在网页主世界
 - 函数不能读取网页 DOM / 全局对象、扩展 storage、`chrome.*` API，也不能发起网络请求或加载外部代码。函数代码按不可信输入处理，即使来自用户本人的备份也不默认执行。
 - 在扩展的 sandboxed unique-origin iframe 中运行；sandbox 内用专属 worker 执行动态代码。sandbox 仅通过结构化消息收发 action 输入与结果，不设置 `allow-same-origin`，不授予扩展 API，并以 CSP 阻止网络连接、外部脚本和页面导航。Chrome 官方文档建议用 sandbox iframe 将 `eval()` 与扩展高权限环境隔离，并通过消息交换数据。
 - 每次执行最多 5 秒；达到期限时终止 worker 并销毁 sandbox，确保同步死循环也能被中断。对单规则和全扩展的并发执行数设上限，避免函数堆积占满资源。
-- 语法错误、拒绝、超时、无效结果和 sandbox 通信失败均以可诊断错误结束并 fail-open。失败不得静默计为成功命中，也不得让下一条规则接管该请求。
+- 第一版只接入 Fetch；XHR 的同步响应读取接口不能等待 sandbox，函数规则命中 XHR 时保持浏览器原响应。
+- 只将文本、JSON、XML 和表单请求/响应快照交给函数；单侧快照最多 512 KiB，总快照最多 1 MiB。二进制、无法按 UTF-8 解码或超限的内容保持原响应。
+- 返回值只允许非空 `{ body?, status?, headers? }`，状态码为 200–599，结果最大 1 MiB。语法错误、拒绝、超时、无效结果和 sandbox 通信失败均 fail-open。失败不得静默改写响应，也不得让下一条规则接管该请求。
 - 含函数代码的规则默认关闭执行；启用前显示一次明确风险说明。导入备份时先标出带代码的规则及数量，不执行代码；用户确认恢复后仍保持这类规则停用，需单独启用。
+
+V3 domain 解析器已为每条导入函数规则返回警告路径，并停用其 response action；备份恢复界面接入后仍需汇总显示函数规则数量。该计数提示不属于当前函数执行 smoke 的已验证范围。
 
 ## 面板风险提示文案
 
@@ -26,6 +30,8 @@ V2 的响应覆写和重定向函数都通过 `window.eval()` 在网页主世界
 
 ## 验收要求
 
-验证 sandbox 无法读取页面全局变量、DOM、扩展 API 或执行网络请求；确认结构化输入 / 输出可用；覆盖同步返回、Promise 返回、异常、超时、同步死循环终止、错误结果、并发上限和 sandbox 重建；导入含代码规则时确认代码没有自动运行且规则保持停用。Chrome Stable 和 Edge Stable 都执行隔离、超时与 fail-open smoke。
+验证 sandbox 无法读取页面全局变量、DOM、扩展 API 或执行网络请求；确认结构化输入 / 输出可用；覆盖同步返回、Promise 返回、异常、超时、同步死循环终止、错误结果、并发上限和 sandbox 重建；导入含代码规则时确认代码没有自动运行且规则保持停用。扩展级 smoke 需同时验证面板保存、Fetch 动态结果、XHR 原响应和运行失败 fail-open。Chrome Stable 和 Edge Stable 都执行隔离 smoke。
+
+当前已验证：Chrome for Testing 154.0.8037.57 与 Edge Stable 153.0.4234.48 的 sandbox 隔离、网络阻断、四并发上限及 worker 超时；Chrome 和 Edge 函数 runtime smoke 验证同步死循环 fail-open 和 sandbox 重建，Chrome 扩展 smoke 还覆盖面板保存、Fetch/XHR 行为及 service worker 重启。逐次运行错误诊断 UI、备份恢复界面的数量提示仍待对应面板阶段完成。
 
 参考：[Chrome：在 sandboxed iframe 中使用 eval](https://developer.chrome.com/docs/extensions/how-to/security/sandboxing-eval)、[Chrome：content script 执行世界](https://developer.chrome.com/docs/extensions/develop/concepts/content-scripts)。

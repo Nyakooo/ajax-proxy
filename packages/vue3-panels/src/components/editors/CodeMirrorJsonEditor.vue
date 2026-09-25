@@ -1,6 +1,7 @@
 <script setup>
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { history, historyKeymap, defaultKeymap } from '@codemirror/commands'
+import { javascript } from '@codemirror/lang-javascript'
 import { json } from '@codemirror/lang-json'
 import { defaultHighlightStyle, syntaxHighlighting } from '@codemirror/language'
 import { EditorState } from '@codemirror/state'
@@ -24,6 +25,11 @@ const props = defineProps({
   describedBy: {
     type: String,
     default: undefined,
+  },
+  language: {
+    type: String,
+    default: 'json',
+    validator: (value) => ['json', 'javascript'].includes(value),
   },
 })
 
@@ -84,7 +90,7 @@ onMounted(() => {
       highlightActiveLineGutter(),
       history(),
       keymap.of([...historyKeymap, ...defaultKeymap]),
-      json(),
+      props.language === 'javascript' ? javascript() : json(),
       syntaxHighlighting(defaultHighlightStyle),
       EditorView.lineWrapping,
       EditorView.contentAttributes.of({

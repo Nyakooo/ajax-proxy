@@ -1,6 +1,12 @@
 export type JsonValue =
   string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue }
 
+export interface V3ResponseFunctionResult {
+  status?: number
+  headers?: Record<string, string>
+  body?: JsonValue
+}
+
 export interface V3Tag {
   id: string
   name: string

@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { formatV3ValidationIssues, parseV3BackupJson, selectV3Rule, validateV3Backup } from '../src'
+import {
+  formatV3ValidationIssues,
+  parseV3BackupJson,
+  selectV3Rule,
+  validateV3Backup,
+  validateV3ResponseFunctionResult,
+  V3_FUNCTION_RESULT_MAX_BYTES,
+} from '../src'
 
 const validBackup = {
   format: 'ajax-proxy-backup',
@@ -182,6 +189,31 @@ describe('V3 backup schema', () => {
     const tooMuchCode = structuredClone(validBackup)
     ;(tooMuchCode.rules[0].response.replace as Record<string, unknown>).code = 'x'.repeat(65537)
     expect(validateV3Backup(tooMuchCode)).toMatchObject({ ok: false })
+  })
+})
+
+describe('V3 response function result validation', () => {
+  it('accepts and clones a supported JSON response result', () => {
+    const result = { status: 201, headers: { 'x-proxy': 'mock' }, body: { ok: true, data: null } }
+    const validated = validateV3ResponseFunctionResult(result)
+    expect(validated).toEqual({ ok: true, data: result })
+    if (validated.ok) expect(validated.data).not.toBe(result)
+  })
+
+  it('rejects invalid, non-JSON, unsupported, and oversized results', () => {
+    expect(validateV3ResponseFunctionResult({ status: 101 })).toMatchObject({ ok: false })
+    expect(validateV3ResponseFunctionResult({ body: Number.NaN })).toMatchObject({ ok: false })
+    expect(validateV3ResponseFunctionResult({ headers: { 'bad header': 'x' } })).toMatchObject({
+      ok: false,
+    })
+    expect(validateV3ResponseFunctionResult({ body: {}, extra: true })).toMatchObject({ ok: false })
+    expect(
+      validateV3ResponseFunctionResult({ body: 'x'.repeat(V3_FUNCTION_RESULT_MAX_BYTES) })
+    ).toMatchObject({ ok: false })
+    const cyclic: Record<string, unknown> = {}
+    cyclic.self = cyclic
+    expect(validateV3ResponseFunctionResult({ body: cyclic })).toMatchObject({ ok: false })
+    expect(validateV3ResponseFunctionResult({ body: new Date() })).toMatchObject({ ok: false })
   })
 })
 

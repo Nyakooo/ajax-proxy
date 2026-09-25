@@ -14,6 +14,18 @@
   "background": {
     "service_worker": "service_worker.js"
   },
+  "content_security_policy": {
+    "sandbox": "sandbox allow-scripts; default-src 'none'; script-src 'self' 'unsafe-eval'; worker-src blob:; connect-src 'none'; img-src 'none'; style-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'"
+  },
+  "sandbox": {
+    "pages": ["v3-sandbox/sandbox.html"]
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["v3-sandbox/sandbox.html"],
+      "matches": ["<all_urls>"]
+    }
+  ],
   "content_scripts": [
     {
       "matches": ["<all_urls>"],

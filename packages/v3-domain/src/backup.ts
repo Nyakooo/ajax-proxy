@@ -1,5 +1,5 @@
 import { isValidRegexPattern } from '@proxy/protocol'
-import type { JsonValue, V3Rule, V3Tag } from './rules'
+import type { JsonValue, V3ResponseFunctionResult, V3Rule, V3Tag } from './rules'
 
 export const V3_BACKUP_FORMAT = 'ajax-proxy-backup' as const
 export const V3_BACKUP_VERSION = 3 as const
@@ -20,6 +20,7 @@ const MAX_HEADER_BYTES = 32768
 const MAX_FUNCTION_CODE_LENGTH = 65536
 const MAX_JSON_DEPTH = 64
 const MAX_JSON_NODES = 50000
+export const V3_FUNCTION_RESULT_MAX_BYTES = 1024 * 1024
 
 export type V3Mode = 'interceptor' | 'redirector'
 export type V3Language = 'zh-CN' | 'en'
@@ -49,7 +50,13 @@ export type V3BackupParseResult =
   | { ok: false; issues: V3ValidationIssue[] }
 
 function isObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
+  try {
+    if (typeof value !== 'object' || value === null || Array.isArray(value)) return false
+    const prototype = Object.getPrototypeOf(value)
+    return prototype === Object.prototype || prototype === null
+  } catch {
+    return false
+  }
 }
 
 function hasOnlyKeys(value: Record<string, unknown>, allowed: string[]) {
@@ -407,4 +414,44 @@ export function parseV3BackupJson(text: string): V3BackupParseResult {
 
 export function formatV3ValidationIssues(issues: V3ValidationIssue[]) {
   return issues.map(({ path, message }) => `${path}: ${message}`)
+}
+
+/** Validate and clone the JSON-only result returned by a V3 response function. */
+export function validateV3ResponseFunctionResult(
+  value: unknown
+): { ok: true; data: V3ResponseFunctionResult } | { ok: false; issue: string } {
+  try {
+    if (!isObject(value) || !hasOnlyKeys(value, ['status', 'headers', 'body'])) {
+      return { ok: false, issue: 'Expected a result with supported fields only.' }
+    }
+    if (Object.keys(value).filter((key) => value[key] !== undefined).length === 0) {
+      return { ok: false, issue: 'The result must change at least one field.' }
+    }
+    if (
+      value.status !== undefined &&
+      (!Number.isInteger(value.status) ||
+        (value.status as number) < 200 ||
+        (value.status as number) > 599)
+    ) {
+      return { ok: false, issue: 'Status must be an integer from 200 to 599.' }
+    }
+    if (value.body !== undefined && !isJsonValue(value.body)) {
+      return { ok: false, issue: 'Body must contain only JSON values.' }
+    }
+    if (value.headers !== undefined) {
+      const issues: V3ValidationIssue[] = []
+      validateHeaders(value.headers, 'headers', issues)
+      if (issues.length > 0) return { ok: false, issue: issues[0].message }
+    }
+    const serialized = JSON.stringify(value)
+    if (!serialized || new TextEncoder().encode(serialized).length > V3_FUNCTION_RESULT_MAX_BYTES) {
+      return {
+        ok: false,
+        issue: `Result must not exceed ${V3_FUNCTION_RESULT_MAX_BYTES} UTF-8 bytes.`,
+      }
+    }
+    return { ok: true, data: JSON.parse(serialized) }
+  } catch {
+    return { ok: false, issue: 'Result must be safely JSON-serializable.' }
+  }
 }
