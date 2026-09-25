@@ -48,7 +48,10 @@ describe('createV3Fetch', () => {
     })
 
     expect(fetcher).toHaveBeenCalledOnce()
-    expect(onMatched).toHaveBeenCalledExactlyOnceWith(selectedRule, 0)
+    expect(onMatched).toHaveBeenCalledExactlyOnceWith(selectedRule, 0, {
+      url: 'https://example.test/api/items',
+      method: 'POST',
+    })
     expect(result.status).toBe(201)
     expect(result.headers.get('x-v3')).toBe('applied')
     expect(result.headers.get('x-network')).toBe('kept')

@@ -43,10 +43,11 @@ describe('proxy lifecycle and page wrappers', () => {
       dispatchedRequests.push({ url: request.url, body: await request.clone().text() })
       return new Response(JSON.stringify({ url: request.url, body: await request.text() }))
     })
+    const dispatchEvent = vi.fn()
     vi.stubGlobal('window', {
       XMLHttpRequest: ExistingXMLHttpRequest,
       fetch: pageFetch,
-      dispatchEvent: vi.fn(),
+      dispatchEvent,
       eval,
     })
     const { default: lib } = await import('../src/index')
@@ -86,8 +87,23 @@ describe('proxy lifecycle and page wrappers', () => {
     expect(xhr.openedUrls).toEqual(['https://mock.test/target'])
     expect(xhr.status).toBe(201)
     expect(xhr.responseText).toBe('{"mocked":true}')
-    // V3 hits are not sent through the legacy V2 badge protocol.
-    expect(window.dispatchEvent).not.toHaveBeenCalled()
+    // V3 hits use their dedicated diagnostics protocol, never the legacy V2 badge event.
+    expect(dispatchEvent.mock.calls.map(([event]) => (event as CustomEvent).detail)).toEqual([
+      {
+        kind: 'v3-hit',
+        rule_id: 'combined',
+        match_url: '/api',
+        method: 'POST',
+        url: 'https://example.test/api',
+      },
+      {
+        kind: 'v3-hit',
+        rule_id: 'combined',
+        match_url: '/api',
+        method: 'POST',
+        url: 'https://example.test/api',
+      },
+    ])
   })
 
   it('keeps an invalid V3 update from replacing an active configuration', async () => {

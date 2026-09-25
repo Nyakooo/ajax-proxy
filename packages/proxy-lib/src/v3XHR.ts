@@ -3,7 +3,7 @@ import type { V3Rule } from '@proxy/v3-domain'
 
 export interface V3XHROptions {
   getRules: () => readonly V3Rule[]
-  onMatched?: (rule: V3Rule, index: number) => void
+  onMatched?: (rule: V3Rule, index: number, request: { url: string; method: string }) => void
 }
 
 export type V3XHRConstructor = new () => XMLHttpRequest
@@ -145,7 +145,7 @@ export function createV3XHR(NativeXHR: V3XHRConstructor, options: V3XHROptions):
                 if (match) {
                   selected = match.rule
                   try {
-                    options.onMatched?.(match.rule, match.index)
+                    options.onMatched?.(match.rule, match.index, match.originalRequest)
                   } catch {
                     // Metrics/notification failures must not affect the request.
                   }

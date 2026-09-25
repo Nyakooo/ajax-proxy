@@ -50,7 +50,10 @@ function rule(id: string, options: Partial<V3Rule> = {}): V3Rule {
   }
 }
 
-function makeXHR(rules: readonly V3Rule[], onMatched?: (rule: V3Rule, index: number) => void) {
+function makeXHR(
+  rules: readonly V3Rule[],
+  onMatched?: (rule: V3Rule, index: number, request: { url: string; method: string }) => void
+) {
   const Constructor = createV3XHR(FakeXHR as unknown as V3XHRConstructor, {
     getRules: () => rules,
     onMatched,
@@ -86,7 +89,10 @@ describe('createV3XHR', () => {
     xhr.complete('native response')
 
     expect(xhr.openArgs).toEqual(['POST', 'https://target.test/api', true, 'alice', 'secret'])
-    expect(onMatched).toHaveBeenCalledExactlyOnceWith(selectedRule, 0)
+    expect(onMatched).toHaveBeenCalledExactlyOnceWith(selectedRule, 0, {
+      url: 'https://example.test/api/items',
+      method: 'POST',
+    })
     expect(xhr.status).toBe(201)
     expect(xhr.responseText).toBe('{"from":"first"}')
     // Native events and response headers are intentionally not synthesized or rewritten.

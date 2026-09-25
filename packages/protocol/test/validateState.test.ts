@@ -11,6 +11,8 @@ describe('V3 protocol keys', () => {
   it('adds separate V3 keys and preserves the V2 keys', () => {
     expect(StorageKey.V3_CONFIG).toBe('ajax-proxy:storage:v3-config')
     expect(NoticeKey.V3_CONFIG).toBe('ajax-proxy:notice:v3-config')
+    expect(StorageKey.V3_HITS).toBe('ajax-proxy:storage:v3-hits')
+    expect(NoticeKey.V3_HIT).toBe('ajax-proxy:notice:v3-hit')
     expect(StorageKey.REDIRECT_LIST).toBe('ajax-proxy:storage:redirect-list')
     expect(NoticeKey.REDIRECT_LIST).toBe('ajax-proxy:notice:redirect-list')
   })

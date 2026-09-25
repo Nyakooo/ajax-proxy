@@ -13,7 +13,9 @@ export declare enum StorageKey {
     /**标签 */
     TAGS = "ajax-proxy:storage:tags",
     /**V3 composite rule configuration */
-    V3_CONFIG = "ajax-proxy:storage:v3-config"
+    V3_CONFIG = "ajax-proxy:storage:v3-config",
+    /**V3 rule hit counters */
+    V3_HITS = "ajax-proxy:storage:v3-hits"
 }
 /**通知-去向 */
 export declare enum NoticeTo {
@@ -52,5 +54,7 @@ export declare enum NoticeKey {
     /**模式 */
     MODE = "ajax-proxy:notice:mode",
     /**V3 configuration refresh from content to document */
-    V3_CONFIG = "ajax-proxy:notice:v3-config"
+    V3_CONFIG = "ajax-proxy:notice:v3-config",
+    /**V3 rule hit event */
+    V3_HIT = "ajax-proxy:notice:v3-hit"
 }

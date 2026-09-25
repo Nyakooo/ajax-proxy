@@ -5,7 +5,7 @@ export type V3Fetch = (input: RequestInfo | URL, init?: RequestInit) => Promise<
 
 export interface V3FetchOptions {
   getRules: () => readonly V3Rule[]
-  onMatched?: (rule: V3Rule, index: number) => void
+  onMatched?: (rule: V3Rule, index: number, request: { url: string; method: string }) => void
 }
 
 function responseMetadataProxy(response: Response, original: Response): Response {
@@ -96,7 +96,7 @@ export function createV3Fetch(fetcher: V3Fetch, options: V3FetchOptions): V3Fetc
     if (!selection) return fetcher(input, init)
 
     try {
-      options.onMatched?.(selection.rule, selection.index)
+      options.onMatched?.(selection.rule, selection.index, selection.originalRequest)
     } catch {
       // Statistics and notifications must not change the network result.
     }

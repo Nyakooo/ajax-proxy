@@ -332,6 +332,9 @@ importers:
       '@proxy/v2-compatibility':
         specifier: workspace:^1.0.0
         version: link:../v2-compatibility
+      '@proxy/v3-domain':
+        specifier: workspace:^1.0.0
+        version: link:../v3-domain
     devDependencies:
       '@types/chrome':
         specifier: ^0.0.197

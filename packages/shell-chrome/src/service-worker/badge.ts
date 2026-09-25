@@ -2,7 +2,97 @@
 // 和徽章相关的函数
 
 import { NoticeKey, StorageKey, setStorage, getRealStorage, noticePanelsByServiceWorker } from "@proxy/shared-utils";
+import { validateV3Backup } from "@proxy/v3-domain";
+import type { V3Backup } from "@proxy/v3-domain";
 import { chromeNativeNotice } from "./notice";
+
+type V3Hit = { kind: 'v3-hit'; rule_id: string; match_url: string; method: string; url?: string }
+type V3HitCounters = Record<string, number>
+
+let v3HitQueue = Promise.resolve()
+
+function isCounterRecord(value: unknown): value is V3HitCounters {
+    if (typeof value !== 'object' || value === null || Array.isArray(value)) return false
+    try {
+        return Object.getPrototypeOf(value) === Object.prototype || Object.getPrototypeOf(value) === null
+    } catch {
+        return false
+    }
+}
+
+function sanitizeCounters(value: unknown, backup: V3Backup): V3HitCounters {
+    if (!isCounterRecord(value)) return {}
+    const knownIds = new Set(backup.rules.map((rule) => rule.id))
+    return Object.fromEntries(Object.entries(value).filter(([id, count]) =>
+        knownIds.has(id) && Number.isSafeInteger(count) && count >= 0
+    ))
+}
+
+function getValidV3Backup(value: unknown): V3Backup | undefined {
+    const result = validateV3Backup(value)
+    return result.ok ? result.data : undefined
+}
+
+async function readV3State() {
+    const rawBackup = await getRealStorage(StorageKey.V3_CONFIG, null)
+    if (rawBackup === null) return { status: 'absent' as const }
+    const backup = getValidV3Backup(rawBackup)
+    if (!backup) return { status: 'invalid' as const }
+    if (!backup.settings.globalEnabled) return { status: 'disabled' as const }
+    const counters = await getRealStorage(StorageKey.V3_HITS, {})
+    return { status: 'active' as const, backup, counters }
+}
+
+function renderV3Badge(counters: unknown, backup: V3Backup) {
+    const knownIds = new Set(backup.rules.map((rule) => rule.id))
+    let total = 0
+    if (isCounterRecord(counters)) {
+        for (const [id, count] of Object.entries(counters)) {
+            if (knownIds.has(id) && Number.isSafeInteger(count) && count >= 0) total += count
+        }
+    }
+    chrome.action.setBadgeBackgroundColor({ color: '#006d75' })
+    chrome.action.setBadgeText({ text: total ? `+${total}` : '' })
+}
+
+async function renderActiveV3Badge() {
+    const state = await readV3State()
+    if (state.status === 'active') renderV3Badge(state.counters, state.backup)
+    else if (state.status !== 'absent') chrome.action.setBadgeText({ text: '' })
+    return state.status !== 'absent'
+}
+
+/** Increment and render an isolated V3 counter after validating it against active config. */
+export function chromeBadgeV3(hit: V3Hit) {
+    v3HitQueue = v3HitQueue
+        .then(async () => {
+            const state = await readV3State()
+            if (state.status !== 'active') return
+            const rule = state.backup.rules.find((candidate) => candidate.id === hit.rule_id)
+            if (
+                !rule ||
+                !rule.enabled ||
+                (!rule.request?.enabled && !rule.response?.enabled) ||
+                rule.match.url !== hit.match_url
+            ) return
+            if (rule.match.method && rule.match.method.toUpperCase() !== 'ANY' &&
+                rule.match.method.toUpperCase() !== hit.method) return
+
+            const counters = sanitizeCounters(state.counters, state.backup)
+            const count = counters[hit.rule_id] ?? 0
+            if (count < Number.MAX_SAFE_INTEGER) counters[hit.rule_id] = count + 1
+            await setStorage(StorageKey.V3_HITS, counters)
+            renderV3Badge(counters, state.backup)
+            noticePanelsByServiceWorker(NoticeKey.V3_HIT, {
+                rule_id: hit.rule_id,
+                count: counters[hit.rule_id],
+            })
+        })
+        .catch((error) => {
+            console.error('[AjaxProxy] Could not update V3 hit counter', error)
+        })
+    return v3HitQueue
+}
 
 // 同步 命中率
 async function syncRoutesAsHit(routes, match_url, method, rule_index?: number) {
@@ -65,10 +155,12 @@ type BadgeHit = {
 }
 // badge 右下角小徽章设置
 export async function chromeBadge(data?: BadgeHit) {
+    if (await renderActiveV3Badge()) return
     const { match_url, method } = data || {}
     const rule_index = data ? Reflect.get(data, 'rule_index') as number | undefined : undefined
     const globalSwitchOn = await getRealStorage(StorageKey.GLOBAL_SWITCH, false);
     if (!globalSwitchOn) {
+        if (await renderActiveV3Badge()) return
         chrome.action.setBadgeText({ text: "" });
         return;
     }
@@ -76,6 +168,7 @@ export async function chromeBadge(data?: BadgeHit) {
     const mode = await getRealStorage(StorageKey.MODE, 'interceptor');
     // 如果是重定向
     if (mode === "redirector") {
+        if (await renderActiveV3Badge()) return
         chrome.action.setBadgeBackgroundColor({ color: "#006d75" });
         chrome.action.setBadgeText({ text: "R" });
         return;
@@ -85,16 +178,19 @@ export async function chromeBadge(data?: BadgeHit) {
     const interceptList = await getRealStorage(StorageKey.INTERCEPT_LIST, []);
     // 如果没有需要拦截的数据时，设置默认值
     if (interceptList.length === 0) {
+        if (await renderActiveV3Badge()) return
         chrome.action.setBadgeText({ text: "" });
         return;
     }
 
+    if (await renderActiveV3Badge()) return
     const counter = await syncRoutesAsHit(interceptList, match_url, method, rule_index)
     // 当计算完成，且 参数存在时证明 hit 属性已经做过叠加，需要通知到 panels变更列表 hit 数据
     if (match_url && method) {
         // 通知 panels 当前 match_url & method 的条件下已经命中，hit 属性已经变更 需要更新table 列表
         noticePanelsByServiceWorker(NoticeKey.HIT_RATE)
     }
+    if (await renderActiveV3Badge()) return
     if (counter) chrome.action.setBadgeText({ text: `+${counter}` });
     else chrome.action.setBadgeText({ text: "" });
 }

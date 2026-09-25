@@ -18,6 +18,7 @@ import { createV3Fetch } from './v3Fetch'
 import { createV3XHR } from './v3XHR'
 import { validateV3Backup } from '@proxy/v3-domain'
 import type { V3Backup } from '@proxy/v3-domain'
+import { NoticeTo } from '@proxy/protocol'
 import { warn } from './common'
 import {
   isValidGlobalState,
@@ -43,11 +44,31 @@ const pageFetchAtLoad = window.fetch
 const pageXHRAtLoad = window.XMLHttpRequest
 let v3Backup: V3Backup | null = null
 
+function notifyV3Match(rule: V3Backup['rules'][number], request: { url: string; method: string }) {
+  try {
+    window.dispatchEvent(
+      new CustomEvent(NoticeTo.CONTENT, {
+        detail: {
+          kind: 'v3-hit',
+          rule_id: rule.id,
+          match_url: rule.match.url,
+          method: request.method,
+          url: request.url,
+        },
+      })
+    )
+  } catch {
+    // Diagnostics must not affect the request path.
+  }
+}
+
 const V3Fetch = createV3Fetch(pageFetchAtLoad, {
   getRules: () => (v3Backup?.settings.globalEnabled ? v3Backup.rules : []),
+  onMatched: (rule, _index, request) => notifyV3Match(rule, request),
 })
 const V3XHR = createV3XHR(pageXHRAtLoad, {
   getRules: () => (v3Backup?.settings.globalEnabled ? v3Backup.rules : []),
+  onMatched: (rule, _index, request) => notifyV3Match(rule, request),
 }) as unknown as typeof window.XMLHttpRequest
 
 function isProxyFetch(fetch: typeof window.fetch) {
@@ -190,7 +211,6 @@ export {
   isValidMode,
   isValidRedirectors,
 } from './validateState'
-
 export type {
   IFilterType,
   IGlobalState,

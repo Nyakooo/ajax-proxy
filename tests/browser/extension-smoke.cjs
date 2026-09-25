@@ -357,6 +357,10 @@ async function main() {
       },
     })
     await page.reload()
+    const legacyHitState = await serviceWorker.evaluate(
+      async (key) => (await chrome.storage.local.get(key))[key],
+      'ajax-proxy:storage:intercept-list'
+    )
     assert.equal(await page.evaluate(() => XMLHttpRequest.UNSENT), 0)
     const v3FetchResult = await page.evaluate(async () => {
       const response = await fetch('/api/echo', { method: 'POST', body: 'v3 fetch' })
@@ -386,6 +390,24 @@ async function main() {
       url: `http://127.0.0.1:${port}/mock/echo`,
       body: v3ResponseBody,
     })
+    let v3Counters = {}
+    for (let attempt = 0; attempt < 40; attempt += 1) {
+      v3Counters = await serviceWorker.evaluate(
+        async (key) => (await chrome.storage.local.get(key))[key] || {},
+        'ajax-proxy:storage:v3-hits'
+      )
+      if (v3Counters['v3-extension-smoke'] === 2) break
+      await new Promise((resolve) => setTimeout(resolve, 50))
+    }
+    assert.deepEqual(v3Counters, { 'v3-extension-smoke': 2 })
+    assert.deepEqual(
+      await serviceWorker.evaluate(
+        async (key) => (await chrome.storage.local.get(key))[key],
+        'ajax-proxy:storage:intercept-list'
+      ),
+      legacyHitState
+    )
+    assert.equal(await serviceWorker.evaluate(() => chrome.action.getBadgeText({})), '+2')
 
     await context.close()
     context = await chromium.launchPersistentContext(userDataDir, contextOptions)

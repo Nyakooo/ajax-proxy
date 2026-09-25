@@ -4,6 +4,7 @@ import {
   NoticeFrom,
   NoticeTo,
   NoticeKey,
+  StorageKey,
   initStorage,
   noticePanelsByServiceWorker,
   isMessageRecord,
@@ -16,10 +17,16 @@ import { useCurrentTitle } from './notice'
 import { initDefaultSth } from './init'
 import { chromeBadge } from './badge'
 import { INIT_CURRENT_TITLE } from '../consts'
-import { isPageBadgeHit } from '../messageValidation'
+import { isPageBadgeHit, isPageV3Hit } from '../messageValidation'
+import { chromeBadgeV3 } from './badge'
 
 initStorage()
   .then(() => {
+    chrome.storage.onChanged.addListener((changes, areaName) => {
+      if (areaName === 'local' && (changes[StorageKey.V3_CONFIG] || changes[StorageKey.V3_HITS])) {
+        chromeBadge()
+      }
+    })
     // 接收content 和 panels 传来的信息
     chrome.runtime.onMessage.addListener((msg, sender) => {
       if (
@@ -41,6 +48,7 @@ initStorage()
           return
         }
         if (key === NoticeKey.BADGE_STATUS && isPageBadgeHit(value)) chromeBadge(value)
+        if (key === NoticeKey.V3_HIT && isPageV3Hit(value)) chromeBadgeV3(value)
         return
       }
 
