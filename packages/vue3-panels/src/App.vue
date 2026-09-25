@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, defineAsyncComponent, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { isV3FunctionError, isV3HitNotice, NoticeFrom, NoticeKey, NoticeTo } from '@proxy/protocol'
 import RedirectRuleEditor from './components/RedirectRuleEditor.vue'
@@ -8,6 +8,10 @@ import { buildV3ResponseRule } from './services/v3ResponseDraft.js'
 import { validateFunctionResponseDraft } from './services/v3FunctionResponseDraft.js'
 import lightMark from '../../shell-chrome/icons/128.png'
 import darkMark from '../../../docs/brand/ajax-proxy-mark-dark.png'
+
+const BackupRestoreDialog = defineAsyncComponent(
+  () => import('./components/BackupRestoreDialog.vue')
+)
 
 const darkMode = ref(false)
 const section = ref('intercept')
@@ -27,6 +31,7 @@ const editorIssue = ref('')
 const responseEditorOpen = ref(false)
 const editingResponseRule = ref(null)
 const responseEditorIssue = ref('')
+const backupDialogOpen = ref(false)
 const config = ref(createEmptyConfig())
 const hitCounters = ref({})
 const recentMatch = ref(null)
@@ -258,6 +263,14 @@ async function persistConfig(nextConfig) {
   }
   config.value = nextConfig
   return true
+}
+
+async function restoreBackup(backup) {
+  if (!(await persistConfig(backup))) return
+  recentMatch.value = null
+  recentFunctionErrors.value = []
+  locale.value = backup.settings.language
+  backupDialogOpen.value = false
 }
 
 function showEditor(rule = null) {
@@ -556,7 +569,13 @@ async function moveRule(rule, targetRule) {
             <AppButton :label="t('rules.filter')" severity="secondary" outlined />
             <div class="toolbar-spacer" />
             <span class="result-count">{{ loading ? t('editor.loading') : resultCount }}</span>
-            <AppButton :label="t('rules.backup')" severity="secondary" text />
+            <AppButton
+              :label="t('rules.backup')"
+              severity="secondary"
+              text
+              :disabled="loading || saving"
+              @click="backupDialogOpen = true"
+            />
           </div>
 
           <div v-if="operationError" class="operation-alert" role="alert">
@@ -732,6 +751,14 @@ async function moveRule(rule, targetRule) {
       :issue="responseEditorIssue"
       @close="responseEditorOpen = false"
       @save="saveResponseRule"
+    />
+    <BackupRestoreDialog
+      :open="backupDialogOpen"
+      :backup="config"
+      :saving="saving"
+      :issue="operationError"
+      @close="backupDialogOpen = false"
+      @restore="restoreBackup"
     />
   </div>
 </template>

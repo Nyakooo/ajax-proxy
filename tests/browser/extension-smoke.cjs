@@ -146,6 +146,7 @@ async function main() {
     channel: process.env.BROWSER_EXECUTABLE_PATH ? undefined : 'chromium',
     executablePath: process.env.BROWSER_EXECUTABLE_PATH,
     headless: process.env.EXTENSION_SMOKE_HEADLESS !== '0',
+    acceptDownloads: true,
     args: [`--disable-extensions-except=${extensionPath}`, `--load-extension=${extensionPath}`],
   }
   let context
@@ -653,6 +654,79 @@ async function main() {
         })
     )
     assert.deepEqual(functionUiXhrResult, {
+      status: 200,
+      body: { source: 'server', method: 'POST', body: 'function request' },
+    })
+
+    const backupConfigBefore = await restartedWorker.evaluate(
+      async (key) => (await chrome.storage.local.get(key))[key],
+      'ajax-proxy:storage:v3-config'
+    )
+    await v3Panel.getByRole('button', { name: 'Backup / Restore' }).click()
+    const backupDialog = v3Panel.getByRole('dialog')
+    const [backupDownload] = await Promise.all([
+      v3Panel.waitForEvent('download'),
+      backupDialog.getByRole('button', { name: 'Export JSON backup' }).click(),
+    ])
+    const exportedBackup = JSON.parse(fs.readFileSync(await backupDownload.path(), 'utf8'))
+    assert.equal(exportedBackup.format, 'ajax-proxy-backup')
+    assert.equal(exportedBackup.formatVersion, 3)
+    assert.deepEqual(exportedBackup.rules, backupConfigBefore.rules)
+    assert.equal('hitCounters' in exportedBackup, false)
+
+    const backupInput = backupDialog.getByTestId('backup-json-input')
+    await backupInput.fill('{ invalid json')
+    await backupDialog.getByRole('button', { name: 'Validate backup' }).click()
+    await backupDialog.getByRole('alert').waitFor()
+    assert.deepEqual(
+      await restartedWorker.evaluate(
+        async (key) => (await chrome.storage.local.get(key))[key],
+        'ajax-proxy:storage:v3-config'
+      ),
+      backupConfigBefore,
+      'invalid backup JSON must not change the active V3 configuration'
+    )
+
+    await backupInput.fill(JSON.stringify(exportedBackup))
+    await backupDialog.getByRole('button', { name: 'Validate backup' }).click()
+    const functionRuleCount = exportedBackup.rules.filter(
+      (rule) => typeof rule.response?.replace?.code === 'string'
+    ).length
+    await backupDialog
+      .getByText(`Found ${functionRuleCount} function response rules`, { exact: true })
+      .waitFor()
+    await backupDialog.getByRole('button', { name: 'Confirm restore' }).click()
+    await backupDialog.waitFor({ state: 'hidden' })
+
+    let restoredBackup
+    for (let attempt = 0; attempt < 40; attempt += 1) {
+      restoredBackup = await restartedWorker.evaluate(
+        async (key) => (await chrome.storage.local.get(key))[key],
+        'ajax-proxy:storage:v3-config'
+      )
+      if (
+        restoredBackup.rules.every(
+          (rule) => !rule.response?.replace?.code || !rule.response.enabled
+        )
+      )
+        break
+      await new Promise((resolve) => setTimeout(resolve, 50))
+    }
+    assert.ok(
+      restoredBackup.rules
+        .filter((rule) => rule.response?.replace?.code)
+        .every((rule) => rule.response.enabled === false),
+      'imported function response rules must remain disabled'
+    )
+    await restartedPage.reload()
+    await restartedPage.waitForFunction(
+      () => !document.getElementById('ajax-proxy-v3-function-sandbox')
+    )
+    const restoredFunctionResult = await restartedPage.evaluate(async () => {
+      const response = await fetch('/api/function', { method: 'POST', body: 'function request' })
+      return { status: response.status, body: await response.json() }
+    })
+    assert.deepEqual(restoredFunctionResult, {
       status: 200,
       body: { source: 'server', method: 'POST', body: 'function request' },
     })
