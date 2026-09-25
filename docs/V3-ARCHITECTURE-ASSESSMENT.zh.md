@@ -1,10 +1,10 @@
 # V3 目录结构与包边界评估
 
-盘点日期：2026-09-25。本文记录阶段 0 的架构评估与迁移建议，并在阶段 2 补充当前包依赖和运行链路；V3 明确不迁移 V2 配置，因此历史格式转换实现不应自然地延续为 V3 的核心依赖。
+盘点日期：2026-09-25。本文记录当前包职责、稳定依赖方向和逐步迁移目标；V3 明确不迁移 V2 配置，因此历史格式转换实现不应自然地延续为 V3 的核心依赖。架构决策已经明确，现存 Vue 2 面板与 V2 runtime 按 feature 逐步迁移，不把“目标结构”误写成已经落地的实现。
 
 ## 当前包与依赖方向
 
-以下箭头表示左侧包依赖右侧包，依据各包 `package.json` 的 workspace dependencies。图含当前全部 9 个 workspace 包；外部 npm dependencies 不展开。`@proxy/v3-domain` 提供 schema 校验和纯规则选择；proxy-lib 有组合 Fetch / XHR 原型依赖该包，但尚未替换扩展正在使用的 V2 runtime。
+以下箭头表示左侧包依赖右侧包，依据各包 `package.json` 的 workspace dependencies。图含当前全部 9 个 workspace 包；外部 npm dependencies 不展开。`@proxy/v3-domain` 提供 schema 校验和纯规则选择；`@proxy/lib` 提供 Fetch / XHR runtime，`@proxy/shell-chrome` 将 V3 配置接入该 runtime 并独立路由命中统计。面板仍在使用 V2 规则 UI。
 
 ```mermaid
 flowchart LR
@@ -24,6 +24,7 @@ flowchart LR
   compat --> proxy
   domain --> protocol
   shell --> proxy
+  shell --> domain
   shell --> shared
   shell --> compat
   panels --> shared
@@ -32,9 +33,9 @@ flowchart LR
   panels --> json
 ```
 
-`@proxy/protocol` 是不依赖其他 workspace 包的协议基础包，导出消息和 storage key 常量；shared-utils 重导出这些常量，proxy-lib 依赖它发出命中事件。`@proxy/v2-compatibility` 依赖 `@proxy/lib` 的公开类型入口；shell 和 panels 保留现存 V2 路径，panels 另行使用 shared-utils 与两个 Vue 2 编辑器包。
+`@proxy/protocol` 是不依赖其他 workspace 包的协议基础包，导出消息和 storage key 常量；shared-utils 重导出这些常量，proxy-lib 用它发送页面命中事件。`@proxy/v3-domain` 只定义 V3 backup / rules 和纯匹配逻辑；`@proxy/lib` 使用它在 MAIN world 运行组合式 Fetch / XHR。shell-chrome 负责读取持久化配置、向页面 runtime 同步配置并校验、累计独立 V3 hit。`@proxy/v2-compatibility` 依赖 `@proxy/lib` 的公开类型入口；shell 和 panels 保留现存 V2 路径，panels 另行使用 shared-utils 与两个 Vue 2 编辑器包。
 
-目标依赖方向建议如下。箭头表示左侧模块依赖右侧模块；按 `V3 domain / platform ports → request engine / adapters / UI → extension host` 拓扑排序，无循环。此图是迁移目标，需在边界落地后通过 clean build 和 package-only build 验证。
+最终拆分后的依赖方向如下。箭头表示左侧模块依赖右侧模块；按 `V3 domain / protocol → request engine / storage and browser adapters → UI and extension host` 拓扑排序，无循环。当前主 world `@proxy/lib` 是纯运行时包；service worker / content script 是 Chrome API 与 storage adapter；未来 V3 面板仅通过领域和宿主 adapter 消费状态，不允许 UI 或 Chrome API 反向进入请求核心。现存 V2 页面逐步迁移，不能在 V3 入口重新引入 converter。每次拆分继续用 clean build 与 package-boundary check 验证。
 
 ```mermaid
 flowchart TD
@@ -58,12 +59,12 @@ flowchart TD
 | 当前包 / 区域                                               | 当前职责                                                                                                               | V3 建议                                                                                                           |
 | ----------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
 | `protocol`                                                  | 现为 `@proxy/protocol`，只导出浏览器无关的消息 / storage key 常量                                                      | 保持为稳定叶子包；禁止依赖 Vue、Chrome API、storage 实现和业务包                                                  |
-| `shared-utils`                                              | Chrome 环境判断、storage、消息通知、badge 操作混在一个包                                                               | 按平台适配与存储职责继续拆分；核心规则不得依赖 UI 或 Chrome API                                                   |
-| `proxy-lib`                                                 | Fetch / XHR 拦截、重定向、函数执行、规则匹配；另有尚未接入扩展入口的 V3 Fetch / XHR 组合原型                           | 按 rule domain、请求执行策略和浏览器拦截 adapter 拆内部 feature；只有定义和 adapter 接口通过公共入口暴露          |
+| `shared-utils`                                              | Chrome 环境判断、storage、消息通知、badge 操作混在一个包                                                               | 继续作为扩展宿主 adapter；按平台适配与存储职责拆分前保持公开 API 稳定，核心规则不得依赖 UI 或 Chrome API          |
+| `proxy-lib`                                                 | 现有 V2 Fetch / XHR 与 V3 组合 Fetch / XHR runtime 共用包，但 V3 selector / schema 在 v3-domain                        | 逐步按 rule domain、Fetch / XHR 执行 feature 拆内部目录；host 通过窄状态和事件接口接入，只有稳定 API 出公共入口   |
 | `v3-domain`                                                 | `@proxy/v3-domain`，纯 V3 backup envelope / 规则 schema、JSON 校验、V2 格式识别和 `selectV3Rule()` 纯选择器            | 扩展为浏览器无关的 V3 规则领域；不依赖扩展宿主、Vue 或 V2 转换                                                    |
 | `v2-compatibility`                                          | V2 字段与现有配置结构转换，类型依赖 proxy-lib；当前由 shell 启动和面板导入路径运行时调用                               | 该包是 V2 现存路径的真实依赖；迁移期间隔离其职责，V3 用版本识别 / 拒绝提示替代，不把转换能力带入新 schema         |
-| `shell-chrome`                                              | content script、document script、service worker、manifest 和 Webpack 打包                                              | 保留为 Chrome/Edge MV3 平台入口；service worker、content script、消息处理按运行上下文明确拆分                     |
-| `vue-panels`                                                | Vue 2 UI、store、通知、语言及规则业务视图                                                                              | 迁移到 Vue 3 后按 feature 拆分规则编辑、设置、导入导出和反馈；把 Chrome storage 调用改走 adapter                  |
+| `shell-chrome`                                              | content script、document script、service worker、manifest 和 Webpack 打包；负责 V2 初始化及 V3 config/hit adapter      | 保留为 Chrome/Edge MV3 平台入口；service worker、content script、消息处理按运行上下文明确拆分                     |
+| `vue-panels`                                                | Vue 2 的 V2 UI、store、通知、语言及规则业务视图                                                                        | 迁移到 Vue 3 后按 feature 拆分规则编辑、设置、导入导出和反馈；V3 配置和命中状态经 host adapter 读写               |
 | `code-editor` / `json-editor`                               | 两个独立 Vue 2 组件包，分别打包并由 panels 静态导入                                                                    | 先做编辑器 API 与体积评估；最终 UI 可保留单一编辑器 adapter，但按需载入代码与语言包，结构化 JSON 编辑能力不得退化 |
 | `packages/*/types`                                          | TypeScript 声明由源码生成、随源码提交；build 会清空并重建                                                              | 继续作为声明构建产物并提交；CI 在 build 后检查声明与源码同步，clean checkout 可按 workspace 依赖顺序重建          |
 | `packages/*/{lib,build,dist}`                               | 包级构建产物；根 `.gitignore` 忽略同名目录                                                                             | 继续排除生产产物的手工维护；由 CI / release 从干净源码可重复生成                                                  |
@@ -110,7 +111,9 @@ flowchart TD
 - 风险：把 storage 和消息通知搬入 core 会带入浏览器副作用；依赖方向检查应阻止此类反向依赖。
 - 验收：dependency graph 无环；core/domain 不依赖 UI、Chrome API 或 V2 converter；包入口及声明所有权明确；干净 checkout 能按文档构建、类型检查和运行测试；产物无需预先存在于工作树；测试与 fixture 的归属有清楚说明。
 
-阶段 1 已落实协议叶子包、兼容包命名、面板 common 职责拆分和依赖边界检查。更深入的 V3 domain 拆分、Chrome adapter 与 UI 间窄接口仍按本文建议留在阶段 2 逐项执行。
+当前架构约定：协议、V3 领域、请求 runtime、浏览器宿主 adapter、UI 五类职责按上述依赖方向组织；跨包 API 从包根入口暴露，包内按功能域组织，Chrome / storage 副作用由 shell 或 shared-utils 承担。`shared-utils` 与 `proxy-lib` 仍包含 V2 历史实现，V3 不以一次性重命名替代渐进迁移；每次边界迁移都须维护 V2 回归且在 clean checkout 通过构建、类型、测试与边界检查。
+
+阶段 1 已落实协议叶子包、兼容包命名、面板 common 职责拆分和依赖边界检查；阶段 2 已落地 V3 domain、组合请求 runtime、Chrome config / hit adapter。Vue 3 UI 和 runtime 内部 feature 目录仍在后续阶段按功能迁移，不视作本阶段已完成。
 
 2026-09-25 对当前工作区执行 `pnpm clean:build` 后再运行完整 `pnpm build`，随后 `pnpm typecheck`、`pnpm test`、`pnpm lint`、`pnpm format:check` 和 ZIP / 体积报告均通过。此验证确认现有 workspace build 顺序可从删除的 shared-utils、proxy-lib 和 shell-chrome 输出恢复；它没有构建尚未实现的目标包图，目标边界仍需在迁移中逐项验证。
 
