@@ -57,7 +57,7 @@ interface Rule {
 ## Fetch 与 XHR 验证边界
 
 - **Fetch**：验证 `Request` 与 `init` 合并语义、method / headers / body / credentials / signal / mode 保留、请求体能否重放、Response body 一次性读取、无 body 状态码、headers 和 `Content-Length` 处理。
-- **XHR 请求改写**：验证替换 `open()` 时保留同步 / 异步参数、用户名密码、调用顺序、重复 `open()`、`setRequestHeader()` 与 `send()` 语义；不得把原生 `open()` 包装成异步函数。
+- **XHR 请求改写**：`open()` 必须同步返回并保留 method、async、用户名密码参数。静态重定向和同步 callback 规则可以立即应用；Promise 或延迟 callback 规则无法在 XHR `open()` 内等待，当前 fail-open 使用原 URL 并警告。Fetch 仍支持异步规则函数。重复 `open()`、`setRequestHeader()`、`send()` 和原生事件时序继续由后续 XHR 回归覆盖。
 - **XHR 响应替换**：XHR 的 `response`、`responseText`、`status` 等原生状态并非可任意写入。需用原型验证能否在不破坏事件顺序、`responseType` 和同步请求语义的条件下实现替换；若不能，应缩小 XHR 支持范围并在 UI 明示，不能宣称与 Fetch 完全一致。
 - **共同场景**：验证多条规则命中、规则禁用、重定向失败、函数异常 / 超时、请求循环风险、其他包装器共存、iframe、多标签和 service worker 状态更新。
 

@@ -109,7 +109,7 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - [x] 为未调用回调、抛出异常和超时定义明确的回退行为；异步等待最多 5 秒，失败时 Fetch 返回原响应、重定向继续原请求。
 - [x] 处理响应替换时的无 body 状态、状态码、headers、Content-Length 和 Response 属性；HEAD / 204 / 205 / 304 不构造 body，非法状态码回退原响应，并保留原始 url / redirected / type。
 - [x] 让命中通知与最终应用的规则一致，避免重复计数或统计错配；通知携带规则序号，徽章只增加被选中的规则。
-- [ ] 修复 XHR 重定向对 `open()` 同步语义及原生调用流程的影响。
+- [x] 修复 XHR 重定向对 `open()` 同步语义及原生调用流程的影响；`open()` 同步调用并保留原参数，静态与同步 callback 规则即时生效，Promise / 延迟 callback 在 XHR 中警告并 fail-open 使用原 URL，Fetch 仍支持异步规则函数。
 - [ ] 检查 XHR 对象复用、请求头覆盖、事件顺序和异常路径。
 - [ ] 验证扩展启停时对网页已有 Fetch / XHR 包装器的兼容策略。
 - [ ] 建立跨 content script、service worker 和面板的一致存储更新机制。
@@ -384,4 +384,5 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - 2026-09-25：阶段 2 统一自定义函数执行语义，兼容原有 callback 和 Promise 返回值，移除依赖源码中出现 `next(` 的检查；函数抛错、Promise 拒绝、返回值无效或异步回调超时（5 秒）均 fail-open。响应拦截回退原响应且不发命中通知，重定向回退原始请求。新增函数执行及 Fetch / redirectFetch 集成回归；`pnpm test` 共 19 项通过，覆盖率为 statements 21.61%、branches 18.03%、functions 21.56%、lines 22.32%。阶段 2 累计完成 47 / 179 项（26.3%），本检查点可独立提交。
 - 2026-09-25：阶段 2 修复 Fetch 响应替换的空 body、状态码、实体 headers 与 Response 元数据。HEAD 和 204 / 205 / 304 返回 null body；删除可能失真的 Content-Length、Content-Encoding、Content-Range 和 Transfer-Encoding；非法响应码回退原始响应；替换响应保留原始 url、redirected、type。5 项新回归用例先在旧实现上复现失败，修复后 `pnpm test` 共 24 项通过；覆盖率为 statements 21.82%、branches 19.96%、functions 21.05%、lines 22.44%。Chrome 扩展 E2E 核对真实 Fetch 的 Response 元数据与 Content-Length 清理。阶段 2 累计完成 48 / 179 项（26.8%），本检查点可独立提交。
 - 2026-09-25：阶段 2 统一规则优先级与命中通知。Fetch / XHR 拦截均选择第一条启用且 URL / method 匹配的规则；重定向 XHR 跳过 method 不匹配的规则，并按首条完整命中改写。命中事件增加规则序号，service worker 仅递增该规则，即使多个规则的 URL / method 相同也不会一起计数。新增 Fetch / XHR 首条命中、规则序号、徽章精确计数及重定向 XHR method mismatch 回归；29 项 Vitest 通过。阶段 2 累计完成 50 / 179 项（27.9%），本检查点可独立提交。
+- 2026-09-25：修复 XHR 重定向把原生 `open()` 包装成 async 函数的问题。`open()` 现在同步完成并原样转发 method、async、username、password；静态和同步 callback 规则立即应用，Promise / 延迟 callback 规则因原生 API 无法等待而警告并使用原 URL，避免破坏紧随其后的 header / send 调用。验证覆盖同步 callback、Promise fail-open、同步 `open(false)`、参数保留和自定义 header；全量 build、32 项 Vitest、coverage、typecheck、lint、format、边界、生成声明和 editor smoke 通过。阶段 2 累计完成 51 / 179 项（28.5%），本检查点可独立提交。
 - GitHub 里程碑：[阶段 0](https://github.com/Nyakooo/ajax-proxy/milestone/1)、[阶段 1](https://github.com/Nyakooo/ajax-proxy/milestone/2)、[阶段 2](https://github.com/Nyakooo/ajax-proxy/milestone/3)、[阶段 3](https://github.com/Nyakooo/ajax-proxy/milestone/4)、[阶段 4](https://github.com/Nyakooo/ajax-proxy/milestone/5)、[阶段 5](https://github.com/Nyakooo/ajax-proxy/milestone/6)、[阶段 6](https://github.com/Nyakooo/ajax-proxy/milestone/7)、[阶段 7](https://github.com/Nyakooo/ajax-proxy/milestone/8)；已复现缺陷：[issue #56](https://github.com/Nyakooo/ajax-proxy/issues/56)。

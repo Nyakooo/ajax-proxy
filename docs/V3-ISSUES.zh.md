@@ -49,11 +49,19 @@
 - 决策与修复：统一采用列表顺序中的第一条启用且 URL / method 匹配的规则。拦截器在首条命中后停止；重定向 XHR 对 method 不匹配使用 continue。规则通知附带当前序号，徽章仅更新选中的行；不带序号的旧通知仍保留原匹配方式。
 - 验证：Vitest 覆盖 Fetch / XHR 两类拦截的首条规则选择、唯一通知和准确序号；徽章测试使用两条相同 URL / method 的规则确认只递增指定项；重定向 XHR 测试确认 method mismatch 后命中下一条规则。
 
+### XHR 重定向将原生 `open()` 变成异步调用
+
+- 状态：已修复并回归验证（2026-09-25）。
+- 影响范围：`packages/proxy-lib/src/redirectXHR.ts`。
+- 问题：包装函数声明为 `async`，使原生 `open()` 返回 Promise。调用方紧接着执行 `setRequestHeader()` 或 `send()` 时会早于底层 `open()`，同步 XHR 也因此失去原生调用语义。
+- 修复：包装后的 `open()` 同步决策并转发原有 method、URL、async、username、password。静态规则和同步完成的 callback 函数立即生效。XHR 不能等待 Promise 或延迟 callback；这类函数会给出警告并同步使用原始 URL，避免延迟改写调用流程。Fetch 规则函数仍支持 Promise / 异步 callback。
+- 验证：Vitest 覆盖同步返回、静态与 callback 重定向、`open(..., false)` 参数保留、紧随其后的请求头 / body 操作，以及 Promise 规则回退原 URL。
+
 ## 尚待复现的代码审查线索
 
 | 线索                                               | 位置                                   | 可能影响                                       | 验证安排                                           |
 | -------------------------------------------------- | -------------------------------------- | ---------------------------------------------- | -------------------------------------------------- |
-| XHR `open()` 包装可能改变同步调用语义              | `packages/proxy-lib/src/createXHR.ts`  | 同步 XHR 和原生事件顺序变化                    | 对照同步 / 异步请求、重复 open、headers 和事件时序 |
+| XHR `open()` 包装可能改变同步调用语义              | `packages/proxy-lib/src/createXHR.ts`  | 拦截模式下同步 XHR 和原生事件顺序变化          | 对照同步 / 异步请求、重复 open、headers 和事件时序 |
 | storage 可能缺少跨上下文变更同步及统一写入错误处理 | `packages/shared-utils/src/storage.ts` | 面板、标签页和 service worker 的设置暂时不一致 | 多上下文写入、读取及拒绝场景验证                   |
 
 ## 技术债与待决语义
