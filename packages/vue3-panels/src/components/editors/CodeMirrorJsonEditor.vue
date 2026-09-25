@@ -21,6 +21,10 @@ const props = defineProps({
     type: String,
     default: 'JSON editor',
   },
+  describedBy: {
+    type: String,
+    default: undefined,
+  },
 })
 
 const emit = defineEmits(['update:modelValue'])
@@ -85,6 +89,7 @@ onMounted(() => {
       EditorView.lineWrapping,
       EditorView.contentAttributes.of({
         'aria-label': props.ariaLabel,
+        'aria-describedby': props.describedBy,
         'aria-multiline': 'true',
         spellcheck: 'false',
       }),

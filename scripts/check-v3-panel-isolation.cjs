@@ -18,14 +18,14 @@ const forbiddenPackages = [
   '@proxy/json-editor',
   '@proxy/v2-compatibility',
 ]
-const prototypeOnlyPackages = [
+const requiredEditorPackages = [
   '@codemirror/commands',
   '@codemirror/lang-json',
   '@codemirror/language',
   '@codemirror/state',
   '@codemirror/view',
-  'jsoneditor',
 ]
+const prototypeOnlyPackages = ['jsoneditor']
 
 if (!/^\^?3\./.test(panelPackage.dependencies?.vue || '')) {
   errors.push('V3 panel must install a Vue 3 runtime.')
@@ -37,6 +37,12 @@ if (!panelPackage.dependencies?.primevue || !panelPackage.dependencies?.['@prime
 for (const dependency of forbiddenPackages) {
   if (panelPackage.dependencies?.[dependency] || panelPackage.devDependencies?.[dependency]) {
     errors.push(`V3 panel must not depend on Vue 2 package ${dependency}`)
+  }
+}
+
+for (const dependency of requiredEditorPackages) {
+  if (!panelPackage.dependencies?.[dependency]) {
+    errors.push(`Production V3 editor dependency ${dependency} must be declared in dependencies.`)
   }
 }
 

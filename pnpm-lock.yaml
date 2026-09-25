@@ -436,6 +436,21 @@ importers:
 
   packages/vue3-panels:
     dependencies:
+      '@codemirror/commands':
+        specifier: ^6.11.1
+        version: 6.11.1
+      '@codemirror/lang-json':
+        specifier: ^6.0.2
+        version: 6.0.2
+      '@codemirror/language':
+        specifier: ^6.12.4
+        version: 6.12.4
+      '@codemirror/state':
+        specifier: ^6.7.6
+        version: 6.7.6
+      '@codemirror/view':
+        specifier: ^6.43.13
+        version: 6.43.13
       '@primeuix/themes':
         specifier: ^1.2.3
         version: 1.2.5
@@ -455,21 +470,6 @@ importers:
         specifier: ^11.4.12
         version: 11.4.12(vue@3.5.43(typescript@6.0.3))
     devDependencies:
-      '@codemirror/commands':
-        specifier: ^6.11.1
-        version: 6.11.1
-      '@codemirror/lang-json':
-        specifier: ^6.0.2
-        version: 6.0.2
-      '@codemirror/language':
-        specifier: ^6.12.4
-        version: 6.12.4
-      '@codemirror/state':
-        specifier: ^6.7.6
-        version: 6.7.6
-      '@codemirror/view':
-        specifier: ^6.43.13
-        version: 6.43.13
       '@vitejs/plugin-vue':
         specifier: ^5.2.4
         version: 5.2.4(vite@6.4.3(@types/node@26.6.2)(sass@1.105.0)(terser@5.51.2))(vue@3.5.43(typescript@6.0.3))

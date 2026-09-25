@@ -720,6 +720,26 @@ input {
   tab-size: 2;
 }
 
+.editor-field .codemirror-json-editor.response-json-input {
+  --cm-border: var(--ap-border);
+  --cm-background: var(--ap-card);
+  --cm-foreground: var(--ap-ink);
+  --cm-caret: var(--ap-ink);
+  --cm-focus-ring: var(--ap-teal);
+  --cm-gutter-background: var(--ap-card);
+  --cm-gutter-foreground: var(--ap-muted);
+  --cm-active-line: color-mix(in srgb, var(--ap-teal) 7%, transparent);
+}
+
+.response-json-input .cm-content {
+  min-height: 190px;
+  padding-right: 10px;
+  padding-left: 10px;
+  font-size: 12px;
+  line-height: 1.5;
+  tab-size: 2;
+}
+
 .response-format-action {
   align-items: flex-start;
 }

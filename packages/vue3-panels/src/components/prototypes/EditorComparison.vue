@@ -1,7 +1,9 @@
 <script setup>
 import { computed, defineAsyncComponent, onBeforeUnmount, ref, watch } from 'vue'
 
-const CodeMirrorJsonEditor = defineAsyncComponent(() => import('./CodeMirrorJsonEditor.vue'))
+const CodeMirrorJsonEditor = defineAsyncComponent(
+  () => import('../editors/CodeMirrorJsonEditor.vue')
+)
 const JsonEditorTreePrototype = defineAsyncComponent(() => import('./JsonEditorTreePrototype.vue'))
 const JsonTreePrototype = defineAsyncComponent(() => import('./JsonTreePrototype.vue'))
 const editor = ref('textarea')

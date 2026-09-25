@@ -428,23 +428,42 @@ async function main() {
 
     const v3Panel = await context.newPage()
     v3Panel.setDefaultTimeout(10000)
+    let codeMirrorLoaded = false
+    v3Panel.on('request', (request) => {
+      if (request.resourceType() === 'script' && request.url().includes('CodeMirrorJsonEditor-')) {
+        codeMirrorLoaded = true
+      }
+    })
     await v3Panel.goto(`chrome-extension://${extensionId}/panels-v3/index.html`)
+    assert.equal(
+      codeMirrorLoaded,
+      false,
+      'CodeMirror must stay unloaded before opening a rule editor'
+    )
     const englishButton = v3Panel.getByRole('button', { name: 'English' })
     if ((await englishButton.getAttribute('aria-pressed')) !== 'true') {
       await englishButton.click()
       await v3Panel.reload()
     }
+    const editorChunkLoaded = v3Panel.waitForRequest(
+      (request) =>
+        request.resourceType() === 'script' && request.url().includes('CodeMirrorJsonEditor-')
+    )
     await v3Panel.getByRole('button', { name: 'Create intercept rule' }).click()
+    await editorChunkLoaded
+    assert.equal(codeMirrorLoaded, true, 'Opening a response rule editor should load CodeMirror')
     const responseEditor = v3Panel.getByRole('dialog')
     await responseEditor.locator('label.editor-field').nth(0).locator('input').fill('/api/v3-ui')
     await responseEditor.locator('.editor-field-row select').nth(1).selectOption('POST')
     await responseEditor.locator('.editor-field-row input[type="number"]').fill('203')
-    const responseBody = responseEditor.locator('textarea.response-json-input')
+    const responseBody = responseEditor.locator(
+      '.response-json-input .cm-content[contenteditable="true"]'
+    )
     await responseBody.fill('{\n  "name": 1,\n  bad\n}')
     await responseEditor.getByRole('button', { name: 'Save' }).click()
     await v3Panel.getByRole('alert').getByText('Invalid JSON at line 3, column 3.').waitFor()
     await responseEditor.getByRole('button', { name: 'Object' }).click()
-    assert.match(await responseBody.inputValue(), /"id": 123/)
+    assert.match(await responseBody.innerText(), /"id": 123/)
     await v3Panel.getByRole('alert').waitFor({ state: 'detached' })
     await responseBody.fill(JSON.stringify({ source: 'v3-ui', ok: true }))
     const legacyStateBeforeV3Ui = await restartedWorker.evaluate(

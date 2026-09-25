@@ -1,7 +1,11 @@
 <script setup>
-import { nextTick, ref, watch } from 'vue'
+import { defineAsyncComponent, nextTick, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { formatResponseBodyDraft, parseResponseBodyDraft } from '../services/v3ResponseDraft.js'
+
+const CodeMirrorJsonEditor = defineAsyncComponent(
+  () => import('./editors/CodeMirrorJsonEditor.vue')
+)
 
 const props = defineProps({
   open: { type: Boolean, default: false },
@@ -108,7 +112,7 @@ function useExample(body) {
 function trapFocus(event) {
   if (event.key !== 'Tab') return
   const focusable = dialogRoot.value?.querySelectorAll(
-    'button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled)'
+    'button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [contenteditable="true"]:not([aria-disabled="true"])'
   )
   if (!focusable?.length) return
   const first = focusable[0]
@@ -192,16 +196,16 @@ function trapFocus(event) {
           </div>
         </div>
 
-        <label class="editor-field">
+        <div class="editor-field">
           <span>{{ t('responseEditor.jsonBody') }}</span>
-          <textarea
+          <CodeMirrorJsonEditor
             v-model="form.body"
             class="response-json-input"
-            spellcheck="false"
-            :aria-describedby="localIssue || issue ? 'response-editor-error' : 'response-json-help'"
+            :aria-label="t('responseEditor.jsonBody')"
+            described-by="response-json-help response-editor-error"
           />
           <small id="response-json-help">{{ t('responseEditor.jsonHelp') }}</small>
-        </label>
+        </div>
         <div class="response-examples" role="group" :aria-label="t('responseEditor.examples')">
           <span>{{ t('responseEditor.examples') }}</span>
           <button type="button" @click="useExample({ ok: true, data: { id: 123 } })">

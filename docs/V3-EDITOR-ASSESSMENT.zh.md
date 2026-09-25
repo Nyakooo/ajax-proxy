@@ -23,7 +23,7 @@ V3 UI 阶段的原型方向：函数响应编辑器试用 CodeMirror 6；JSON �
 
 ## V3 JSON 编辑器交互原型
 
-验证日期：2026-09-25。独立原型入口为 `packages/vue3-panels/editor-prototype.html`，运行 `pnpm -C packages/vue3-panels build:editor-prototype` 构建，预览命令为 `pnpm -C packages/vue3-panels preview:editor-prototype`。原型输出到 `packages/vue3-panels/dist-editor-prototype/`，与会被扩展打包的正式 `dist/` 隔离。CodeMirror、JSONEditor 和轻量树按模式异步加载；原型及依赖不属于正式运行依赖。
+验证日期：2026-09-25。独立原型入口为 `packages/vue3-panels/editor-prototype.html`，运行 `pnpm -C packages/vue3-panels build:editor-prototype` 构建，预览命令为 `pnpm -C packages/vue3-panels preview:editor-prototype`。原型输出到 `packages/vue3-panels/dist-editor-prototype/`，与会被扩展打包的正式 `dist/` 隔离。CodeMirror 和 JSONEditor tree-only 原型块按模式异步加载；CodeMirror 组件现已复用到 V3 JSON 响应编辑器，作为正式依赖但仅在打开编辑器时异步加载。JSONEditor 与轻量树仍是原型依赖。
 
 在 Chrome for Testing 154.0.8037.57 与 Microsoft Edge Stable 153 中，以真实浏览器逐项操作：CodeMirror 键盘选中并替换 JSON、输入中文文本并检查实时预览；轻量树修改字符串字段并新增对象字段；JSONEditor tree-only 模式渲染字段；加载含 1500 项的样例；将无效 JSON 切换到 JSONEditor 后确认原文保留，修复后再切回树形模式。两个浏览器均无页面异常或资源加载失败。浏览器自动化发送了中文文本，但没有连接操作系统 IME，因此这不是对 macOS / Windows 输入法组合态的完整验证。
 
@@ -46,6 +46,14 @@ V3 UI 阶段的原型方向：函数响应编辑器试用 CodeMirror 6；JSON �
 | 生产体积与隔离 | 上表是独立原型 chunk，不是 V3 最终预算。JSONEditor 体积高；且原型构建输出在生产 `dist/` 外，避免被递归 stage 到 `panels-v3/`。正式 V3 首屏和 ZIP 预算仍需在生产编辑器集成后测量。 |
 
 阶段方向：函数编辑器和 JSON 原始文本模式采用按需 CodeMirror 6；JSON 结构化调整保留独立树形能力。原型数据不支持将 JSONEditor 当前 npm 包直接纳入生产 V3，也不足以确认这份轻量树组件可直接产品化。后续需为生产树编辑方案补齐成熟组件裁剪评估或扩展结构操作、键盘撤销、真实 IME 与无障碍检查，并再次测量生产产物。
+
+## V3 JSON 响应编辑器接入
+
+2026-09-25 将 CodeMirror 6 JSON 文本编辑器接入 V3 响应规则表单。只有打开规则编辑器后才请求 CodeMirror chunk；编辑器关闭时组件卸载。保留现有保存校验、错误行列、格式化和四种示例按钮，CodeMirror 同步为 Vue 表单提供完整文本；对话框焦点循环也纳入 contenteditable 控件。
+
+正式 V3 生产构建中，主 JS 为 405.29 kB（109.05 kB gzip），CodeMirror 异步 JS 为 310.22 kB（101.78 kB gzip），编辑器 CSS 为 0.24 kB（0.17 kB gzip）。这是 Vue 3 候选面板的阶段体积，不是扩展切换默认入口后的最终 ZIP 预算。扩展 E2E 明确验证编辑器关闭时没有请求 CodeMirror JS、打开拦截规则表单后请求该 chunk，并完成无效 JSON 阻止保存、插入示例、修正内容、V3 持久化及既有真实 Fetch / XHR smoke。Chrome for Testing 154 与 Edge Stable 153 均通过。
+
+当前只替换 JSON response body 的文本输入。受限 JavaScript response function 编辑器仍未迁移；完整函数 sandbox UI、真实操作系统 IME、屏幕阅读器及最终产品树编辑器仍是后续验收项。
 
 ## 当前首屏与扩展包体积
 
