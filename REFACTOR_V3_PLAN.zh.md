@@ -103,8 +103,8 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 
 - [ ] 明确规则优先级：首条命中、多条叠加或其他策略；拦截与重定向采用一致规则。
 - [x] 修复拦截器模式下 `fetch(new Request(...))` 的 method / URL 匹配；先添加覆盖 Request method、init 覆盖、默认 GET 和 Request URL 的回归用例，再修复并通过单测及生产扩展 E2E。
-- [ ] 验证重定向模式下 `fetch(new Request(...))` 的 URL 与 method 识别及原生请求转发语义。
-- [ ] 重定向 Fetch 时保留 method、body、headers、credentials、signal、mode 等请求选项。
+- [x] 验证重定向模式下 `fetch(new Request(...))` 的 URL 与 method 识别及原生请求转发语义；生产扩展 E2E 覆盖面板建规则和真实 POST 转发。
+- [x] 重定向 Fetch 时保留 method、body、headers、credentials、signal、mode 等请求选项；Vitest 检查请求属性，浏览器 E2E 确认实际到达目标服务的请求。
 - [ ] 修复异步自定义规则的 Promise / callback 完成语义。
 - [ ] 为未调用回调、抛出异常和超时定义明确的回退行为，避免请求无限等待。
 - [ ] 处理响应替换时的无 body 状态、状态码、headers、Content-Length 和 Response 属性。
@@ -380,4 +380,5 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - 2026-09-25：完成阶段 1 工程基础验收。将纯消息 / storage key 常量提取到 `@proxy/protocol`，解除核心请求引擎对 Chrome storage / badge 工具包的依赖；拆分 Vue 面板 `common` 目录，校准 shell 包入口及兼容包公共类型。全包 lint / 格式债务门禁、声明漂移检查、8 包依赖边界 CI 和 Edge 140 固定版本浏览器矩阵完成；clean build、冻结安装、typecheck、7 项单测、lint / format、Chrome 141 最低版扩展 smoke、JSON 树形编辑全交互及错误定位 smoke、生产 ZIP / JS / CSS 体积测量通过。CodeMirror 6 评估说明了仅做文本编辑无法替代已验证的 JSON 树操作；异步拆分原型留在阶段 4。阶段 0 与阶段 1 验收完成，Edge 140 的远端 CI 首次结果仍待获取。
 - 2026-09-25：按阶段完成要求汇总并更新清单：41 / 178 项完成（23.0%）；阶段 0 与阶段 1 验收完成，已提交为独立工程基础检查点。Edge 140 固定版本 CI job 已配置，远端执行结果待 CI 提供。
 - 2026-09-25：阶段 2 修复已复现的拦截器 Fetch Request method / URL 缺陷。先添加并确认 3 项回归测试可复现旧问题，再修复 method 优先级（`init.method` > `Request.method` > 默认 GET）及 Request URL 匹配，并将相同 method / URL 用于通知与函数响应上下文；单测 10 项通过，Chrome 141 生产扩展 Fetch / XHR E2E 通过。重定向模式的 Request 输入仍待单独验证。当前完成 43 / 179 项（24.0%），此阶段子项准备独立提交。
+- 2026-09-25：阶段 2 完成重定向模式 `fetch(new Request(...))` 的 URL / method 匹配及请求属性转发。新增 3 项 Vitest 回归用例，验证 Request 与 init 覆盖、method 不匹配后继续查找以及 method、body、headers、credentials、mode、cache、redirect、referrerPolicy、signal 保留；扩展面板真实配置 POST 规则后，由目标服务确认 URL、body、原始与新增 header、cookie 均正确。`pnpm test` 共 13 项通过，覆盖率为 statements 13.40%、branches 13.24%、functions 9.79%、lines 13.51%；Chrome for Testing 扩展 E2E 通过。阶段 2 累计完成 45 / 179 项（25.1%），此阶段子项可独立提交。
 - GitHub 里程碑：[阶段 0](https://github.com/Nyakooo/ajax-proxy/milestone/1)、[阶段 1](https://github.com/Nyakooo/ajax-proxy/milestone/2)、[阶段 2](https://github.com/Nyakooo/ajax-proxy/milestone/3)、[阶段 3](https://github.com/Nyakooo/ajax-proxy/milestone/4)、[阶段 4](https://github.com/Nyakooo/ajax-proxy/milestone/5)、[阶段 5](https://github.com/Nyakooo/ajax-proxy/milestone/6)、[阶段 6](https://github.com/Nyakooo/ajax-proxy/milestone/7)、[阶段 7](https://github.com/Nyakooo/ajax-proxy/milestone/8)；已复现缺陷：[issue #56](https://github.com/Nyakooo/ajax-proxy/issues/56)。

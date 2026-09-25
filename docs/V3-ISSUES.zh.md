@@ -13,19 +13,25 @@
 - 原实际结果：返回 body 为 `original`，POST 规则未应用。实现只从 `init.method` 读取 method，因此把 Request 自身的 POST 当作 `ANY`；并以响应 URL 而非 Request URL 做规则匹配。
 - 修复：以 `init.method` 优先，其次读取 `Request.method`，没有显式 method 时按 Fetch 默认 GET 处理；Request 输入用 `Request.url` 匹配，并将同一 URL / method 传给通知和函数响应上下文。
 - 持久化回归覆盖：`Request` 自带 POST、不带 `init`；`init.method` 覆盖 Request method；缺省 GET；响应 URL 与 Request URL 不同时仍按原请求 URL 匹配。`pnpm test` 与 Chrome 141 的 `pnpm extension:smoke` 均通过。
-- 边界：本次关闭的是拦截器模式问题。`redirectFetch.ts` 的 Request 输入和转发语义尚未验证，单独保留为待查线索，不视为已修复。
+- 边界：本条只记录拦截器模式的修复；重定向模式的 Request 输入另见下方已验证项。
 - 跟踪任务：[GitHub issue #56](https://github.com/Nyakooo/ajax-proxy/issues/56)，归入[阶段 2 里程碑](https://github.com/Nyakooo/ajax-proxy/milestone/3)。
+
+### 重定向模式下 Fetch 转发 `Request` 的 URL、method 和请求属性
+
+- 状态：已修复并回归验证（2026-09-25）。
+- 影响范围：`packages/proxy-lib/src/redirectFetch.ts`。
+- 复现：配置 POST 重定向规则后调用 `fetch(new Request(url, { method: 'POST', body }))`；另覆盖 `fetch(request, init)` 的 method / body 覆盖情况。
+- 原因与修复：旧实现依赖 `init` 提取 method 和 URL，无法正确处理仅传入 `Request` 的调用。现在先构造有效 Request 并据此匹配 URL / method；method 不匹配的规则继续查找。命中后按原 Request 属性重建目标 Request，并保留 headers、body、credentials、mode、cache、redirect、referrer、referrerPolicy、integrity、keepalive 和 signal。
+- 验证：3 项 Vitest 回归用例通过；生产扩展 E2E 在 Chrome for Testing 中通过面板建立 POST 规则，由目标服务验证 URL、method、body、原始 header、自定义 header 和 cookie。
 
 ## 尚待复现的代码审查线索
 
-| 线索                                               | 位置                                      | 可能影响                                                        | 验证安排                                                  |
-| -------------------------------------------------- | ----------------------------------------- | --------------------------------------------------------------- | --------------------------------------------------------- |
-| Fetch 转发 Request 时可能丢失原有 init 字段        | `packages/proxy-lib/src/redirectFetch.ts` | credentials、signal、mode、body 等请求属性变化                  | 对 Request 与有 / 无 init 的重定向做逐字段对照            |
-| 重定向模式下 Request 输入可能无法识别 URL / method | `packages/proxy-lib/src/redirectFetch.ts` | Request 字符串化可能成为 `[object Request]`，规则错配或改写异常 | 用 Request 输入覆盖有 / 无 init 的 URL、method 与转发语义 |
-| 多条拦截规则可能覆盖先前响应并重复通知             | `packages/proxy-lib/src/createFetch.ts`   | 最终响应与命中统计可能偏离用户预期                              | 两条可区分命中规则并核对 body、status、通知次数           |
-| 空 body 状态码可能和新 Response body 冲突          | `packages/proxy-lib/src/createFetch.ts`   | 204 / 304 等响应可能构造失败                                    | 复现 204、304、HEAD 与状态码 / body 组合                  |
-| XHR `open()` 包装可能改变同步调用语义              | `packages/proxy-lib/src/createXHR.ts`     | 同步 XHR 和原生事件顺序变化                                     | 对照同步 / 异步请求、重复 open、headers 和事件时序        |
-| storage 可能缺少跨上下文变更同步及统一写入错误处理 | `packages/shared-utils/src/storage.ts`    | 面板、标签页和 service worker 的设置暂时不一致                  | 多上下文写入、读取及拒绝场景验证                          |
+| 线索                                               | 位置                                    | 可能影响                                       | 验证安排                                           |
+| -------------------------------------------------- | --------------------------------------- | ---------------------------------------------- | -------------------------------------------------- |
+| 多条拦截规则可能覆盖先前响应并重复通知             | `packages/proxy-lib/src/createFetch.ts` | 最终响应与命中统计可能偏离用户预期             | 两条可区分命中规则并核对 body、status、通知次数    |
+| 空 body 状态码可能和新 Response body 冲突          | `packages/proxy-lib/src/createFetch.ts` | 204 / 304 等响应可能构造失败                   | 复现 204、304、HEAD 与状态码 / body 组合           |
+| XHR `open()` 包装可能改变同步调用语义              | `packages/proxy-lib/src/createXHR.ts`   | 同步 XHR 和原生事件顺序变化                    | 对照同步 / 异步请求、重复 open、headers 和事件时序 |
+| storage 可能缺少跨上下文变更同步及统一写入错误处理 | `packages/shared-utils/src/storage.ts`  | 面板、标签页和 service worker 的设置暂时不一致 | 多上下文写入、读取及拒绝场景验证                   |
 
 ## 技术债与待决语义
 

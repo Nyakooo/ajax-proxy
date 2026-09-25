@@ -6,7 +6,7 @@
 - `pnpm test:watch`：本地监听运行。
 - `pnpm test:coverage`：运行测试并生成终端摘要及 `coverage/lcov.info`。
 - `pnpm browser:smoke`：使用 `BROWSER_CHANNEL=chrome` 或 `msedge` 启动对应稳定版，检查核心 Fetch / Request、XHR、CSS 和减少动态效果 API。CI 分别运行 Chrome Stable 与 Edge Stable。
-- `pnpm extension:smoke`：在已构建产物上用隔离临时浏览器 profile 加载扩展，通过面板创建临时规则，验证 Fetch / XHR 响应拦截及 JSON tree 模式的展开 / 折叠、类型识别、节点增删改、数组重排、撤销 / 重做。CI 在构建后执行该 smoke。
+- `pnpm extension:smoke`：在已构建产物上用隔离临时浏览器 profile 加载扩展，通过面板创建临时规则，验证 Fetch / XHR 响应拦截、`fetch(new Request(...))` 重定向的 method / body / headers / cookie，以及 JSON tree 模式的展开 / 折叠、类型识别、节点增删改、数组重排、撤销 / 重做。CI 在构建后执行该 smoke。
 - `pnpm editor:smoke`：直接加载生产依赖中的 JSONEditor / Ace，输入非法 JSON 并确认错误行标记，CI 执行该 smoke。
 - `pnpm format:check`：Prettier 严格检查计划、文档、根配置、CI workflow、迁移脚本与测试；全包格式基线检查登记了 50 个未格式化旧源码并禁止债务增加。
 - `pnpm lint`：ESLint flat config 扫描所有 package 下的 JS、TS、Vue 文件，并严格检查新测试、浏览器 smoke、构建报告脚本和配置。全包当前零 error，最多允许 378 条既有源码 warning；新增迁移范围文件必须零 warning。
@@ -31,13 +31,13 @@
 
 ## 当前覆盖率基线
 
-记录日期：2026-09-25。执行 `pnpm test:coverage`：2 个测试文件、10 个用例通过；workspace 全部 TypeScript 源码的当前总体覆盖率为：
+记录日期：2026-09-25。执行 `pnpm test:coverage`：3 个测试文件、13 个用例通过；workspace 全部 TypeScript 源码的当前总体覆盖率为：
 
-| 指标       |  基线 |
-| ---------- | ----: |
-| Statements | 9.16% |
-| Branches   | 8.33% |
-| Functions  | 6.94% |
-| Lines      | 9.47% |
+| 指标       |   基线 |
+| ---------- | -----: |
+| Statements | 13.40% |
+| Branches   | 13.24% |
+| Functions  |  9.79% |
+| Lines      | 13.51% |
 
-本轮单元测试覆盖 `packages/proxy-lib/src/common.ts` 的 URL 匹配、忽略项和静态重定向，以及 `packages/proxy-lib/src/createFetch.ts` 的 Request method / URL 解析；createFetch statements 覆盖率为 81.25%。浏览器 smoke 额外覆盖真实 Fetch / XHR 拦截和 JSON 编辑交互，但不计入 Vitest coverage。整体覆盖率低于完整发布标准，后续将分阶段增加各包测试。该基线不代表功能质量已经满足发布标准。
+本轮单元测试覆盖 `packages/proxy-lib/src/common.ts` 的 URL 匹配、忽略项和静态重定向，`packages/proxy-lib/src/createFetch.ts` 的 Request method / URL 解析，以及 `packages/proxy-lib/src/redirectFetch.ts` 的 Request 转发；createFetch statements 覆盖率为 81.25%，redirectFetch 为 71.79%。浏览器 smoke 额外覆盖真实 Fetch / XHR 拦截、Request POST 重定向和 JSON 编辑交互，但不计入 Vitest coverage。整体覆盖率低于完整发布标准，后续将分阶段增加各包测试。该基线不代表功能质量已经满足发布标准。

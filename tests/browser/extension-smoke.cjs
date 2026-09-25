@@ -12,6 +12,7 @@ async function main() {
       response.end(`<!doctype html>
         <button id="fetch">Fetch</button>
         <button id="xhr">XHR</button>
+        <button id="redirect-fetch">Redirect Fetch</button>
         <pre id="result">ready</pre>
         <script>
           const result = document.querySelector('#result')
@@ -32,6 +33,24 @@ async function main() {
             }
             request.send('test')
           }
+          document.querySelector('#redirect-fetch').onclick = async () => {
+            try {
+              document.cookie = 'redirect-smoke=present; path=/'
+              const request = new Request('/api/echo', {
+                method: 'POST',
+                body: 'redirected body',
+                credentials: 'include',
+                headers: { 'x-original': 'preserved' },
+              })
+              const response = await fetch(request)
+              result.textContent = JSON.stringify({
+                kind: 'redirect-fetch', status: response.status, url: response.url,
+                body: await response.json(),
+              })
+            } catch (error) {
+              result.textContent = JSON.stringify({ kind: 'redirect-error', error: String(error) })
+            }
+          }
         </script>`)
       return
     }
@@ -40,6 +59,20 @@ async function main() {
     request.on('data', (chunk) => chunks.push(chunk))
     request.on('end', () => {
       response.writeHead(200, { 'content-type': 'application/json' })
+      if (request.url.startsWith('/mock/echo')) {
+        response.end(
+          JSON.stringify({
+            source: 'server',
+            method: request.method,
+            body: Buffer.concat(chunks).toString(),
+            path: request.url,
+            originalHeader: request.headers['x-original'],
+            redirectedHeader: request.headers['x-redirected'],
+            cookie: request.headers.cookie,
+          })
+        )
+        return
+      }
       response.end(
         JSON.stringify({
           source: 'server',
@@ -180,7 +213,48 @@ async function main() {
       body: expectedResponseJson,
     })
 
-    console.log('Unpacked extension Fetch and XHR smoke passed')
+    await panel.locator('input.el-radio-button__orig-radio[value="redirector"]').check({
+      force: true,
+    })
+    await panel.locator('.request-container > .el-button').click()
+    const redirectDialog = panel.locator('.response-modal-container .el-dialog__wrapper')
+    await redirectDialog.waitFor({ state: 'visible' })
+    const redirectFields = redirectDialog.locator('.el-form-item')
+    await redirectFields.nth(0).locator('input:not([readonly])').first().fill('/api/echo')
+    await redirectFields.nth(1).locator('input:not([readonly])').first().fill('/mock/echo')
+    await redirectFields.nth(0).locator('.el-select').last().click()
+    await panel
+      .locator('.el-select-dropdown:visible .el-select-dropdown__item')
+      .filter({ hasText: /^POST$/ })
+      .click()
+    const redirectHeaders = redirectFields.nth(2)
+    await redirectHeaders.getByRole('button', { name: /Append/ }).click()
+    const redirectHeaderInputs = redirectHeaders.locator('input:not([readonly])')
+    await redirectHeaderInputs.nth(0).fill('x-redirected')
+    await redirectHeaderInputs.nth(1).fill('yes')
+    await redirectDialog.getByRole('button', { name: 'OK' }).click()
+    await redirectDialog.waitFor({ state: 'hidden' })
+    await panel.getByText('/api/echo', { exact: true }).waitFor()
+    await page.locator('#redirect-fetch').click()
+    await page.waitForFunction(() =>
+      /redirect-(fetch|error)/.test(document.querySelector('#result').textContent)
+    )
+    assert.deepEqual(JSON.parse(await result.textContent()), {
+      kind: 'redirect-fetch',
+      status: 200,
+      url: `http://127.0.0.1:${port}/mock/echo`,
+      body: {
+        source: 'server',
+        method: 'POST',
+        body: 'redirected body',
+        path: '/mock/echo',
+        originalHeader: 'preserved',
+        redirectedHeader: 'yes',
+        cookie: 'redirect-smoke=present',
+      },
+    })
+
+    console.log('Unpacked extension Fetch, XHR, and Request redirect smoke passed')
   } finally {
     await context?.close()
     await new Promise((resolve, reject) => {
