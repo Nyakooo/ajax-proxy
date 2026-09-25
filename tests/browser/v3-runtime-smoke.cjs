@@ -15,7 +15,7 @@ if (!supportedChannels.has(channel)) throw new Error(`Unsupported BROWSER_CHANNE
 
 async function main() {
   const outputDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ajax-proxy-v3-runtime-'))
-  const entry = path.resolve(__dirname, '../../packages/proxy-lib/test/v3RuntimeBrowserEntry.ts')
+  const entry = path.resolve(__dirname, '../../packages/proxy-lib/test/v3/runtimeBrowserEntry.ts')
   await build({
     configFile: false,
     logLevel: 'warn',

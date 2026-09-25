@@ -84,7 +84,7 @@ async function replaceResponse(response: Response, request: Request, rule: V3Rul
 
 /**
  * Build a Fetch wrapper that applies one V3 rule across the request and
- * response stages. This prototype is not wired into the extension entry yet.
+ * response stages. The extension host owns configuration, diagnostics, and mounting.
  */
 export function createV3Fetch(fetcher: V3Fetch, options: V3FetchOptions): V3Fetch {
   return async (input, init) => {

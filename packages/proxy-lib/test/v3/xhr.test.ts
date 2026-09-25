@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { JsonValue, V3Rule } from '@proxy/v3-domain'
-import { createV3XHR } from '../src/v3XHR'
-import type { V3XHRConstructor } from '../src/v3XHR'
+import { createV3XHR } from '../../src/v3/xhr'
+import type { V3XHRConstructor } from '../../src/v3/xhr'
 
 afterEach(() => vi.restoreAllMocks())
 

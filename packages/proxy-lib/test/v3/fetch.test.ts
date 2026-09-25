@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { createV3Fetch } from '../src/v3Fetch'
+import { createV3Fetch } from '../../src/v3/fetch'
 import type { V3Rule } from '@proxy/v3-domain'
 
 afterEach(() => vi.restoreAllMocks())

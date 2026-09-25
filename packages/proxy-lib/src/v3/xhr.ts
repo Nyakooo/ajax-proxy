@@ -59,7 +59,7 @@ function getReplacement(xhr: XMLHttpRequest, rule: V3Rule): Replacement | undefi
 
 /**
  * Create an isolated XMLHttpRequest prototype for V3 rules.
- * It does not patch the global constructor or participate in extension runtime state.
+ * It does not patch the global constructor; the extension host owns mounting and state.
  * Native events and response headers remain browser-owned and are not rewritten.
  */
 export function createV3XHR(NativeXHR: V3XHRConstructor, options: V3XHROptions): V3XHRConstructor {
