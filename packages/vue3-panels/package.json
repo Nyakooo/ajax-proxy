@@ -7,19 +7,27 @@
     "dev": "vite --host 127.0.0.1",
     "build": "vite build",
     "build:unstyled": "vite build --mode unstyled --outDir dist/unstyled",
+    "build:editor-prototype": "vite build --config vite.editor-prototype.config.mjs",
+    "preview:editor-prototype": "vite preview --outDir dist-editor-prototype --host 127.0.0.1",
     "preview": "vite preview --host 127.0.0.1",
     "preview:unstyled": "vite preview --outDir dist/unstyled --host 127.0.0.1"
   },
   "dependencies": {
+    "@primeuix/themes": "^1.2.3",
     "@proxy/protocol": "workspace:^1.0.0",
     "@proxy/v3-domain": "workspace:^1.0.0",
-    "@primeuix/themes": "^1.2.3",
     "primevue": "^4.5.5",
     "vue": "^3.5.22",
     "vue-i18n": "^11.4.12"
   },
   "devDependencies": {
+    "@codemirror/commands": "^6.11.1",
+    "@codemirror/lang-json": "^6.0.2",
+    "@codemirror/language": "^6.12.4",
+    "@codemirror/state": "^6.7.6",
+    "@codemirror/view": "^6.43.13",
     "@vitejs/plugin-vue": "^5.2.4",
+    "jsoneditor": "9.9.2",
     "vite": "^6.4.3"
   }
 }

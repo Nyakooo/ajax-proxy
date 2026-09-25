@@ -5,6 +5,10 @@ const root = path.resolve(__dirname, '..')
 const panelDir = path.join(root, 'packages/vue3-panels')
 const panelPackage = JSON.parse(fs.readFileSync(path.join(panelDir, 'package.json'), 'utf8'))
 const rootPackage = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'))
+const editorPrototypeConfig = fs.readFileSync(
+  path.join(panelDir, 'vite.editor-prototype.config.mjs'),
+  'utf8'
+)
 const errors = []
 const forbiddenPackages = [
   'element-ui',
@@ -13,6 +17,14 @@ const forbiddenPackages = [
   '@proxy/code-editor',
   '@proxy/json-editor',
   '@proxy/v2-compatibility',
+]
+const prototypeOnlyPackages = [
+  '@codemirror/commands',
+  '@codemirror/lang-json',
+  '@codemirror/language',
+  '@codemirror/state',
+  '@codemirror/view',
+  'jsoneditor',
 ]
 
 if (!/^\^?3\./.test(panelPackage.dependencies?.vue || '')) {
@@ -26,6 +38,25 @@ for (const dependency of forbiddenPackages) {
   if (panelPackage.dependencies?.[dependency] || panelPackage.devDependencies?.[dependency]) {
     errors.push(`V3 panel must not depend on Vue 2 package ${dependency}`)
   }
+}
+
+for (const dependency of prototypeOnlyPackages) {
+  if (panelPackage.dependencies?.[dependency]) {
+    errors.push(
+      `Editor comparison dependency ${dependency} must stay out of production dependencies.`
+    )
+  }
+}
+
+const prototypeOutput = editorPrototypeConfig.match(/outDir:\s*['"]([^'"]+)['"]/)?.[1]
+const productionOutput = path.resolve(panelDir, 'dist')
+const resolvedPrototypeOutput = prototypeOutput && path.resolve(panelDir, prototypeOutput)
+if (
+  !resolvedPrototypeOutput ||
+  resolvedPrototypeOutput === productionOutput ||
+  resolvedPrototypeOutput.startsWith(`${productionOutput}${path.sep}`)
+) {
+  errors.push('Editor prototype output must stay outside the production dist/ directory.')
 }
 
 const forbiddenImport =
