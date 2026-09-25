@@ -100,6 +100,7 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - [x] 将 V3 backup 状态、校验、Fetch/XHR runtime 创建和 hit event 通知集中到 `v3/runtimeController.ts`；proxy-lib 根入口只将 controller 状态投影到共享标记并协调全局 V2/V3 wrapper 挂载。
 - [x] 将 V3 backup schema / validation 放到 domain package 的 `backup.ts`，通过 `index.ts` 稳定导出入口；规则 matcher 从 `backup.ts` 单向依赖规则类型，避免 barrel 与匹配器互相导入。
 - [x] 将纯 V3 规则模型类型从 backup 校验实现拆到 `rules.ts`；backup validator 与 matcher 直接依赖领域类型，包根入口继续导出原有类型 API。
+- [x] 将 V3 命中规则复核、counter sanitize、总计和安全递增等纯领域逻辑放入 `v3-domain/hitCounters.ts`；service worker 只负责串行队列、storage、徽章和 panel notification。
 - [ ] 统一模块命名、公共接口、类型定义和错误处理方式，减少重复实现及跨层耦合。
 - [x] 绘制并维护项目架构图、包依赖图和关键运行链路说明：`docs/V3-ARCHITECTURE-ASSESSMENT.zh.md` 现覆盖全部 9 个 workspace 包，以及面板→storage→content→MAIN proxy 配置同步、代理命中→content→service worker→badge 两条关键链路，并记录消息信任边界。
 - [x] 在修改核心行为前，为 Fetch Request method / URL 缺陷补充可复现回归测试；先确认测试失败，再实现修复并保留测试。
@@ -430,4 +431,5 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - 2026-09-25：将 V3 Fetch / XHR runtime 共用的 host callbacks 抽为 `V3RuntimeHostOptions`，保留原有 `V3FetchOptions` / `V3XHROptions` 类型入口并从 proxy-lib 根公开稳定类型。全量 98/98 Vitest、typecheck、package boundary、lint、format、domain / proxy-lib build、声明一致性检查和 Chromium V3 Fetch/XHR runtime smoke 通过。完成 80 / 185 项（43.2%）。
 - 2026-09-25：将 service worker V3 active backup 复核、独立 counters 串行更新和 V3 badge 渲染移至 `v3Hit.ts`；V2 统计及徽章通道协调留在 `badge.ts`。定向 shell tests（7/7）、typecheck、package boundary、lint、format、完整 build 与 Chrome Stable 扩展 smoke 通过。完成 81 / 186 项（43.5%）。
 - 2026-09-25：将 V3 backup 唯一状态、配置校验、Fetch/XHR wrapper 创建及 hit event 发射封装到 `runtimeController.ts`；根入口保留全局 wrapper 协调并投影 `v3_active`，V2 runtime 保持原实现。隔离 controller 与既有 index 集成测试共 99 项通过，typecheck、boundary、lint、format、proxy-lib build、V3 runtime smoke、扩展 smoke、全量 build 与声明一致性检查均通过。完成 82 / 187 项（43.9%）。
+- 2026-09-25：将 V3 hit 与活动规则的匹配复核、未知 / 非安全 counter 清理、计数汇总及 `MAX_SAFE_INTEGER` 安全递增放入 `@proxy/v3-domain/hitCounters.ts`；Chrome adapter 继续独占队列和平台副作用。全量 103/103 测试、typecheck、boundary、lint、format、build、V3 browser smoke、extension smoke 和声明一致性检查通过。完成 83 / 188 项（44.1%）。
 - GitHub 里程碑：[阶段 0](https://github.com/Nyakooo/ajax-proxy/milestone/1)、[阶段 1](https://github.com/Nyakooo/ajax-proxy/milestone/2)、[阶段 2](https://github.com/Nyakooo/ajax-proxy/milestone/3)、[阶段 3](https://github.com/Nyakooo/ajax-proxy/milestone/4)、[阶段 4](https://github.com/Nyakooo/ajax-proxy/milestone/5)、[阶段 5](https://github.com/Nyakooo/ajax-proxy/milestone/6)、[阶段 6](https://github.com/Nyakooo/ajax-proxy/milestone/7)、[阶段 7](https://github.com/Nyakooo/ajax-proxy/milestone/8)；已复现缺陷：[issue #56](https://github.com/Nyakooo/ajax-proxy/issues/56)。

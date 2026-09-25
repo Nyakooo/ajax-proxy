@@ -5,34 +5,11 @@ import {
   getRealStorage,
   noticePanelsByServiceWorker,
 } from '@proxy/shared-utils'
-import { validateV3Backup } from '@proxy/v3-domain'
+import { getV3HitTotal, recordV3Hit, validateV3Backup } from '@proxy/v3-domain'
 import type { V3Backup } from '@proxy/v3-domain'
 import type { V3Hit } from '@proxy/protocol'
 
-type V3HitCounters = Record<string, number>
-
 let v3HitQueue = Promise.resolve()
-
-function isCounterRecord(value: unknown): value is V3HitCounters {
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) return false
-  try {
-    return (
-      Object.getPrototypeOf(value) === Object.prototype || Object.getPrototypeOf(value) === null
-    )
-  } catch {
-    return false
-  }
-}
-
-function sanitizeCounters(value: unknown, backup: V3Backup): V3HitCounters {
-  if (!isCounterRecord(value)) return {}
-  const knownIds = new Set(backup.rules.map((rule) => rule.id))
-  return Object.fromEntries(
-    Object.entries(value).filter(
-      ([id, count]) => knownIds.has(id) && Number.isSafeInteger(count) && count >= 0
-    )
-  )
-}
 
 function getValidV3Backup(value: unknown): V3Backup | undefined {
   const result = validateV3Backup(value)
@@ -50,13 +27,7 @@ async function readV3State() {
 }
 
 function renderV3Badge(counters: unknown, backup: V3Backup) {
-  const knownIds = new Set(backup.rules.map((rule) => rule.id))
-  let total = 0
-  if (isCounterRecord(counters)) {
-    for (const [id, count] of Object.entries(counters)) {
-      if (knownIds.has(id) && Number.isSafeInteger(count) && count >= 0) total += count
-    }
-  }
+  const total = getV3HitTotal(counters, backup)
   chrome.action.setBadgeBackgroundColor({ color: '#006d75' })
   chrome.action.setBadgeText({ text: total ? `+${total}` : '' })
 }
@@ -74,29 +45,13 @@ export function chromeBadgeV3(hit: V3Hit) {
     .then(async () => {
       const state = await readV3State()
       if (state.status !== 'active') return
-      const rule = state.backup.rules.find((candidate) => candidate.id === hit.rule_id)
-      if (
-        !rule ||
-        !rule.enabled ||
-        (!rule.request?.enabled && !rule.response?.enabled) ||
-        rule.match.url !== hit.match_url
-      )
-        return
-      if (
-        rule.match.method &&
-        rule.match.method.toUpperCase() !== 'ANY' &&
-        rule.match.method.toUpperCase() !== hit.method
-      )
-        return
-
-      const counters = sanitizeCounters(state.counters, state.backup)
-      const count = counters[hit.rule_id] ?? 0
-      if (count < Number.MAX_SAFE_INTEGER) counters[hit.rule_id] = count + 1
-      await setStorage(StorageKey.V3_HITS, counters)
-      renderV3Badge(counters, state.backup)
+      const result = recordV3Hit(state.backup, state.counters, hit)
+      if (!result) return
+      await setStorage(StorageKey.V3_HITS, result.counters)
+      renderV3Badge(result.counters, state.backup)
       noticePanelsByServiceWorker(NoticeKey.V3_HIT, {
         rule_id: hit.rule_id,
-        count: counters[hit.rule_id],
+        count: result.count,
       })
     })
     .catch((error) => {
