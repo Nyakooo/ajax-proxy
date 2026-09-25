@@ -107,8 +107,12 @@ async function main() {
     panel.setDefaultTimeout(10000)
 
     await panel.goto(`chrome-extension://${extensionId}/panels/index.html`)
-    await panel.locator('.global-switch .el-switch').click()
-    await panel.locator('.response-container > .el-button').click()
+    await panel.locator('.switch-control .el-switch').click()
+    const page = await context.newPage()
+    const secondPage = await context.newPage()
+    await page.goto(`http://127.0.0.1:${port}/`)
+    await secondPage.goto(`http://127.0.0.1:${port}/`)
+    await panel.locator('.response-container .table-toolbar > .el-button').click()
 
     const dialog = panel.locator('.response-modal-container .el-dialog__wrapper')
     await dialog.waitFor({ state: 'visible' })
@@ -193,8 +197,6 @@ async function main() {
     await dialog.waitFor({ state: 'hidden' })
     await panel.getByText('/api/echo', { exact: true }).waitFor()
 
-    const page = await context.newPage()
-    await page.goto(`http://127.0.0.1:${port}/`)
     const result = page.locator('#result')
 
     await page.locator('#fetch').click()
@@ -212,6 +214,24 @@ async function main() {
       body: expectedResponseJson,
     })
 
+    await secondPage.locator('#fetch').click()
+    await secondPage.waitForFunction(() =>
+      document.querySelector('#result').textContent.includes('intercepted')
+    )
+    assert.equal(
+      JSON.parse(await secondPage.locator('#result').textContent()).body,
+      expectedResponseJson
+    )
+
+    await secondPage.locator('#xhr').click()
+    await secondPage.waitForFunction(() =>
+      document.querySelector('#result').textContent.startsWith('{"kind":"xhr"')
+    )
+    assert.equal(
+      JSON.parse(await secondPage.locator('#result').textContent()).body,
+      expectedResponseJson
+    )
+
     await page.locator('#xhr').click()
     await page.waitForFunction(() =>
       document.querySelector('#result').textContent.startsWith('{"kind":"xhr"')
@@ -225,7 +245,7 @@ async function main() {
     await panel.locator('input.el-radio-button__orig-radio[value="redirector"]').check({
       force: true,
     })
-    await panel.locator('.request-container > .el-button').click()
+    await panel.locator('.request-container .table-toolbar > .el-button').click()
     const redirectDialog = panel.locator('.response-modal-container .el-dialog__wrapper')
     await redirectDialog.waitFor({ state: 'visible' })
     const redirectFields = redirectDialog.locator('.el-form-item')
@@ -262,6 +282,15 @@ async function main() {
         cookie: 'redirect-smoke=present',
       },
     })
+
+    await secondPage.locator('#redirect-fetch').click()
+    await secondPage.waitForFunction(() =>
+      document.querySelector('#result').textContent.startsWith('{"kind":"redirect-fetch"')
+    )
+    assert.equal(
+      JSON.parse(await secondPage.locator('#result').textContent()).url,
+      `http://127.0.0.1:${port}/mock/echo`
+    )
 
     console.log('Unpacked extension Fetch, XHR, and Request redirect smoke passed')
   } finally {

@@ -9,7 +9,7 @@ import {
     noticePanelsByServiceWorker,
 } from "@proxy/shared-utils";
 import { injectEventListener } from "./event";
-import { noticeContent, useCurrentTitle } from "./notice";
+import { useCurrentTitle } from "./notice";
 import { initDefaultSth } from "./init";
 import { chromeBadge } from "./badge";
 import { INIT_CURRENT_TITLE } from "../consts";
@@ -35,21 +35,14 @@ initStorage().then(() => {
                     });
                     // 更新一下图标状态
                     chromeBadge()
-                    noticeContent(key, value)
                 }
                 // 模式切换
                 if (key === NoticeKey.MODE) {
                     chromeBadge();
-                    noticeContent(key, value)
                 }
                 // 拦截器列表
                 if (key === NoticeKey.INTERCEPT_LIST) {
                     chromeBadge();
-                    noticeContent(key, value)
-                }
-                // 重定向列表
-                if (key === NoticeKey.REDIRECT_LIST) {
-                    noticeContent(key, value)
                 }
                 // 获取当前document.title [被动]
                 // panels -> service-worker -> connect.port.sender.tab.title -> panels

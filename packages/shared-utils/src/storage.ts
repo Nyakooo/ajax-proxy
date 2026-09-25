@@ -5,12 +5,37 @@ import { useStorage } from './env'
 // chrome.storage.local.set可以包含5242880
 
 let storageData
+let storageChangeListenerRegistered = false
+type StorageChanges = Record<string, chrome.storage.StorageChange>
+let pendingStorageChanges: StorageChanges[] = []
+
+function applyStorageChanges(changes: StorageChanges) {
+  for (const [key, change] of Object.entries(changes)) {
+    if (change.newValue === undefined) delete storageData[key]
+    else storageData[key] = change.newValue
+  }
+}
+
+function handleStorageChanged(changes: StorageChanges, areaName: string) {
+  if (areaName !== 'local') return
+  if (!storageData) {
+    pendingStorageChanges.push(changes)
+    return
+  }
+  applyStorageChanges(changes)
+}
 
 export function initStorage(): Promise<void> {
   return new Promise((resolve) => {
     if (useStorage) {
+      if (!storageChangeListenerRegistered) {
+        chrome.storage.onChanged.addListener(handleStorageChanged)
+        storageChangeListenerRegistered = true
+      }
       chrome.storage.local.get(null, result => {
-        storageData = result
+        storageData = result || {}
+        for (const changes of pendingStorageChanges) applyStorageChanges(changes)
+        pendingStorageChanges = []
         resolve()
       })
     } else {
@@ -36,8 +61,14 @@ export function getRealStorage(key: StorageKey, defaultValue: any = null) {
   if (useStorage) {
     return new Promise(resolve => {
       chrome.storage.local.get(key, result => {
-        if (result.hasOwnProperty(key)) resolve(getDefaultValue(result[key], defaultValue))
-        else resolve(defaultValue);
+        if (result.hasOwnProperty(key)) {
+          storageData[key] = result[key]
+          resolve(getDefaultValue(result[key], defaultValue))
+        }
+        else {
+          delete storageData[key]
+          resolve(defaultValue)
+        }
       })
     })
   } else {
@@ -106,6 +137,7 @@ export function getStorageAll(): Promise<{ [key: string]: any }> {
   if (useStorage) {
     return new Promise(resolve => {
       chrome.storage.local.get(null, result => {
+        storageData = result || {}
         resolve(result)
       })
     })
