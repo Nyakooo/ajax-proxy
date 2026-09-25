@@ -116,7 +116,7 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - [x] 处理 Storage 初始化、读写失败、配额错误及数据变化监听：初始化、读取、写入、删除和清空均检查 API 错误；写入成功回调后才更新缓存，失败保持旧值并向面板报告；变化事件同步缓存。
 - [x] 修复浏览器扩展环境与普通网页环境下存储行为不一致的问题：两种环境均在初始化时建立缓存，读写 / 删除 / 清空保持缓存同步，普通网页监听跨标签 `storage` 事件并统一报告失败。
 - [x] 明确空规则列表的导入、更新和清空语义：V3 备份按完整快照处理，必需规则字段中的空数组表示替换为空；缺失 / `null` / 非数组拒绝；显式清空需确认，空列表备份仍可导出。见 `docs/V3-RULE-MODEL.zh.md`，实现验证留在 schema / importer 阶段。
-- [ ] 定义 V3 新配置 schema、格式版本标识和校验规则；V3 不负责迁移 V2 配置。
+- [x] 定义 V3 新配置 schema、格式版本标识和校验规则；V3 不负责迁移 V2 配置。新增独立 `@proxy/v3-domain` envelope 与字段路径校验，未知字段 / 格式 / 版本拒绝，识别 V2 并给出不兼容提示；进阶 matcher/action 能力随 Fetch / XHR 审查演进。
 - [ ] 为导入文件提供结构校验、字段校验和可读错误反馈。
 - [ ] 验证多标签页、多 frame 和 service worker 重启时状态正确。
 
@@ -391,4 +391,5 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - 2026-09-25：Storage API 初始化、读取、写入、删除和清空错误现在会拒绝 Promise 并发出统一错误事件；面板显示初始化与保存错误；配额失败不会污染本地缓存，数据变化监听及初始化竞态已覆盖。`pnpm test` 8 个文件、43 项通过；coverage 为 statements 50.22%、branches 48.35%、functions 46.51%、lines 51.02%。typecheck、lint、format、包边界、完整 build、Chrome 扩展 smoke、editor smoke 通过；构建写回生成声明属于本次 API 返回类型变化。阶段 2 累计完成 55 / 179 项（30.7%），此检查点可独立提交。
 - 2026-09-25：普通网页 localStorage 现在于 `initStorage()` 初始化缓存，并与扩展存储采用相同的缓存读写语义；set / remove / clear 更新缓存，跨标签 `storage` 事件同步，受限存储初始化错误返回拒绝的 Promise 并统一记录。新增普通网页初始化、读写 / 删除 / 清空、跨标签更新和初始化错误测试；8 个测试文件、46 项通过，coverage 为 statements 54.08%、branches 50.16%、functions 50.00%、lines 55.55%，storage statements 63.97%。typecheck、lint、format、边界、完整 build、Chrome 扩展 smoke、editor smoke、生成声明检查通过。阶段 2 累计完成 56 / 179 项（31.3%），此检查点可独立提交。
 - 2026-09-25：确定 V3 空规则列表语义：备份采用完整快照，必需规则字段的空数组导入会清空旧列表；缺失、`null`、非数组均拒绝；更新按列表整体替换；清空非空规则需确认，空列表仍可导出。V2 空数组忽略行为只作为历史事实，不作为 V3 合同。规则模型文档补入实现验收用例；阶段 2 累计完成 57 / 179 项（31.8%），该语义设计检查点可独立提交，schema / importer 实现与测试仍待后续计划项。
+- 2026-09-25：新增无浏览器依赖的 `@proxy/v3-domain`，定义 `ajax-proxy-backup` 格式版本 3 的完整备份 envelope、设置 / 标签 / 规则基础结构和路径化校验；未知字段、错误版本、重复 ID、非法状态码或非 JSON body 拒绝，空 rules 合法且 V2 文件明确拒绝。4 项 schema 单测通过，并纳入 workspace build、typecheck、clean build 和包边界检查。阶段 2 累计完成 58 / 179 项（32.4%），规则 action 能力细节继续随平台审查演进。
 - GitHub 里程碑：[阶段 0](https://github.com/Nyakooo/ajax-proxy/milestone/1)、[阶段 1](https://github.com/Nyakooo/ajax-proxy/milestone/2)、[阶段 2](https://github.com/Nyakooo/ajax-proxy/milestone/3)、[阶段 3](https://github.com/Nyakooo/ajax-proxy/milestone/4)、[阶段 4](https://github.com/Nyakooo/ajax-proxy/milestone/5)、[阶段 5](https://github.com/Nyakooo/ajax-proxy/milestone/6)、[阶段 6](https://github.com/Nyakooo/ajax-proxy/milestone/7)、[阶段 7](https://github.com/Nyakooo/ajax-proxy/milestone/8)；已复现缺陷：[issue #56](https://github.com/Nyakooo/ajax-proxy/issues/56)。

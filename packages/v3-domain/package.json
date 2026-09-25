@@ -1,0 +1,12 @@
+{
+  "name": "@proxy/v3-domain",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Browser-independent V3 configuration schema and validation",
+  "main": "lib/index.js",
+  "types": "types/index.d.ts",
+  "scripts": {
+    "build": "rm -rf lib types && tsc"
+  },
+  "license": "MIT"
+}

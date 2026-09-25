@@ -41,6 +41,33 @@ interface Rule {
 
 具体 matcher 和 action 字段应在 Fetch / XHR 能力盘点后再定，避免在模型中承诺浏览器无法一致实现的字段。
 
+## V3 备份格式与基础校验
+
+V3 备份使用独立标识，不通过字段猜测把旧文件转换成新格式：
+
+```json
+{
+  "format": "ajax-proxy-backup",
+  "formatVersion": 3,
+  "settings": {
+    "globalEnabled": true,
+    "mode": "interceptor",
+    "language": "zh-CN"
+  },
+  "tags": [],
+  "rules": []
+}
+```
+
+- 顶层必须且只能包含 `format`、`formatVersion`、`settings`、`tags`、`rules`。格式标识固定为 `ajax-proxy-backup`，版本固定为整数 `3`；未知格式 / 版本拒绝，检测到 V2 字段时返回明确的不兼容提示。
+- `settings` 必须包含布尔值 `globalEnabled`、`interceptor` / `redirector` 模式和 `zh-CN` / `en` 语言。未知字段拒绝，避免输入拼错后被静默忽略。
+- `tags` 必须是数组；每个 tag 包含唯一非空字符串 `id`、非空 `name` 和布尔 `used`，不允许未知字段。空数组合法。
+- `rules` 必须是数组；每条规则包含唯一非空 `id`、布尔 `enabled`、非空 URL `match`，可选 `request` 重定向 action 和 `response` 替换 action。未知规则和 matcher 字段拒绝。
+- URL matcher 的 `method` 是可选字符串，`type` 可选 `normal` 或 `regex`。重定向 payload 必须含非空目标 `url`；响应替换可选 `status`（100–599 整数）、字符串 header map、JSON `body` 和字符串 `code`。未知 action / payload 字段拒绝。
+- 校验结果携带字段路径和可读原因，不通过部分修复或丢弃字段来“尽量导入”。整个备份校验成功后才允许替换当前配置。
+
+上述基础 envelope 已落为独立的 `@proxy/v3-domain` 校验实现。URL matcher 的高级条件、响应 action 的执行能力与浏览器差异仍以 Fetch / XHR 能力审查后的后续 schema 演进为准；任何格式变化都必须递增 `formatVersion`。
+
 ## 建议的匹配和执行顺序
 
 1. 捕获并规范化原始请求信息。
