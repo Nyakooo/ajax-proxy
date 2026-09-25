@@ -94,7 +94,7 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - [ ] 设计清晰完整的项目目录和包结构，明确各包的职责与边界。
 - [ ] 按领域划分核心模块，明确请求处理、规则匹配、状态管理、存储、消息通信和 UI 之间的依赖方向。
 - [ ] 统一模块命名、公共接口、类型定义和错误处理方式，减少重复实现及跨层耦合。
-- [ ] 绘制并维护项目架构图、包依赖图和关键运行链路说明。
+- [x] 绘制并维护项目架构图、包依赖图和关键运行链路说明：`docs/V3-ARCHITECTURE-ASSESSMENT.zh.md` 现覆盖全部 9 个 workspace 包，以及面板→storage→content→MAIN proxy 配置同步、代理命中→content→service worker→badge 两条关键链路，并记录消息信任边界。
 - [x] 在修改核心行为前，为 Fetch Request method / URL 缺陷补充可复现回归测试；先确认测试失败，再实现修复并保留测试。
 - [ ] 设计组合式规则：同一条规则可按需同时定义请求重定向与响应拦截 / 替换，避免用户为同一接口维护两条割裂规则。
 - [ ] 明确组合规则的执行阶段和数据流：先匹配原始请求，再决定是否改写目标请求；请求完成后由同一规则决定是否替换响应。
@@ -405,4 +405,5 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - 2026-09-25：继续最低浏览器兼容审查；Vue 面板 Babel / PostCSS 输出目标、核心 Fetch / XHR / Headers / TextEncoder 用法及 `crypto.randomUUID()` fallback 均已核对。Chrome for Testing 141.0.7390.122 当前构建的运行时 smoke 与扩展 smoke 通过；本机 Chrome Stable 154.0.8037.58、Edge Stable 153.0.4234.48 已打开当前扩展面板。Edge 140 固定版本矩阵已在 CI 配置，但没有远端执行结果；项目 Edge 140 下载器只支持 Linux x64，而当前主机是 macOS arm64。兼容审查项暂不勾选，待 PR CI 返回 Edge 140 运行结果；全局仍为 67 / 179（37.4%）。
 - 2026-09-25：阶段 3 最低浏览器兼容性验收完成。CI run [36106005756](https://github.com/Nyakooo/ajax-proxy/actions/runs/36106005756) 中 Chrome Stable、Edge Stable、Chrome 141 和 Edge 140 的运行时检查均通过，Chrome 141 与 Edge 140 的扩展 Fetch / XHR smoke 通过，build job 全部通过。更新兼容矩阵并确认最低主版本 Chrome 141 / Edge 140；阶段 3 的兼容性检查项勾选完成，全局完成 68 / 179 项（38.0%）。当前后续从阶段 2 未完成项继续。
 - 2026-09-25：补齐阶段 2 已登记的 XHR 通用事件转发审查线索。原生 XHR 的 readystatechange、loadstart、progress、abort、error、load、timeout、loadend 现转发为代理 XHR 上的合成事件；响应处理先于最终 readyState 事件，`this` / `target` 指向代理对象，原生 EventTarget 处理移除、once 和回调顺序。新增 Vitest 与真实扩展 smoke 验证，71 项单测、proxy-lib 类型检查、lint 和 Chromium extension smoke 通过。由于对应 XHR 生命周期计划项之前已计为完成，总体仍为 68 / 179（38.0%）；合成事件 `isTrusted=false` 及 upload 直通边界已记入问题文档。
+- 2026-09-25：补齐阶段 2 架构文档待办。更新当前 package manifest 依赖图（包括新建的 `@proxy/v3-domain`），并新增面板配置同步和请求命中上报两条时序图，标明 MAIN world 页面消息的不可信边界。`pnpm check:boundaries` 核实 9 个 workspace 包依赖无环；整体完成 69 / 179 项（38.5%）。
 - GitHub 里程碑：[阶段 0](https://github.com/Nyakooo/ajax-proxy/milestone/1)、[阶段 1](https://github.com/Nyakooo/ajax-proxy/milestone/2)、[阶段 2](https://github.com/Nyakooo/ajax-proxy/milestone/3)、[阶段 3](https://github.com/Nyakooo/ajax-proxy/milestone/4)、[阶段 4](https://github.com/Nyakooo/ajax-proxy/milestone/5)、[阶段 5](https://github.com/Nyakooo/ajax-proxy/milestone/6)、[阶段 6](https://github.com/Nyakooo/ajax-proxy/milestone/7)、[阶段 7](https://github.com/Nyakooo/ajax-proxy/milestone/8)；已复现缺陷：[issue #56](https://github.com/Nyakooo/ajax-proxy/issues/56)。

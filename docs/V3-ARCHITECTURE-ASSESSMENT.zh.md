@@ -1,23 +1,37 @@
 # V3 目录结构与包边界评估
 
-盘点日期：2026-09-25。本文是阶段 0 的架构评估与迁移建议；不在此阶段移动目录或删包。V3 明确不迁移 V2 配置，因此历史格式转换实现不应自然地延续为 V3 的核心依赖。
+盘点日期：2026-09-25。本文记录阶段 0 的架构评估与迁移建议，并在阶段 2 补充当前包依赖和运行链路；V3 明确不迁移 V2 配置，因此历史格式转换实现不应自然地延续为 V3 的核心依赖。
 
 ## 当前包与依赖方向
 
-```text
-protocol  <-  shared-utils
-   ^              ^
-   |              |
-proxy-lib  <-  v2-compatibility  <-  shell-chrome
-    ^                  ^                 ^
-    |                  |                 |
-    +------------------+-----------------+-- vue-panels
-                                               |         |
-                                               v         v
-                                          code-editor  json-editor
+以下箭头表示左侧包依赖右侧包，依据各包 `package.json` 的 workspace dependencies。图含当前全部 9 个 workspace 包；外部 npm dependencies 不展开。`@proxy/v3-domain` 已建立并依赖 protocol，但运行时接入仍是后续工作。
+
+```mermaid
+flowchart LR
+  protocol["@proxy/protocol"]
+  proxy["@proxy/lib"]
+  shared["@proxy/shared-utils"]
+  compat["@proxy/v2-compatibility"]
+  shell["@proxy/shell-chrome"]
+  domain["@proxy/v3-domain"]
+  panels["@proxy/vue-panels"]
+  code["@proxy/code-editor"]
+  json["@proxy/json-editor"]
+
+  proxy --> protocol
+  shared --> protocol
+  compat --> proxy
+  domain --> protocol
+  shell --> proxy
+  shell --> shared
+  shell --> compat
+  panels --> shared
+  panels --> compat
+  panels --> code
+  panels --> json
 ```
 
-图示表达当前 package manifest 的 workspace 依赖，不代表所有箭头都是理想方向。`@proxy/protocol` 是浏览器无关的叶子包，导出消息和 storage key 常量；shared-utils 重导出这些常量，proxy-lib 只依赖 protocol 发出命中事件。`@proxy/v2-compatibility` 依赖 `@proxy/lib` 的公开类型入口；shell 和 panels 都依赖 V2 转换包；panels 另行使用 shared-utils 与两个 Vue 2 编辑器包。
+`@proxy/protocol` 是不依赖其他 workspace 包的协议基础包，导出消息和 storage key 常量；shared-utils 重导出这些常量，proxy-lib 依赖它发出命中事件。`@proxy/v2-compatibility` 依赖 `@proxy/lib` 的公开类型入口；shell 和 panels 保留现存 V2 路径，panels 另行使用 shared-utils 与两个 Vue 2 编辑器包。
 
 目标依赖方向建议如下。箭头表示左侧模块依赖右侧模块；按 `V3 domain / platform ports → request engine / adapters / UI → extension host` 拓扑排序，无循环。此图是迁移目标，需在边界落地后通过 clean build 和 package-only build 验证。
 
@@ -45,6 +59,7 @@ flowchart TD
 | `protocol`                                                  | 现为 `@proxy/protocol`，只导出浏览器无关的消息 / storage key 常量                                                      | 保持为稳定叶子包；禁止依赖 Vue、Chrome API、storage 实现和业务包                                                  |
 | `shared-utils`                                              | Chrome 环境判断、storage、消息通知、badge 操作混在一个包                                                               | 按平台适配与存储职责继续拆分；核心规则不得依赖 UI 或 Chrome API                                                   |
 | `proxy-lib`                                                 | Fetch / XHR 拦截、重定向、函数执行、规则匹配                                                                           | 按 rule domain、请求执行策略和浏览器拦截 adapter 拆内部 feature；只有定义和 adapter 接口通过公共入口暴露          |
+| `v3-domain`                                                 | `@proxy/v3-domain`，纯 V3 backup envelope / 规则 schema 与 JSON 校验、V2 格式识别                                      | 扩展为浏览器无关的 V3 规则领域；不依赖扩展宿主、Vue 或 V2 转换                                                    |
 | `v2-compatibility`                                          | V2 字段与现有配置结构转换，类型依赖 proxy-lib；当前由 shell 启动和面板导入路径运行时调用                               | 该包是 V2 现存路径的真实依赖；迁移期间隔离其职责，V3 用版本识别 / 拒绝提示替代，不把转换能力带入新 schema         |
 | `shell-chrome`                                              | content script、document script、service worker、manifest 和 Webpack 打包                                              | 保留为 Chrome/Edge MV3 平台入口；service worker、content script、消息处理按运行上下文明确拆分                     |
 | `vue-panels`                                                | Vue 2 UI、store、通知、语言及规则业务视图                                                                              | 迁移到 Vue 3 后按 feature 拆分规则编辑、设置、导入导出和反馈；把 Chrome storage 调用改走 adapter                  |
@@ -103,3 +118,54 @@ flowchart TD
 更新（2026-09-25）：`pnpm clean:build` 扩大到清理编辑器库与面板 dist。干净构建复现 Vue CLI 私有编辑器包并行输出多格式时的 CSS 文件写入竞争；两个包改为只输出其 `main` 声明使用的 CommonJS 格式后，Node 24.21.0 clean build 与扩展 E2E 均通过。
 
 更新（2026-09-25）：兼容性包已停止引用 `@proxy/lib/types/types` 私有声明路径，改由 `@proxy/lib` 公共入口导入；代理库根入口补齐所需公共类型。新增 `@proxy/protocol` 叶子包，将纯消息 / storage key 常量从 shared-utils 解耦；请求核心不再依赖包含 Chrome storage / badge 的工具包。`pnpm check:boundaries` 检查 8 个 workspace 包依赖无环、包间导入有 manifest 声明、阻止 core 依赖 UI / 浏览器适配包并避免源码深层路径，CI 已运行；全包 clean build 和 typecheck 通过。声明文件提交并由 CI 构建后校验漂移。阶段 1 验收结束，V3 领域包拆分继续列于阶段 2。
+
+## 阶段 2 当前运行链路
+
+### 面板配置同步到页面代理
+
+```mermaid
+sequenceDiagram
+  actor User
+  participant Panel as Vue 面板
+  participant Store as chrome.storage.local
+  participant Content as content script（isolated world）
+  participant Document as document.js（MAIN world）
+  participant Lib as @proxy/lib
+
+  User->>Panel: 修改开关、模式或规则
+  Panel->>Store: 通过 shared-utils 持久化配置
+  Store-->>Content: chrome.storage.onChanged
+  Content->>Content: 刷新 storage cache 并组装状态快照
+  Content->>Document: window.postMessage（CONTENT → DOCUMENT）
+  Document->>Document: 检查 source、origin、路由、键集合和字段 schema
+  Document->>Lib: update(state) / updateInterceptors() / updateRedirectors()
+  Note over Lib: 挂载或更新页面全局 Fetch / XHR 代理引用
+```
+
+页面启动时，content script 先初始化 storage 并读取配置，再将当前快照同步到 document.js；V2 的首次安装转换仍属于现存兼容路径。面板初始化前等待 shared-utils storage 初始化。`window.postMessage` 同页内容可被网页脚本伪造，因此主世界接收端必须持续按不可信输入验证，不能用它做扩展权限或持久化授权。
+
+### 页面请求与命中统计
+
+```mermaid
+sequenceDiagram
+  participant Page as 页面脚本
+  participant Lib as @proxy/lib（MAIN world）
+  participant Network as 浏览器网络栈
+  participant Content as content script（isolated world）
+  participant Worker as service worker
+  participant Badge as chrome.action badge
+
+  Page->>Lib: fetch() / XMLHttpRequest
+  Lib->>Network: 原请求、改写请求或拦截响应
+  Network-->>Lib: 原始响应
+  Lib-->>Page: 原始响应或规则响应
+  Lib->>Content: window CustomEvent（命中数据）
+  Content->>Content: 校验不可信页面事件的规则序号与字段
+  Content->>Worker: chrome.runtime.sendMessage
+  Worker->>Worker: 校验扩展 sender、tab 和消息结构
+  Worker->>Badge: 只累计最终命中规则
+```
+
+命中事件从页面主世界发出，页面自身可以伪造同页事件；content script 和 service worker 均校验结构，service worker 另核对扩展 ID 与 tab sender。系统把该通道限于本页代理状态和命中展示。
+
+更新（2026-09-25）：阶段 2 补充当前架构图和两条运行链路。依赖图按 9 个 workspace manifest 核对，并由 `pnpm check:boundaries` 确认无环；配置同步、页面代理、命中事件和 service worker sender 校验依据 `content.ts`、`document.ts`、`proxy-lib/src/index.ts` 与 `service-worker/index.ts` 核对。图表示当前实现；`@proxy/v3-domain` 尚未接入请求运行时。
