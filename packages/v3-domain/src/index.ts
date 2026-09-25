@@ -1,4 +1,6 @@
 import { isValidRegexPattern } from '@proxy/protocol'
+export { selectV3Rule } from './ruleMatching'
+export type { V3RequestMatchInput, V3RuleSelection } from './ruleMatching'
 
 export const V3_BACKUP_FORMAT = 'ajax-proxy-backup' as const
 export const V3_BACKUP_VERSION = 3 as const

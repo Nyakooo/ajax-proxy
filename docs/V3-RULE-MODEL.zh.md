@@ -1,4 +1,4 @@
-# Ajax Proxy V3 组合式规则设计建议
+# Ajax Proxy V3 组合式规则设计
 
 状态：阶段 2 执行语义已定稿；Fetch / XHR 的运行时能力边界仍需通过原型验证后确认。
 
@@ -24,7 +24,7 @@ interface Rule {
 }
 ```
 
-- `match` 只匹配原始请求。本阶段仅定义 URL 与 method：`normal` 是原始 URL 的区分大小写子串匹配，`regex` 使用 RE2；method 按大写后的 HTTP token 精确匹配，未填写或填写 `ANY` 表示任意 method。headers 等条件不属于当前 schema。
+- `match` 只匹配原始请求。本阶段仅定义 URL 与 method：`normal` 是原始 URL 的区分大小写子串匹配，`regex` 使用不区分大小写的 RE2；method 按大写后的 HTTP token 精确匹配，未填写或填写 `ANY` 表示任意 method。headers 等条件不属于当前 schema。
 - `request` 和 `response` 是独立能力；至少开启一项的规则才参与匹配。
 - 列表顺序就是规则优先级，界面允许调整顺序。第一条满足规则级 `enabled`、至少一个 action 的 `enabled`，且 URL / method 全部匹配的规则负责请求。两种 action 均关闭的规则仍可保存（例如函数代码导入时自动停用 response action），但运行时将其视为不参与匹配。选中后锁定稳定的规则 ID；action 失败也不会把请求交给后续规则。
 - schema 需要格式版本、严格校验和可读错误；不读取或转换 V2 字段。
@@ -75,7 +75,7 @@ V3 备份使用独立标识，不通过字段猜测把旧文件转换成新格�
 ## 建议的匹配和执行顺序
 
 1. 捕获原始 URL 与 method；method 转为大写，原 URL 在请求及响应两个阶段都保持不变。
-2. 按规则列表顺序检查规则启用状态、是否至少有一个 action 启用、URL matcher 与 method。未填写 method 或 `ANY` 匹配任意 method；其余 method 大小写无关地比较。选择第一条完整命中的规则；后续规则不再参与该请求。`normal` URL 条件按区分大小写的子串匹配，`regex` 按 RE2 语义执行。
+2. 按规则列表顺序检查规则启用状态、是否至少有一个 action 启用、URL matcher 与 method。未填写 method 或 `ANY` 匹配任意 method；其余 method 大小写无关地比较。选择第一条完整命中的规则；后续规则不再参与该请求。`normal` URL 条件按区分大小写的子串匹配，`regex` 按不区分大小写的 RE2 语义执行。
 3. 一旦选中规则，锁定本次请求的 rule ID。规则的 request action 若启用，则在网络请求发出前计算重定向目标并改写请求；未启用时使用原始请求。
 4. 请求只发送一次。收到响应后，使用同一条规则的 response action；若启用，则尝试拦截 / 替换。规则不会在重定向后的 URL 上重新匹配，也不会因 action 失败而转交给下一条规则。
 5. 选中规则时记录一次命中，并分别记录重定向与响应替换的状态，避免组合 action 导致重复计数。诊断至少区分 `matched`、`redirect-applied`、`response-replaced` 和 `failed-open`。

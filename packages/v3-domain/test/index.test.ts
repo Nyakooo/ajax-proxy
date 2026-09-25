@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatV3ValidationIssues, parseV3BackupJson, validateV3Backup } from '../src'
+import { formatV3ValidationIssues, parseV3BackupJson, selectV3Rule, validateV3Backup } from '../src'
 
 const validBackup = {
   format: 'ajax-proxy-backup',
@@ -182,5 +182,85 @@ describe('V3 backup schema', () => {
     const tooMuchCode = structuredClone(validBackup)
     ;(tooMuchCode.rules[0].response.replace as Record<string, unknown>).code = 'x'.repeat(65537)
     expect(validateV3Backup(tooMuchCode)).toMatchObject({ ok: false })
+  })
+})
+
+describe('V3 rule selection', () => {
+  const requestRule = (id: string, url: string, method = 'GET') => ({
+    id,
+    enabled: true,
+    match: { url, method },
+    request: { enabled: true, redirect: { url: 'https://target.test/' } },
+  })
+
+  it('selects and locks the first complete match against the original request', () => {
+    const rules = [
+      requestRule('wrong-method', '/api', 'POST'),
+      requestRule('first-match', '/api'),
+      requestRule('later-match', '/api'),
+    ]
+
+    expect(selectV3Rule(rules, { url: 'https://example.test/api/items', method: 'get' })).toEqual({
+      rule: rules[1],
+      index: 1,
+      originalRequest: { url: 'https://example.test/api/items', method: 'GET' },
+    })
+  })
+
+  it('skips disabled rules and rules without an enabled action', () => {
+    const disabledRule = { ...requestRule('disabled', '/api'), enabled: false }
+    const noEnabledAction = {
+      ...requestRule('inert', '/api'),
+      request: { enabled: false, redirect: { url: 'https://target.test/' } },
+      response: { enabled: false, replace: { body: null } },
+    }
+    const laterRule = requestRule('active', '/api')
+
+    expect(
+      selectV3Rule([disabledRule, noEnabledAction, laterRule], {
+        url: 'https://example.test/api',
+        method: 'GET',
+      })?.rule
+    ).toBe(laterRule)
+  })
+
+  it('treats an omitted method and ANY as wildcards and method tokens case-insensitively', () => {
+    const anyRule = requestRule('any', '/api', 'aNy')
+    const lowerRule = requestRule('lower', '/api', 'get')
+
+    expect(selectV3Rule([anyRule], { url: '/api', method: 'DELETE' })?.rule).toBe(anyRule)
+    expect(selectV3Rule([lowerRule], { url: '/api', method: 'GET' })?.rule).toBe(lowerRule)
+    expect(
+      selectV3Rule([{ ...lowerRule, match: { url: '/api' } }], {
+        url: '/api',
+        method: 'PATCH',
+      })?.rule.id
+    ).toBe('lower')
+  })
+
+  it('uses case-sensitive substring matching and case-insensitive RE2 matching', () => {
+    const normalRule = requestRule('normal', '/API')
+    const regexRule = {
+      ...requestRule('regex', '/api/[0-9]+'),
+      match: { url: '/api/[0-9]+', type: 'regex' as const },
+    }
+
+    expect(selectV3Rule([normalRule], { url: '/api/1', method: 'GET' })).toBeUndefined()
+    expect(selectV3Rule([regexRule], { url: '/API/123', method: 'GET' })?.rule).toBe(regexRule)
+  })
+
+  it('skips matcher failures and overlong inputs safely', () => {
+    const invalidRegex = {
+      ...requestRule('invalid', '['),
+      match: { url: '[', type: 'regex' as const },
+    }
+    const laterRule = requestRule('later', 'api')
+
+    expect(selectV3Rule([invalidRegex, laterRule], { url: '/api', method: 'GET' })?.rule).toBe(
+      laterRule
+    )
+    expect(
+      selectV3Rule([laterRule], { url: '/'.padEnd(65537, 'x'), method: 'GET' })
+    ).toBeUndefined()
   })
 })

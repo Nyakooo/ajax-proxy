@@ -1,3 +1,5 @@
+export { selectV3Rule } from './ruleMatching';
+export type { V3RequestMatchInput, V3RuleSelection } from './ruleMatching';
 export declare const V3_BACKUP_FORMAT: "ajax-proxy-backup";
 export declare const V3_BACKUP_VERSION: 3;
 export declare const V3_BACKUP_MAX_BYTES: number;

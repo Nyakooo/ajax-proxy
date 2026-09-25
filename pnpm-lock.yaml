@@ -364,6 +364,9 @@ importers:
       '@proxy/protocol':
         specifier: workspace:^
         version: link:../protocol
+      re2js:
+        specifier: 2.8.6
+        version: 2.8.6
 
   packages/vue-panels:
     dependencies:

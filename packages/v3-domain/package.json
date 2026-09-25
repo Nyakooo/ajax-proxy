@@ -10,6 +10,7 @@
   },
   "license": "MIT",
   "dependencies": {
-    "@proxy/protocol": "workspace:^"
+    "@proxy/protocol": "workspace:^",
+    "re2js": "2.8.6"
   }
 }
