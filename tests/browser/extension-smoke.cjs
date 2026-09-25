@@ -20,7 +20,9 @@ async function main() {
             const request = new Request('/api/echo', { method: 'POST', body: 'test' })
             const response = await fetch(request)
             result.textContent = JSON.stringify({
-              kind: 'fetch', status: response.status, body: await response.text()
+              kind: 'fetch', status: response.status, url: response.url,
+              redirected: response.redirected, type: response.type,
+              contentLength: response.headers.get('content-length'), body: await response.text()
             })
           }
           document.querySelector('#xhr').onclick = () => {
@@ -58,8 +60,8 @@ async function main() {
     const chunks = []
     request.on('data', (chunk) => chunks.push(chunk))
     request.on('end', () => {
-      response.writeHead(200, { 'content-type': 'application/json' })
       if (request.url.startsWith('/mock/echo')) {
+        response.writeHead(200, { 'content-type': 'application/json' })
         response.end(
           JSON.stringify({
             source: 'server',
@@ -73,13 +75,16 @@ async function main() {
         )
         return
       }
-      response.end(
-        JSON.stringify({
-          source: 'server',
-          method: request.method,
-          body: Buffer.concat(chunks).toString(),
-        })
-      )
+      const body = JSON.stringify({
+        source: 'server',
+        method: request.method,
+        body: Buffer.concat(chunks).toString(),
+      })
+      response.writeHead(200, {
+        'content-type': 'application/json',
+        'content-length': Buffer.byteLength(body),
+      })
+      response.end(body)
     })
   })
 
@@ -200,6 +205,10 @@ async function main() {
     assert.deepEqual(JSON.parse(await result.textContent()), {
       kind: 'fetch',
       status: 200,
+      url: `http://127.0.0.1:${port}/api/echo`,
+      redirected: false,
+      type: 'basic',
+      contentLength: null,
       body: expectedResponseJson,
     })
 

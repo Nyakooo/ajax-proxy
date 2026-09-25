@@ -33,12 +33,19 @@
 - 验证：Vitest 覆盖异步 callback、Promise 结果、未完成 callback 超时、同步异常，以及 Fetch 响应和重定向请求的失败回退。
 - 限制：5 秒超时无法中断用户函数中的同步死循环；这需要隔离执行环境另行解决。
 
+### Fetch 响应替换的 body、状态码与原始元数据
+
+- 状态：已修复并回归验证（2026-09-25）。
+- 影响范围：`packages/proxy-lib/src/createFetch.ts`。
+- 问题：替换响应时总是创建非空 ReadableStream，导致 204、205、304 的 `Response` 构造抛错；HEAD 仍带替换 body；非法状态码也会使整个 Fetch reject。旧 `Content-Length` / `Content-Encoding` 可能不再匹配替换后的 body，且新建 Response 会丢失原始 `url`、`redirected` 和 `type`。
+- 修复：HEAD 与 204 / 205 / 304 使用 null body；响应状态码无效时直接返回原始响应；复制 headers 后清除 `Content-Length`、`Content-Encoding`、`Content-Range` 和 `Transfer-Encoding`；代理对象从原始响应读取 `url`、`redirected`、`type`，其余属性和方法指向替换响应。
+- 验证：覆盖 204、205、304、HEAD、非法状态码、保留其他 headers、清除失效 headers 和原始元数据。扩展 smoke 的真实 Fetch 响应还检查 `url`、`redirected`、`type` 和 Content-Length 清理。
+
 ## 尚待复现的代码审查线索
 
 | 线索                                               | 位置                                    | 可能影响                                       | 验证安排                                           |
 | -------------------------------------------------- | --------------------------------------- | ---------------------------------------------- | -------------------------------------------------- |
 | 多条拦截规则可能覆盖先前响应并重复通知             | `packages/proxy-lib/src/createFetch.ts` | 最终响应与命中统计可能偏离用户预期             | 两条可区分命中规则并核对 body、status、通知次数    |
-| 空 body 状态码可能和新 Response body 冲突          | `packages/proxy-lib/src/createFetch.ts` | 204 / 304 等响应可能构造失败                   | 复现 204、304、HEAD 与状态码 / body 组合           |
 | XHR `open()` 包装可能改变同步调用语义              | `packages/proxy-lib/src/createXHR.ts`   | 同步 XHR 和原生事件顺序变化                    | 对照同步 / 异步请求、重复 open、headers 和事件时序 |
 | storage 可能缺少跨上下文变更同步及统一写入错误处理 | `packages/shared-utils/src/storage.ts`  | 面板、标签页和 service worker 的设置暂时不一致 | 多上下文写入、读取及拒绝场景验证                   |
 

@@ -68,36 +68,29 @@ function CustomFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Resp
         // 返回原始响应
         if (!globalState.value.global_on || (!txt && _overrideType !== 'function')) return response
 
-        const stream = new ReadableStream({
-            start(controller) {
-                controller.enqueue(new TextEncoder().encode(txt));
-                controller.close();
-            },
-        });
-        const newResponse = new Response(stream, {
-            headers: response.headers,
+        if (!Number.isInteger(status) || status < 200 || status > 599) return response
+
+        const hasNoBody = fetchMethod === 'HEAD' || [204, 205, 304].includes(status)
+        const replacementHeaders = new Headers(response.headers)
+        replacementHeaders.delete('content-length')
+        replacementHeaders.delete('content-encoding')
+        replacementHeaders.delete('content-range')
+        replacementHeaders.delete('transfer-encoding')
+        const replacementBody = hasNoBody ? null : (txt ?? '')
+        const newResponse = new Response(replacementBody, {
+            headers: replacementHeaders,
             status: status,
             statusText: statusText,
         });
         const proxy = new Proxy(newResponse, {
-            get: function (target, prop) {
-                const checkKeys = ['ok', 'redirected', 'type', 'url', 'useFinalURL', 'body', 'bodyUsed'];
-                if (checkKeys.includes(prop as string)) {
-                    return Reflect.get(target, prop);
+            get(target, prop) {
+                if (['redirected', 'type', 'url'].includes(prop as string)) {
+                    return Reflect.get(response, prop, response)
                 }
-                return Reflect.get(target, prop);
+                const value = Reflect.get(target, prop, target)
+                return typeof value === 'function' && prop !== 'constructor' ? value.bind(target) : value
             },
         });
-
-        for (let key in proxy) {
-            // 获取proxy key 对应实例
-            const target = Reflect.get(proxy, key);
-            // 判断实例是否为 Response 实例
-            if (typeof target === "function") {
-                // 将新的 Response 实例绑定到 proxy 实例上
-                Reflect.set(proxy, key, target.bind(newResponse));
-            }
-        }
         return proxy;
     });
 }

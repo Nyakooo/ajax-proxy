@@ -6,15 +6,26 @@ async function createFetchHarness(
     method: string
     matchUrl: string
     responseUrl?: string
+    responseStatus?: number
+    responseHeaders?: HeadersInit
+    statusCode?: string
+    override?: string
     overrideType?: 'json' | 'function'
     overrideFunc?: string
   } = { method: 'POST', matchUrl: '/api/original' }
 ) {
   vi.resetModules()
-  const response = new Response('original response', { status: 200 })
+  const responseStatus = options.responseStatus ?? 200
+  const originalBody = [204, 205, 304].includes(responseStatus) ? null : 'original response'
+  const response = new Response(originalBody, {
+    status: responseStatus,
+    headers: options.responseHeaders,
+  })
   Object.defineProperty(response, 'url', {
     value: options.responseUrl ?? 'https://example.test/api/original',
   })
+  Object.defineProperty(response, 'redirected', { value: true })
+  Object.defineProperty(response, 'type', { value: 'cors' })
   const originFetch = vi.fn().mockResolvedValue(response)
   const dispatchEvent = vi.fn()
   vi.stubGlobal('window', { fetch: originFetch, dispatchEvent, eval })
@@ -28,9 +39,9 @@ async function createFetchHarness(
         {
           switch_on: true,
           match_url: options.matchUrl,
-          method: options.method as 'GET' | 'POST',
-          override: 'intercepted response',
-          status_code: '200',
+          method: options.method as 'GET' | 'POST' | 'HEAD',
+          override: options.override ?? 'intercepted response',
+          status_code: options.statusCode ?? '200',
           override_type: options.overrideType,
           override_func: options.overrideFunc,
         },
@@ -103,5 +114,59 @@ describe('CustomFetch Request input', () => {
 
     expect(response).toBe(originalResponse)
     expect(dispatchEvent).not.toHaveBeenCalled()
+  })
+
+  it.each([204, 205, 304])('replaces status %i with a bodyless response', async (statusCode) => {
+    const { customFetch } = await createFetchHarness({
+      method: 'GET',
+      matchUrl: '/api/original',
+      responseUrl: 'https://example.test/api/original',
+      responseStatus: 200,
+      responseHeaders: {
+        'content-length': '17',
+        'content-encoding': 'gzip',
+        'x-origin': 'preserved',
+      },
+      statusCode: String(statusCode),
+    })
+
+    const response = await customFetch('https://example.test/api/original')
+
+    expect(response.status).toBe(statusCode)
+    expect(response.body).toBeNull()
+    expect(await response.text()).toBe('')
+    expect(response.headers.get('content-length')).toBeNull()
+    expect(response.headers.get('content-encoding')).toBeNull()
+    expect(response.headers.get('x-origin')).toBe('preserved')
+  })
+
+  it('omits the replacement body for HEAD and preserves original Response metadata', async () => {
+    const { customFetch } = await createFetchHarness({
+      method: 'HEAD',
+      matchUrl: '/api/original',
+      responseHeaders: { 'content-length': '17', 'x-origin': 'preserved' },
+    })
+
+    const response = await customFetch('https://example.test/api/original', { method: 'HEAD' })
+
+    expect(response.status).toBe(200)
+    expect(response.body).toBeNull()
+    expect(response.headers.get('content-length')).toBeNull()
+    expect(response.headers.get('x-origin')).toBe('preserved')
+    expect(response.url).toBe('https://example.test/api/original')
+    expect(response.redirected).toBe(true)
+    expect(response.type).toBe('cors')
+  })
+
+  it('returns the original response when the replacement status is invalid', async () => {
+    const { customFetch, originalResponse } = await createFetchHarness({
+      method: 'GET',
+      matchUrl: '/api/original',
+      statusCode: '101',
+    })
+
+    const response = await customFetch('https://example.test/api/original')
+
+    expect(response).toBe(originalResponse)
   })
 })
