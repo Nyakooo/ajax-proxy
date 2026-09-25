@@ -157,7 +157,13 @@ async function main() {
     const dialog = panel.locator('.response-modal-container .el-dialog__wrapper')
     await dialog.waitFor({ state: 'visible' })
     const fields = dialog.locator('.el-form-item')
-    await fields.nth(0).locator('input:not([readonly])').fill('/api/echo')
+    const regexMatcher = '/api/(echo|items)$'
+    await fields.nth(0).locator('input:not([readonly])').fill(regexMatcher)
+    await fields.nth(0).locator('.el-select').first().click()
+    await panel
+      .locator('.el-select-dropdown:visible .el-select-dropdown__item')
+      .filter({ hasText: /^Regex$/ })
+      .click()
     await fields.nth(1).locator('input:not([readonly])').fill('Playwright extension smoke')
     const responseJson = '{"source":"intercepted","details":{"ok":true},"items":[2,1]}'
     const expectedResponseJson = '{"source":"intercepted","details":{"ok":true},"items":[1,2]}'
@@ -235,9 +241,20 @@ async function main() {
     await jsonDrawer.locator('.json-editor-drawer__footer button').click()
     await dialog.getByRole('button', { name: 'OK' }).click()
     await dialog.waitFor({ state: 'hidden' })
-    await panel.getByText('/api/echo', { exact: true }).waitFor()
+    await panel.getByText(regexMatcher, { exact: true }).waitFor()
+    await panel.locator('.response-container .el-table__body-wrapper').getByText('Regex').waitFor()
 
     const result = page.locator('#result')
+
+    const unmatchedRegexResponse = await page.evaluate(async () => {
+      const response = await fetch('/api/nope')
+      return response.json()
+    })
+    assert.deepEqual(unmatchedRegexResponse, {
+      source: 'server',
+      method: 'GET',
+      body: '',
+    })
 
     const childFrame = page.frameLocator('#child-frame')
     await childFrame.locator('#frame-fetch').click()
@@ -358,7 +375,7 @@ async function main() {
     )
 
     console.log(
-      'Unpacked extension Fetch, XHR, iframe, redirect, and service worker restart smoke passed'
+      'Unpacked extension RE2 Fetch interception, XHR, iframe, redirect, and service worker restart smoke passed'
     )
   } finally {
     await context?.close()
