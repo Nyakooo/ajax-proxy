@@ -75,9 +75,16 @@
 
 ## 尚待复现的代码审查线索
 
-| 线索                                       | 位置                                  | 可能影响                                               | 验证安排                                |
-| ------------------------------------------ | ------------------------------------- | ------------------------------------------------------ | --------------------------------------- |
-| XHR 通用 `addEventListener()` 是否完整转发 | `packages/proxy-lib/src/createXHR.ts` | 监听器可能未收到代理底层 XHR 的 load / progress 等事件 | 覆盖监听器注册、移除、顺序与事件 target |
+目前没有待复现的代码审查线索。
+
+## 已验证的 XHR 通用事件监听转发
+
+- 状态：已修复并回归验证（2026-09-25）。
+- 影响范围：`packages/proxy-lib/src/createXHR.ts`。
+- 问题：请求由内部原生 XHR 执行，`CustomXHR` 继承对象上的 `addEventListener()` 却没有收到内部请求的 `readystatechange`、`load`、`progress` 等事件；若直接把原监听器挂到内部 XHR，回调的 `this` / `target` 会暴露内部实例。
+- 修复：将内部 `readystatechange` 和 `loadstart`、`progress`、`abort`、`error`、`load`、`timeout`、`loadend` 事件转发到调用方的 `CustomXHR` 对象；在 readyState 4 上先完成响应处理，再转发对应状态事件和后续终态事件。原生 `EventTarget` 在代理对象上管理监听器，保留注册 / 移除、`once` 和监听器顺序语义。`ProgressEvent` 的 `loaded`、`total` 和 `lengthComputable` 会复制到转发事件。
+- 验证：Vitest 覆盖 `this` / `target`、属性处理器与通用监听器顺序、`loadstart` / `readystatechange` / `progress` / `load` / `loadend` 转发、监听器移除及 `once`。真实扩展 Chromium smoke 对实际响应检查 `this`、`target`、`currentTarget`，并确认 readyState 通知早于 `load`。
+- 边界：转发事件是合成事件，其 `isTrusted` 为 `false`；XHR `upload` 对象仍由底层原生 XHR 直接提供。本实现不把页面传入的监听器转发给扩展上下文。
 
 ## 已验证的存储更新一致性
 

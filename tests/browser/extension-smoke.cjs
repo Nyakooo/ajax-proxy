@@ -43,12 +43,27 @@ async function main() {
           }
           document.querySelector('#xhr').onclick = () => {
             const request = new XMLHttpRequest()
-            request.open('POST', '/api/echo')
-            request.onload = () => {
-              result.textContent = JSON.stringify({
-                kind: 'xhr', status: request.status, body: request.responseText
+            const events = []
+            for (const type of ['loadstart', 'readystatechange', 'progress', 'load', 'loadend']) {
+              request.addEventListener(type, function (event) {
+                events.push({
+                  type: event.type,
+                  thisIsRequest: this === request,
+                  targetIsRequest: event.target === request,
+                  currentTargetIsRequest: event.currentTarget === request,
+                })
               })
             }
+            let onloadCalled = false
+            request.onload = () => {
+              onloadCalled = true
+            }
+            request.addEventListener('loadend', () => {
+              result.textContent = JSON.stringify({
+                kind: 'xhr', status: request.status, body: request.responseText, onloadCalled, events
+              })
+            })
+            request.open('POST', '/api/echo')
             request.send('test')
           }
           document.querySelector('#redirect-fetch').onclick = async () => {
@@ -243,11 +258,21 @@ async function main() {
     await page.waitForFunction(() =>
       document.querySelector('#result').textContent.startsWith('{"kind":"xhr"')
     )
-    assert.deepEqual(JSON.parse(await result.textContent()), {
-      kind: 'xhr',
-      status: 200,
-      body: expectedResponseJson,
-    })
+    const xhrResult = JSON.parse(await result.textContent())
+    assert.equal(xhrResult.kind, 'xhr')
+    assert.equal(xhrResult.status, 200)
+    assert.equal(xhrResult.body, expectedResponseJson)
+    assert.equal(xhrResult.onloadCalled, true)
+    assert.ok(xhrResult.events.some((event) => event.type === 'progress'))
+    assert.ok(xhrResult.events.some((event) => event.type === 'loadstart'))
+    assert.ok(xhrResult.events.some((event) => event.type === 'loadend'))
+    assert.ok(xhrResult.events.every((event) => event.thisIsRequest))
+    assert.ok(xhrResult.events.every((event) => event.targetIsRequest))
+    assert.ok(xhrResult.events.every((event) => event.currentTargetIsRequest))
+    assert.ok(
+      xhrResult.events.findIndex((event) => event.type === 'readystatechange') <
+        xhrResult.events.findIndex((event) => event.type === 'load')
+    )
 
     await panel.locator('input.el-radio-button__orig-radio[value="redirector"]').check({
       force: true,

@@ -23,6 +23,7 @@ class CustomXHR extends XMLHttpRequest {
   body?: Document | XMLHttpRequestBodyInit | null
   // 消息锁
   private message_once_lock: boolean = false
+  private readyStateEvent = Promise.resolve()
 
   constructor() {
     super()
@@ -158,19 +159,33 @@ class CustomXHR extends XMLHttpRequest {
       })
   }
 
+  private forwardEvent(event: Event) {
+    let forwarded: Event
+    if (typeof ProgressEvent !== 'undefined' && event instanceof ProgressEvent) {
+      forwarded = new ProgressEvent(event.type, {
+        bubbles: event.bubbles,
+        cancelable: event.cancelable,
+        composed: event.composed,
+        lengthComputable: event.lengthComputable,
+        loaded: event.loaded,
+        total: event.total,
+      })
+    } else {
+      forwarded = new Event(event.type, {
+        bubbles: event.bubbles,
+        cancelable: event.cancelable,
+        composed: event.composed,
+      })
+    }
+    if (typeof this.dispatchEvent === 'function') this.dispatchEvent(forwarded)
+  }
+
   // 拦截监听
   private watchAndOverride() {
     // 获取原始XHR
     const xhr = new OriginXHR()
     for (let attr in xhr) {
-      if (attr === 'onreadystatechange') {
-        xhr.onreadystatechange = async (...args) => {
-          // 开启拦截
-          if (this.readyState == 4) await this.maybeNeedModifyRes(xhr.response)
-          this.onreadystatechange && this.onreadystatechange.apply(this, args)
-        }
-        continue
-      }
+      if (attr === 'onreadystatechange') continue
       // else if (attr === "onload") {
       //     xhr.onload = async (...args) => {
       //         // 开启拦截
@@ -181,7 +196,48 @@ class CustomXHR extends XMLHttpRequest {
       //     continue;
       // }
       // 其他属性重写
+      if (
+        [
+          'addEventListener',
+          'removeEventListener',
+          'dispatchEvent',
+          'onloadstart',
+          'onprogress',
+          'onabort',
+          'onerror',
+          'onload',
+          'ontimeout',
+          'onloadend',
+        ].includes(attr)
+      )
+        continue
       this.overrideAttr(attr as keyof XMLHttpRequest, xhr)
+    }
+
+    xhr.onreadystatechange = (event) => {
+      const readyState = xhr.readyState
+      const response = xhr.response
+      this.readyStateEvent = this.readyStateEvent.then(async () => {
+        // 修改响应后再转发最终状态，保持 readyState 与 load 事件顺序。
+        if (readyState === 4) await this.maybeNeedModifyRes(response)
+        this.forwardEvent(event)
+      })
+    }
+
+    if (typeof xhr.addEventListener === 'function') {
+      for (const eventName of [
+        'loadstart',
+        'progress',
+        'abort',
+        'error',
+        'load',
+        'timeout',
+        'loadend',
+      ]) {
+        xhr.addEventListener(eventName, (event) => {
+          void this.readyStateEvent.then(() => this.forwardEvent(event))
+        })
+      }
     }
   }
 }

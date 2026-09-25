@@ -17,10 +17,12 @@ declare class CustomXHR extends XMLHttpRequest {
     method: string;
     body?: Document | XMLHttpRequestBodyInit | null;
     private message_once_lock;
+    private readyStateEvent;
     constructor();
     private getMethod;
     private maybeNeedModifyRes;
     private overrideAttr;
+    private forwardEvent;
     private watchAndOverride;
 }
 export default CustomXHR;

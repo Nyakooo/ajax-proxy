@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { RefGlobalState } from '../src/types'
 
-class FakeXMLHttpRequest {
+class FakeXMLHttpRequest extends EventTarget {
   readyState = 0
   responseText = ''
   response: unknown = ''
@@ -13,7 +13,21 @@ class FakeXMLHttpRequest {
   openArgs: unknown[] = []
   sentBody: XMLHttpRequestBodyInit | null | undefined
   calls: string[] = []
-  onreadystatechange: ((event: Event) => void) | null = null
+  #onreadystatechange: ((event: Event) => void) | null = null
+  #onreadystatechangeListener = (event: Event) => this.#onreadystatechange?.call(this, event)
+  constructor() {
+    super()
+  }
+  get onreadystatechange() {
+    return this.#onreadystatechange
+  }
+  set onreadystatechange(listener: ((event: Event) => void) | null) {
+    if (this.#onreadystatechange) {
+      super.removeEventListener('readystatechange', this.#onreadystatechangeListener)
+    }
+    this.#onreadystatechange = listener
+    if (listener) super.addEventListener('readystatechange', this.#onreadystatechangeListener)
+  }
   open = (
     method: string,
     url: string | URL,
@@ -43,9 +57,16 @@ class FakeXMLHttpRequest {
     this.responseText = typeof body === 'string' ? body : 'original response'
     this.response = this.responseText
     this.readyState = 4
-    this.onreadystatechange?.(new Event('readystatechange'))
+    this.dispatchEvent(new Event('loadstart'))
+    this.dispatchEvent(new Event('readystatechange'))
+    this.dispatchEvent(new Event('progress'))
+    this.dispatchEvent(new Event('load'))
+    this.dispatchEvent(new Event('loadend'))
   }
   abort = () => {}
+  dispatchEvent = (event: Event) => {
+    return super.dispatchEvent(event)
+  }
 }
 
 afterEach(() => {
@@ -54,6 +75,70 @@ afterEach(() => {
 })
 
 describe('CustomXHR rule selection', () => {
+  it('forwards registered XHR events with the proxy as the listener target', async () => {
+    vi.stubGlobal('XMLHttpRequest', FakeXMLHttpRequest)
+    vi.stubGlobal('window', { XMLHttpRequest: FakeXMLHttpRequest, eval })
+    const { default: CustomXHR, initInterceptorXHRState } = await import('../src/createXHR')
+    initInterceptorXHRState({
+      value: {
+        global_on: false,
+        mode: 'interceptor',
+        interceptor_matching_content: [],
+        redirector_matching_content: [],
+      },
+    })
+
+    const request = new CustomXHR()
+    const observed: Array<{
+      type: string
+      thisIsProxy: boolean
+      targetIsProxy: boolean
+    }> = []
+    const readystatechangeOrder: string[] = []
+    request.onreadystatechange = function (this: XMLHttpRequest, event) {
+      readystatechangeOrder.push('property')
+      observed.push({
+        type: event.type,
+        thisIsProxy: this === request,
+        targetIsProxy: event.target === request,
+      })
+    }
+    const onLoad: EventListener = function (this: XMLHttpRequest, event) {
+      if (event.type === 'readystatechange') readystatechangeOrder.push('listener')
+      observed.push({
+        type: event.type,
+        thisIsProxy: this === request,
+        targetIsProxy: event.target === request,
+      })
+    }
+    const onLoadStart: EventListener = onLoad
+    const onProgress: EventListener = onLoad
+    const onLoadEnd = vi.fn()
+    const removedLoadEnd = vi.fn()
+    request.addEventListener('loadstart', onLoadStart)
+    request.addEventListener('progress', onProgress)
+    request.addEventListener('readystatechange', onLoad)
+    request.addEventListener('load', onLoad)
+    request.addEventListener('loadend', onLoadEnd, { once: true })
+    request.addEventListener('loadend', removedLoadEnd)
+    request.removeEventListener('loadend', removedLoadEnd)
+
+    request.open('GET', 'https://example.test/api')
+    request.send()
+    await new Promise((resolve) => setTimeout(resolve, 0))
+
+    expect(observed).toEqual(
+      ['loadstart', 'readystatechange', 'readystatechange', 'progress', 'load'].map((type) => ({
+        type,
+        thisIsProxy: true,
+        targetIsProxy: true,
+      }))
+    )
+    expect(readystatechangeOrder).toEqual(['property', 'listener'])
+    expect(onLoadEnd).toHaveBeenCalledOnce()
+    expect(removedLoadEnd).not.toHaveBeenCalled()
+  })
+
   it('applies and reports only the first matching response rule', async () => {
     vi.stubGlobal('XMLHttpRequest', FakeXMLHttpRequest)
     const dispatchEvent = vi.fn()
