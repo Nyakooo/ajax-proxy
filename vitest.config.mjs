@@ -5,6 +5,7 @@ export default defineConfig({
   resolve: {
     alias: {
       '@proxy/shared-utils': resolve('packages/shared-utils/src/index.ts'),
+      '@proxy/v3-domain': resolve('packages/v3-domain/src/index.ts'),
     },
   },
   test: {
