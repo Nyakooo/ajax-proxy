@@ -13,7 +13,8 @@
   "dependencies": {
     "@primeuix/themes": "^1.2.3",
     "primevue": "^4.5.5",
-    "vue": "^3.5.22"
+    "vue": "^3.5.22",
+    "vue-i18n": "^11.4.12"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^5.2.4",

@@ -182,7 +182,7 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - [ ] 仅在扩展启用且发生规则命中时触发页面边缘提示；支持关闭动画或减少动态效果偏好，并控制动画频率和资源消耗。
 - [ ] 优化备份恢复、标签、搜索、筛选、排序和批量操作流程。
 - [ ] 国际化范围限定为简体中文与英文；清理繁体中文、日语、法语、韩语、俄语、爱尔兰语等非目标语言资源，以及 UI / JSON 编辑器相关的多余 locale 映射。
-- [ ] 将语言切换从下拉框改为始终可见的双选分段控件，明确显示“简体中文”和“English”；当前语言有清晰选中态，点击后立即切换并持久化，不需要额外确认。
+- [x] 将语言切换从下拉框改为始终可见的双选分段控件，明确显示“简体中文”和“English”；当前语言有清晰选中态，点击后立即切换并持久化，不需要额外确认。Vue 3 候选面板已通过 `vue-i18n` Composition API 实现，偏好保存在隔离的原型 localStorage 键中。
 - [ ] 统一应用文案、组件库、日期 / 数字格式和 JSON 编辑器语言为当前选择；检查中英文键值完整、术语一致、布局无截断，首次启动语言默认策略明确。
 - [ ] 检查键盘操作、焦点顺序、可读性和不同窗口尺寸下的布局。
 
@@ -444,4 +444,5 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - 2026-09-25：完成 Pass Through / unstyled 与 UI 原型生产特性对照：主 CTA 可单点 Pass Through 样式覆盖；独立 unstyled build 对 Button / InputText / Tag / ToggleSwitch 全部补充自定义类和基础样式。Chrome Stable 154.0.8037.58、Edge Stable 153.0.4234.48 在 styled、styled Pass Through CTA、unstyled 三种 production preview 验证规则创建、搜索空态、清除、ARIA 开关、主题切换、键盘焦点可见和无运行时异常。当前包含实验 CSS 的产物 styled 为 312.15 kB JS / 11.47 kB CSS（gzip 78.46 / 3.08 kB），unstyled 为 312.30 kB JS / 11.47 kB CSS（gzip 78.48 / 3.08 kB），没有观察到 unstyled 体积优势；继续采用 styled + 自定义 token，保留 Pass Through 作为局部样式扩展。完成按需组件引入、交互 / 键盘与 ARIA 基础检查、体积及定制维护成本对比（不代表完整 WCAG 审计）。阶段完成度 95 / 190（50.0%）。
 - 2026-09-25：完成品牌衔接的界面视觉基线：增加浅 / 深语义色、系统字体栈、4 px 间距刻度、圆角 / 控件尺寸、状态表达和 SVG 图标约定；原型统一 code font token，把浅色次要文字更新为至少 4.5:1 的基线，并同步定义深色文字与焦点色。Chrome Stable / Edge Stable 对 styled、Pass Through CTA 和 unstyled 三种 production preview 验证创建 / 搜索 / 启停、浅深主题 3 px 键盘焦点环；主题文字色计算范围为 4.71:1 至 13.29:1。仅作为 token 原型基线，不宣称完整 WCAG 验收。审查同时发现原型示例仍使用 Unicode 导航图标、存在紧凑字号与散落尺寸，列入后续 UI 阶段继续处理。完成度 96 / 190（50.5%）。
 - 2026-09-25：启动 Vue 3 面板迁移：把经验证的独立 UI package 演进为 `@proxy/vue3-panels` 候选面板 workspace，提供显式构建 / 预览入口、独立产物清理及隔离静态检查；同步更新 pnpm lock importer。整仓 `pnpm build` 仍将 Vue 2 dist 复制到既有 `panels/` 路径，扩展 smoke、边界门禁、格式检查和全仓 lint 通过（保留 341 条历史 warning、0 error）。实际领域组件与扩展消息 / storage 接线尚未迁移；全局阶段完成项 96 / 190（50.5%）。
+- 2026-09-25：完成 Vue 3 候选面板中英切换切片：以 `vue-i18n@11` Composition API 翻译当前 shell 的静态文案、空态、动态规则动作 / 备注和无障碍标签；稳定 action ID 保持筛选不依赖文案，首次默认简体中文，切换后同步 `<html lang>` 并持久化到独立原型键。Chrome 与 Edge Stable 验证中英文视图、创建规则、搜索空态、重定向视图、停用提示与刷新后语言记忆。遇到并修复 Vue 2 compiler 的 workspace Vue 版本解析歧义（把 Vue 2.6.11 作为 `vue-template-compiler` 依赖固定），整仓 build、extension smoke、边界、格式、全仓 lint（341 条历史 warning、0 error）及 Vue 3 styled / unstyled 构建通过；V2 locale 清理、真实设置 storage、路由 / 状态架构和 JSON editor locale 仍待迁移阶段。完成度 97 / 190（51.1%）。
 - GitHub 里程碑：[阶段 0](https://github.com/Nyakooo/ajax-proxy/milestone/1)、[阶段 1](https://github.com/Nyakooo/ajax-proxy/milestone/2)、[阶段 2](https://github.com/Nyakooo/ajax-proxy/milestone/3)、[阶段 3](https://github.com/Nyakooo/ajax-proxy/milestone/4)、[阶段 4](https://github.com/Nyakooo/ajax-proxy/milestone/5)、[阶段 5](https://github.com/Nyakooo/ajax-proxy/milestone/6)、[阶段 6](https://github.com/Nyakooo/ajax-proxy/milestone/7)、[阶段 7](https://github.com/Nyakooo/ajax-proxy/milestone/8)；已复现缺陷：[issue #56](https://github.com/Nyakooo/ajax-proxy/issues/56)。

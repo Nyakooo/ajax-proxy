@@ -8,6 +8,10 @@
 
 两套 Vue 运行时以 package 为边界并存，不能把 Vue 2 组件直接挂到 Vue 3 app，也不在同一个 app bundle 中混用。纯数据、协议和验证逻辑优先沿用 framework-free 包；具体 editor 需要 Vue 3 wrapper 后才接入。
 
+Vue 3 候选面板已经接入 `vue-i18n` 11 Composition API，当前 shell 只提供简体中文与英文文案，规则动作使用稳定 ID，避免语言变化影响规则过滤。首次启动默认简体中文；`ajax-proxy-v3-locale` 只用于原型预览的 localStorage 偏好，后续接扩展设置 storage 时需迁移到正式设置适配器。V2 仍在生产运行期间不删除其旧 locale 资源，也不迁移 V2 的语言设置。源码盘点未发现 V2 实际使用的 router 或集中 store；Vue 3 暂不为匹配依赖清单而加入空壳路由 / store，若后续页面导航或共享状态出现实际需求再单独选型。
+
+为保持 Vue 2.6.11 编辑器编译器与运行时匹配，workspace 对 `vue-template-compiler@2.6.11` 声明对应的 Vue 2.6.11 依赖，避免并存的 Vue 3 包导致 compiler 从 workspace 虚拟依赖目录误解析到 Vue 3。
+
 ## 迁移切片顺序
 
 1. 建立并独立构建 Vue 3 app shell、主题、路由 / 状态 / i18n 适配；保证生产 package 与 staging preview 的路径边界可检查。

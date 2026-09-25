@@ -7,6 +7,7 @@ import InputText from 'primevue/inputtext'
 import PrimeTag from 'primevue/tag'
 import ToggleSwitch from 'primevue/toggleswitch'
 import App from './App.vue'
+import { i18n } from './i18n/index.js'
 import './style.css'
 
 const AjaxProxyPreset = definePreset(Aura, {
@@ -36,6 +37,7 @@ const AjaxProxyPreset = definePreset(Aura, {
 
 const unstyled = import.meta.env.VITE_UI_UNSTYLED === 'true'
 const app = createApp(App)
+app.use(i18n)
 if (unstyled) {
   app.use(PrimeVue, {
     unstyled: true,
