@@ -35,6 +35,8 @@ export const messages = {
       priority: '优先级最高',
       hits: '命中',
       recentMatch: '最近命中（所有标签页）',
+      functionErrorsTitle: '最近的函数执行问题',
+      functionErrorRule: '规则条件：{method} · {url}',
       matchedRequest: '已匹配请求：{method} {url}',
       matchCondition: '规则条件：{url}',
       matched: '已匹配',
@@ -59,6 +61,15 @@ export const messages = {
       newRuleNote: '新建规则（原型内存数据）',
     },
     action: { responseJson: '响应 JSON', redirect: '重定向', responseFunction: '响应函数' },
+    functionFailure: {
+      'sandbox-unavailable': '隔离执行环境不可用，已使用原始响应。',
+      timeout: '函数运行超过 5 秒，已终止并使用原始响应。',
+      'snapshot-unsupported': '请求或响应无法安全读取，已使用原始响应。',
+      'snapshot-too-large': '请求或响应快照超过大小限制，已使用原始响应。',
+      'execution-failed': '函数执行失败，已使用原始响应。',
+      'invalid-result': '函数返回值无效，已使用原始响应。',
+      'response-construction-failed': '替换响应无法构造，已使用原始响应。',
+    },
     editor: {
       createRedirect: '创建重定向规则',
       editRedirect: '编辑重定向规则',
@@ -171,6 +182,8 @@ export const messages = {
       priority: 'Highest priority',
       hits: 'Hits',
       recentMatch: 'Most recent match across tabs',
+      functionErrorsTitle: 'Recent function response issues',
+      functionErrorRule: 'Rule condition: {method} · {url}',
       matchedRequest: 'Matched request: {method} {url}',
       matchCondition: 'Rule condition: {url}',
       matched: 'Matched',
@@ -198,6 +211,18 @@ export const messages = {
       responseJson: 'JSON response',
       redirect: 'Redirect',
       responseFunction: 'Function response',
+    },
+    functionFailure: {
+      'sandbox-unavailable': 'The isolated runtime is unavailable; the original response was used.',
+      timeout: 'The function exceeded 5 seconds and was stopped; the original response was used.',
+      'snapshot-unsupported':
+        'The request or response could not be read safely; the original response was used.',
+      'snapshot-too-large':
+        'The request or response snapshot exceeded its size limit; the original response was used.',
+      'execution-failed': 'The function failed; the original response was used.',
+      'invalid-result': 'The function returned an invalid result; the original response was used.',
+      'response-construction-failed':
+        'The replacement response could not be created; the original response was used.',
     },
     editor: {
       createRedirect: 'Create redirect rule',

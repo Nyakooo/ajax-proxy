@@ -1,6 +1,3 @@
-import { validateV3ResponseFunctionResult } from '@proxy/v3-domain'
-import type { V3ResponseFunctionResult } from '@proxy/v3-domain'
-
 const CHANNEL = 'ajax-proxy-v3-function-sandbox'
 const FRAME_ID = 'ajax-proxy-v3-function-sandbox'
 const SANDBOX_PATH = '/v3-sandbox/sandbox.html'
@@ -26,12 +23,12 @@ export type V3ResponseFunctionExecutor = (
   code: string,
   request: V3FunctionRequestSnapshot,
   response: V3FunctionResponseSnapshot
-) => Promise<V3ResponseFunctionResult>
+) => Promise<unknown>
 
 type PendingExecution = {
   frame: HTMLIFrameElement
   frameWindow: Window
-  resolve: (result: V3ResponseFunctionResult) => void
+  resolve: (result: unknown) => void
   reject: (error: Error) => void
   timer?: ReturnType<typeof setTimeout>
   cancelTimer?: ReturnType<typeof setTimeout>
@@ -114,9 +111,7 @@ export function createV3ResponseFunctionExecutor(host: Window): V3ResponseFuncti
       return
     }
     if (validSuccess) {
-      const validation = validateV3ResponseFunctionResult(result.result)
-      if (!validation.ok) execution.reject(new Error(validation.issue))
-      else execution.resolve(validation.data)
+      execution.resolve(result.result)
     } else execution.reject(new Error(result.error as string))
   }
 
@@ -208,7 +203,7 @@ export function createV3ResponseFunctionExecutor(host: Window): V3ResponseFuncti
         throw new Error('Function sandbox frame changed while loading.')
       }
 
-      return await new Promise((resolve, reject) => {
+      return await new Promise<unknown>((resolve, reject) => {
         const execution: PendingExecution = {
           frame,
           frameWindow,

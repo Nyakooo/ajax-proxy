@@ -2,6 +2,7 @@ import { validateV3Backup } from '@proxy/v3-domain'
 import type { V3Backup, V3Rule, V3ValidationIssue } from '@proxy/v3-domain'
 import { NoticeTo } from '@proxy/protocol'
 import type { V3Hit } from '@proxy/protocol'
+import type { V3FunctionError, V3FunctionErrorCode } from '@proxy/protocol'
 import { createV3Fetch } from './fetch'
 import { createV3ResponseFunctionExecutor } from './responseFunctionSandbox'
 import { createV3XHR } from './xhr'
@@ -31,6 +32,25 @@ function notifyV3Match(host: Window, rule: V3Rule, request: { url: string; metho
   }
 }
 
+function notifyV3FunctionError(
+  host: Window,
+  rule: V3Rule,
+  request: { url: string; method: string },
+  code: V3FunctionErrorCode
+) {
+  try {
+    const detail: V3FunctionError = {
+      rule_id: rule.id,
+      match_url: rule.match.url,
+      method: request.method,
+      code,
+    }
+    host.dispatchEvent(new CustomEvent(NoticeTo.CONTENT, { detail }))
+  } catch {
+    // Function diagnostics must not affect native-response fallback.
+  }
+}
+
 export function createV3RuntimeController(
   host: Window,
   pageFetchAtLoad: typeof window.fetch,
@@ -41,6 +61,11 @@ export function createV3RuntimeController(
     getRules: () => (backup?.settings.globalEnabled ? backup.rules : []),
     onMatched: (rule: V3Rule, _index: number, request: { url: string; method: string }) =>
       notifyV3Match(host, rule, request),
+    onFunctionError: (
+      rule: V3Rule,
+      request: { url: string; method: string },
+      code: V3FunctionErrorCode
+    ) => notifyV3FunctionError(host, rule, request, code),
     executeResponseFunction: createV3ResponseFunctionExecutor(host),
   }
   const fetch = createV3Fetch(pageFetchAtLoad, options)

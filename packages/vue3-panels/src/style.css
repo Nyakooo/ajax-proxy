@@ -531,6 +531,42 @@ input {
   font-family: var(--ap-font-ui);
 }
 
+.function-errors {
+  margin-top: 12px;
+  padding: 10px 13px;
+  border: 1px solid color-mix(in srgb, #b54740, var(--ap-border) 68%);
+  border-radius: 9px;
+  background: color-mix(in srgb, #b54740, var(--ap-raised) 96%);
+}
+
+.function-errors h2 {
+  margin: 0;
+  color: var(--ap-status-danger-text);
+  font-size: 11px;
+}
+
+.function-errors ul {
+  display: grid;
+  gap: 8px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.function-errors li {
+  display: grid;
+  gap: 3px;
+  color: var(--ap-ink);
+  font-size: 10px;
+}
+
+.function-errors li small {
+  overflow-wrap: anywhere;
+  color: var(--ap-muted);
+  font-family: var(--ap-font-code);
+  line-height: 1.5;
+}
+
 .rule-row {
   min-height: 82px;
   gap: 15px;

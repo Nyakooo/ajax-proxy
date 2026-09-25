@@ -1,6 +1,7 @@
 /**storage enums */
 export * from './validateState'
 export * from './v3Hit'
+export * from './v3FunctionError'
 
 export enum StorageKey {
   LANGUAGE = 'ajax-proxy:storage:language',
@@ -62,6 +63,8 @@ export enum NoticeKey {
   V3_CONFIG = 'ajax-proxy:notice:v3-config',
   /**V3 rule hit event */
   V3_HIT = 'ajax-proxy:notice:v3-hit',
+  /**V3 function response execution failure */
+  V3_FUNCTION_ERROR = 'ajax-proxy:notice:v3-function-error',
 }
 
 export * from './v3Panel'

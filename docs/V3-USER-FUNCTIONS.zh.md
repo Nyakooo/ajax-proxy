@@ -1,6 +1,6 @@
 # Ajax Proxy V3 自定义函数能力与安全边界
 
-状态：V3 Fetch 函数响应已接入隔离 sandbox 和编辑面板；逐次运行错误诊断 UI 与备份恢复界面的警告汇总仍待对应面板流程接入。
+状态：V3 Fetch 函数响应已接入隔离 sandbox、编辑面板和逐次失败诊断；备份恢复界面的函数规则数量提示仍待恢复流程接入。
 
 ## 当前 V2 行为与风险
 
@@ -32,6 +32,6 @@ V3 domain 解析器已为每条导入函数规则返回警告路径，并停用�
 
 验证 sandbox 无法读取页面全局变量、DOM、扩展 API 或执行网络请求；确认结构化输入 / 输出可用；覆盖同步返回、Promise 返回、异常、超时、同步死循环终止、错误结果、并发上限和 sandbox 重建；导入含代码规则时确认代码没有自动运行且规则保持停用。扩展级 smoke 需同时验证面板保存、Fetch 动态结果、XHR 原响应和运行失败 fail-open。Chrome Stable 和 Edge Stable 都执行隔离 smoke。
 
-当前已验证：Chrome for Testing 154.0.8037.57 与 Edge Stable 153.0.4234.48 的 sandbox 隔离、网络阻断、四并发上限及 worker 超时；Chrome 和 Edge 函数 runtime smoke 验证同步死循环 fail-open 和 sandbox 重建，Chrome 扩展 smoke 还覆盖面板保存、Fetch/XHR 行为及 service worker 重启。逐次运行错误诊断 UI、备份恢复界面的数量提示仍待对应面板阶段完成。
+当前已验证：Chrome for Testing 154.0.8037.57 与 Edge Stable 153.0.4234.48 的 sandbox 隔离、网络阻断、四并发上限及 worker 超时；Chrome 和 Edge 函数 runtime smoke 验证动态响应、无效结果和同步死循环诊断、fail-open 及 sandbox 重建；Chrome 扩展 smoke 覆盖面板保存、Fetch/XHR 行为及 service worker 重启。备份恢复界面的数量提示仍待恢复流程接入。
 
 参考：[Chrome：在 sandboxed iframe 中使用 eval](https://developer.chrome.com/docs/extensions/how-to/security/sandboxing-eval)、[Chrome：content script 执行世界](https://developer.chrome.com/docs/extensions/develop/concepts/content-scripts)。

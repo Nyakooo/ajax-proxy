@@ -1,7 +1,7 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { isV3HitNotice, NoticeFrom, NoticeKey, NoticeTo } from '@proxy/protocol'
+import { isV3FunctionError, isV3HitNotice, NoticeFrom, NoticeKey, NoticeTo } from '@proxy/protocol'
 import RedirectRuleEditor from './components/RedirectRuleEditor.vue'
 import ResponseRuleEditor from './components/ResponseRuleEditor.vue'
 import { buildV3ResponseRule } from './services/v3ResponseDraft.js'
@@ -30,6 +30,7 @@ const responseEditorIssue = ref('')
 const config = ref(createEmptyConfig())
 const hitCounters = ref({})
 const recentMatch = ref(null)
+const recentFunctionErrors = ref([])
 const languages = [
   { code: 'zh-CN', label: '简体中文', shortLabel: '中' },
   { code: 'en', label: 'English', shortLabel: 'EN' },
@@ -143,12 +144,30 @@ function receiveExtensionMessage(message) {
   if (
     !isPlainExtensionMessage(message) ||
     message.from !== NoticeFrom.SERVICE_WORKER ||
-    message.to !== NoticeTo.PANELS ||
-    message.key !== NoticeKey.V3_HIT ||
-    !isV3HitNotice(message.value)
+    message.to !== NoticeTo.PANELS
   ) {
     return
   }
+
+  if (message.key === NoticeKey.V3_FUNCTION_ERROR && isV3FunctionError(message.value)) {
+    const rule = config.value.rules.find((candidate) => candidate.id === message.value.rule_id)
+    if (
+      !rule ||
+      !rule.enabled ||
+      rule.match.url !== message.value.match_url ||
+      !rule.response?.enabled ||
+      typeof rule.response.replace.code !== 'string'
+    ) {
+      return
+    }
+    recentFunctionErrors.value = [
+      { ...message.value, receivedAt: Date.now() },
+      ...recentFunctionErrors.value,
+    ].slice(0, 10)
+    return
+  }
+
+  if (message.key !== NoticeKey.V3_HIT || !isV3HitNotice(message.value)) return
 
   const { rule_id: ruleId, count } = message.value
   if (!config.value.rules.some((rule) => rule.id === ruleId)) return
@@ -560,6 +579,27 @@ async function moveRule(rule, targetRule) {
             </div>
             <AppTag :value="t('rules.matched')" severity="info" />
           </div>
+
+          <section
+            v-if="recentFunctionErrors.length"
+            class="function-errors"
+            role="log"
+            aria-live="polite"
+            :aria-label="t('rules.functionErrorsTitle')"
+          >
+            <h2>{{ t('rules.functionErrorsTitle') }}</h2>
+            <ul>
+              <li
+                v-for="(failure, index) in recentFunctionErrors"
+                :key="`${failure.receivedAt}-${index}`"
+              >
+                <strong>{{ t(`functionFailure.${failure.code}`) }}</strong>
+                <small>{{
+                  t('rules.functionErrorRule', { method: failure.method, url: failure.match_url })
+                }}</small>
+              </li>
+            </ul>
+          </section>
 
           <div v-if="visibleRules.length" class="rule-list">
             <article v-for="(rule, index) in visibleRules" :key="rule.id" class="rule-row">

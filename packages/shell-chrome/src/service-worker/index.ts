@@ -12,12 +12,13 @@ import {
   isValidMode,
   isValidRedirectors,
 } from '@proxy/shared-utils'
-import { isV3Hit } from '@proxy/protocol'
+import { isV3FunctionError, isV3Hit } from '@proxy/protocol'
 import { injectEventListener } from './event'
 import { useCurrentTitle } from './notice'
 import { initDefaultSth } from './init'
 import { chromeBadge } from './badge'
 import { chromeBadgeV3 } from './v3Hit'
+import { notifyV3FunctionError } from './v3FunctionError'
 import { createV3PanelMessageHandler } from './v3Panel'
 import { INIT_CURRENT_TITLE } from '../consts'
 import { isPageBadgeHit } from '../messageValidation'
@@ -49,6 +50,9 @@ initStorage()
         }
         if (key === NoticeKey.BADGE_STATUS && isPageBadgeHit(value)) chromeBadge(value)
         if (key === NoticeKey.V3_HIT && isV3Hit(value)) chromeBadgeV3(value)
+        if (key === NoticeKey.V3_FUNCTION_ERROR && isV3FunctionError(value)) {
+          void notifyV3FunctionError(value).catch(() => {})
+        }
         return
       }
 

@@ -59,6 +59,16 @@ async function main() {
       },
       { key: configKey, rule }
     )
+    await extensionPage.reload()
+    await extensionPage.locator('.rule-row').waitFor()
+    await extensionPage.evaluate(() => {
+      window.__v3FunctionNotices = []
+      chrome.runtime.onMessage.addListener((message) => {
+        if (message?.key === 'ajax-proxy:notice:v3-function-error') {
+          window.__v3FunctionNotices.push(message)
+        }
+      })
+    })
 
     const page = await context.newPage()
     await page.goto(`http://127.0.0.1:${port}/`)
@@ -109,6 +119,18 @@ async function main() {
       status: 200,
       body: { method: 'POST', body: 'native fallback' },
     })
+    await extensionPage.waitForFunction(() => window.__v3FunctionNotices.length > 0, null, {
+      timeout: 5000,
+    })
+    assert.equal(
+      await extensionPage.evaluate(() => window.__v3FunctionNotices.at(-1).value.code),
+      'invalid-result'
+    )
+    await extensionPage
+      .getByText('The function returned an invalid result; the original response was used.', {
+        exact: true,
+      })
+      .waitFor({ timeout: 5000 })
 
     await extensionPage.evaluate(async (key) => {
       const config = (await chrome.storage.local.get(key))[key]
@@ -137,9 +159,17 @@ async function main() {
       null,
       { timeout: 10000 }
     )
+    await extensionPage
+      .getByText(
+        'The function exceeded 5 seconds and was stopped; the original response was used.',
+        {
+          exact: true,
+        }
+      )
+      .waitFor()
 
     console.log(
-      'V3 response function smoke passed: Fetch snapshots and replacement, XHR pass-through, invalid-result and synchronous-timeout fail-open, sandbox recreation'
+      'V3 response function smoke passed: Fetch snapshots and replacement, XHR pass-through, visible invalid-result and timeout diagnostics, fail-open, sandbox recreation'
     )
   } finally {
     await context?.close()

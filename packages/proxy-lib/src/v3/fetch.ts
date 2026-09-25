@@ -78,7 +78,8 @@ export function createV3Fetch(fetcher: V3Fetch, options: V3FetchOptions): V3Fetc
       requestForResponse,
       selection.rule,
       options.executeResponseFunction,
-      requestSnapshot
+      requestSnapshot,
+      (code) => options.onFunctionError?.(selection.rule, selection.originalRequest, code)
     )
   }
 }

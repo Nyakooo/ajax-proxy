@@ -209,14 +209,17 @@ describe('createV3Fetch', () => {
     const fetcher = vi.fn(
       async () => new Response('native', { headers: { 'content-type': 'text/plain' } })
     )
+    const onFunctionError = vi.fn()
     const rejected = createV3Fetch(fetcher, {
       getRules: () => [selectedRule],
+      onFunctionError,
       executeResponseFunction: async () => {
-        throw new Error('sandbox timeout')
+        throw new Error('Function response timed out after 5 seconds.')
       },
     })
     const invalid = createV3Fetch(fetcher, {
       getRules: () => [selectedRule],
+      onFunctionError,
       executeResponseFunction: async () => ({ status: 200, unknown: true }),
     })
 
@@ -226,22 +229,28 @@ describe('createV3Fetch', () => {
     expect(await (await invalid('https://example.test/api', { method: 'POST' })).text()).toBe(
       'native'
     )
+    expect(onFunctionError.mock.calls.map(([, , code]) => code)).toEqual([
+      'timeout',
+      'invalid-result',
+    ])
   })
 
   it('does not expose binary response bodies to response functions', async () => {
     const executeResponseFunction = vi.fn(async () => ({ body: 'changed' }))
+    const onFunctionError = vi.fn()
     const selectedRule = rule('function', {
       response: { enabled: true, replace: { code: 'return { body: "changed" }' } },
     })
     const fetch = createV3Fetch(
       async () =>
         new Response(new Uint8Array([1, 2, 3]), { headers: { 'content-type': 'image/png' } }),
-      { getRules: () => [selectedRule], executeResponseFunction }
+      { getRules: () => [selectedRule], executeResponseFunction, onFunctionError }
     )
 
     const result = await fetch('https://example.test/api', { method: 'POST' })
 
     expect(executeResponseFunction).not.toHaveBeenCalled()
     expect([...new Uint8Array(await result.arrayBuffer())]).toEqual([1, 2, 3])
+    expect(onFunctionError.mock.calls[0][2]).toBe('snapshot-unsupported')
   })
 })
