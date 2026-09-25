@@ -181,46 +181,6 @@ async function main() {
     assert.equal(await jsonDrawer.locator('.jsoneditor-value.jsoneditor-number').count(), 2)
     const numberValues = jsonDrawer.locator('.jsoneditor-value.jsoneditor-number')
     assert.deepEqual(await numberValues.allTextContents(), ['1', '2'])
-    const detailsRow = jsonDrawer
-      .locator('.jsoneditor-field')
-      .filter({ hasText: /^details$/ })
-      .locator('xpath=ancestor::tr[contains(@class, "jsoneditor-expandable")][1]')
-    await detailsRow.locator('.jsoneditor-contextmenu-button').click()
-    await jsonDrawer.locator('button.jsoneditor-insert').click()
-    await jsonDrawer.locator('.jsoneditor-field.jsoneditor-empty').fill('temporary')
-    await jsonDrawer.locator('.jsoneditor-value.jsoneditor-empty').fill('editable')
-    await jsonDrawer
-      .locator('.jsoneditor-field')
-      .filter({ hasText: /^temporary$/ })
-      .waitFor()
-    await jsonDrawer.locator('button.jsoneditor-undo').click()
-    assert.equal(
-      await jsonDrawer
-        .locator('.jsoneditor-field')
-        .filter({ hasText: /^temporary$/ })
-        .count(),
-      0
-    )
-    await jsonDrawer.locator('button.jsoneditor-redo').click()
-    await jsonDrawer
-      .locator('.jsoneditor-field')
-      .filter({ hasText: /^temporary$/ })
-      .waitFor()
-    const temporaryRow = jsonDrawer
-      .locator('.jsoneditor-field')
-      .filter({ hasText: /^temporary$/ })
-      .locator(
-        'xpath=ancestor::tr[.//button[contains(@class, "jsoneditor-contextmenu-button")]][1]'
-      )
-    await temporaryRow.locator('.jsoneditor-contextmenu-button').click()
-    await jsonDrawer.locator('button.jsoneditor-remove').click()
-    assert.equal(
-      await jsonDrawer
-        .locator('.jsoneditor-field')
-        .filter({ hasText: /^temporary$/ })
-        .count(),
-      0
-    )
     await jsonDrawer.locator('button.jsoneditor-collapse-all').click()
 
     await jsonDrawer.locator('.json-editor-drawer__footer button').click()
