@@ -27,6 +27,7 @@
     "check:boundaries": "node ./scripts/check-package-boundaries.cjs",
     "lint:all": "eslint \"packages/**/*.{js,ts,vue}\" --max-warnings=378",
     "check:generated-types": "node ./scripts/check-generated-types.cjs",
+    "security:audit": "pnpm audit --prod --audit-level=moderate --registry=https://registry.npmjs.org && pnpm audit signatures --registry=https://registry.npmjs.org",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",

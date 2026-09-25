@@ -98,6 +98,8 @@ jobs:
           cache: pnpm
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+      - name: Audit production dependencies and package signatures
+        run: pnpm security:audit
       - name: Check workspace package boundaries
         run: pnpm check:boundaries
       - name: Lint migrated files
