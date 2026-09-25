@@ -55,6 +55,8 @@ export interface V3ValidationIssue {
 export type V3BackupValidation =
   { ok: true; data: V3Backup } | { ok: false; issues: V3ValidationIssue[] }
 
+export type V3BackupParseResult = V3BackupValidation
+
 function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
@@ -236,4 +238,19 @@ export function validateV3Backup(value: unknown): V3BackupValidation {
   return issues.length === 0
     ? { ok: true, data: value as unknown as V3Backup }
     : { ok: false, issues }
+}
+
+export function parseV3BackupJson(text: string): V3BackupParseResult {
+  let value: unknown
+  try {
+    value = JSON.parse(text.replace(/^\uFEFF/, ''))
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    return { ok: false, issues: [{ path: '$', message: `Invalid JSON: ${message}` }] }
+  }
+  return validateV3Backup(value)
+}
+
+export function formatV3ValidationIssues(issues: V3ValidationIssue[]) {
+  return issues.map(({ path, message }) => `${path}: ${message}`)
 }

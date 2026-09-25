@@ -68,6 +68,8 @@ V3 备份使用独立标识，不通过字段猜测把旧文件转换成新格�
 
 上述基础 envelope 已落为独立的 `@proxy/v3-domain` 校验实现。URL matcher 的高级条件、响应 action 的执行能力与浏览器差异仍以 Fetch / XHR 能力审查后的后续 schema 演进为准；任何格式变化都必须递增 `formatVersion`。
 
+导入入口使用 `parseV3BackupJson(text)` 完成 JSON 解析和 schema 校验，UTF-8 BOM 会在解析前移除。返回的 `issues` 带有 `$` 根路径或 `rules[0].match.url` 这类字段路径；`formatV3ValidationIssues()` 可将其转换成可直接呈现的文本。语法错误、V2 不兼容、版本不支持和字段校验错误都通过同一结果结构返回，调用方应展示这些原因并在校验失败时保持当前配置不变。
+
 ## 建议的匹配和执行顺序
 
 1. 捕获并规范化原始请求信息。

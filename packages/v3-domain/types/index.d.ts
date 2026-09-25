@@ -56,4 +56,7 @@ export type V3BackupValidation = {
     ok: false;
     issues: V3ValidationIssue[];
 };
+export type V3BackupParseResult = V3BackupValidation;
 export declare function validateV3Backup(value: unknown): V3BackupValidation;
+export declare function parseV3BackupJson(text: string): V3BackupParseResult;
+export declare function formatV3ValidationIssues(issues: V3ValidationIssue[]): string[];

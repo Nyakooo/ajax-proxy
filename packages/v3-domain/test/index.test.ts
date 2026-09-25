@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { validateV3Backup } from '../src'
+import { formatV3ValidationIssues, parseV3BackupJson, validateV3Backup } from '../src'
 
 const validBackup = {
   format: 'ajax-proxy-backup',
@@ -61,6 +61,27 @@ describe('V3 backup schema', () => {
         path: 'rules[1].response.replace.status',
         message: 'Expected an integer from 100 to 599.',
       })
+    }
+  })
+
+  it('parses a JSON backup and returns readable syntax and field errors', () => {
+    expect(parseV3BackupJson(`\uFEFF${JSON.stringify(validBackup)}`)).toMatchObject({ ok: true })
+    const syntaxError = parseV3BackupJson('{ invalid')
+    expect(syntaxError).toMatchObject({
+      ok: false,
+      issues: [{ path: '$', message: expect.stringContaining('Invalid JSON:') }],
+    })
+
+    const invalidBackup = {
+      ...validBackup,
+      rules: [{ ...validBackup.rules[0], match: { url: '' } }],
+    }
+    const validationError = parseV3BackupJson(JSON.stringify(invalidBackup))
+    expect(validationError).toMatchObject({ ok: false })
+    if (!validationError.ok) {
+      expect(formatV3ValidationIssues(validationError.issues)).toContain(
+        'rules[0].match.url: Expected a non-empty string.'
+      )
     }
   })
 })
