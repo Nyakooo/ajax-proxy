@@ -1,6 +1,7 @@
-import { maybeMatching, notice } from "./common";
+import { maybeMatching } from "./common";
 import { execSetup, getCtx } from "./overrideFunc";
 import { OverrideType, RefGlobalState } from "./types";
+import { NoticeTo } from "@proxy/protocol";
 
 // 共享状态
 let globalState: RefGlobalState
@@ -13,11 +14,13 @@ function CustomFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Resp
     const request = input instanceof Request ? input : undefined
     const fetchMethod = init?.method?.toUpperCase() || request?.method.toUpperCase() || "GET"
     return OriginFetch(input, init).then(async (response: Response) => {
+        if (!globalState.value.global_on) return response
         const requestUrl = request?.url || response.url
         let txt: string | undefined;
         let status = response.status
         let statusText = response.statusText
         let _overrideType: OverrideType = "json"
+        let matchedRuleIndex: number | undefined
         for (let i = 0; i < globalState.value.interceptor_matching_content.length; i++) {
             const target = globalState.value.interceptor_matching_content[i];
             const {
@@ -37,6 +40,7 @@ function CustomFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Resp
                 // 规则匹配
                 const matched = maybeMatching(requestUrl, match_url, filter_type);
                 if (!matched) continue // 退出当前循环
+                matchedRuleIndex = i
                 _overrideType = override_type
                 if (override_type === "function") {
                     const ctx = getCtx(
@@ -60,13 +64,12 @@ function CustomFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Resp
                     status = +status_code
                     statusText = status_code
                 }
-                // 通知
-                notice(requestUrl, match_url, fetchMethod)
+                break
             }
         }
 
         // 返回原始响应
-        if (!globalState.value.global_on || (!txt && _overrideType !== 'function')) return response
+        if (!txt && _overrideType !== 'function') return response
 
         if (!Number.isInteger(status) || status < 200 || status > 599) return response
 
@@ -91,6 +94,17 @@ function CustomFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Resp
                 return typeof value === 'function' && prop !== 'constructor' ? value.bind(target) : value
             },
         });
+        if (matchedRuleIndex !== undefined) {
+            const matchedRule = globalState.value.interceptor_matching_content[matchedRuleIndex]
+            window.dispatchEvent(new CustomEvent(NoticeTo.CONTENT, {
+                detail: {
+                    url: requestUrl,
+                    match_url: matchedRule.match_url,
+                    method: fetchMethod,
+                    rule_index: matchedRuleIndex,
+                },
+            }))
+        }
         return proxy;
     });
 }

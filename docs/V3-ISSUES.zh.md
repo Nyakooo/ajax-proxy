@@ -41,18 +41,25 @@
 - 修复：HEAD 与 204 / 205 / 304 使用 null body；响应状态码无效时直接返回原始响应；复制 headers 后清除 `Content-Length`、`Content-Encoding`、`Content-Range` 和 `Transfer-Encoding`；代理对象从原始响应读取 `url`、`redirected`、`type`，其余属性和方法指向替换响应。
 - 验证：覆盖 204、205、304、HEAD、非法状态码、保留其他 headers、清除失效 headers 和原始元数据。扩展 smoke 的真实 Fetch 响应还检查 `url`、`redirected`、`type` 和 Content-Length 清理。
 
+### 拦截规则优先级与命中统计不一致
+
+- 状态：已修复并回归验证（2026-09-25）。
+- 影响范围：`packages/proxy-lib/src/createFetch.ts`、`packages/proxy-lib/src/createXHR.ts`、`packages/proxy-lib/src/redirectXHR.ts` 和 `packages/shell-chrome/src/service-worker/badge.ts`。
+- 问题：Fetch / XHR 拦截遍历并应用所有命中规则，后面的响应覆盖前面结果；通知仅含 URL 和 method，徽章会把同 URL / method 的多条规则都记为命中。重定向 XHR 遇到 method 不匹配的首条规则则直接中止，没有继续检查后续规则。
+- 决策与修复：统一采用列表顺序中的第一条启用且 URL / method 匹配的规则。拦截器在首条命中后停止；重定向 XHR 对 method 不匹配使用 continue。规则通知附带当前序号，徽章仅更新选中的行；不带序号的旧通知仍保留原匹配方式。
+- 验证：Vitest 覆盖 Fetch / XHR 两类拦截的首条规则选择、唯一通知和准确序号；徽章测试使用两条相同 URL / method 的规则确认只递增指定项；重定向 XHR 测试确认 method mismatch 后命中下一条规则。
+
 ## 尚待复现的代码审查线索
 
-| 线索                                               | 位置                                    | 可能影响                                       | 验证安排                                           |
-| -------------------------------------------------- | --------------------------------------- | ---------------------------------------------- | -------------------------------------------------- |
-| 多条拦截规则可能覆盖先前响应并重复通知             | `packages/proxy-lib/src/createFetch.ts` | 最终响应与命中统计可能偏离用户预期             | 两条可区分命中规则并核对 body、status、通知次数    |
-| XHR `open()` 包装可能改变同步调用语义              | `packages/proxy-lib/src/createXHR.ts`   | 同步 XHR 和原生事件顺序变化                    | 对照同步 / 异步请求、重复 open、headers 和事件时序 |
-| storage 可能缺少跨上下文变更同步及统一写入错误处理 | `packages/shared-utils/src/storage.ts`  | 面板、标签页和 service worker 的设置暂时不一致 | 多上下文写入、读取及拒绝场景验证                   |
+| 线索                                               | 位置                                   | 可能影响                                       | 验证安排                                           |
+| -------------------------------------------------- | -------------------------------------- | ---------------------------------------------- | -------------------------------------------------- |
+| XHR `open()` 包装可能改变同步调用语义              | `packages/proxy-lib/src/createXHR.ts`  | 同步 XHR 和原生事件顺序变化                    | 对照同步 / 异步请求、重复 open、headers 和事件时序 |
+| storage 可能缺少跨上下文变更同步及统一写入错误处理 | `packages/shared-utils/src/storage.ts` | 面板、标签页和 service worker 的设置暂时不一致 | 多上下文写入、读取及拒绝场景验证                   |
 
 ## 技术债与待决语义
 
 - 用户函数通过 `window.eval` 执行；错误隔离、超时、未调用 `next` 和安全边界仍需阶段 3 评估。
-- 多规则优先级、组合重定向 / 响应替换、失败回退以 `docs/V3-RULE-MODEL.zh.md` 为设计稿，最终语义需原型与测试确认。
+- 组合重定向 / 响应替换与失败回退以 `docs/V3-RULE-MODEL.zh.md` 为设计稿，仍需后续原型与测试确认。
 - V3 不提供 V2 配置、规则和备份迁移；导入器需识别并明确告知不兼容。
 
 ## 后续动作

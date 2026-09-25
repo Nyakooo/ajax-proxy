@@ -12,6 +12,7 @@ async function createFetchHarness(
     override?: string
     overrideType?: 'json' | 'function'
     overrideFunc?: string
+    rules?: RefGlobalState['value']['interceptor_matching_content']
   } = { method: 'POST', matchUrl: '/api/original' }
 ) {
   vi.resetModules()
@@ -35,7 +36,7 @@ async function createFetchHarness(
     value: {
       global_on: true,
       mode: 'interceptor',
-      interceptor_matching_content: [
+      interceptor_matching_content: options.rules ?? [
         {
           switch_on: true,
           match_url: options.matchUrl,
@@ -168,5 +169,68 @@ describe('CustomFetch Request input', () => {
     const response = await customFetch('https://example.test/api/original')
 
     expect(response).toBe(originalResponse)
+  })
+
+  it('applies and reports only the first matching rule', async () => {
+    const { customFetch, dispatchEvent } = await createFetchHarness({
+      method: 'POST',
+      matchUrl: '/api/original',
+      rules: [
+        {
+          switch_on: true,
+          match_url: '/api',
+          method: 'POST',
+          override: 'first rule',
+          status_code: '200',
+        },
+        {
+          switch_on: true,
+          match_url: '/api/original',
+          method: 'POST',
+          override: 'second rule',
+          status_code: '201',
+        },
+      ],
+    })
+
+    const response = await customFetch('https://example.test/api/original', { method: 'POST' })
+
+    expect(response.status).toBe(200)
+    expect(await response.text()).toBe('first rule')
+    expect(dispatchEvent).toHaveBeenCalledOnce()
+    expect(dispatchEvent.mock.calls[0][0].detail).toMatchObject({
+      match_url: '/api',
+      method: 'POST',
+      rule_index: 0,
+    })
+  })
+
+  it('continues after a method mismatch and reports the next matching rule index', async () => {
+    const { customFetch, dispatchEvent } = await createFetchHarness({
+      method: 'POST',
+      matchUrl: '/api/original',
+      rules: [
+        {
+          switch_on: true,
+          match_url: '/api/original',
+          method: 'GET',
+          override: 'wrong method',
+          status_code: '202',
+        },
+        {
+          switch_on: true,
+          match_url: '/api/original',
+          method: 'POST',
+          override: 'matched rule',
+          status_code: '200',
+        },
+      ],
+    })
+
+    const response = await customFetch('https://example.test/api/original', { method: 'POST' })
+
+    expect(await response.text()).toBe('matched rule')
+    expect(dispatchEvent).toHaveBeenCalledOnce()
+    expect(dispatchEvent.mock.calls[0][0].detail.rule_index).toBe(1)
   })
 })

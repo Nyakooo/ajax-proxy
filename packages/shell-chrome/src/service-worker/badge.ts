@@ -6,7 +6,7 @@ import { NoticeKey, StorageKey, setStorage, getRealStorage, noticePanelsByServic
 import { chromeNativeNotice } from "./notice";
 
 // 同步 命中率
-async function syncRoutesAsHit(routes, match_url, method) {
+async function syncRoutesAsHit(routes, match_url, method, rule_index?: number) {
     const list = routes || [];
     // 总命中率
     let counter = 0;
@@ -16,7 +16,11 @@ async function syncRoutesAsHit(routes, match_url, method) {
             // target 可能没有 method 属性时，设置默认值
             const targetMethod = target.method || "ANY"
             // 如果match_url 和method 匹配 则叠加当前命中率
+            const isSelectedRule = rule_index === undefined
+                ? true
+                : i === rule_index
             if (
+                isSelectedRule &&
                 target.match_url === match_url &&
                 (targetMethod === "ANY" || targetMethod === method)
             ) {
@@ -63,6 +67,7 @@ type BadgeHit = {
 // badge 右下角小徽章设置
 export async function chromeBadge(data?: BadgeHit) {
     const { match_url, method } = data || {}
+    const rule_index = data ? Reflect.get(data, 'rule_index') as number | undefined : undefined
     const globalSwitchOn = await getRealStorage(StorageKey.GLOBAL_SWITCH, false);
     if (!globalSwitchOn) {
         chrome.action.setBadgeText({ text: "" });
@@ -85,7 +90,7 @@ export async function chromeBadge(data?: BadgeHit) {
         return;
     }
 
-    const counter = await syncRoutesAsHit(interceptList, match_url, method)
+    const counter = await syncRoutesAsHit(interceptList, match_url, method, rule_index)
     // 当计算完成，且 参数存在时证明 hit 属性已经做过叠加，需要通知到 panels变更列表 hit 数据
     if (match_url && method) {
         // 通知 panels 当前 match_url & method 的条件下已经命中，hit 属性已经变更 需要更新table 列表

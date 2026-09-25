@@ -43,7 +43,7 @@ export default class CustomRedirectXHR extends XMLHttpRequest {
                 } = globalState.value.redirector_matching_content[i];
                 if (switch_on) {
                     // 判断是否存在协议匹配
-                    if (method && ![this.method, "ANY"].includes(method.toUpperCase())) return
+                    if (method && ![this.method, "ANY"].includes(method.toUpperCase())) continue
                     // 规则判断
                     const currentUrl = fmtURLToString(url)
                     if (redirect_type === "function") {

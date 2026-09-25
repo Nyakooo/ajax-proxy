@@ -2,7 +2,7 @@
 
 ## 当前测试入口
 
-- `pnpm test`：单次运行单元测试。
+- `pnpm test`：单次运行单元测试，包括 Fetch / XHR 第一条规则优先级、通知规则序号和徽章精确计数。
 - `pnpm test:watch`：本地监听运行。
 - `pnpm test:coverage`：运行测试并生成终端摘要及 `coverage/lcov.info`。
 - `pnpm browser:smoke`：使用 `BROWSER_CHANNEL=chrome` 或 `msedge` 启动对应稳定版，检查核心 Fetch / Request、XHR、CSS 和减少动态效果 API。CI 分别运行 Chrome Stable 与 Edge Stable。
@@ -31,13 +31,13 @@
 
 ## 当前覆盖率基线
 
-记录日期：2026-09-25。执行 `pnpm test:coverage`：4 个测试文件、24 个用例通过；workspace 全部 TypeScript 源码的当前总体覆盖率为：
+记录日期：2026-09-25。执行 `pnpm test:coverage`：6 个测试文件、29 个用例通过；workspace 全部 TypeScript 源码的当前总体覆盖率为：
 
 | 指标       |   基线 |
 | ---------- | -----: |
-| Statements | 21.82% |
-| Branches   | 19.96% |
-| Functions  | 21.05% |
-| Lines      | 22.44% |
+| Statements | 37.60% |
+| Branches   | 34.35% |
+| Functions  | 33.55% |
+| Lines      | 38.62% |
 
-本轮单元测试覆盖 `packages/proxy-lib/src/common.ts` 的 URL 匹配、忽略项和静态重定向，`packages/proxy-lib/src/createFetch.ts` 的 Request method / URL 解析、函数失败回退及响应边界，`packages/proxy-lib/src/redirectFetch.ts` 的 Request 转发及函数失败回退，以及 `overrideFunc.ts` / `redirectUrlFunc.ts` 的 callback、Promise、异常和超时处理。createFetch statements 覆盖率为 86.53%，redirectFetch 为 78.04%，overrideFunc 为 75.00%，redirectUrlFunc 为 72.50%。浏览器 smoke 额外覆盖真实 Fetch / XHR 拦截、Request POST 重定向、Response 元数据与 Content-Length 清理，以及 JSON 编辑交互，但不计入 Vitest coverage。整体覆盖率低于完整发布标准，后续将分阶段增加各包测试。该基线不代表功能质量已经满足发布标准。
+本轮单元测试覆盖规则 URL 匹配、Fetch Request / 响应边界、callback / Promise 处理、Fetch 与 XHR 首条命中、重定向 XHR method mismatch，以及 service worker 徽章按规则序号精确计数。proxy-lib 的 createFetch statements 覆盖率为 87.93%，createXHR 为 74.64%，redirectXHR 为 55.10%；badge 为 72.34%。浏览器 smoke 额外覆盖真实 Fetch / XHR 拦截、Request POST 重定向、Response 元数据与 Content-Length 清理，以及 JSON 编辑交互，但不计入 Vitest coverage。整体覆盖率低于完整发布标准，后续将分阶段增加各包测试。该基线不代表功能质量已经满足发布标准。

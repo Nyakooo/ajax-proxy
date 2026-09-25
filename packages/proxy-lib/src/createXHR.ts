@@ -1,6 +1,7 @@
-import { maybeMatching, notice } from "./common";
+import { maybeMatching } from "./common";
 import { execSetup, getCtx } from "./overrideFunc";
 import { RefGlobalState } from "./types";
+import { NoticeTo } from "@proxy/protocol";
 
 // 共享状态
 let globalState: RefGlobalState
@@ -55,6 +56,7 @@ class CustomXHR extends XMLHttpRequest {
 
     // 规则匹配，修改响应内容
     private async maybeNeedModifyRes(origin_xhr_response: any) {
+        if (!globalState.value.global_on) return
         for (let i = 0; i < globalState.value.interceptor_matching_content.length; i++) {
             const target = globalState.value.interceptor_matching_content[i];
             const {
@@ -78,26 +80,38 @@ class CustomXHR extends XMLHttpRequest {
                     const ctx = getCtx(this.responseURL, this.method, this.status, status_code, this.body, origin_xhr_response)
                     const payload = await execSetup(ctx, override_func)
                     if (Reflect.get(payload, Symbol.for('ajax-proxy.custom-function-fail-open'))) return
+                    const nextStatus = Number(payload.status)
+                    if (!Number.isInteger(nextStatus) || nextStatus < 200 || nextStatus > 599) return
                     if (payload.override) {
                         const _override = typeof payload.override === "string" ? payload.override : JSON.stringify(payload.override);
                         this.responseText = _override;
                         this.response = _override;
                     }
-                    this.status = +payload.status!
+                    this.status = nextStatus
                     this.statusText = payload.status + ""
                 } else {
+                    const nextStatus = Number(status_code)
+                    if (!Number.isInteger(nextStatus) || nextStatus < 200 || nextStatus > 599) return
                     // 修改响应
                     this.responseText = override;
                     this.response = override;
                     // 修改状态码
-                    this.status = +status_code
+                    this.status = nextStatus
                     this.statusText = status_code
                 }
                 // 通知
                 if (!this.message_once_lock) {
-                    notice(this.responseURL, match_url, this.method);
+                    window.dispatchEvent(new CustomEvent(NoticeTo.CONTENT, {
+                        detail: {
+                            url: this.responseURL,
+                            match_url,
+                            method: this.method,
+                            rule_index: i,
+                        },
+                    }))
                     this.message_once_lock = true;
                 }
+                return
             }
         }
     }
