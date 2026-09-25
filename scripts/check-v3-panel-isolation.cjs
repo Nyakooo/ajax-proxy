@@ -48,13 +48,23 @@ function inspectSources(directory) {
 inspectSources(path.join(panelDir, 'src'))
 
 const productionPackScript = rootPackage.scripts?.pkg || ''
-if (!productionPackScript.includes('./packages/vue-panels/dist')) {
+const productionPackSource = fs.readFileSync(path.join(root, 'scripts/pkg.cjs'), 'utf8')
+if (!productionPackScript.includes('scripts/pkg.cjs')) {
+  errors.push('Production pkg must use the audited package staging script.')
+}
+if (!productionPackSource.includes("source: 'packages/vue-panels/dist'")) {
   errors.push('Production pkg must continue copying the Vue 2 panel until an explicit cutover.')
 }
-if (!productionPackScript.includes('./packages/shell-chrome/build/panels')) {
+if (!productionPackSource.includes("target: 'panels'")) {
   errors.push(
     'Production pkg must keep writing to the existing panels/ directory until an explicit cutover.'
   )
+}
+if (
+  !productionPackSource.includes("source: 'packages/vue3-panels/dist'") ||
+  !productionPackSource.includes("target: 'panels-v3'")
+) {
+  errors.push('Production pkg must stage the Vue 3 candidate panel separately under panels-v3/.')
 }
 
 const panelWorker = fs.readFileSync(
@@ -71,5 +81,7 @@ if (errors.length) {
   console.error(errors.map((error) => `- ${error}`).join('\n'))
   process.exitCode = 1
 } else {
-  console.log('Vue 3 panel isolation check passed; production panel packaging still targets Vue 2.')
+  console.log(
+    'Vue 3 panel isolation check passed; Vue 2 production and Vue 3 staging paths are separate.'
+  )
 }

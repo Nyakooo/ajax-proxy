@@ -42,7 +42,7 @@
     "clean:build": "rm -rf ./packages/code-editor/lib ./packages/json-editor/lib ./packages/proxy-lib/lib ./packages/proxy-lib/types ./packages/protocol/lib ./packages/protocol/types ./packages/shared-utils/lib ./packages/shared-utils/types ./packages/v2-compatibility/lib ./packages/v2-compatibility/types ./packages/v3-domain/lib ./packages/v3-domain/types ./packages/shell-chrome/build ./packages/vue-panels/dist ./packages/vue3-panels/dist",
     "size:report": "node ./scripts/report-bundle-size.cjs",
     "release": "node release.js",
-    "pkg": "cp -r ./packages/vue-panels/dist ./packages/shell-chrome/build/panels",
+    "pkg": "node ./scripts/pkg.cjs",
     "zip": "node ./extension-zips.js",
     "preinstall": "npx only-allow pnpm"
   },

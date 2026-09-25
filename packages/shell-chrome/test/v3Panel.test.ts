@@ -144,7 +144,13 @@ describe('V3 panel configuration adapter', () => {
     }
 
     expect(handler(message, { ...trustedPanelSender, id: 'other-extension' })).toBe(false)
-    expect(handler(message, { ...trustedPanelSender, tab: { id: 1 } })).toBe(false)
+    expect(handler(message, { ...trustedPanelSender, tab: { id: 1 } })).toBe(true)
+    await vi.waitFor(() =>
+      expect(sendResponse).toHaveBeenCalledWith({
+        ok: true,
+        snapshot: { config: null, hitCounters: {} },
+      })
+    )
     expect(handler(message, { ...trustedPanelSender, url: 'https://example.test/' })).toBe(false)
     expect(
       handler(message, {

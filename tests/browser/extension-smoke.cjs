@@ -426,8 +426,81 @@ async function main() {
       `http://127.0.0.1:${port}/mock/echo`
     )
 
+    const v3Panel = await context.newPage()
+    v3Panel.setDefaultTimeout(10000)
+    await v3Panel.goto(`chrome-extension://${extensionId}/panels-v3/index.html`)
+    const englishButton = v3Panel.getByRole('button', { name: 'English' })
+    if ((await englishButton.getAttribute('aria-pressed')) !== 'true') {
+      await englishButton.click()
+      await v3Panel.reload()
+    }
+    await v3Panel.getByRole('button', { name: 'Create intercept rule' }).click()
+    const responseEditor = v3Panel.getByRole('dialog')
+    await responseEditor.locator('label.editor-field').nth(0).locator('input').fill('/api/v3-ui')
+    await responseEditor.locator('.editor-field-row select').nth(1).selectOption('POST')
+    await responseEditor.locator('.editor-field-row input[type="number"]').fill('203')
+    await responseEditor
+      .locator('textarea.response-json-input')
+      .fill(JSON.stringify({ source: 'v3-ui', ok: true }))
+    const legacyStateBeforeV3Ui = await restartedWorker.evaluate(
+      async (key) => (await chrome.storage.local.get(key))[key],
+      'ajax-proxy:storage:intercept-list'
+    )
+    await responseEditor.getByRole('button', { name: 'Save' }).click()
+    await v3Panel.getByText('/api/v3-ui', { exact: true }).waitFor()
+
+    let v3UiConfig
+    let v3UiRule
+    for (let attempt = 0; attempt < 40; attempt += 1) {
+      v3UiConfig = await restartedWorker.evaluate(
+        async (key) => (await chrome.storage.local.get(key))[key],
+        'ajax-proxy:storage:v3-config'
+      )
+      v3UiRule = v3UiConfig.rules.find((rule) => rule.match.url === '/api/v3-ui')
+      if (v3UiRule) break
+      await new Promise((resolve) => setTimeout(resolve, 50))
+    }
+    assert.ok(v3UiRule, 'V3 panel should persist the response rule through its runtime message API')
+    assert.deepEqual(v3UiRule.match, { url: '/api/v3-ui', type: 'normal', method: 'POST' })
+    assert.deepEqual(v3UiRule.response, {
+      enabled: true,
+      replace: { status: 203, body: { source: 'v3-ui', ok: true } },
+    })
+    assert.deepEqual(
+      await restartedWorker.evaluate(
+        async (key) => (await chrome.storage.local.get(key))[key],
+        'ajax-proxy:storage:intercept-list'
+      ),
+      legacyStateBeforeV3Ui
+    )
+
+    await v3Panel.reload()
+    await v3Panel.getByText('/api/v3-ui', { exact: true }).waitFor()
+    const beforeV3UiHit = await restartedWorker.evaluate(
+      async ({ key, ruleId }) => ((await chrome.storage.local.get(key))[key] || {})[ruleId] || 0,
+      { key: 'ajax-proxy:storage:v3-hits', ruleId: v3UiRule.id }
+    )
+    const v3UiFetchResult = await restartedPage.evaluate(async () => {
+      const response = await fetch('/api/v3-ui', { method: 'POST', body: 'from UI rule' })
+      return { status: response.status, body: await response.json() }
+    })
+    assert.deepEqual(v3UiFetchResult, {
+      status: 203,
+      body: { source: 'v3-ui', ok: true },
+    })
+    let v3UiHitCount = beforeV3UiHit
+    for (let attempt = 0; attempt < 40; attempt += 1) {
+      v3UiHitCount = await restartedWorker.evaluate(
+        async ({ key, ruleId }) => ((await chrome.storage.local.get(key))[key] || {})[ruleId] || 0,
+        { key: 'ajax-proxy:storage:v3-hits', ruleId: v3UiRule.id }
+      )
+      if (v3UiHitCount === beforeV3UiHit + 1) break
+      await new Promise((resolve) => setTimeout(resolve, 50))
+    }
+    assert.equal(v3UiHitCount, beforeV3UiHit + 1)
+
     console.log(
-      'Unpacked extension RE2 Fetch interception, XHR, iframe, redirect, and service worker restart smoke passed'
+      'Unpacked extension V2 and V3 panel persistence, Fetch interception, XHR, iframe, redirect, and service worker restart smoke passed'
     )
   } finally {
     await context?.close()

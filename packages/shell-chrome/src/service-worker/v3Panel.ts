@@ -72,7 +72,8 @@ export interface V3PanelMessageSender {
 
 /**
  * Handle the two V3 panel requests without sharing or modifying V2 storage.
- * Return true only when an authenticated request will respond asynchronously.
+ * Extension pages opened in tabs may include sender.tab, so authenticate them
+ * by extension ID and the dedicated V3 page URL instead.
  */
 export function createV3PanelMessageHandler(options: {
   extensionId: string
@@ -85,7 +86,6 @@ export function createV3PanelMessageHandler(options: {
   return (message: unknown, sender: V3PanelMessageSender): boolean => {
     if (
       sender.id !== options.extensionId ||
-      sender.tab ||
       typeof sender.url !== 'string' ||
       !sender.url.startsWith(`${options.extensionUrl}panels-v3/`)
     ) {

@@ -40,9 +40,7 @@ initStorage()
       const { from, key, value } = msg
       const isContentSender = Boolean(sender.tab)
       const isPanelSender =
-        !sender.tab &&
-        typeof sender.url === 'string' &&
-        sender.url.startsWith(chrome.runtime.getURL(''))
+        typeof sender.url === 'string' && sender.url.startsWith(chrome.runtime.getURL(''))
 
       if (from === NoticeFrom.CONTENT && isContentSender) {
         if (key === INIT_CURRENT_TITLE && typeof value === 'string' && value.length <= 8192) {
