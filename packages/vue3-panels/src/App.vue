@@ -1,14 +1,27 @@
 <script setup>
-import { computed, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import RedirectRuleEditor from './components/RedirectRuleEditor.vue'
 import lightMark from '../../shell-chrome/icons/128.png'
 import darkMark from '../../../docs/brand/ajax-proxy-mark-dark.png'
 
-const enabled = ref(true)
 const darkMode = ref(false)
 const section = ref('intercept')
 const search = ref('')
 const { locale, t } = useI18n({ useScope: 'global' })
+const extensionRuntime = globalThis.chrome?.runtime
+let configService
+let ruleOperations
+const memoryOnly = ref(!extensionRuntime?.sendMessage)
+const loading = ref(true)
+const configReady = ref(false)
+const saving = ref(false)
+const operationError = ref('')
+const editorOpen = ref(false)
+const editingRule = ref(null)
+const editorIssue = ref('')
+const config = ref(createEmptyConfig())
+const hitCounters = ref({})
 const languages = [
   { code: 'zh-CN', label: '简体中文', shortLabel: '中' },
   { code: 'en', label: 'English', shortLabel: 'EN' },
@@ -20,48 +33,83 @@ const passThroughCreateButton = {
   root: 'ap-pt-button ap-pt-button-primary',
   label: 'ap-pt-button-label',
 }
-const rules = ref([
-  {
-    id: 'rule-1',
-    enabled: true,
-    match: 'api.example.com/v1/profile',
-    method: 'GET',
-    actions: ['responseJson'],
-    noteKey: 'sampleNote',
-    hits: 18,
-  },
-  {
-    id: 'rule-2',
-    enabled: true,
-    match: '/v1/catalog/.*',
-    method: 'GET',
-    actions: ['redirect', 'responseJson'],
-    noteKey: 'catalogNote',
-    hits: 7,
-  },
-  {
-    id: 'rule-3',
-    enabled: false,
-    match: 'api.example.com/v1/checkout',
-    method: 'POST',
-    actions: ['responseFunction'],
-    noteKey: 'checkoutNote',
-    hits: 0,
-  },
-])
+
+function createEmptyConfig() {
+  return {
+    format: 'ajax-proxy-backup',
+    formatVersion: 3,
+    settings: { globalEnabled: true, mode: 'interceptor', language: locale.value },
+    tags: [],
+    rules: [],
+  }
+}
+
+function createPreviewConfig() {
+  return {
+    ...createEmptyConfig(),
+    rules: [
+      {
+        id: 'preview-profile',
+        enabled: true,
+        match: { url: 'api.example.com/v1/profile', method: 'GET' },
+        response: { enabled: true, replace: { body: { ok: true } } },
+      },
+      {
+        id: 'preview-catalog',
+        enabled: true,
+        match: { url: '/v1/catalog/', method: 'GET' },
+        request: { enabled: true, redirect: { url: '/fixtures/catalog.json' } },
+        response: { enabled: true, replace: { body: { items: [] } } },
+      },
+      {
+        id: 'preview-checkout',
+        enabled: false,
+        match: { url: 'api.example.com/v1/checkout', method: 'POST' },
+        response: { enabled: true, replace: { body: { ok: false } } },
+      },
+    ],
+  }
+}
 
 const activeMark = computed(() => (darkMode.value ? darkMark : lightMark))
+const rules = computed(() => config.value.rules)
+const enabled = computed(() => config.value.settings.globalEnabled)
+const redirectRuleCount = computed(() => rules.value.filter((rule) => rule.request?.enabled).length)
+const interceptRuleCount = computed(
+  () => rules.value.filter((rule) => rule.response?.enabled).length
+)
+
+function ruleActions(rule) {
+  const actions = []
+  if (rule.request?.enabled) actions.push('redirect')
+  if (rule.response?.enabled) {
+    actions.push(rule.response.replace?.code ? 'responseFunction' : 'responseJson')
+  }
+  return actions
+}
+
+function isFirstActiveRule(rule) {
+  return (
+    config.value.rules.find(
+      (item) => item.enabled && (item.request?.enabled || item.response?.enabled)
+    )?.id === rule.id
+  )
+}
+
 const visibleRules = computed(() => {
   const query = search.value.trim().toLowerCase()
   return rules.value.filter((rule) => {
+    const actions = ruleActions(rule)
     const searchable = [
-      rule.match,
-      t(`rules.${rule.noteKey}`),
-      rule.method,
-      ...rule.actions.map((action) => t(`action.${action}`)),
+      rule.id,
+      rule.match.url,
+      rule.match.method ?? 'ANY',
+      rule.request?.redirect.url ?? '',
+      ...actions.map((action) => t(`action.${action}`)),
     ]
     const matchesSearch = !query || searchable.join(' ').toLowerCase().includes(query)
-    const matchesSection = section.value === 'intercept' || rule.actions.includes('redirect')
+    const matchesSection =
+      section.value === 'redirect' ? rule.request?.enabled : rule.response?.enabled
     return matchesSearch && matchesSection
   })
 })
@@ -84,211 +132,401 @@ watch(
     } catch {
       // Keep language switching available when browser storage is unavailable.
     }
+    if (
+      configReady.value &&
+      !memoryOnly.value &&
+      config.value.settings.language !== currentLocale
+    ) {
+      void persistConfig({
+        ...config.value,
+        settings: { ...config.value.settings, language: currentLocale },
+      })
+    }
   },
   { immediate: true }
 )
 
+onMounted(async () => {
+  try {
+    const { deleteV3Rule, insertV3Rule, moveV3Rule, replaceV3Rule, setV3RuleEnabled } =
+      await import('@proxy/v3-domain')
+    ruleOperations = { deleteV3Rule, insertV3Rule, moveV3Rule, replaceV3Rule, setV3RuleEnabled }
+
+    if (memoryOnly.value) {
+      config.value = createPreviewConfig()
+      loading.value = false
+      return
+    }
+
+    const { createV3ConfigService } = await import('./services/v3Config.js')
+    configService = createV3ConfigService(extensionRuntime)
+    const result = await configService.getSnapshot()
+    if (result.ok) {
+      config.value = result.snapshot.config ?? createEmptyConfig()
+      hitCounters.value = result.snapshot.hitCounters
+      if (result.snapshot.config) locale.value = result.snapshot.config.settings.language
+      configReady.value = true
+    } else {
+      operationError.value = t('editor.loadFailed', { error: result.error ?? 'invalid-data' })
+    }
+  } catch {
+    operationError.value = t('editor.loadFailed', { error: 'service-unavailable' })
+  } finally {
+    loading.value = false
+  }
+})
+
+async function persistConfig(nextConfig) {
+  operationError.value = ''
+  if (memoryOnly.value) {
+    config.value = nextConfig
+    return true
+  }
+  saving.value = true
+  const result = await configService.saveConfig(nextConfig)
+  saving.value = false
+  if (!result.ok) {
+    operationError.value = result.issues?.[0]
+      ? t('editor.validationFailed', { issue: result.issues[0].message })
+      : t('editor.saveFailed', { error: result.error ?? 'invalid-response' })
+    return false
+  }
+  config.value = nextConfig
+  return true
+}
+
+function showEditor(rule = null) {
+  if (section.value !== 'redirect') return
+  editorIssue.value = ''
+  editingRule.value = rule
+  editorOpen.value = true
+}
+
 function createRule() {
-  const id = `rule-${Date.now()}`
-  rules.value.unshift({
+  if (ruleOperations && section.value === 'redirect' && !loading.value && !saving.value)
+    showEditor()
+}
+
+async function saveRedirectRule(fields) {
+  const current = config.value
+  const id = editingRule.value?.id ?? createRuleId(current.rules)
+  const rule = {
+    ...(editingRule.value ?? {}),
     id,
-    enabled: false,
-    match: '',
-    isDraft: true,
-    method: 'ANY',
-    actions: section.value === 'intercept' ? ['responseJson'] : ['redirect'],
-    noteKey: 'newRuleNote',
-    hits: 0,
+    enabled: fields.enabled,
+    match: fields.match,
+    request: { enabled: true, redirect: { url: fields.redirectUrl } },
+  }
+  const nextRules = editingRule.value
+    ? ruleOperations.replaceV3Rule(current.rules, id, rule)
+    : ruleOperations.insertV3Rule(current.rules, rule, 0)
+  if (nextRules === current.rules) {
+    editorIssue.value = t('editor.duplicateRule')
+    return
+  }
+  if (await persistConfig({ ...current, rules: [...nextRules] })) editorOpen.value = false
+}
+
+function createRuleId(existingRules) {
+  let id
+  do {
+    id = `rule-${globalThis.crypto?.randomUUID?.() ?? `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`}`
+  } while (existingRules.some((rule) => rule.id === id))
+  return id
+}
+
+async function setGlobalEnabled(value) {
+  await persistConfig({
+    ...config.value,
+    settings: { ...config.value.settings, globalEnabled: value },
   })
+}
+
+async function setRuleEnabled(id, value) {
+  const nextRules = ruleOperations.setV3RuleEnabled(config.value.rules, id, value)
+  if (nextRules !== config.value.rules) {
+    await persistConfig({ ...config.value, rules: [...nextRules] })
+  }
+}
+
+async function deleteRule(rule) {
+  if (section.value !== 'redirect' || !rule.request?.enabled) return
+  const keepResponse = Boolean(rule.response?.enabled)
+  const confirmationKey = keepResponse ? 'editor.confirmDeleteRedirect' : 'editor.confirmDelete'
+  if (!window.confirm(t(confirmationKey, { url: rule.match.url }))) return
+  const nextRules = keepResponse
+    ? ruleOperations.replaceV3Rule(config.value.rules, rule.id, withoutRedirectAction(rule))
+    : ruleOperations.deleteV3Rule(config.value.rules, rule.id)
+  await persistConfig({ ...config.value, rules: [...nextRules] })
+}
+
+function withoutRedirectAction(rule) {
+  const ruleWithoutRedirect = { ...rule }
+  delete ruleWithoutRedirect.request
+  return ruleWithoutRedirect
+}
+
+async function moveRule(rule, targetRule) {
+  if (search.value.trim()) return
+  const targetIndex = config.value.rules.findIndex((item) => item.id === targetRule.id)
+  const nextRules = ruleOperations.moveV3Rule(config.value.rules, rule.id, targetIndex)
+  if (nextRules !== config.value.rules) {
+    await persistConfig({ ...config.value, rules: [...nextRules] })
+  }
 }
 </script>
 
 <template>
   <!-- Keep Vue-specific formatting warnings disabled here; Prettier is the template formatter. -->
   <!-- eslint-disable vue/max-attributes-per-line, vue/html-self-closing, vue/singleline-html-element-content-newline -->
-  <main class="shell" :class="{ 'shell-dark': darkMode }">
-    <header class="topbar">
-      <div class="brand-lockup">
-        <img :src="activeMark" alt="" class="brand-mark" />
-        <div>
-          <strong>Ajax Proxy</strong>
-          <span>{{ t('brand.subtitle') }}</span>
-        </div>
-      </div>
-
-      <div class="page-context">
-        <span class="context-dot" :class="{ 'context-dot-off': !enabled }" />
-        <div>
-          <span class="context-label">{{ t('page.current') }}</span>
-          <strong>dev.example.com</strong>
-        </div>
-      </div>
-
-      <div class="top-actions">
-        <label class="enable-control">
-          <span>{{ enabled ? t('proxy.enabled') : t('proxy.disabled') }}</span>
-          <ToggleSwitch v-model="enabled" :aria-label="t('proxy.aria')" />
-        </label>
-        <AppButton
-          class="theme-toggle"
-          :label="darkMode ? t('theme.dark') : t('theme.light')"
-          severity="secondary"
-          text
-          @click="darkMode = !darkMode"
-        />
-        <div class="language-toggle" role="group" :aria-label="t('language.aria')">
-          <button
-            v-for="item in languages"
-            :key="item.code"
-            type="button"
-            :aria-label="item.label"
-            :aria-pressed="locale === item.code"
-            :class="{ selected: locale === item.code }"
-            @click="locale = item.code"
-          >
-            {{ item.shortLabel }}
-          </button>
-        </div>
-      </div>
-    </header>
-
-    <section class="workspace">
-      <aside class="sidebar">
-        <p class="sidebar-heading">{{ t('workspace.title') }}</p>
-        <button
-          type="button"
-          class="nav-item"
-          :class="{ selected: section === 'intercept' }"
-          @click="section = 'intercept'"
-        >
-          <span class="nav-icon intercept-icon">⇄</span>
-          <span>{{ t('workspace.intercept') }}</span>
-          <span class="nav-count">{{ rules.length }}</span>
-        </button>
-        <button
-          type="button"
-          class="nav-item"
-          :class="{ selected: section === 'redirect' }"
-          @click="section = 'redirect'"
-        >
-          <span class="nav-icon redirect-icon">↗</span>
-          <span>{{ t('workspace.redirect') }}</span>
-          <span class="nav-count">1</span>
-        </button>
-        <div class="sidebar-divider" />
-        <div class="sidebar-tip">
-          <span class="tip-mark">i</span>
-          <p>{{ t('workspace.tip') }}</p>
-        </div>
-        <div class="sidebar-footer">
-          <span class="status-pulse" :class="{ paused: !enabled }" />
-          <span>{{ enabled ? t('proxy.monitoring') : t('proxy.paused') }}</span>
-        </div>
-      </aside>
-
-      <section class="content">
-        <div class="content-heading">
+  <div class="panel-root">
+    <main class="shell" :class="{ 'shell-dark': darkMode }">
+      <header class="topbar">
+        <div class="brand-lockup">
+          <img :src="activeMark" alt="" class="brand-mark" />
           <div>
-            <div class="eyebrow">
-              {{ t('rules.eyebrow') }} /
-              {{
-                section === 'intercept'
-                  ? t('workspace.sectionIntercept')
-                  : t('workspace.sectionRedirect')
-              }}
-            </div>
-            <h1>
-              {{ section === 'intercept' ? t('workspace.intercept') : t('workspace.redirect') }}
-            </h1>
-            <p>{{ t('rules.description') }}</p>
+            <strong>Ajax Proxy</strong>
+            <span>{{ t('brand.subtitle') }}</span>
           </div>
-          <AppButton
-            :label="t('rules.create')"
-            :pt="comparePassThrough ? passThroughCreateButton : undefined"
-            @click="createRule"
-          />
         </div>
 
-        <div class="toolbar">
-          <label class="search-box">
-            <span class="search-glyph">⌕</span>
-            <InputText v-model="search" :placeholder="t('rules.searchPlaceholder')" />
-            <kbd>⌘ K</kbd>
-          </label>
-          <AppButton :label="t('rules.tags')" severity="secondary" outlined />
-          <AppButton :label="t('rules.filter')" severity="secondary" outlined />
-          <div class="toolbar-spacer" />
-          <span class="result-count">{{ resultCount }}</span>
-          <AppButton :label="t('rules.backup')" severity="secondary" text />
+        <div class="page-context">
+          <span class="context-dot" :class="{ 'context-dot-off': !enabled }" />
+          <div>
+            <span class="context-label">{{ t('page.current') }}</span>
+            <strong>dev.example.com</strong>
+          </div>
         </div>
 
-        <div v-if="!enabled" class="disabled-notice" role="status">
-          {{ t('proxy.disabledNotice') }}
-        </div>
-
-        <div v-if="visibleRules.length" class="rule-list">
-          <article v-for="(rule, index) in visibleRules" :key="rule.id" class="rule-row">
-            <div class="rule-order">
-              {{ String(index + 1).padStart(2, '0') }}
-            </div>
+        <div class="top-actions">
+          <label class="enable-control">
+            <span>{{ enabled ? t('proxy.enabled') : t('proxy.disabled') }}</span>
             <ToggleSwitch
-              v-model="rule.enabled"
-              :aria-label="t('rules.enableAria', { name: t(`rules.${rule.noteKey}`) })"
+              :model-value="enabled"
+              :aria-label="t('proxy.aria')"
+              :disabled="loading || saving"
+              @update:modelValue="setGlobalEnabled"
             />
-            <div class="rule-main">
-              <div class="rule-title-line">
-                <code>{{ rule.isDraft ? t('rules.urlPlaceholder') : rule.match }}</code>
-                <AppTag :value="rule.method" severity="secondary" />
-                <span v-if="index === 0 && rule.enabled" class="priority-pill">{{
-                  t('rules.priority')
-                }}</span>
-              </div>
-              <div class="rule-meta">
-                <span v-for="action in rule.actions" :key="action" class="action-label">
-                  <span class="action-dot" :class="{ coral: action === 'responseJson' }" />
-                  {{ t(`action.${action}`) }}
-                </span>
-                <span class="meta-separator" />
-                <span>{{ t(`rules.${rule.noteKey}`) }}</span>
-              </div>
-            </div>
-            <div class="hit-count">
-              <strong>{{ rule.hits }}</strong>
-              <span>{{ t('rules.hits') }}</span>
-            </div>
-            <AppButton severity="secondary" text rounded :aria-label="t('rules.moreActions')">
-              ⋯
-            </AppButton>
-          </article>
-        </div>
-
-        <div v-else class="empty-state">
-          <div class="empty-illustration">⌕</div>
-          <h2>{{ search ? t('rules.noSearchResults') : t('rules.noRules') }}</h2>
-          <p>
-            {{ search ? t('rules.searchHint') : t('rules.createHint') }}
-          </p>
-          <AppButton v-if="!search" :label="t('rules.createFirst')" @click="createRule" />
+          </label>
           <AppButton
-            v-else
-            :label="t('rules.clearSearch')"
+            class="theme-toggle"
+            :label="darkMode ? t('theme.dark') : t('theme.light')"
             severity="secondary"
-            outlined
-            @click="search = ''"
+            text
+            @click="darkMode = !darkMode"
           />
+          <div class="language-toggle" role="group" :aria-label="t('language.aria')">
+            <button
+              v-for="item in languages"
+              :key="item.code"
+              type="button"
+              :aria-label="item.label"
+              :aria-pressed="locale === item.code"
+              :class="{ selected: locale === item.code }"
+              @click="locale = item.code"
+            >
+              {{ item.shortLabel }}
+            </button>
+          </div>
         </div>
+      </header>
 
-        <footer class="prototype-note">
-          {{
-            unstyledMode
-              ? t('prototype.unstyled')
-              : comparePassThrough
-                ? t('prototype.passThrough')
-                : t('prototype.styled')
-          }}
-          <span>·</span> {{ t('prototype.memory') }}
-        </footer>
+      <section class="workspace">
+        <aside class="sidebar">
+          <p class="sidebar-heading">{{ t('workspace.title') }}</p>
+          <button
+            type="button"
+            class="nav-item"
+            :class="{ selected: section === 'intercept' }"
+            @click="section = 'intercept'"
+          >
+            <span class="nav-icon intercept-icon">⇄</span>
+            <span>{{ t('workspace.intercept') }}</span>
+            <span class="nav-count">{{ interceptRuleCount }}</span>
+          </button>
+          <button
+            type="button"
+            class="nav-item"
+            :class="{ selected: section === 'redirect' }"
+            @click="section = 'redirect'"
+          >
+            <span class="nav-icon redirect-icon">↗</span>
+            <span>{{ t('workspace.redirect') }}</span>
+            <span class="nav-count">{{ redirectRuleCount }}</span>
+          </button>
+          <div class="sidebar-divider" />
+          <div class="sidebar-tip">
+            <span class="tip-mark">i</span>
+            <p>{{ t('workspace.tip') }}</p>
+          </div>
+          <div class="sidebar-footer">
+            <span class="status-pulse" :class="{ paused: !enabled }" />
+            <span>{{ enabled ? t('proxy.monitoring') : t('proxy.paused') }}</span>
+          </div>
+        </aside>
+
+        <section class="content">
+          <div class="content-heading">
+            <div>
+              <div class="eyebrow">
+                {{ t('rules.eyebrow') }} /
+                {{
+                  section === 'intercept'
+                    ? t('workspace.sectionIntercept')
+                    : t('workspace.sectionRedirect')
+                }}
+              </div>
+              <h1>
+                {{ section === 'intercept' ? t('workspace.intercept') : t('workspace.redirect') }}
+              </h1>
+              <p>{{ t('rules.description') }}</p>
+            </div>
+            <AppButton
+              :label="
+                section === 'redirect' ? t('rules.createRedirect') : t('rules.interceptEditorLater')
+              "
+              :pt="comparePassThrough ? passThroughCreateButton : undefined"
+              :disabled="section !== 'redirect' || loading || saving"
+              @click="createRule"
+            />
+          </div>
+
+          <div class="toolbar">
+            <label class="search-box">
+              <span class="search-glyph">⌕</span>
+              <InputText v-model="search" :placeholder="t('rules.searchPlaceholder')" />
+              <kbd>⌘ K</kbd>
+            </label>
+            <AppButton :label="t('rules.tags')" severity="secondary" outlined />
+            <AppButton :label="t('rules.filter')" severity="secondary" outlined />
+            <div class="toolbar-spacer" />
+            <span class="result-count">{{ loading ? t('editor.loading') : resultCount }}</span>
+            <AppButton :label="t('rules.backup')" severity="secondary" text />
+          </div>
+
+          <div v-if="operationError" class="operation-alert" role="alert">
+            {{ operationError }}
+          </div>
+
+          <div v-if="!enabled" class="disabled-notice" role="status">
+            {{ t('proxy.disabledNotice') }}
+          </div>
+
+          <div v-if="visibleRules.length" class="rule-list">
+            <article v-for="(rule, index) in visibleRules" :key="rule.id" class="rule-row">
+              <div class="rule-order">
+                {{ String(index + 1).padStart(2, '0') }}
+              </div>
+              <ToggleSwitch
+                :model-value="rule.enabled"
+                :aria-label="t('rules.enableAria', { name: rule.match.url })"
+                :disabled="saving || loading"
+                @update:modelValue="setRuleEnabled(rule.id, $event)"
+              />
+              <div class="rule-main">
+                <div class="rule-title-line">
+                  <code>{{ rule.match.url }}</code>
+                  <AppTag :value="rule.match.method ?? 'ANY'" severity="secondary" />
+                  <AppTag
+                    :value="rule.match.type === 'regex' ? t('rules.regex') : t('rules.contains')"
+                    severity="secondary"
+                  />
+                  <span v-if="isFirstActiveRule(rule)" class="priority-pill">{{
+                    t('rules.priority')
+                  }}</span>
+                </div>
+                <div class="rule-meta">
+                  <span v-for="action in ruleActions(rule)" :key="action" class="action-label">
+                    <span class="action-dot" :class="{ coral: action === 'responseJson' }" />
+                    {{ t(`action.${action}`) }}
+                  </span>
+                  <span class="meta-separator" />
+                  <span>{{ t('rules.ruleId', { id: rule.id }) }}</span>
+                  <template v-if="rule.request?.enabled">
+                    <span class="meta-separator" />
+                    <span class="rule-target">{{
+                      t('rules.redirectTarget', { url: rule.request.redirect.url })
+                    }}</span>
+                  </template>
+                </div>
+              </div>
+              <div class="hit-count">
+                <strong>{{ hitCounters[rule.id] ?? 0 }}</strong>
+                <span>{{ t('rules.hits') }}</span>
+              </div>
+              <div class="rule-actions">
+                <button
+                  type="button"
+                  :aria-label="t('editor.moveUp', { url: rule.match.url })"
+                  :disabled="index === 0 || saving || Boolean(search.trim())"
+                  :title="search.trim() ? t('rules.clearSearchToReorder') : undefined"
+                  @click="moveRule(rule, visibleRules[index - 1])"
+                >
+                  ↑
+                </button>
+                <button
+                  type="button"
+                  :aria-label="t('editor.moveDown', { url: rule.match.url })"
+                  :disabled="index === visibleRules.length - 1 || saving || Boolean(search.trim())"
+                  :title="search.trim() ? t('rules.clearSearchToReorder') : undefined"
+                  @click="moveRule(rule, visibleRules[index + 1])"
+                >
+                  ↓
+                </button>
+                <template v-if="section === 'redirect'">
+                  <button type="button" :disabled="saving" @click="showEditor(rule)">
+                    {{ t('editor.edit') }}
+                  </button>
+                  <button type="button" :disabled="saving" @click="deleteRule(rule)">
+                    {{ t('editor.delete') }}
+                  </button>
+                </template>
+              </div>
+            </article>
+          </div>
+
+          <div v-else class="empty-state">
+            <div class="empty-illustration">⌕</div>
+            <h2>{{ search ? t('rules.noSearchResults') : t('rules.noRules') }}</h2>
+            <p>
+              {{ search ? t('rules.searchHint') : t('rules.createHint') }}
+            </p>
+            <AppButton
+              v-if="!search && section === 'redirect'"
+              :label="t('rules.createFirst')"
+              :disabled="loading || saving"
+              @click="createRule"
+            />
+            <AppButton
+              v-else
+              :label="t('rules.clearSearch')"
+              severity="secondary"
+              outlined
+              @click="search = ''"
+            />
+          </div>
+
+          <footer class="prototype-note">
+            {{
+              unstyledMode
+                ? t('prototype.unstyled')
+                : comparePassThrough
+                  ? t('prototype.passThrough')
+                  : t('prototype.styled')
+            }}
+            <span>·</span>
+            {{ memoryOnly ? t('prototype.memory') : t('prototype.extension') }}
+          </footer>
+        </section>
       </section>
-    </section>
-  </main>
+    </main>
+    <RedirectRuleEditor
+      :open="editorOpen"
+      :rule="editingRule"
+      :saving="saving"
+      :issue="editorIssue"
+      @close="editorOpen = false"
+      @save="saveRedirectRule"
+    />
+  </div>
 </template>

@@ -479,6 +479,17 @@ input {
   font-size: 11px;
 }
 
+.operation-alert,
+.editor-error {
+  margin: 13px 0 0;
+  padding: 10px 13px;
+  border: 1px solid color-mix(in srgb, #b54740, var(--ap-border) 55%);
+  border-radius: 8px;
+  background: color-mix(in srgb, #b54740, transparent 93%);
+  color: var(--ap-status-danger-text);
+  font-size: 11px;
+}
+
 .rule-list {
   padding-top: 9px;
 }
@@ -545,6 +556,12 @@ input {
   gap: 5px;
 }
 
+.rule-target {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .action-dot {
   width: 6px;
   height: 6px;
@@ -576,11 +593,174 @@ input {
   font-size: 13px;
 }
 
+.rule-actions {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.rule-actions button,
+.editor-close {
+  min-height: 30px;
+  padding: 0 7px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ap-muted);
+  cursor: pointer;
+  font-size: 10px;
+}
+
+.rule-actions button:hover:not(:disabled),
+.editor-close:hover {
+  border-color: var(--ap-border);
+  background: var(--ap-surface);
+  color: var(--ap-ink);
+}
+
+.rule-actions button:disabled {
+  cursor: default;
+  opacity: 0.4;
+}
+
+.rule-actions button:focus-visible,
+.editor-close:focus-visible,
+.editor-button:focus-visible {
+  outline: 3px solid var(--ap-focus);
+  outline-offset: 2px;
+}
+
 .prototype-note {
   margin-top: 20px;
   color: var(--ap-muted-2);
   font-size: 9px;
   text-align: right;
+}
+
+.editor-backdrop {
+  position: fixed;
+  z-index: 20;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgb(13 35 39 / 46%);
+}
+
+.rule-editor {
+  width: min(520px, 100%);
+  padding: 22px;
+  border: 1px solid var(--ap-border);
+  border-radius: var(--ap-radius-panel);
+  background: var(--ap-card);
+  box-shadow: 0 22px 70px rgb(0 0 0 / 24%);
+  color: var(--ap-ink);
+}
+
+.editor-heading,
+.editor-actions,
+.editor-field-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.editor-heading h2 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.editor-close {
+  width: 34px;
+  font-size: 22px;
+}
+
+.editor-form {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  margin-top: 20px;
+}
+
+.editor-field {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 7px;
+  color: var(--ap-ink);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.editor-field input,
+.editor-field select {
+  width: 100%;
+  min-height: var(--ap-control-height);
+  padding: 7px 10px;
+  border: 1px solid var(--ap-border);
+  border-radius: var(--ap-radius-control);
+  background: var(--ap-card);
+  color: var(--ap-ink);
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.editor-field small {
+  color: var(--ap-muted);
+  font-size: 10px;
+  font-weight: 400;
+  line-height: 1.5;
+}
+
+.editor-field-row {
+  align-items: flex-start;
+}
+
+.editor-enabled {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ap-ink);
+  font-size: 12px;
+}
+
+.editor-enabled input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--ap-teal);
+}
+
+.editor-error {
+  margin: 0;
+}
+
+.editor-actions {
+  justify-content: flex-end;
+  margin-top: 5px;
+}
+
+.editor-button {
+  min-height: var(--ap-control-height);
+  padding: 0 14px;
+  border: 1px solid var(--ap-border);
+  border-radius: var(--ap-radius-control);
+  background: var(--ap-card);
+  color: var(--ap-ink);
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.editor-button-primary {
+  border-color: var(--ap-teal);
+  background: var(--ap-teal);
+  color: var(--ap-text-on-primary);
+}
+
+.editor-button:disabled {
+  cursor: wait;
+  opacity: 0.65;
 }
 
 .prototype-note span {

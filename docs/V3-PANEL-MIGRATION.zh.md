@@ -14,6 +14,8 @@ Vue 3 候选面板已经接入 `vue-i18n` 11 Composition API，当前 shell 只�
 
 V3 adapter 使用独立的 `GET_SNAPSHOT` / `SAVE_CONFIG` 协议，不复用 content script 到页面主世界的 `V3_CONFIG` 通知。service worker 只接受扩展内 `panels-v3/` 页面发送的请求；读配置时先运行 V3 backup 校验，再清理已知规则的命中计数；保存时同样校验并仅写 `V3_CONFIG`，`null` 只清除该配置键。V2 的配置和 storage 路径不参与此 adapter。Vue 3 客户端在发送前及接收后验证数据结构，并将扩展不可用 / 消息失败映射成稳定错误。
 
+当前首个真实数据流程覆盖 V3 重定向规则列表和基础 CRUD：读取快照后按 request action 展示规则；新增、编辑、删除、启停及调整数组顺序都会保存完整 V3 backup，顺序就是首条命中优先级。移除兼有 response action 的规则时只删除 request redirect action，保留其 response 配置。匹配方式包含字符串和 RE2，目标是一个直接的 HTTP(S) 或相对跳转 URL；与 V2 normal 模式对原始 URL 做子串替换不同，也不自动导入 V2 的 headers、ignores 或 redirect function。编辑器只暴露当前 V3 schema 支持的字段。独立网页预览使用明确标注的内存样例；扩展内运行时使用 `panels-v3/` 消息与 storage adapter。
+
 ## 迁移切片顺序
 
 1. 建立并独立构建 Vue 3 app shell、主题、路由 / 状态 / i18n 适配；保证生产 package 与 staging preview 的路径边界可检查。
@@ -29,4 +31,4 @@ V3 adapter 使用独立的 `GET_SNAPSHOT` / `SAVE_CONFIG` 协议，不复用 con
 - staging extension 使用不同输出目录，不清理、覆盖或打包为生产目录。
 - 每个可独立验证的迁移切片在 `refactor/v3` 单独提交、推送；正式切换是后续单独提交，不能和功能迁移混在一起。
 
-迁移前现状盘点和 V2 / Vue 3 风险热点见 Codex 执行记录及 `docs/V3-PANEL-IA.zh.md`。V3 消息与配置 adapter 基础已完成；真实组件数据流接入、staging extension 与 Chrome / Edge 加载验证尚未开始。
+迁移前现状盘点和 V2 / Vue 3 风险热点见 Codex 执行记录及 `docs/V3-PANEL-IA.zh.md`。V3 消息与配置 adapter、重定向规则列表及基础 CRUD 已接入；拦截规则编辑、V2 高级 redirect 能力的 V3 方案、staging extension 与扩展内 Chrome / Edge 验证仍待实施。
