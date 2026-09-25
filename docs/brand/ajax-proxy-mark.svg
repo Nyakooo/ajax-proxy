@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128" data-state="active">
+  <title>Ajax Proxy request routing mark</title>
+  <desc>A browser window showing a teal request path and coral response path meeting at a proxy node.</desc>
+  <style>
+    :root {
+      --tile: #12343b;
+      --frame: #12343b;
+      --surface: #f5f9f8;
+      --chrome-muted: #6f9291;
+      --request: #20aa9a;
+      --response: #f56f68;
+      --node: #f6bd58;
+    }
+    [data-state='inactive'] {
+      --tile: #555e61;
+      --frame: #555e61;
+      --surface: #e4e7e7;
+      --chrome-muted: #a4aaac;
+      --request: #828a8c;
+      --response: #828a8c;
+      --node: #70787a;
+    }
+  </style>
+  <rect x="4" y="4" width="120" height="120" rx="28" fill="var(--tile)" />
+  <rect x="16" y="18" width="96" height="92" rx="15" fill="var(--surface)" />
+  <path d="M31 18h66a15 15 0 0 1 15 15v6H16v-6a15 15 0 0 1 15-15Z" fill="var(--frame)" />
+  <circle cx="29" cy="29" r="3" fill="var(--response)" />
+  <circle cx="40" cy="29" r="3" fill="var(--node)" />
+  <circle cx="51" cy="29" r="3" fill="var(--chrome-muted)" />
+  <path d="M30 56h21c8 0 8 14 16 14h28" fill="none" stroke="var(--request)" stroke-linecap="round" stroke-linejoin="round" stroke-width="7" />
+  <path d="m91 63 8 7-8 7" fill="none" stroke="var(--request)" stroke-linecap="round" stroke-linejoin="round" stroke-width="6" />
+  <path d="M98 85H77c-8 0-8-14-16-14H31" fill="none" stroke="var(--response)" stroke-linecap="round" stroke-linejoin="round" stroke-width="7" />
+  <path d="m37 78-8 7 8 7" fill="none" stroke="var(--response)" stroke-linecap="round" stroke-linejoin="round" stroke-width="6" />
+  <circle cx="64" cy="71" r="7" fill="var(--node)" stroke="var(--surface)" stroke-width="3" />
+</svg>

@@ -160,9 +160,9 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 
 ### 阶段 4：Vue 3、品牌与界面重构
 
-- [ ] 定义 V3 品牌方向并重新设计 Ajax Proxy Logo。
+- [x] 定义 V3 品牌方向并重新设计 Ajax Proxy Logo；保留浏览器窗口和请求调试识别线索，以双向请求 / 响应路径与中心代理节点简化图形，teal 表示稳定链路，珊瑚色表示命中状态。见 `docs/V3-BRAND-DIRECTION.zh.md`。
 - [ ] 为 Logo 制定不同场景下的规范和变体，包括扩展图标、面板品牌区、浅色 / 深色背景及所需尺寸。
-- [ ] 输出可维护的矢量源文件及实际使用的图标资源，确保扩展各尺寸下清晰可辨。
+- [x] 输出可维护的 SVG mark 及由其生成的 48 / 128 px active / grayscale extension icons；`pnpm brand:icons` 可重建资源，并生成 16 / 24 / 48 / 128 px 缩放矩阵供检查。
 - [ ] 建立与新 Logo 协调的颜色、字体、图标和界面视觉规范。
 - [ ] 设计新的面板信息架构和关键操作流程，再确定组件实现方案。
 - [ ] 将 Vue 2 迁移到 Vue 3，并更新状态管理、路由、国际化和 UI 组件依赖。
@@ -437,4 +437,5 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - 2026-09-25：`runtimeController.update()` 现在保留 `validateV3Backup()` 结构化 issues；proxy-lib `updateV3()` 对外返回辨识结果并输出路径化校验细节。无效配置继续保留活动 backup，合法 disabled 配置及 null 清除语义不变。全量 103/103 测试、typecheck、boundary、lint、format、proxy-lib build、V3 browser smoke、extension smoke、完整 build 和声明一致性检查通过。完成 84 / 189 项（44.4%）。
 - 2026-09-25：将 Fetch response body/header/status 处理与 metadata proxy 拆到 `responseAction.ts`，Fetch wrapper 仅在首条命中规则的网络阶段后调用该 helper；既有 Fetch 回退和 no-body 语义不变，未强制抽象不同的 XHR response 行为。全量 103/103 Vitest、typecheck、boundary、lint、format、proxy-lib build、Chromium V3 Fetch/XHR smoke 和声明一致性检查通过。完成 85 / 190 项（44.7%）。
 - 2026-09-25：按用户补充确认更新决策记录：首条完整命中规则负责整次请求；派发前重定向准备失败使用原请求，派发后网络错误不重试，响应替换失败保留原响应；CI 以 Chrome / Edge 当前稳定版和最低受支持版验收。对应选择和实现均已纳入阶段记录。完成 88 / 190 项（46.3%）。
+- 2026-09-25：建立 Ajax Proxy V3 品牌方向，沿用深青色和浏览器窗口识别资产，将请求 / 响应路径与代理节点形成新 SVG mark；新增可重复图标生成器，输出 48 / 128 px 启用彩色与停用灰阶 PNG，并生成 16 / 24 / 48 / 128 px 预览矩阵。SVG 渲染、尺寸断言和预览已检查。面板横向 lockup 的浅 / 深背景变体与完整 design tokens 后续再单独结项。完成 90 / 190 项（47.4%）。
 - GitHub 里程碑：[阶段 0](https://github.com/Nyakooo/ajax-proxy/milestone/1)、[阶段 1](https://github.com/Nyakooo/ajax-proxy/milestone/2)、[阶段 2](https://github.com/Nyakooo/ajax-proxy/milestone/3)、[阶段 3](https://github.com/Nyakooo/ajax-proxy/milestone/4)、[阶段 4](https://github.com/Nyakooo/ajax-proxy/milestone/5)、[阶段 5](https://github.com/Nyakooo/ajax-proxy/milestone/6)、[阶段 6](https://github.com/Nyakooo/ajax-proxy/milestone/7)、[阶段 7](https://github.com/Nyakooo/ajax-proxy/milestone/8)；已复现缺陷：[issue #56](https://github.com/Nyakooo/ajax-proxy/issues/56)。
