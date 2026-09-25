@@ -133,7 +133,7 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 ### 阶段 3：安全与兼容性
 
 - [x] 审查扩展权限和站点匹配范围，逐项记录功能依据：storage、notifications、tabs 和全站内容脚本权限均有实际功能调用；移除 tabs 的尝试经扩展 E2E 证明会丢失活动页标题，故保留；通知切换到 `chrome.notifications`。见 `docs/V3-PERMISSIONS.zh.md`。
-- [ ] 明确自定义函数的执行能力、执行环境及用户风险提示。
+- [x] 明确自定义函数的执行能力、执行环境及用户风险提示：V3 只支持受限 response 计算，按不可信代码放入无扩展权限、无网络能力且可终止 worker 的 sandbox；限制同步 / Promise 结果、5 秒硬超时、fail-open，并规定导入代码不自动执行。见 `docs/V3-USER-FUNCTIONS.zh.md`；sandbox 与 UI 接入留待实现。
 - [ ] 对带有函数代码的导入配置提供明确提示和适当校验。
 - [ ] 校验 content script、页面脚本、面板与 service worker 之间的消息来源和结构。
 - [ ] 检查 web accessible resources、注入资源和规则数据是否最小化暴露。
@@ -395,4 +395,5 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - 2026-09-25：补齐纯 JSON 文件解析入口，`parseV3BackupJson()` 统一返回语法及字段错误路径，识别 V2 格式并提供明确拒绝原因，支持 BOM 输入；`formatV3ValidationIssues()` 提供可展示文本。5 项 domain 测试通过，workspace 9 个文件、51 项测试通过；coverage 为 statements 54.86%、branches 51.77%、functions 52.38%、lines 56.36%。阶段 2 累计完成 59 / 179 项（33.0%），UI 接入仍待面板迁移。
 - 2026-09-25：扩展 E2E 增加 all-frames 子 frame 的 Fetch 拦截验证；同一持久化 profile 完整关闭并重启浏览器后，确认扩展 service worker 重新启动、local storage 配置仍在且 Fetch 重定向继续生效。扩展 smoke 通过；阶段 2 累计完成 60 / 179 项（33.5%），该验证检查点可独立提交。
 - 2026-09-25：审查 manifest 权限与调用点，确认 storage、通知阈值提醒、活动页标题 / URL 和 `<all_urls>` 主世界脚本的功能依据；尝试移除 `tabs` 后，扩展 E2E 观察到 `chrome.tabs.query()` 不再返回活动页 title，故恢复该权限并将该限制写入审查记录。通知切换到 `chrome.notifications`，在 service worker 顶层注册点击事件；52 项 Vitest 通过，coverage 为 statements 55.91%、branches 51.63%、functions 53.15%、lines 57.60%，typecheck、lint、包边界、manifest 构建和扩展 smoke 通过。见 `docs/V3-PERMISSIONS.zh.md`。阶段 3 累计完成 61 / 179 项（34.1%），可独立提交。
+- 2026-09-25：明确 V3 自定义函数只用于受限的 response 计算；函数接收校验过的数据副本，在无扩展 API、无网络能力且可硬终止的 sandbox worker 中运行，最长 5 秒，异常 / 超时 fail-open。含代码导入不自动执行且规则保持停用；中英文风险提示和隔离验收项已写入 `docs/V3-USER-FUNCTIONS.zh.md`。V2 `window.eval` 主世界风险与同步死循环无法由现有计时器中断的限制已明确登记。阶段 3 累计完成 62 / 179 项（34.6%），执行器和 UI 警示仍待实施。
 - GitHub 里程碑：[阶段 0](https://github.com/Nyakooo/ajax-proxy/milestone/1)、[阶段 1](https://github.com/Nyakooo/ajax-proxy/milestone/2)、[阶段 2](https://github.com/Nyakooo/ajax-proxy/milestone/3)、[阶段 3](https://github.com/Nyakooo/ajax-proxy/milestone/4)、[阶段 4](https://github.com/Nyakooo/ajax-proxy/milestone/5)、[阶段 5](https://github.com/Nyakooo/ajax-proxy/milestone/6)、[阶段 6](https://github.com/Nyakooo/ajax-proxy/milestone/7)、[阶段 7](https://github.com/Nyakooo/ajax-proxy/milestone/8)；已复现缺陷：[issue #56](https://github.com/Nyakooo/ajax-proxy/issues/56)。
