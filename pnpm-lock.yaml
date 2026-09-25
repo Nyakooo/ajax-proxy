@@ -326,6 +326,9 @@ importers:
       '@proxy/lib':
         specifier: workspace:^1.0.0
         version: link:../proxy-lib
+      '@proxy/protocol':
+        specifier: workspace:^1.0.0
+        version: link:../protocol
       '@proxy/shared-utils':
         specifier: workspace:^1.0.0
         version: link:../shared-utils

@@ -19,6 +19,7 @@ import { createV3XHR } from './v3/xhr'
 import { validateV3Backup } from '@proxy/v3-domain'
 import type { V3Backup } from '@proxy/v3-domain'
 import { NoticeTo } from '@proxy/protocol'
+import type { V3Hit } from '@proxy/protocol'
 import { warn } from './common'
 import {
   isValidGlobalState,
@@ -46,15 +47,16 @@ let v3Backup: V3Backup | null = null
 
 function notifyV3Match(rule: V3Backup['rules'][number], request: { url: string; method: string }) {
   try {
+    const detail: V3Hit = {
+      kind: 'v3-hit',
+      rule_id: rule.id,
+      match_url: rule.match.url,
+      method: request.method,
+      url: request.url,
+    }
     window.dispatchEvent(
       new CustomEvent(NoticeTo.CONTENT, {
-        detail: {
-          kind: 'v3-hit',
-          rule_id: rule.id,
-          match_url: rule.match.url,
-          method: request.method,
-          url: request.url,
-        },
+        detail,
       })
     )
   } catch {

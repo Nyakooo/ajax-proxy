@@ -12,12 +12,13 @@ import {
   isValidMode,
   isValidRedirectors,
 } from '@proxy/shared-utils'
+import { isV3Hit } from '@proxy/protocol'
 import { injectEventListener } from './event'
 import { useCurrentTitle } from './notice'
 import { initDefaultSth } from './init'
 import { chromeBadge } from './badge'
 import { INIT_CURRENT_TITLE } from '../consts'
-import { isPageBadgeHit, isPageV3Hit } from '../messageValidation'
+import { isPageBadgeHit } from '../messageValidation'
 import { chromeBadgeV3 } from './badge'
 
 initStorage()
@@ -48,7 +49,7 @@ initStorage()
           return
         }
         if (key === NoticeKey.BADGE_STATUS && isPageBadgeHit(value)) chromeBadge(value)
-        if (key === NoticeKey.V3_HIT && isPageV3Hit(value)) chromeBadgeV3(value)
+        if (key === NoticeKey.V3_HIT && isV3Hit(value)) chromeBadgeV3(value)
         return
       }
 

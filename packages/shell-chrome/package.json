@@ -13,6 +13,7 @@
   },
   "license": "MIT",
   "dependencies": {
+    "@proxy/protocol": "workspace:^1.0.0",
     "@proxy/v2-compatibility": "workspace:^1.0.0",
     "@proxy/v3-domain": "workspace:^1.0.0",
     "@proxy/lib": "workspace:^1.0.0",

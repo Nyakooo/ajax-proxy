@@ -93,6 +93,7 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 
 - [x] 设计清晰完整的项目目录和包结构，明确各包的职责与边界；`docs/V3-ARCHITECTURE-ASSESSMENT.zh.md` 记录 9 个 workspace 包的当前职责、依赖图、入口、目标边界和渐进迁移约定。
 - [ ] 按领域划分核心模块，明确请求处理、规则匹配、状态管理、存储、消息通信和 UI 之间的依赖方向。
+- [x] 将 V3 hit 消息类型和不可信页面事件校验集中到浏览器无关的 `@proxy/protocol`；proxy runtime 按共享类型发出事件，扩展宿主复用同一 guard，避免跨层重复定义 V3 消息契约。
 - [x] 将 V3 Fetch / XHR 执行器、单测和 browser smoke entry 收拢到 `proxy-lib/src/v3/` 与 `proxy-lib/test/v3/`，让新增 V3 feature 不与根目录的 V2 runtime 文件混排；不改变运行时 API。
 - [x] 将 V3 backup schema / validation 放到 domain package 的 `backup.ts`，通过 `index.ts` 稳定导出入口；规则 matcher 从 `backup.ts` 单向依赖规则类型，避免 barrel 与匹配器互相导入。
 - [ ] 统一模块命名、公共接口、类型定义和错误处理方式，减少重复实现及跨层耦合。
@@ -420,4 +421,5 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - 2026-09-25：收敛阶段 2 顶层包职责和目录边界设计，架构文档区分当前 9 包实现、稳定依赖方向与分阶段目标，并校正 V3 domain、Fetch/XHR runtime、Chrome config/hit adapter 已接入的实际状态。只完成包 / 职责设计项；领域层 ports/adapters 与 runtime 内部 feature 拆分仍待实现和验证，未提前勾选。文档格式与 workspace boundary 检查通过。完成 75 / 180 项（41.7%）。
 - 2026-09-25：将 V3 Fetch / XHR 实现、Vitest 用例和真实浏览器 smoke entry 分别移入 `proxy-lib/src/v3/`、`proxy-lib/test/v3/`，V2 runtime 文件与接口保持不变。全量 98/98 Vitest、typecheck、lint、format、package boundary、V3 Chrome runtime smoke、生产 build 与扩展 smoke 均通过；声明文件随源码移动，提交后检查生成声明一致性。完成 76 / 181 项（42.0%）。
 - 2026-09-25：将 `@proxy/v3-domain` backup schema / validation 实现拆至 `backup.ts`，`index.ts` 仅保留稳定 public barrel，`ruleMatching.ts` 直接依赖 domain types。既有包根调用保持兼容，未改 backup 格式或规则行为。全量 98/98 Vitest、typecheck、package boundary、lint、format、全量 build 与 Chromium V3 Fetch/XHR browser smoke 通过；生成声明随源码拆分，提交后执行声明一致性检查。完成 77 / 182 项（42.3%）。
+- 2026-09-25：将 V3 hit event 类型与严格数据 guard 集中到 `@proxy/protocol`，proxy-lib、content script 和 service worker 共用消息契约；shell 显式声明 protocol 依赖，legacy badge event 保持原样。全量 98/98 Vitest、typecheck、package boundary、lint、format、生产 build、声明一致性检查和 Chrome Stable 扩展 Fetch/XHR smoke 通过。阶段 2 领域边界仍未整体结项。完成 78 / 183 项（42.6%）。
 - GitHub 里程碑：[阶段 0](https://github.com/Nyakooo/ajax-proxy/milestone/1)、[阶段 1](https://github.com/Nyakooo/ajax-proxy/milestone/2)、[阶段 2](https://github.com/Nyakooo/ajax-proxy/milestone/3)、[阶段 3](https://github.com/Nyakooo/ajax-proxy/milestone/4)、[阶段 4](https://github.com/Nyakooo/ajax-proxy/milestone/5)、[阶段 5](https://github.com/Nyakooo/ajax-proxy/milestone/6)、[阶段 6](https://github.com/Nyakooo/ajax-proxy/milestone/7)、[阶段 7](https://github.com/Nyakooo/ajax-proxy/milestone/8)；已复现缺陷：[issue #56](https://github.com/Nyakooo/ajax-proxy/issues/56)。

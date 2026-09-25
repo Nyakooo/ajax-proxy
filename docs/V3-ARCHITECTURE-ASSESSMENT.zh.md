@@ -4,7 +4,7 @@
 
 ## 当前包与依赖方向
 
-以下箭头表示左侧包依赖右侧包，依据各包 `package.json` 的 workspace dependencies。图含当前全部 9 个 workspace 包；外部 npm dependencies 不展开。`@proxy/v3-domain` 提供 schema 校验和纯规则选择；`@proxy/lib` 提供 Fetch / XHR runtime，`@proxy/shell-chrome` 将 V3 配置接入该 runtime 并独立路由命中统计。面板仍在使用 V2 规则 UI。
+以下箭头表示左侧包依赖右侧包，依据各包 `package.json` 的 workspace dependencies。图含当前全部 9 个 workspace 包；外部 npm dependencies 不展开。`@proxy/protocol` 提供浏览器无关的消息 / storage key 常量和 V3 命中消息契约；`@proxy/v3-domain` 提供 schema 校验和纯规则选择；`@proxy/lib` 提供 Fetch / XHR runtime，`@proxy/shell-chrome` 将 V3 配置接入该 runtime 并独立路由命中统计。面板仍在使用 V2 规则 UI。
 
 ```mermaid
 flowchart LR
@@ -23,6 +23,7 @@ flowchart LR
   shared --> protocol
   compat --> proxy
   domain --> protocol
+  shell --> protocol
   shell --> proxy
   shell --> domain
   shell --> shared
@@ -33,7 +34,7 @@ flowchart LR
   panels --> json
 ```
 
-`@proxy/protocol` 是不依赖其他 workspace 包的协议基础包，导出消息和 storage key 常量；shared-utils 重导出这些常量，proxy-lib 用它发送页面命中事件。`@proxy/v3-domain` 只定义 V3 backup / rules 和纯匹配逻辑；`@proxy/lib` 使用它在 MAIN world 运行组合式 Fetch / XHR。shell-chrome 负责读取持久化配置、向页面 runtime 同步配置并校验、累计独立 V3 hit。`@proxy/v2-compatibility` 依赖 `@proxy/lib` 的公开类型入口；shell 和 panels 保留现存 V2 路径，panels 另行使用 shared-utils 与两个 Vue 2 编辑器包。
+`@proxy/protocol` 是不依赖其他 workspace 包的协议基础包，导出消息 / storage key 常量及浏览器无关的 `V3Hit` 类型和 `isV3Hit()` 校验；proxy-lib 按该类型发送页面命中事件，shell-chrome 在转发和累计前使用同一个 guard 校验。shared-utils 重导出消息和 storage key 常量。`@proxy/v3-domain` 只定义 V3 backup / rules 和纯匹配逻辑；`@proxy/lib` 使用它在 MAIN world 运行组合式 Fetch / XHR。shell-chrome 负责读取持久化配置、向页面 runtime 同步配置并校验、累计独立 V3 hit。`@proxy/v2-compatibility` 依赖 `@proxy/lib` 的公开类型入口；shell 和 panels 保留现存 V2 路径，panels 另行使用 shared-utils 与两个 Vue 2 编辑器包。
 
 最终拆分后的依赖方向如下。箭头表示左侧模块依赖右侧模块；按 `V3 domain / protocol → request engine / storage and browser adapters → UI and extension host` 拓扑排序，无循环。当前主 world `@proxy/lib` 是纯运行时包；service worker / content script 是 Chrome API 与 storage adapter；未来 V3 面板仅通过领域和宿主 adapter 消费状态，不允许 UI 或 Chrome API 反向进入请求核心。现存 V2 页面逐步迁移，不能在 V3 入口重新引入 converter。每次拆分继续用 clean build 与 package-boundary check 验证。
 
@@ -58,7 +59,7 @@ flowchart TD
 
 | 当前包 / 区域                                               | 当前职责                                                                                                               | V3 建议                                                                                                           |
 | ----------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `protocol`                                                  | 现为 `@proxy/protocol`，只导出浏览器无关的消息 / storage key 常量                                                      | 保持为稳定叶子包；禁止依赖 Vue、Chrome API、storage 实现和业务包                                                  |
+| `protocol`                                                  | 现为 `@proxy/protocol`，导出消息 / storage key 常量以及 `V3Hit` 类型和纯数据 guard                                     | 保持为稳定叶子包；禁止依赖 Vue、Chrome API、storage 实现和业务包                                                  |
 | `shared-utils`                                              | Chrome 环境判断、storage、消息通知、badge 操作混在一个包                                                               | 继续作为扩展宿主 adapter；按平台适配与存储职责拆分前保持公开 API 稳定，核心规则不得依赖 UI 或 Chrome API          |
 | `proxy-lib`                                                 | 现有 V2 Fetch / XHR 与 V3 组合 Fetch / XHR runtime 共用包，但 V3 selector / schema 在 v3-domain                        | 逐步按 rule domain、Fetch / XHR 执行 feature 拆内部目录；host 通过窄状态和事件接口接入，只有稳定 API 出公共入口   |
 | `packages/proxy-lib/src/v3` 与 `test/v3`                    | V3 Fetch / XHR 执行器、单测和浏览器 smoke entry 独立成 feature 目录；V2 runtime 保持在既有根目录                       | 后续继续按规则匹配、请求 / 响应 action 与宿主端口拆分，避免把新领域逻辑塞回 V2 文件                               |

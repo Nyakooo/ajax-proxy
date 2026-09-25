@@ -4,9 +4,9 @@
 import { NoticeKey, StorageKey, setStorage, getRealStorage, noticePanelsByServiceWorker } from "@proxy/shared-utils";
 import { validateV3Backup } from "@proxy/v3-domain";
 import type { V3Backup } from "@proxy/v3-domain";
+import type { V3Hit } from '@proxy/protocol'
 import { chromeNativeNotice } from "./notice";
 
-type V3Hit = { kind: 'v3-hit'; rule_id: string; match_url: string; method: string; url?: string }
 type V3HitCounters = Record<string, number>
 
 let v3HitQueue = Promise.resolve()
