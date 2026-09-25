@@ -1,8 +1,8 @@
 {
-  "name": "@proxy/compatibility",
+  "name": "@proxy/v2-compatibility",
   "version": "1.0.0",
   "private": true,
-  "description": "Ajax Proxy 新老数据兼容库",
+  "description": "Ajax Proxy V2 数据格式转换库",
   "main": "lib/index.js",
   "types": "types/index.d.ts",
   "scripts": {

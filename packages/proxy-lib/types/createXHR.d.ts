@@ -2,13 +2,13 @@ import { RefGlobalState } from "./types";
 export declare const OriginXHR: {
     new (): XMLHttpRequest;
     prototype: XMLHttpRequest;
-    readonly DONE: number;
-    readonly HEADERS_RECEIVED: number;
-    readonly LOADING: number;
-    readonly OPENED: number;
-    readonly UNSENT: number;
+    readonly UNSENT: 0;
+    readonly OPENED: 1;
+    readonly HEADERS_RECEIVED: 2;
+    readonly LOADING: 3;
+    readonly DONE: 4;
 };
-export declare const initInterceptorXHRState: (state: RefGlobalState) => RefGlobalState<import("./types").IGlobalState>;
+export declare const initInterceptorXHRState: (state: RefGlobalState) => RefGlobalState;
 declare class CustomXHR extends XMLHttpRequest {
     responseText: string;
     response: any;

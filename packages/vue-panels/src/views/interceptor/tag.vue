@@ -3,12 +3,9 @@
     <section :key="key" v-for="(tag, key) in dynamicTags" class="tag-list">
       <!-- 关闭 -->
       <i class="el-icon-error" @click="handleRemove(tag)"></i>
-      <el-button
-        @click="handleTagStatus(tag)"
-        :type="tag.used ? 'primary' : ''"
-        plain
-        >{{ tag.name }}</el-button
-      >
+      <el-button @click="handleTagStatus(tag)" :type="tag.used ? 'primary' : ''" plain>{{
+        tag.name
+      }}</el-button>
     </section>
     <el-input
       style="width: 100px"
@@ -24,81 +21,81 @@
 </template>
 
 <script>
-import { useInterceptorRoutes, useTags } from "@/common/store";
-import { uniqueId } from "@alrale/common-lib";
-import { confirmFunc } from "@/common";
+import { useInterceptorRoutes, useTags } from '@/infrastructure/storage'
+import { uniqueId } from '@/shared/identity'
+import { confirmFunc } from '@/shared/dialogs'
 // 变迁栏
 export default {
   data() {
     return {
       dynamicTags: [],
       inputVisible: false,
-      inputValue: "",
-    };
+      inputValue: '',
+    }
   },
   methods: {
     // 移除
     async handleRemove({ id }) {
       const { ok } = await confirmFunc({
-        message: this.$t("msg.confirmDeletion"),
-      });
-      if (!ok) return;
-      const newTags = [];
+        message: this.$t('msg.confirmDeletion'),
+      })
+      if (!ok) return
+      const newTags = []
       this.dynamicTags.forEach((item) => {
-        if (item.id !== id) newTags.push(item);
-      });
-      this.dynamicTags = newTags;
+        if (item.id !== id) newTags.push(item)
+      })
+      this.dynamicTags = newTags
       // 移除table tagId
-      await this.refreshRoutes(id);
+      await this.refreshRoutes(id)
       // 更新
-      this.refreshData(newTags);
+      this.refreshData(newTags)
     },
     // 更新Store routes
     async refreshRoutes(id) {
-      const routes = await useInterceptorRoutes.getReal();
+      const routes = await useInterceptorRoutes.getReal()
       const newRoutes = routes.map((item) => {
-        const { tagId, ...data } = item;
-        if (item.tagId && item.tagId === id) return data;
-        return item;
-      });
-      useInterceptorRoutes.set(newRoutes);
+        const { tagId, ...data } = item
+        if (item.tagId && item.tagId === id) return data
+        return item
+      })
+      useInterceptorRoutes.set(newRoutes)
     },
     // 修改tag状态
     handleTagStatus(tag) {
-      tag.used = !tag.used;
-      this.refreshData(this.dynamicTags);
+      tag.used = !tag.used
+      this.refreshData(this.dynamicTags)
     },
     showInput() {
-      this.inputVisible = true;
+      this.inputVisible = true
       this.$nextTick((_) => {
-        this.$refs.saveTagInput.$refs.input.focus();
-      });
+        this.$refs.saveTagInput.$refs.input.focus()
+      })
     },
     refreshData(tags) {
-      useTags.set(tags);
-      this.$emit("initList");
+      useTags.set(tags)
+      this.$emit('initList')
     },
     handleInputConfirm() {
-      let inputValue = this.inputValue;
+      let inputValue = this.inputValue
       if (inputValue) {
         this.dynamicTags.push({
           id: uniqueId(),
           name: inputValue,
           used: false,
-        });
+        })
       }
-      this.inputVisible = false;
-      this.inputValue = "";
-      this.refreshData(this.dynamicTags);
+      this.inputVisible = false
+      this.inputValue = ''
+      this.refreshData(this.dynamicTags)
     },
     initList() {
-      this.dynamicTags = useTags.get();
+      this.dynamicTags = useTags.get()
     },
   },
   mounted() {
-    this.initList();
+    this.initList()
   },
-};
+}
 </script>
 
 <style lang="scss" scoped>

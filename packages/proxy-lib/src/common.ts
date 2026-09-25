@@ -1,5 +1,5 @@
 import { IMatchInterceptorContent, IMatchRedirectContent } from "./types";
-import { NoticeTo } from "@proxy/shared-utils";
+import { NoticeTo } from "@proxy/protocol";
 
 // match_url规则匹配
 export function maybeMatching(

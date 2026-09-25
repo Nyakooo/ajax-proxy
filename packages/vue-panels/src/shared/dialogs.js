@@ -1,16 +1,10 @@
-import { MessageBox } from "element-ui";
+import { MessageBox } from 'element-ui'
 
 /**
  * 确认弹窗
  * @returns
  */
-export async function confirmFunc({
-  message = "",
-  title = "",
-  confirmText,
-  cancelText,
-  type,
-}) {
+export async function confirmFunc({ message = '', title = '', confirmText, cancelText, type }) {
   const res = await MessageBox.confirm(message, title, {
     confirmButtonText: confirmText,
     cancelButtonText: cancelText,
@@ -18,28 +12,24 @@ export async function confirmFunc({
   }).catch(() => {
     return {
       ok: false,
-    };
-  });
+    }
+  })
   return {
-    ok: res === "confirm",
-  };
+    ok: res === 'confirm',
+  }
 }
 
 /**提交内容 */
-export async function promptFunc({
-  message = "",
-  title = "",
-  inputValue = "",
-}) {
+export async function promptFunc({ message = '', title = '', inputValue = '' }) {
   const { action, value } = await MessageBox.prompt(message, title, {
     inputValue,
   }).catch(() => {
     return {
       ok: false,
-    };
-  });
+    }
+  })
   return {
-    ok: action === "confirm",
+    ok: action === 'confirm',
     data: value,
-  };
+  }
 }

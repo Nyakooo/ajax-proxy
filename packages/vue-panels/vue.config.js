@@ -4,6 +4,7 @@
 const isProduction = process.env.NODE_ENV === "production";
 
 module.exports = {
+  parallel: false,
   devServer: {
     host: "0.0.0.0",
     port: 8082,
@@ -15,6 +16,7 @@ module.exports = {
   publicPath: process.env.NODE_ENV === "production" ? "./" : "/",
   productionSourceMap: false,
   configureWebpack: (config) => {
+    config.output.hashFunction = "xxhash64";
     // 开启gzip压缩
     if (isProduction) {
       // config.plugins.push(
@@ -36,13 +38,17 @@ module.exports = {
             vendor: {
               test: /[\\/]node_modules[\\/]/,
               name(module) {
-                // get the name. E.g. node_modules/packageName/not/this/part.js
-                // or node_modules/packageName
-                const packageName = module.context.match(
-                  /[\\/]node_modules[\\/](.*?)([\\/]|$)/
-                )[1];
-                // npm package names are URL-safe, but some servers don't like @ symbols
-                return `npm.${packageName.replace("@", "")}`;
+                // Resolve the last node_modules segment so pnpm's nested store
+                // paths do not collapse every dependency into `.pnpm`.
+                const segments = (module.context || "")
+                  .split(/node_modules[\\/]/)
+                  .filter(Boolean);
+                const packagePath = segments[segments.length - 1] || "runtime";
+                const parts = packagePath.split(/[\\/]/);
+                const packageName = parts[0].startsWith("@")
+                  ? `${parts[0]}/${parts[1] || "unknown"}`
+                  : parts[0];
+                return `npm.${packageName.replace("@", "").replace("/", "-")}`;
               },
             },
           },

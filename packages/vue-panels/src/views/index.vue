@@ -7,13 +7,9 @@
       </section>
       <section v-if="globalSwitchOn">
         <!-- 备份 -->
-        <el-button
-          style="margin-right: 10px"
-          type="info"
-          plain
-          @click="handleDownload"
-          >{{ $t("backup") }}</el-button
-        >
+        <el-button style="margin-right: 10px" type="info" plain @click="handleDownload">{{
+          $t('backup')
+        }}</el-button>
         <!-- 数据恢复 -->
         <el-upload
           action
@@ -22,20 +18,12 @@
           :show-file-list="false"
           style="margin-right: 20px"
         >
-          <el-button type="info">{{ $t("restore") }}</el-button>
+          <el-button type="info">{{ $t('restore') }}</el-button>
         </el-upload>
         <!-- 模式选择 -->
-        <el-radio-group
-          style="margin-right: 10px"
-          v-model="currentMode"
-          @change="handleModeChange"
-        >
-          <el-radio-button label="interceptor">{{
-            $t("interceptor")
-          }}</el-radio-button>
-          <el-radio-button label="redirector">{{
-            $t("redirector")
-          }}</el-radio-button>
+        <el-radio-group style="margin-right: 10px" v-model="currentMode" @change="handleModeChange">
+          <el-radio-button label="interceptor">{{ $t('interceptor') }}</el-radio-button>
+          <el-radio-button label="redirector">{{ $t('redirector') }}</el-radio-button>
         </el-radio-group>
         <!-- 多语言 -->
         <el-select
@@ -68,12 +56,7 @@
       </section>
     </div>
     <div class="current-title" v-if="globalSwitchOn && currentTitle">
-      <el-alert
-        show-icon
-        :title="currentTitle"
-        type="success"
-        :closable="false"
-      />
+      <el-alert show-icon :title="currentTitle" type="success" :closable="false" />
     </div>
     <transition name="fade" mode="out-in">
       <section v-if="globalSwitchOn" class="table-container">
@@ -89,8 +72,8 @@
   </div>
 </template>
 <script>
-import IntercepTable from "./interceptor/table";
-import RedirecTable from "./redirector/table";
+import IntercepTable from './interceptor/table'
+import RedirecTable from './redirector/table'
 import {
   useLang,
   useGLobalSwitch,
@@ -99,14 +82,14 @@ import {
   useTags,
   useMode,
   useRedirects,
-} from "@/common/store";
-import { useNotice } from "@/common/notice";
-import { confirmFunc, promptFunc } from "@/common";
-import { typeIs } from "@alrale/common-lib";
-import { Langs } from "@/lang/index";
-import exportFromJSON from "export-from-json";
-import { NoticeFrom, NoticeTo, NoticeKey } from "@proxy/shared-utils";
-import { onUploadForDataConversion } from "@proxy/compatibility";
+} from '@/infrastructure/storage'
+import { useNotice } from '@/infrastructure/notice'
+import { confirmFunc, promptFunc } from '@/shared/dialogs'
+import { typeIs } from '@/shared/data'
+import { Langs } from '@/lang/index'
+import exportFromJSON from 'export-from-json'
+import { NoticeFrom, NoticeTo, NoticeKey } from '@proxy/shared-utils'
+import { onUploadForDataConversion } from '@proxy/v2-compatibility'
 export default {
   components: {
     IntercepTable,
@@ -115,136 +98,136 @@ export default {
   data() {
     return {
       globalSwitchOn: false,
-      language: "",
-      currentMode: "",
+      language: '',
+      currentMode: '',
       Langs,
-      currentTitle: "",
-    };
+      currentTitle: '',
+    }
   },
   methods: {
     // github链接
     linkToGithub() {
-      window.open("https://github.com/g0ngjie/ajax-proxy", "_blank");
+      window.open('https://github.com/g0ngjie/ajax-proxy', '_blank')
     },
     // 下载
     async handleDownload() {
-      const { ok, data } = await getStoreAll();
+      const { ok, data } = await getStoreAll()
       // 数据异常
-      if (!ok) return this.$message.warning(this.$t("msg.dataErr"));
+      if (!ok) return this.$message.warning(this.$t('msg.dataErr'))
       const { ok: isOk, data: value } = await promptFunc({
         // 备份
-        title: this.$t("backup"),
-        inputValue: "backup",
-      });
-      if (!isOk) return;
-      const { interceptors, redirectors } = data || {};
+        title: this.$t('backup'),
+        inputValue: 'backup',
+      })
+      if (!isOk) return
+      const { interceptors, redirectors } = data || {}
       if (interceptors?.length === 0 && redirectors?.length === 0)
         // 没有数据可以下载
-        return this.$message.warning(this.$t("msg.noDataToDownload"));
+        return this.$message.warning(this.$t('msg.noDataToDownload'))
       exportFromJSON({
         data,
         fileName: `${value}.json`,
         exportType: exportFromJSON.types.json,
-      });
+      })
     },
     // 上传
     handleUpload(file) {
-      let reader = new FileReader();
+      let reader = new FileReader()
       const {
         // 上传成功原文件会被覆盖
         overrideData,
         // 读取异常，文件可能不是一个JSON
         readJsonErr,
-      } = this.$t("msg");
+      } = this.$t('msg')
       reader.onload = async (e) => {
         try {
-          let _json = JSON.parse(e.target.result);
-          const routes = await useInterceptorRoutes.getReal();
-          if (!_json) return;
+          let _json = JSON.parse(e.target.result)
+          const routes = await useInterceptorRoutes.getReal()
+          if (!_json) return
           if (routes.length > 0) {
             // 如果存在
             const { ok } = await confirmFunc({
               message: overrideData,
-            });
-            if (ok) this.setStoreData(_json);
-          } else this.setStoreData(_json);
+            })
+            if (ok) this.setStoreData(_json)
+          } else this.setStoreData(_json)
         } catch (err) {
-          this.$message.error(readJsonErr);
+          this.$message.error(readJsonErr)
         }
-      };
-      reader.readAsText(file.raw);
+      }
+      reader.readAsText(file.raw)
     },
     setStoreData(target) {
       // 新老数据转换
-      const getData = onUploadForDataConversion(target);
-      const { language, mode, tags, interceptors, redirectors } = getData;
+      const getData = onUploadForDataConversion(target)
+      const { language, mode, tags, interceptors, redirectors } = getData
       const {
         // 你导入了一个空列表
         importEmpty,
-      } = this.$t("msg");
+      } = this.$t('msg')
       // 设置拦截列表
-      if (typeIs(interceptors) === "array") {
+      if (typeIs(interceptors) === 'array') {
         if (interceptors.length > 0) {
-          useInterceptorRoutes.set(interceptors);
-          this.$refs.table?.initList();
+          useInterceptorRoutes.set(interceptors)
+          this.$refs.table?.initList()
         }
         // 通知 拦截列表数据变更
-        useNotice.changeIntercepts(interceptors);
-      } else this.$message.warning(importEmpty);
+        useNotice.changeIntercepts(interceptors)
+      } else this.$message.warning(importEmpty)
       // 设置标签列表
-      if (typeIs(tags) === "array" && tags.length > 0) {
-        useTags.set(tags);
-        this.$refs.table?.initTags();
+      if (typeIs(tags) === 'array' && tags.length > 0) {
+        useTags.set(tags)
+        this.$refs.table?.initTags()
       }
       // 设置语言
       if (language) {
-        useLang.set(language);
-        this.initData();
+        useLang.set(language)
+        this.initData()
       }
       // 设置当前模式
       if (mode) {
-        useMode.set(mode);
-        this.currentMode = mode;
+        useMode.set(mode)
+        this.currentMode = mode
         // 通知模式变更，重新挂载 ajax 实例
-        useNotice.changeMode(mode);
+        useNotice.changeMode(mode)
       }
       // 设置重定向列表
-      if (typeIs(redirectors) === "array") {
+      if (typeIs(redirectors) === 'array') {
         if (redirectors.length > 0) {
-          useRedirects.set(redirectors);
-          this.$refs.redirecTable?.initList();
+          useRedirects.set(redirectors)
+          this.$refs.redirecTable?.initList()
         }
         // 通知 重定向列表数据变更
-        useNotice.changeRedirects(redirectors);
+        useNotice.changeRedirects(redirectors)
       }
     },
     // 国际化
     handleLangChange(name) {
-      this.$i18n.locale = name;
-      useLang.set(name);
+      this.$i18n.locale = name
+      useLang.set(name)
     },
     // 代理模式
     handleModeChange(name) {
-      useNotice.changeMode(name);
-      useMode.set(name);
+      useNotice.changeMode(name)
+      useMode.set(name)
     },
     handleSwitch(bool) {
       // 同步开关状态
-      useNotice.globalSwitchOn(bool);
+      useNotice.globalSwitchOn(bool)
       // 数据处理
-      useGLobalSwitch.set(bool);
+      useGLobalSwitch.set(bool)
     },
     initData() {
       // 获取 开关状态
-      this.globalSwitchOn = useGLobalSwitch.get();
+      this.globalSwitchOn = useGLobalSwitch.get()
       // 初始化国际化
-      const lang = useLang.get();
-      this.language = lang;
-      this.$i18n.locale = lang;
-      this.currentMode = useMode.get();
+      const lang = useLang.get()
+      this.language = lang
+      this.$i18n.locale = lang
+      this.currentMode = useMode.get()
       // 初始化title
-      const manifest = chrome.runtime?.getManifest();
-      document.title = `Ajax Proxy ${manifest?.version || 'DEV'}`;
+      const manifest = chrome.runtime?.getManifest()
+      document.title = `Ajax Proxy ${manifest?.version || 'DEV'}`
     },
   },
   mounted() {
@@ -253,16 +236,16 @@ export default {
       chrome.runtime.onMessage.addListener(({ from, to, key, value }) => {
         if (from === NoticeFrom.SERVICE_WORKER && to === NoticeTo.PANELS) {
           // 当前链接tab页
-          if (key === NoticeKey.GET_CURRENT_TITLE) this.currentTitle = value;
+          if (key === NoticeKey.GET_CURRENT_TITLE) this.currentTitle = value
         }
-      });
+      })
     // 获取Title
-    useNotice.getCurrentTitle();
+    useNotice.getCurrentTitle()
   },
   created() {
-    this.initData();
+    this.initData()
   },
-};
+}
 </script>
 <style lang="scss" scoped>
 .app-container {

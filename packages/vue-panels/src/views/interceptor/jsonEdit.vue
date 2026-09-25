@@ -11,7 +11,7 @@
       ></vue-json-editor>
       <div class="json-editor-drawer__footer">
         <el-button type="primary" style="width: 100px" @click="handleSubmit">{{
-          $t("confirm")
+          $t('confirm')
         }}</el-button>
       </div>
     </el-drawer>
@@ -19,9 +19,9 @@
 </template>
 
 <script>
-import "@proxy/json-editor/lib/index.css";
-import { VueJsonEditor } from "@proxy/json-editor";
-import { useLang } from "@/common/store";
+import '@proxy/json-editor/lib/index.css'
+import { VueJsonEditor } from '@proxy/json-editor'
+import { useLang } from '@/infrastructure/storage'
 
 export default {
   components: { VueJsonEditor },
@@ -30,37 +30,37 @@ export default {
       drawer: false,
       json: {},
       cache: null,
-      language: "en",
-    };
+      language: 'en',
+    }
   },
   methods: {
     show(json) {
-      const lang = useLang.get();
+      const lang = useLang.get()
       // https://github.com/josdejong/jsoneditor/blob/master/docs/api.md
       // en es zh-CN pt-BR tr ja fr-FR de ru ko languages
       const langMap = {
-        en: "en",
-        zh: "zh-CN",
-        tw: "zh-CN",
-        ja: "ja",
-        fr: "fr-FR",
-        ko: "ko",
-        ru: "ru",
-      };
-      this.language = langMap[lang] || "en";
-      this.cache = null;
-      this.json = json;
-      this.drawer = true;
+        en: 'en',
+        zh: 'zh-CN',
+        tw: 'zh-CN',
+        ja: 'ja',
+        fr: 'fr-FR',
+        ko: 'ko',
+        ru: 'ru',
+      }
+      this.language = langMap[lang] || 'en'
+      this.cache = null
+      this.json = json
+      this.drawer = true
     },
     onJsonChange(value) {
-      this.cache = value;
+      this.cache = value
     },
     handleSubmit() {
-      this.$emit("change", this.cache || this.json);
-      this.drawer = false;
+      this.$emit('change', this.cache || this.json)
+      this.drawer = false
     },
   },
-};
+}
 </script>
 <style lang="scss" scoped>
 .json-editor-container {

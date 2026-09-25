@@ -14,7 +14,7 @@ import {
     removeStorage,
 } from "@proxy/shared-utils";
 import { CONNECT_NAME, INIT_CURRENT_TITLE, NOTICE_KEY_REFRESH_GLOBAL_STATE } from "./consts";
-import { onLoadForDataConversion } from "@proxy/compatibility";
+import { onLoadForDataConversion } from "@proxy/v2-compatibility";
 
 // 在页面上插入代码
 const script = document.createElement("script");
@@ -84,5 +84,4 @@ initStorage().then(() => {
     );
 
 })
-
 

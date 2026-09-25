@@ -26,24 +26,12 @@
           ]"
           prop="match_url"
         >
-          <el-input
-            v-model="form.match_url"
-            :placeholder="$t('placeholder.input')"
-          >
-            <el-select
-              style="width: 90px"
-              v-model="form.filter_type"
-              slot="prepend"
-            >
+          <el-input v-model="form.match_url" :placeholder="$t('placeholder.input')">
+            <el-select style="width: 90px" v-model="form.filter_type" slot="prepend">
               <el-option :label="$t('normal')" value="normal"></el-option>
               <el-option :label="$t('regex')" value="regex"></el-option>
             </el-select>
-            <el-select
-              style="width: 90px"
-              v-model="form.method"
-              slot="append"
-              placeholder="Method"
-            >
+            <el-select style="width: 90px" v-model="form.method" slot="append" placeholder="Method">
               <el-option label="any(*)" value="ANY" />
               <el-option label="GET" value="GET" />
               <el-option label="POST" value="POST" />
@@ -54,11 +42,7 @@
           </el-input>
         </el-form-item>
         <el-form-item :label="$t('remark')">
-          <el-input
-            v-model="form.remark"
-            :placeholder="$t('placeholder.input')"
-          >
-          </el-input>
+          <el-input v-model="form.remark" :placeholder="$t('placeholder.input')"> </el-input>
         </el-form-item>
         <el-form-item :label="$t('tag')">
           <el-select
@@ -139,10 +123,8 @@
         </el-tabs>
       </el-form>
       <span slot="footer" class="dialog-footer">
-        <el-button @click="handleClose">{{ $t("cancel") }}</el-button>
-        <el-button type="primary" @click="handleSubmit">{{
-          $t("confirm")
-        }}</el-button>
+        <el-button @click="handleClose">{{ $t('cancel') }}</el-button>
+        <el-button type="primary" @click="handleSubmit">{{ $t('confirm') }}</el-button>
       </span>
     </el-dialog>
     <JsonEditor ref="jsonEditor" @change="handleJsonSubmit" />
@@ -150,10 +132,10 @@
 </template>
 
 <script>
-import { uniqueId } from "@alrale/common-lib";
-import { useTags } from "@/common/store";
-import JsonEditor from "./jsonEdit";
-import { VueCodeEditor } from "@proxy/code-editor";
+import { uniqueId } from '@/shared/identity'
+import { useTags } from '@/infrastructure/storage'
+import JsonEditor from './jsonEdit'
+import { VueCodeEditor } from '@proxy/code-editor'
 
 export default {
   components: { JsonEditor, CodeEditor: VueCodeEditor },
@@ -161,77 +143,77 @@ export default {
     return {
       isShow: false,
       form: {},
-      title: "",
+      title: '',
       isEdit: false,
       tags: [],
-    };
+    }
   },
   methods: {
     validUrl(rule, value, callback) {
       if (value) {
-        const trimStr = value.trim();
+        const trimStr = value.trim()
         if (value.length != trimStr.length) {
-          callback(new Error());
+          callback(new Error())
         }
       }
-      callback();
+      callback()
     },
     // 打开编辑器
     handleOpenJsonEditor(jsonStr) {
       try {
-        const _json = JSON.parse(jsonStr);
-        this.$refs.jsonEditor.show(_json);
+        const _json = JSON.parse(jsonStr)
+        this.$refs.jsonEditor.show(_json)
       } catch (error) {
-        this.$message.error(this.$t("msg.jsonFormatError"));
+        this.$message.error(this.$t('msg.jsonFormatError'))
       }
     },
     handleJsonSubmit(json) {
-      this.form.override = JSON.stringify(json);
+      this.form.override = JSON.stringify(json)
     },
     // 模态展示
     async open(row) {
       // 获取标签
-      this.tags = useTags.get();
+      this.tags = useTags.get()
       if (row) {
-        this.isEdit = true;
+        this.isEdit = true
         // 编辑
-        this.title = this.$t("edit");
+        this.title = this.$t('edit')
         // 响应类型
-        if (!row.override_type) row.override_type = "json";
+        if (!row.override_type) row.override_type = 'json'
       } else {
-        this.isEdit = false;
+        this.isEdit = false
         // 新增
-        this.title = this.$t("create");
+        this.title = this.$t('create')
       }
-      this.isShow = true;
+      this.isShow = true
       this.form = row || {
         status_code: 200,
-        remark: "",
-        filter_type: "normal",
-        override_type: "json",
-      };
-      this.$nextTick(() => this.$refs.form.clearValidate());
+        remark: '',
+        filter_type: 'normal',
+        override_type: 'json',
+      }
+      this.$nextTick(() => this.$refs.form.clearValidate())
     },
     // 模态关闭
     handleClose() {
-      this.isShow = false;
+      this.isShow = false
     },
     // 表单提交
     handleSubmit() {
       this.$refs.form.validate((valid) => {
-        if (valid) this.createData();
-      });
+        if (valid) this.createData()
+      })
     },
     createData() {
-      if (this.isEdit) this.$emit("editData", this.form);
+      if (this.isEdit) this.$emit('editData', this.form)
       else
-        this.$emit("putData", {
+        this.$emit('putData', {
           ...this.form,
           switch_on: true,
           id: uniqueId(),
-        });
-      this.isShow = false;
+        })
+      this.isShow = false
     },
   },
-};
+}
 </script>

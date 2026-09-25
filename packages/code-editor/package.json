@@ -8,13 +8,18 @@
     "lib"
   ],
   "scripts": {
-    "build": "vue-cli-service build --target lib --name index --dest lib packages/index.js",
+    "build": "vue-cli-service build --target lib --formats commonjs --name index --dest lib packages/index.js",
     "serve": "vue-cli-service serve"
   },
+  "browserslist": [
+    "> 1%",
+    "last 2 versions",
+    "not dead"
+  ],
   "dependencies": {
     "ace-builds": "^1.13.1",
     "core-js": "^3.6.5",
-    "vue": "2.6.10"
+    "vue": "2.6.11"
   },
   "eslintConfig": {
     "root": true,
@@ -30,17 +35,13 @@
     },
     "rules": {}
   },
-  "browserslist": [
-    "> 1%",
-    "last 2 versions",
-    "not dead"
-  ],
   "devDependencies": {
-    "@vue/cli-plugin-babel": "~4.5.0",
-    "@vue/cli-service": "~4.5.0",
+    "@vue/cli-plugin-babel": "~5.0.9",
+    "@vue/cli-service": "~5.0.9",
     "babel-eslint": "^10.1.0",
     "eslint": "^6.7.2",
     "eslint-plugin-vue": "^6.2.2",
-    "vue-template-compiler": "2.6.10"
+    "file-loader": "^6.2.0",
+    "vue-template-compiler": "2.6.11"
   }
 }

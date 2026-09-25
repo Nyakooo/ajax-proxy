@@ -76,7 +76,7 @@
 
 | Package                                           | Description          |
 | ------------------------------------------------- | -------------------- |
-| [@proxy/compatibility](./packages/compatibility/) | 老数据兼容库         |
+| [@proxy/v2-compatibility](./packages/v2-compatibility/) | V2 数据格式转换库    |
 | [@proxy/lib](./packages/proxy-lib/)               | 操作 Ajax 核心逻辑库 |
 | [@proxy/shared-utils](./packages/shared-utils/)   | 通用类库             |
 | [@proxy/shell-chrome](./packages/shell-chrome/)   | 浏览器扩展库         |

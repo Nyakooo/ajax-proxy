@@ -1,15 +1,15 @@
-import { IFilterType, IGlobalState, IMatchInterceptorContent, IMatchRedirectContent, IMode, IRedirectHeader, IRequestMethod } from "@proxy/lib/types/types";
+import { IFilterType, IGlobalState, IMatchInterceptorContent, IMatchRedirectContent, IMode, IRedirectHeader, IRequestMethod } from '@proxy/lib';
 /**
  * 标签结构体
  * 新老数据没变化
  * {id: "633f895c49960dd6iuyz3s3t", name: "asdf", used: false}
  *  */
-declare type TagStruct = {
+type TagStruct = {
     id: string;
     name: string;
     used: boolean;
 };
-declare type OldCommonStruct = {
+type OldCommonStruct = {
     id: string;
     /**是否需要匹配 */
     switchOn: boolean;
@@ -21,7 +21,7 @@ declare type OldCommonStruct = {
     remark?: string;
 };
 /**老数据- 拦截列表 */
-export declare type OldInterceptorStruct = {
+export type OldInterceptorStruct = {
     /**匹配目标URL */
     match: string;
     /**标签id */
@@ -34,7 +34,7 @@ export declare type OldInterceptorStruct = {
     override?: string;
 } & OldCommonStruct;
 /**老数据- 重定向列表 */
-export declare type OldRedirectorStruct = {
+export type OldRedirectorStruct = {
     /**域名 */
     domain: string;
     /**重定向地址 */
@@ -47,7 +47,7 @@ export declare type OldRedirectorStruct = {
 /**
  * 老数据 GlobalState 结构体
  */
-export declare type OldGLobalStateStruct = {
+export type OldGLobalStateStruct = {
     /**全局开关 */
     globalSwitchOn: boolean;
     /**模式 */
@@ -60,11 +60,11 @@ export declare type OldGLobalStateStruct = {
 /**
  * 旧数据 key 值映射
  */
-export declare type MappingOldKeys = (keyof OldGLobalStateStruct)[];
+export type MappingOldKeys = (keyof OldGLobalStateStruct)[];
 /**
  * 新GlobalState数据结构体
  */
-export declare type NewGLobalStateStruct = IGlobalState & {
+export type NewGLobalStateStruct = IGlobalState & {
     /**拦截规则列表 */
     interceptor_matching_content?: (IMatchInterceptorContent & {
         id: string;
@@ -77,7 +77,7 @@ export declare type NewGLobalStateStruct = IGlobalState & {
 /**
  * 上传 - 老数据格式
  */
-export declare type OldUploadStruct = {
+export type OldUploadStruct = {
     /**语言 */
     lang: string;
     /**拦截规则列表 */
@@ -92,7 +92,7 @@ export declare type OldUploadStruct = {
 /**
  * 上传 - 新数据格式
  */
-export declare type NewUploadStruct = {
+export type NewUploadStruct = {
     language: string;
     mode: IMode;
     tags: TagStruct[];

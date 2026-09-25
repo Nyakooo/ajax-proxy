@@ -69,7 +69,7 @@ Video: [https://www.youtube.com/watch?v=F\_\_7LXBqnvQ&list=PLniy0-3-8-V1ZhsmG6\_
 
 | Package                                           | Description                              |
 | ------------------------------------------------- | ---------------------------------------- |
-| [@proxy/compatibility](./packages/compatibility/) | Old Data Compatibility Library           |
+| [@proxy/v2-compatibility](./packages/v2-compatibility/) | V2 Data Format Conversion Library         |
 | [@proxy/lib](./packages/proxy-lib/)               | Manipulating the Ajax Core Logic Library |
 | [@proxy/shared-utils](./packages/shared-utils/)   | Public Class Libraries                   |
 | [@proxy/shell-chrome](./packages/shell-chrome/)   | Browser Extension Library                |

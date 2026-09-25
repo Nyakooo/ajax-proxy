@@ -1,5 +1,10 @@
-
-import { setStorage, getStorage, getRealStorage, StorageKey, getStorageAll } from "@proxy/shared-utils";
+import {
+  setStorage,
+  getStorage,
+  getRealStorage,
+  StorageKey,
+  getStorageAll,
+} from '@proxy/shared-utils'
 
 /**获取所有 */
 export async function getStoreAll() {
@@ -16,7 +21,7 @@ export async function getStoreAll() {
 
   return {
     ok: true,
-    data: { language, globalSwitch, mode, tags, interceptors, redirectors }
+    data: { language, globalSwitch, mode, tags, interceptors, redirectors },
   }
 }
 
@@ -27,7 +32,7 @@ export const useLang = {
   },
   set(value) {
     setStorage(StorageKey.LANGUAGE, value)
-  }
+  },
 }
 
 /**同步全局开关 */
@@ -37,7 +42,7 @@ export const useGLobalSwitch = {
   },
   set(value) {
     setStorage(StorageKey.GLOBAL_SWITCH, value)
-  }
+  },
 }
 
 /**拦截路由列表 */
@@ -50,7 +55,7 @@ export const useInterceptorRoutes = {
   },
   set(value) {
     setStorage(StorageKey.INTERCEPT_LIST, value)
-  }
+  },
 }
 
 /**Tag列表 */
@@ -60,17 +65,17 @@ export const useTags = {
   },
   set(value) {
     setStorage(StorageKey.TAGS, value)
-  }
+  },
 }
 
 /**模式状态 */
 export const useMode = {
   get() {
-    return getStorage(StorageKey.MODE, "interceptor")
+    return getStorage(StorageKey.MODE, 'interceptor')
   },
   set(value) {
     setStorage(StorageKey.MODE, value)
-  }
+  },
 }
 
 /**重定向列表 */
@@ -80,5 +85,5 @@ export const useRedirects = {
   },
   set(value) {
     setStorage(StorageKey.REDIRECT_LIST, value)
-  }
+  },
 }

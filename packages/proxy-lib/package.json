@@ -25,6 +25,6 @@
     "vite": "^2.9.13"
   },
   "dependencies": {
-    "@proxy/shared-utils": "workspace:^1.0.0"
+    "@proxy/protocol": "workspace:^1.0.0"
   }
 }

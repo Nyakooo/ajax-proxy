@@ -1,0 +1,122 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - master
+      - refactor/v3
+
+jobs:
+  browser-smoke:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chrome, msedge]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12.6.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Install stable browser
+        run: pnpm exec playwright install --with-deps ${{ matrix.browser }}
+      - name: Check browser runtime compatibility
+        env:
+          BROWSER_CHANNEL: ${{ matrix.browser }}
+        run: pnpm browser:smoke
+
+  minimum-browser-smoke:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - browser: chrome
+            version: 141.0.7390.122
+            label: Chrome 141 minimum
+            cache: /home/runner/.cache/ajax-proxy-chrome-for-testing
+          - browser: edge
+            version: 140.0.3485.94-1
+            label: Edge 140 minimum
+            cache: /home/runner/.cache/ajax-proxy-edge-for-testing
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12.6.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - uses: actions/cache@v4
+        with:
+          path: ${{ matrix.cache }}
+          key: ${{ matrix.browser }}-${{ runner.os }}-${{ matrix.version }}-v1
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Install minimum-version Chrome for Testing
+        if: matrix.browser == 'chrome'
+        id: browser
+        run: node scripts/install-chrome-for-testing.cjs ${{ matrix.version }}
+      - name: Install minimum-version Microsoft Edge
+        if: matrix.browser == 'edge'
+        id: edge
+        run: node scripts/install-edge-for-testing.cjs ${{ matrix.version }}
+      - name: Install browser runtime libraries
+        if: matrix.browser == 'edge'
+        run: pnpm exec playwright install-deps chromium
+      - name: Check minimum-version browser runtime
+        env:
+          BROWSER_CHANNEL: chromium
+          BROWSER_EXECUTABLE_PATH: ${{ matrix.browser == 'chrome' && steps.browser.outputs.executable-path || steps.edge.outputs.executable-path }}
+          BROWSER_LABEL: ${{ matrix.label }}
+        run: pnpm browser:smoke
+      - name: Build extension
+        run: pnpm build
+      - name: Verify extension Fetch and XHR interception
+        env:
+          BROWSER_EXECUTABLE_PATH: ${{ matrix.browser == 'chrome' && steps.browser.outputs.executable-path || steps.edge.outputs.executable-path }}
+        run: pnpm extension:smoke
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12.6.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Check workspace package boundaries
+        run: pnpm check:boundaries
+      - name: Lint migrated files
+        run: pnpm lint
+      - name: Check formatting for migrated files
+        run: pnpm format:check
+      - name: Typecheck TypeScript packages
+        run: pnpm typecheck
+      - name: Run unit tests and coverage
+        run: pnpm test:coverage
+      - name: Build production extension
+        run: pnpm build
+      - name: Verify generated type declarations
+        run: pnpm check:generated-types
+      - name: Package extension and report sizes
+        run: pnpm zip && pnpm size:report
+      - name: Install Chromium for extension E2E
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Verify JSON editor syntax error position
+        run: pnpm editor:smoke
+      - name: Verify Fetch and XHR extension interception
+        run: pnpm extension:smoke

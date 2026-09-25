@@ -1,0 +1,194 @@
+const assert = require('node:assert/strict')
+const http = require('node:http')
+const path = require('node:path')
+const { chromium } = require('playwright')
+
+const extensionPath = path.resolve(__dirname, '../../packages/shell-chrome/build')
+
+async function main() {
+  const server = http.createServer((request, response) => {
+    if (request.url === '/') {
+      response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' })
+      response.end(`<!doctype html>
+        <button id="fetch">Fetch</button>
+        <button id="xhr">XHR</button>
+        <pre id="result">ready</pre>
+        <script>
+          const result = document.querySelector('#result')
+          document.querySelector('#fetch').onclick = async () => {
+            const response = await fetch('/api/echo', { method: 'POST', body: 'test' })
+            result.textContent = JSON.stringify({
+              kind: 'fetch', status: response.status, body: await response.text()
+            })
+          }
+          document.querySelector('#xhr').onclick = () => {
+            const request = new XMLHttpRequest()
+            request.open('POST', '/api/echo')
+            request.onload = () => {
+              result.textContent = JSON.stringify({
+                kind: 'xhr', status: request.status, body: request.responseText
+              })
+            }
+            request.send('test')
+          }
+        </script>`)
+      return
+    }
+
+    const chunks = []
+    request.on('data', (chunk) => chunks.push(chunk))
+    request.on('end', () => {
+      response.writeHead(200, { 'content-type': 'application/json' })
+      response.end(
+        JSON.stringify({
+          source: 'server',
+          method: request.method,
+          body: Buffer.concat(chunks).toString(),
+        })
+      )
+    })
+  })
+
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve))
+  const { port } = server.address()
+  let context
+
+  try {
+    context = await chromium.launchPersistentContext('', {
+      channel: process.env.BROWSER_EXECUTABLE_PATH ? undefined : 'chromium',
+      executablePath: process.env.BROWSER_EXECUTABLE_PATH,
+      headless: true,
+      args: [`--disable-extensions-except=${extensionPath}`, `--load-extension=${extensionPath}`],
+    })
+
+    const serviceWorker =
+      context.serviceWorkers()[0] || (await context.waitForEvent('serviceworker'))
+    const extensionId = new URL(serviceWorker.url()).host
+    const panel = await context.newPage()
+    panel.setDefaultTimeout(10000)
+
+    await panel.goto(`chrome-extension://${extensionId}/panels/index.html`)
+    await panel.locator('.global-switch .el-switch').click()
+    await panel.locator('.response-container > .el-button').click()
+
+    const dialog = panel.locator('.response-modal-container .el-dialog__wrapper')
+    await dialog.waitFor({ state: 'visible' })
+    const fields = dialog.locator('.el-form-item')
+    await fields.nth(0).locator('input:not([readonly])').fill('/api/echo')
+    await fields.nth(1).locator('input:not([readonly])').fill('Playwright extension smoke')
+    const responseJson = '{"source":"intercepted","details":{"ok":true},"items":[2,1]}'
+    const expectedResponseJson = '{"source":"intercepted","details":{"ok":true},"items":[1,2]}'
+    await dialog.locator('textarea.el-textarea__inner').fill(responseJson)
+    await dialog.getByRole('button', { name: 'JSON Editor' }).click()
+
+    const jsonDrawer = panel.locator('.json-editor-container .el-drawer__wrapper')
+    await jsonDrawer.waitFor({ state: 'visible' })
+    await jsonDrawer.locator('.jsoneditor-menu button.jsoneditor-modes').click()
+    await jsonDrawer.locator('button.jsoneditor-type-modes[title="Switch to tree editor"]').click()
+    await jsonDrawer.locator('button.jsoneditor-expand-all').click()
+    await jsonDrawer.locator('.jsoneditor-field').filter({ hasText: 'details' }).waitFor()
+    await jsonDrawer.locator('.jsoneditor-field').filter({ hasText: 'ok' }).waitFor()
+    assert.equal(await jsonDrawer.locator('.jsoneditor-value.jsoneditor-boolean').count(), 1)
+    assert.equal(await jsonDrawer.locator('.jsoneditor-value.jsoneditor-number').count(), 2)
+    const numberValues = jsonDrawer.locator('.jsoneditor-value.jsoneditor-number')
+    assert.deepEqual(await numberValues.allTextContents(), ['2', '1'])
+    const firstArrayItem = numberValues
+      .nth(0)
+      .locator('xpath=ancestor::tr[.//button[contains(@class, "jsoneditor-dragarea")]][1]')
+      .locator('.jsoneditor-dragarea')
+    const secondArrayItem = numberValues
+      .nth(1)
+      .locator('xpath=ancestor::tr[.//button[contains(@class, "jsoneditor-dragarea")]][1]')
+      .locator('.jsoneditor-dragarea')
+    const secondArrayItemBounds = await secondArrayItem.boundingBox()
+    await firstArrayItem.dragTo(secondArrayItem, {
+      targetPosition: { x: 5, y: secondArrayItemBounds.height - 1 },
+      steps: 8,
+    })
+    assert.deepEqual(await numberValues.allTextContents(), ['1', '2'])
+
+    const detailsRow = jsonDrawer
+      .locator('.jsoneditor-field')
+      .filter({ hasText: /^details$/ })
+      .locator('xpath=ancestor::tr[contains(@class, "jsoneditor-expandable")][1]')
+    await detailsRow.locator('.jsoneditor-contextmenu-button').click()
+    await jsonDrawer.locator('button.jsoneditor-insert').click()
+    await jsonDrawer.locator('.jsoneditor-field.jsoneditor-empty').fill('temporary')
+    await jsonDrawer.locator('.jsoneditor-value.jsoneditor-empty').fill('editable')
+    await jsonDrawer
+      .locator('.jsoneditor-field')
+      .filter({ hasText: /^temporary$/ })
+      .waitFor()
+    await jsonDrawer.locator('button.jsoneditor-undo').click()
+    assert.equal(
+      await jsonDrawer
+        .locator('.jsoneditor-field')
+        .filter({ hasText: /^temporary$/ })
+        .count(),
+      0
+    )
+    await jsonDrawer.locator('button.jsoneditor-redo').click()
+    await jsonDrawer
+      .locator('.jsoneditor-field')
+      .filter({ hasText: /^temporary$/ })
+      .waitFor()
+    const temporaryRow = jsonDrawer
+      .locator('.jsoneditor-field')
+      .filter({ hasText: /^temporary$/ })
+      .locator(
+        'xpath=ancestor::tr[.//button[contains(@class, "jsoneditor-contextmenu-button")]][1]'
+      )
+    await temporaryRow.locator('.jsoneditor-contextmenu-button').click()
+    await jsonDrawer.locator('button.jsoneditor-remove').click()
+    assert.equal(
+      await jsonDrawer
+        .locator('.jsoneditor-field')
+        .filter({ hasText: /^temporary$/ })
+        .count(),
+      0
+    )
+    await jsonDrawer.locator('button.jsoneditor-collapse-all').click()
+
+    await jsonDrawer.locator('.json-editor-drawer__footer button').click()
+    await dialog.getByRole('button', { name: 'OK' }).click()
+    await dialog.waitFor({ state: 'hidden' })
+    await panel.getByText('/api/echo', { exact: true }).waitFor()
+
+    const page = await context.newPage()
+    await page.goto(`http://127.0.0.1:${port}/`)
+    const result = page.locator('#result')
+
+    await page.locator('#fetch').click()
+    await result.waitFor({ state: 'visible' })
+    await page.waitForFunction(() =>
+      document.querySelector('#result').textContent.includes('intercepted')
+    )
+    assert.deepEqual(JSON.parse(await result.textContent()), {
+      kind: 'fetch',
+      status: 200,
+      body: expectedResponseJson,
+    })
+
+    await page.locator('#xhr').click()
+    await page.waitForFunction(() =>
+      document.querySelector('#result').textContent.startsWith('{"kind":"xhr"')
+    )
+    assert.deepEqual(JSON.parse(await result.textContent()), {
+      kind: 'xhr',
+      status: 200,
+      body: expectedResponseJson,
+    })
+
+    console.log('Unpacked extension Fetch and XHR smoke passed')
+  } finally {
+    await context?.close()
+    await new Promise((resolve, reject) => {
+      server.close((error) => (error ? reject(error) : resolve()))
+    })
+  }
+}
+
+main().catch((error) => {
+  console.error(error)
+  process.exitCode = 1
+})

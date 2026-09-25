@@ -5,6 +5,9 @@
   "description": "",
   "main": "lib/index.js",
   "types": "types/index.d.ts",
+  "dependencies": {
+    "@proxy/protocol": "workspace:^1.0.0"
+  },
   "devDependencies": {
     "@types/chrome": "^0.0.197",
     "@types/node": "^18.0.1"

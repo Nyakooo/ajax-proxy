@@ -3,3 +3,11 @@ packages:
   - "packages/**"
   # exclude packages that are inside test directories
   - "!**/test/**"
+allowBuilds:
+  '@parcel/watcher': true
+  core-js: false
+  cssnano: false
+  esbuild: true
+  fsevents: false
+minimumReleaseAgeExclude:
+  - eslint-plugin-vue@10.11.1

@@ -1,0 +1,13 @@
+{
+  "name": "@proxy/protocol",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Browser-independent Ajax Proxy protocol and storage keys",
+  "main": "lib/index.js",
+  "types": "types/index.d.ts",
+  "scripts": {
+    "watch": "tsc --watch",
+    "build": "rm -rf lib types && tsc"
+  },
+  "license": "MIT"
+}

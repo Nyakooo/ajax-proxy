@@ -1,4 +1,3 @@
-/// <reference types="chrome" />
 import { NoticeKey } from "./consts";
 /**
  * 通知 content -> document

@@ -2,6 +2,7 @@
 const isProduction = process.env.NODE_ENV === "production";
 
 module.exports = {
+    parallel: false,
     publicPath: './',
     runtimeCompiler: true,
     // 修改 src 为 examples
@@ -14,6 +15,7 @@ module.exports = {
     },
     productionSourceMap: false,
     configureWebpack: (config) => {
+        config.output.hashFunction = "xxhash64";
         if (isProduction) {
             config.module.rules.push({
                 test: /\.mjs$/,
