@@ -6,6 +6,18 @@ const path = require('node:path')
 const { chromium } = require('playwright')
 
 const extensionPath = path.resolve(__dirname, '../../packages/shell-chrome/build')
+const manifest = JSON.parse(fs.readFileSync(path.join(extensionPath, 'manifest.json'), 'utf8'))
+
+assert.equal(manifest.web_accessible_resources, undefined)
+assert.ok(
+  manifest.content_scripts.some(
+    (script) =>
+      script.js.includes('document.js') &&
+      script.world === 'MAIN' &&
+      script.run_at === 'document_start' &&
+      script.all_frames === true
+  )
+)
 
 async function main() {
   const server = http.createServer((request, response) => {

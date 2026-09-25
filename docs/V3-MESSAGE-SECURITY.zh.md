@@ -21,7 +21,13 @@
 
 该边界无法靠共享 DOM 中的 token 修复，因为页面脚本能够观察 token 的发布和传递。若将来需要可信的页面到扩展操作，应改为由 isolated world / service worker 发起并校验的扩展 API 流程，而不是提升当前页面桥接消息的信任级别。
 
+## 注入资源与规则数据
+
+`document.js` 由 manifest 作为 `world: "MAIN"` 的静态内容脚本，在 `document_start` 注入；`content.js` 保持在默认 isolated world。原先页面 `<script>` 标签加载 `chrome-extension://.../document.js` 的做法已移除，manifest 不再配置 `web_accessible_resources`，网页脚本无法将扩展代理文件当作可读资源获取。两个脚本仍按 `<all_urls>`、`all_frames` 匹配，这是任意站点与 iframe 请求代理的功能范围。
+
+开启全局代理时，content script 会把当前模式和规则快照发给当前 frame 的页面主世界，因为 Fetch / XHR 包装器需要这些规则来匹配请求。页面脚本可以观察或篡改这一快照；这与上一节描述的页面消息信任边界相同。当前扩展不把该快照用于扩展权限、存储写入或授权决策。`document.js` 不调用 Chrome 扩展 API。
+
 ## 验收
 
 - 单元测试覆盖代理状态、规则列表、页面命中事件结构和长连接发送方过滤。
-- 全量扩展构建及 Chrome Stable / Edge Stable 实测覆盖 Fetch、XHR 和面板配置同步；页面消息伪造局限作为明确的 trust boundary 保留。
+- Playwright Chromium extension smoke 覆盖 Fetch、XHR、iframe、redirect 和 service worker 重启；Chrome Stable / Edge Stable 实测确认扩展可重载且面板可打开。页面消息伪造局限作为明确的 trust boundary 保留。
