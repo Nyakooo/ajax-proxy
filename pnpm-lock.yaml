@@ -439,6 +439,12 @@ importers:
       '@primeuix/themes':
         specifier: ^1.2.3
         version: 1.2.5
+      '@proxy/protocol':
+        specifier: workspace:^1.0.0
+        version: link:../protocol
+      '@proxy/v3-domain':
+        specifier: workspace:^1.0.0
+        version: link:../v3-domain
       primevue:
         specifier: ^4.5.5
         version: 4.5.5(vue@3.5.43(typescript@6.0.3))

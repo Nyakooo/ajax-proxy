@@ -18,6 +18,7 @@ import { useCurrentTitle } from './notice'
 import { initDefaultSth } from './init'
 import { chromeBadge } from './badge'
 import { chromeBadgeV3 } from './v3Hit'
+import { createV3PanelMessageHandler } from './v3Panel'
 import { INIT_CURRENT_TITLE } from '../consts'
 import { isPageBadgeHit } from '../messageValidation'
 
@@ -29,7 +30,7 @@ initStorage()
       }
     })
     // 接收content 和 panels 传来的信息
-    chrome.runtime.onMessage.addListener((msg, sender) => {
+    chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       if (
         !isMessageRecord(msg) ||
         sender.id !== chrome.runtime.id ||
@@ -54,6 +55,12 @@ initStorage()
       }
 
       if (from !== NoticeFrom.PANELS || !isPanelSender) return
+      const handleV3PanelMessage = createV3PanelMessageHandler({
+        extensionId: chrome.runtime.id,
+        extensionUrl: chrome.runtime.getURL(''),
+        sendResponse,
+      })
+      if (handleV3PanelMessage(msg, sender)) return true
       if (key === NoticeKey.BADGE_STATUS && value === null) {
         // 面板清空统计后重新计算总徽章。
         chromeBadge()
