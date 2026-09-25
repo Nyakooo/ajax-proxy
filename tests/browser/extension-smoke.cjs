@@ -439,9 +439,14 @@ async function main() {
     await responseEditor.locator('label.editor-field').nth(0).locator('input').fill('/api/v3-ui')
     await responseEditor.locator('.editor-field-row select').nth(1).selectOption('POST')
     await responseEditor.locator('.editor-field-row input[type="number"]').fill('203')
-    await responseEditor
-      .locator('textarea.response-json-input')
-      .fill(JSON.stringify({ source: 'v3-ui', ok: true }))
+    const responseBody = responseEditor.locator('textarea.response-json-input')
+    await responseBody.fill('{\n  "name": 1,\n  bad\n}')
+    await responseEditor.getByRole('button', { name: 'Save' }).click()
+    await v3Panel.getByRole('alert').getByText('Invalid JSON at line 3, column 3.').waitFor()
+    await responseEditor.getByRole('button', { name: 'Object' }).click()
+    assert.match(await responseBody.inputValue(), /"id": 123/)
+    await v3Panel.getByRole('alert').waitFor({ state: 'detached' })
+    await responseBody.fill(JSON.stringify({ source: 'v3-ui', ok: true }))
     const legacyStateBeforeV3Ui = await restartedWorker.evaluate(
       async (key) => (await chrome.storage.local.get(key))[key],
       'ajax-proxy:storage:intercept-list'

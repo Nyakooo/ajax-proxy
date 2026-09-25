@@ -19,10 +19,32 @@ describe('V3 response drafts', () => {
   })
 
   it('returns a structured error for invalid JSON', () => {
-    expect(parseResponseBodyDraft('{bad')).toEqual({ ok: false, error: 'invalid-json' })
+    expect(parseResponseBodyDraft('{bad')).toEqual({
+      ok: false,
+      error: 'invalid-json',
+      location: { line: 1, column: 2 },
+    })
     expect(buildV3ResponseRule({ id: 'new', match: { url: '/x' }, bodyDraft: '{bad' })).toEqual({
       ok: false,
       error: 'invalid-json',
+      location: { line: 1, column: 2 },
+    })
+  })
+
+  it('locates errors after multiline Unicode text with UTF-16 columns', () => {
+    const draft = '{\n  "名": "😀",\n  bad\n}'
+    expect(parseResponseBodyDraft(draft)).toEqual({
+      ok: false,
+      error: 'invalid-json',
+      location: { line: 3, column: 3 },
+    })
+  })
+
+  it('returns a null location when the engine message has no reliable position', () => {
+    expect(parseResponseBodyDraft('nope')).toEqual({
+      ok: false,
+      error: 'invalid-json',
+      location: null,
     })
   })
 

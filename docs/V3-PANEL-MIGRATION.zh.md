@@ -14,7 +14,7 @@ Vue 3 候选面板已经接入 `vue-i18n` 11 Composition API，当前 shell 只�
 
 V3 adapter 使用独立的 `GET_SNAPSHOT` / `SAVE_CONFIG` 协议，不复用 content script 到页面主世界的 `V3_CONFIG` 通知。service worker 只接受扩展内 `panels-v3/` 页面发送的请求；读配置时先运行 V3 backup 校验，再清理已知规则的命中计数；保存时同样校验并仅写 `V3_CONFIG`，`null` 只清除该配置键。V2 的配置和 storage 路径不参与此 adapter。Vue 3 客户端在发送前及接收后验证数据结构，并将扩展不可用 / 消息失败映射成稳定错误。
 
-当前真实数据流程覆盖 V3 重定向 CRUD 与 JSON 响应 CRUD：读取快照后按 action 展示规则；新增、编辑、删除、启停及调整数组顺序都会保存完整 V3 backup，顺序就是首条命中优先级。编辑组合规则会保留另一个 action；响应编辑保留未编辑 headers，删除 action 不会误删同规则内的另一个 action。JSON body 和状态码在保存前校验。字符串 / RE2 匹配、method、直接 HTTP(S) 或相对跳转目标及 JSON response body 已支持。V2 substring replacement、headers / ignores / redirect function 的迁移与函数响应编辑仍未完成。独立网页预览使用明确标注的内存样例；完整扩展包中的 `panels-v3/` 使用真实消息和 storage adapter。
+当前真实数据流程覆盖 V3 重定向 CRUD 与 JSON 响应 CRUD：读取快照后按 action 展示规则；新增、编辑、删除、启停及调整数组顺序都会保存完整 V3 backup，顺序就是首条命中优先级。编辑组合规则会保留另一个 action；响应编辑保留未编辑 headers，删除 action 不会误删同规则内的另一个 action。JSON body 和状态码在保存前校验；语法诊断在浏览器提供解析位置时显示行 / 列，并提供对象、数组、字符串和 null 示例。字符串 / RE2 匹配、method、直接 HTTP(S) 或相对跳转目标及 JSON response body 已支持。V2 substring replacement、headers / ignores / redirect function 的迁移与函数响应编辑仍未完成。独立网页预览使用明确标注的内存样例；完整扩展包中的 `panels-v3/` 使用真实消息和 storage adapter。
 
 ## 迁移切片顺序
 

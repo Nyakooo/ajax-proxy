@@ -1,6 +1,7 @@
 <script setup>
 import { nextTick, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { formatResponseBodyDraft, parseResponseBodyDraft } from '../services/v3ResponseDraft.js'
 
 const props = defineProps({
   open: { type: Boolean, default: false },
@@ -15,6 +16,7 @@ const firstInput = ref(null)
 const dialogRoot = ref(null)
 const form = ref(createForm())
 const localIssue = ref('')
+const jsonIssue = ref(false)
 
 function createForm(rule = null) {
   const replace = rule?.response?.replace ?? {}
@@ -34,14 +36,26 @@ watch(
     if (!open) return
     form.value = createForm(rule)
     localIssue.value = ''
+    jsonIssue.value = false
     await nextTick()
     firstInput.value?.focus()
   },
   { immediate: true }
 )
 
+watch(
+  () => form.value.body,
+  (draft) => {
+    if (jsonIssue.value && parseResponseBodyDraft(draft).ok) {
+      localIssue.value = ''
+      jsonIssue.value = false
+    }
+  }
+)
+
 function submit() {
   localIssue.value = ''
+  jsonIssue.value = false
   if (!form.value.matchUrl.trim() || form.value.matchUrl !== form.value.matchUrl.trim()) {
     localIssue.value = t('responseEditor.matchUrlRequired')
     return
@@ -54,28 +68,41 @@ function submit() {
     localIssue.value = t('responseEditor.invalidStatus')
     return
   }
-  let body
-  try {
-    body = JSON.parse(form.value.body)
-  } catch {
-    localIssue.value = t('responseEditor.invalidJson')
+  const parsedBody = parseResponseBodyDraft(form.value.body)
+  if (!parsedBody.ok) {
+    setJsonError(parsedBody)
     return
   }
   emit('save', {
     enabled: form.value.enabled,
     match: { url: form.value.matchUrl, type: form.value.matchType, method: form.value.method },
     status: Number(form.value.status),
-    body,
+    body: parsedBody.body,
   })
 }
 
 function formatJson() {
-  try {
-    form.value.body = JSON.stringify(JSON.parse(form.value.body), null, 2)
-    localIssue.value = ''
-  } catch {
-    localIssue.value = t('responseEditor.invalidJson')
+  const parsedBody = parseResponseBodyDraft(form.value.body)
+  if (!parsedBody.ok) {
+    setJsonError(parsedBody)
+    return
   }
+  form.value.body = formatResponseBodyDraft(parsedBody.body)
+  localIssue.value = ''
+  jsonIssue.value = false
+}
+
+function setJsonError(result) {
+  jsonIssue.value = true
+  localIssue.value = result.location
+    ? t('responseEditor.invalidJsonLocation', result.location)
+    : t('responseEditor.invalidJson')
+}
+
+function useExample(body) {
+  form.value.body = JSON.stringify(body, null, 2)
+  localIssue.value = ''
+  jsonIssue.value = false
 }
 
 function trapFocus(event) {
@@ -175,6 +202,21 @@ function trapFocus(event) {
           />
           <small id="response-json-help">{{ t('responseEditor.jsonHelp') }}</small>
         </label>
+        <div class="response-examples" role="group" :aria-label="t('responseEditor.examples')">
+          <span>{{ t('responseEditor.examples') }}</span>
+          <button type="button" @click="useExample({ ok: true, data: { id: 123 } })">
+            {{ t('responseEditor.objectExample') }}
+          </button>
+          <button type="button" @click="useExample([{ id: 1, name: 'Example' }])">
+            {{ t('responseEditor.arrayExample') }}
+          </button>
+          <button type="button" @click="useExample('Example response')">
+            {{ t('responseEditor.scalarExample') }}
+          </button>
+          <button type="button" @click="useExample(null)">
+            {{ t('responseEditor.nullExample') }}
+          </button>
+        </div>
 
         <label class="editor-enabled">
           <input v-model="form.enabled" type="checkbox" />

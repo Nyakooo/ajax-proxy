@@ -724,6 +724,31 @@ input {
   align-items: flex-start;
 }
 
+.response-examples {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  color: var(--ap-muted);
+  font-size: 10px;
+  font-weight: 400;
+}
+
+.response-examples button {
+  padding: 3px 7px;
+  border: 1px solid var(--ap-border);
+  border-radius: var(--ap-radius-control);
+  background: var(--ap-card);
+  color: var(--ap-ink);
+  cursor: pointer;
+  font: inherit;
+}
+
+.response-examples button:focus-visible {
+  outline: 2px solid var(--ap-teal);
+  outline-offset: 2px;
+}
+
 .editor-field input:focus-visible,
 .editor-field select:focus-visible,
 .editor-field textarea:focus-visible {
