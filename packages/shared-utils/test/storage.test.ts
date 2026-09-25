@@ -52,4 +52,88 @@ describe('shared storage cache', () => {
 
     expect(getStorage('mode')).toBe('redirector')
   })
+
+  it('rejects and reports storage initialization failures', async () => {
+    let inCallback = false
+    const storageError = { message: 'storage unavailable' }
+    const errorLog = vi.spyOn(console, 'error').mockImplementation(() => {})
+    vi.stubGlobal('chrome', {
+      runtime: {
+        get lastError() {
+          return inCallback ? storageError : undefined
+        },
+      },
+      storage: {
+        onChanged: { addListener: vi.fn() },
+        local: {
+          get: (_key, callback) => {
+            inCallback = true
+            callback({})
+            inCallback = false
+          },
+        },
+      },
+    })
+    const { initStorage } = await import('../src/storage')
+
+    await expect(initStorage()).rejects.toThrow('Storage read failed: storage unavailable')
+    expect(errorLog).toHaveBeenCalled()
+  })
+
+  it('rejects quota failures without poisoning the cached value', async () => {
+    let inCallback = false
+    const quotaError = { message: 'QUOTA_BYTES_PER_ITEM quota exceeded' }
+    const errorLog = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const dispatchEvent = vi.fn()
+    vi.stubGlobal('dispatchEvent', dispatchEvent)
+    vi.stubGlobal('chrome', {
+      runtime: {
+        get lastError() {
+          return inCallback ? quotaError : undefined
+        },
+      },
+      storage: {
+        onChanged: { addListener: vi.fn() },
+        local: {
+          get: (_key, callback) => callback({ mode: 'interceptor' }),
+          set: (_items, callback) => {
+            inCallback = true
+            callback()
+            inCallback = false
+          },
+        },
+      },
+    })
+    const { getStorage, initStorage, setStorage } = await import('../src/storage')
+    await initStorage()
+
+    await expect(setStorage('mode', 'redirector')).rejects.toThrow('QUOTA_BYTES_PER_ITEM')
+
+    expect(getStorage('mode')).toBe('interceptor')
+    expect(errorLog).toHaveBeenCalled()
+    expect(dispatchEvent).toHaveBeenCalledOnce()
+    expect(dispatchEvent.mock.calls[0][0]).toMatchObject({
+      type: 'ajax-proxy:storage-error',
+      detail: { operation: 'write', key: 'mode' },
+    })
+  })
+
+  it('updates the cache only after a successful write callback', async () => {
+    vi.stubGlobal('chrome', {
+      runtime: {},
+      storage: {
+        onChanged: { addListener: vi.fn() },
+        local: {
+          get: (_key, callback) => callback({ mode: 'interceptor' }),
+          set: (items, callback) => callback(),
+        },
+      },
+    })
+    const { getStorage, initStorage, setStorage } = await import('../src/storage')
+    await initStorage()
+
+    await setStorage('mode', 'redirector')
+
+    expect(getStorage('mode')).toBe('redirector')
+  })
 })

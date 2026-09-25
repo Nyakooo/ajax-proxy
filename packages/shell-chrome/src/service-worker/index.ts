@@ -66,4 +66,6 @@ initStorage().then(() => {
 
     // 注册其他监听列表
     injectEventListener()
+}).catch(error => {
+    console.error('[AjaxProxy] Service worker storage initialization failed', error)
 })

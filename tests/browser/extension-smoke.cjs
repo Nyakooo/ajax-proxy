@@ -107,12 +107,15 @@ async function main() {
     panel.setDefaultTimeout(10000)
 
     await panel.goto(`chrome-extension://${extensionId}/panels/index.html`)
-    await panel.locator('.switch-control .el-switch').click()
+    await panel.locator('.switch-control .el-switch, .global-switch .el-switch').first().click()
     const page = await context.newPage()
     const secondPage = await context.newPage()
     await page.goto(`http://127.0.0.1:${port}/`)
     await secondPage.goto(`http://127.0.0.1:${port}/`)
-    await panel.locator('.response-container .table-toolbar > .el-button').click()
+    await panel
+      .locator('.response-container > .el-button, .response-container .table-toolbar > .el-button')
+      .first()
+      .click()
 
     const dialog = panel.locator('.response-modal-container .el-dialog__wrapper')
     await dialog.waitFor({ state: 'visible' })
@@ -245,7 +248,10 @@ async function main() {
     await panel.locator('input.el-radio-button__orig-radio[value="redirector"]').check({
       force: true,
     })
-    await panel.locator('.request-container .table-toolbar > .el-button').click()
+    await panel
+      .locator('.request-container > .el-button, .request-container .table-toolbar > .el-button')
+      .first()
+      .click()
     const redirectDialog = panel.locator('.response-modal-container .el-dialog__wrapper')
     await redirectDialog.waitFor({ state: 'visible' })
     const redirectFields = redirectDialog.locator('.el-form-item')

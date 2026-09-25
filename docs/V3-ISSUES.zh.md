@@ -79,19 +79,13 @@
 | ------------------------------------------ | ------------------------------------- | ------------------------------------------------------ | --------------------------------------- |
 | XHR 通用 `addEventListener()` 是否完整转发 | `packages/proxy-lib/src/createXHR.ts` | 监听器可能未收到代理底层 XHR 的 load / progress 等事件 | 覆盖监听器注册、移除、顺序与事件 target |
 
-## 尚待复现的存储审查线索
-
-| 线索                                           | 位置                                   | 可能影响                             | 验证安排                          |
-| ---------------------------------------------- | -------------------------------------- | ------------------------------------ | --------------------------------- |
-| Storage 初始化、写入失败与配额错误缺少统一处理 | `packages/shared-utils/src/storage.ts` | 用户看不到初始化失败或保存失败的结果 | 模拟 API 拒绝、配额错误及回调错误 |
-
 ## 已验证的存储更新一致性
 
 - 状态：已实现并回归验证（2026-09-25）。
 - 影响范围：`packages/shared-utils/src/storage.ts`、`packages/shell-chrome/src/content.ts`、`packages/shell-chrome/src/service-worker/index.ts`。
 - 策略：各扩展上下文监听 `chrome.storage.onChanged` 更新本地缓存；每个标签页 content script 使用同一缓存快照通知页面代理。service worker 不再通过仅保存最近一个 content port 的方式同步规则。
-- 验证：storage 测试覆盖本地存储变更、删除、忽略其他 storage area 和初始化期间竞态。双标签页扩展 smoke 在面板更新规则后确认两个页面都应用 Fetch / XHR 拦截和 Fetch 重定向。
-- 未覆盖：Storage API 写入失败和配额错误由后续存储错误处理项跟进。
+- 验证：storage 测试覆盖本地存储变更、删除、忽略其他 storage area、初始化期间竞态、初始化失败和配额写入失败。双标签页扩展 smoke 在面板更新规则后确认两个页面都应用 Fetch / XHR 拦截和 Fetch 重定向。
+- 错误处理：扩展存储操作检查 `chrome.runtime.lastError`；写操作成功后才更新缓存，失败保留原缓存并派发 `ajax-proxy:storage-error`，面板显示初始化或保存错误。
 
 ## 技术债与待决语义
 

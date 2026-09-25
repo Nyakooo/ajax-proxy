@@ -71,4 +71,6 @@ initStorage().then(() => {
         false
     );
 
+}).catch(error => {
+    console.error('[AjaxProxy] Content storage initialization failed', error)
 })

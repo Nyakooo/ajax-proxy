@@ -113,7 +113,7 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - [x] 检查 XHR 对象复用、请求头覆盖、`readystatechange` 事件顺序和异常路径；修复拦截 XHR 复用时旧响应覆盖值与命中锁未重置的问题，覆盖重定向 header 不跨请求泄漏及用户回调读取到已处理响应。通用 `addEventListener` 事件转发仍单列为待确认风险。
 - [x] 验证扩展启停时对网页已有 Fetch / XHR 包装器的兼容策略：注入前已存在的页面实现作为底层并在关闭时恢复原引用；注入后包在扩展外层的页面包装器保持原样，代理根据开关 / 模式透传，同模式重新启用可恢复。若外层包装器隐藏了代理且请求模式已切换，保留页面包装器优先，需页面重载以重新建立当前模式代理。
 - [x] 建立跨 content script、service worker 和面板的一致存储更新机制：统一用 `chrome.storage.onChanged` 刷新各上下文的 storage cache；各标签页 content script 将配置快照同步给页面代理；service worker 不再依赖单个当前 tab port 广播规则。
-- [ ] 处理 Storage 初始化、读写失败、配额错误及数据变化监听。
+- [x] 处理 Storage 初始化、读写失败、配额错误及数据变化监听：初始化、读取、写入、删除和清空均检查 API 错误；写入成功回调后才更新缓存，失败保持旧值并向面板报告；变化事件同步缓存。
 - [ ] 修复浏览器扩展环境与普通网页环境下存储行为不一致的问题。
 - [ ] 明确空规则列表的导入、更新和清空语义。
 - [ ] 定义 V3 新配置 schema、格式版本标识和校验规则；V3 不负责迁移 V2 配置。
@@ -388,4 +388,5 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - 2026-09-25：检查 XHR 实例复用、header、`readystatechange` 顺序和异常回退。复现拦截 XHR 复用时旧 responseText/status 覆盖值残留、重复请求命中通知锁未重置；每次 `open()` 现清空请求 body、旧响应缓存和命中锁。回归覆盖重定向 header 包装在新请求恢复、响应替换先于 `readystatechange` 回调可见、函数抛错时保留原响应且不计命中、同步重定向函数抛错时使用原 URL。通用 `addEventListener` 注册与移除的转发行为登记为待确认；36 项 Vitest、coverage、全量 build、typecheck、lint、format、边界检查、生成声明校验、Chrome 扩展 smoke 与 editor smoke 均通过。阶段 2 累计完成 52 / 179 项（29.1%），本检查点可独立提交。
 - 2026-09-25：定义并验证网页 Fetch / XHR 包装器共存策略。注入前的页面实现会作为底层并在禁用时恢复原引用；如果页面后来在扩展外层增加包装器，状态更新不覆盖页面当前引用，内层代理按当前开关 / 模式透传，同模式再次启用可恢复。页面外层包装器隐藏代理且切换了代理模式时，安全保留包装链并要求重载页面以安装新模式。7 个测试文件、38 项测试通过；coverage 为 statements 47.24%、branches 45.51%、functions 41.13%、lines 48.30%。阶段 2 累计完成 53 / 179 项（29.6%），本检查点可独立提交。
 - 2026-09-25：建立跨 content script、service worker 和面板的配置同步。共享 storage cache 订阅 `chrome.storage.onChanged` 并处理初始化期间到达的变更；各标签页 content script 将完整配置快照同步给页面代理；service worker 停止只向最近连接的单个标签页转发规则。扩展 smoke 同时打开两个页面，在面板切换拦截 / 重定向并创建规则后，两页 Fetch / XHR 拦截及 Fetch 重定向均通过；storage cache 变更和初始化竞态单测通过。全量 build、typecheck、40 项 Vitest、coverage、lint、format、扩展 smoke 和 editor smoke 均通过。阶段 2 累计完成 54 / 179 项（30.2%），本检查点可独立提交。
+- 2026-09-25：Storage API 初始化、读取、写入、删除和清空错误现在会拒绝 Promise 并发出统一错误事件；面板显示初始化与保存错误；配额失败不会污染本地缓存，数据变化监听及初始化竞态已覆盖。`pnpm test` 8 个文件、43 项通过；coverage 为 statements 50.22%、branches 48.35%、functions 46.51%、lines 51.02%。typecheck、lint、format、包边界、完整 build、Chrome 扩展 smoke、editor smoke 通过；构建写回生成声明属于本次 API 返回类型变化。阶段 2 累计完成 55 / 179 项（30.7%），此检查点可独立提交。
 - GitHub 里程碑：[阶段 0](https://github.com/Nyakooo/ajax-proxy/milestone/1)、[阶段 1](https://github.com/Nyakooo/ajax-proxy/milestone/2)、[阶段 2](https://github.com/Nyakooo/ajax-proxy/milestone/3)、[阶段 3](https://github.com/Nyakooo/ajax-proxy/milestone/4)、[阶段 4](https://github.com/Nyakooo/ajax-proxy/milestone/5)、[阶段 5](https://github.com/Nyakooo/ajax-proxy/milestone/6)、[阶段 6](https://github.com/Nyakooo/ajax-proxy/milestone/7)、[阶段 7](https://github.com/Nyakooo/ajax-proxy/milestone/8)；已复现缺陷：[issue #56](https://github.com/Nyakooo/ajax-proxy/issues/56)。
