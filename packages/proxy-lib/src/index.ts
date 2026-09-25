@@ -14,12 +14,7 @@ import CreateXHR, { initInterceptorXHRState, OriginXHR } from './createXHR'
 import CreateFetch, { initInterceptorFetchState, OriginFetch } from './createFetch'
 import RedirectXHR, { initRedirectXHRState } from './redirectXHR'
 import RedirectFetch, { initRedirectFetchState } from './redirectFetch'
-import { createV3Fetch } from './v3/fetch'
-import { createV3XHR } from './v3/xhr'
-import { validateV3Backup } from '@proxy/v3-domain'
-import type { V3Backup } from '@proxy/v3-domain'
-import { NoticeTo } from '@proxy/protocol'
-import type { V3Hit } from '@proxy/protocol'
+import { createV3RuntimeController } from './v3/runtimeController'
 import { warn } from './common'
 import {
   isValidGlobalState,
@@ -43,35 +38,8 @@ const globalState: RefGlobalState = {
 }
 const pageFetchAtLoad = window.fetch
 const pageXHRAtLoad = window.XMLHttpRequest
-let v3Backup: V3Backup | null = null
-
-function notifyV3Match(rule: V3Backup['rules'][number], request: { url: string; method: string }) {
-  try {
-    const detail: V3Hit = {
-      kind: 'v3-hit',
-      rule_id: rule.id,
-      match_url: rule.match.url,
-      method: request.method,
-      url: request.url,
-    }
-    window.dispatchEvent(
-      new CustomEvent(NoticeTo.CONTENT, {
-        detail,
-      })
-    )
-  } catch {
-    // Diagnostics must not affect the request path.
-  }
-}
-
-const V3Fetch = createV3Fetch(pageFetchAtLoad, {
-  getRules: () => (v3Backup?.settings.globalEnabled ? v3Backup.rules : []),
-  onMatched: (rule, _index, request) => notifyV3Match(rule, request),
-})
-const V3XHR = createV3XHR(pageXHRAtLoad, {
-  getRules: () => (v3Backup?.settings.globalEnabled ? v3Backup.rules : []),
-  onMatched: (rule, _index, request) => notifyV3Match(rule, request),
-}) as unknown as typeof window.XMLHttpRequest
+const v3Runtime = createV3RuntimeController(window, pageFetchAtLoad, pageXHRAtLoad)
+const { fetch: V3Fetch, xhr: V3XHR } = v3Runtime
 
 function isProxyFetch(fetch: typeof window.fetch) {
   return fetch === CreateFetch || fetch === RedirectFetch || fetch === V3Fetch
@@ -103,8 +71,8 @@ function mountInstance() {
   // 页面在扩展包装器外安装的包装器可能持有代理引用；不覆盖该表层，代理依共享状态停用。
   if (canManageXHR) window.XMLHttpRequest = OriginXHR
   if (canManageFetch) window.fetch = pageFetchAtLoad
-  if (v3Backup) {
-    if (!v3Backup.settings.globalEnabled) return
+  if (v3Runtime.backup) {
+    if (!v3Runtime.backup.settings.globalEnabled) return
     if (canManageXHR) window.XMLHttpRequest = V3XHR
     if (canManageFetch) window.fetch = V3Fetch
     return
@@ -181,19 +149,11 @@ function updateRedirectors(target: unknown) {
 }
 
 function updateV3(target: unknown) {
-  if (target === null) {
-    v3Backup = null
-    globalState.v3_active = false
-    mountInstance()
-    return
-  }
-  const result = validateV3Backup(target)
-  if (!result.ok) {
+  if (!v3Runtime.update(target)) {
     warn('invalid V3 configuration')
     return
   }
-  v3Backup = result.data
-  globalState.v3_active = true
+  globalState.v3_active = v3Runtime.backup !== null
   mountInstance()
 }
 
