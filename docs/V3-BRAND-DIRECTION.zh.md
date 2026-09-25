@@ -8,11 +8,11 @@ V3 沿用 Ajax Proxy 现有的“浏览器窗口 + 请求调试”识别线索�
 
 ## 标志与使用
 
-可维护 SVG 主文件为 [`docs/brand/ajax-proxy-mark.svg`](brand/ajax-proxy-mark.svg)。它是无文字的方形 mark，适合扩展图标与未来面板品牌区。扩展实际使用由 `pnpm brand:icons` 从该主文件渲染的 48 / 128 px 彩色启用图标和灰阶停用图标；[`docs/brand/v3-icon-matrix.png`](brand/v3-icon-matrix.png) 展示 16、24、48、128 px 的缩放效果。
+可维护 SVG 主文件为 [`docs/brand/ajax-proxy-mark.svg`](brand/ajax-proxy-mark.svg)。它是无文字的方形 mark，适合扩展图标与面板品牌区。扩展实际使用由 `pnpm brand:icons` 从该主文件渲染的 48 / 128 px 彩色启用图标和灰阶停用图标。面板品牌区使用 SVG 的 `dark` 状态适配深色背景，并额外生成 128 px 的 [`docs/brand/ajax-proxy-mark-dark.png`](brand/ajax-proxy-mark-dark.png) 预览资源；浅色与深色横向 lockup、16 / 24 / 48 / 128 px 缩放情况见 [`docs/brand/v3-icon-matrix.png`](brand/v3-icon-matrix.png)。
 
 面板品牌区使用 mark 加文字 `Ajax Proxy` 的横向组合，文字保持可选中和辅助技术可读，不把字形烘焙进图标。浅色背景使用深青 mark / 深色文字；深色背景使用浅色 mark / 浅色文字。活动与停用状态同时改变灰度和形状对比，不能只依赖色相表达。
 
-扩展图标提供 48 px（工具栏）和 128 px（商店、通知及高分辨率显示）文件；浏览器按需缩放至 16 / 24 / 32 px。16 px 验收只要求辨认窗口、路由和中心节点，不保留小字、细线或额外装饰。圆角方形底色保证浅色与深色浏览器工具栏上均有稳定边界。
+扩展图标提供 48 px（工具栏）和 128 px（商店、通知及高分辨率显示）文件；浏览器按需缩放至 16 / 24 / 32 px。16 px 验收只要求辨认窗口、路由和中心节点，不保留小字、细线或额外装饰。圆角方形底色保证浅色与深色浏览器工具栏上均有稳定边界。面板 lockup 的文字保留可选中和辅助技术可读性；浅色模式使用深青 mark 与深色文字，深色模式使用浅色 mark 与浅色文字。
 
 ## 颜色 token
 

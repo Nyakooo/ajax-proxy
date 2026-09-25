@@ -20,6 +20,15 @@
       --response: #828a8c;
       --node: #70787a;
     }
+    [data-state='dark'] {
+      --tile: #f5f9f8;
+      --frame: #12343b;
+      --surface: #183f46;
+      --chrome-muted: #6f9291;
+      --request: #20aa9a;
+      --response: #f56f68;
+      --node: #f6bd58;
+    }
   </style>
   <rect x="4" y="4" width="120" height="120" rx="28" fill="var(--tile)" />
   <rect x="16" y="18" width="96" height="92" rx="15" fill="var(--surface)" />
