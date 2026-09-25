@@ -29,6 +29,16 @@ const globalState: RefGlobalState = {
     redirector_matching_content: [],
   },
 }
+const pageFetchAtLoad = window.fetch
+const pageXHRAtLoad = window.XMLHttpRequest
+
+function isProxyFetch(fetch: typeof window.fetch) {
+  return fetch === CreateFetch || fetch === RedirectFetch
+}
+
+function isProxyXHR(xhr: typeof window.XMLHttpRequest) {
+  return xhr === CreateXHR || xhr === RedirectXHR
+}
 
 function isIGlobalState(x: any): x is IGlobalState {
   return x && x.hasOwnProperty('global_on') && x.hasOwnProperty('mode')
@@ -79,19 +89,24 @@ function initState() {
 // 实例挂载
 function mountInstance() {
   const { global_on = true, mode } = globalState.value
-  // 每次挂载时，需要预先重置一下引用
-  window.XMLHttpRequest = OriginXHR
-  window.fetch = OriginFetch
-  if (global_on) {
-    if (mode === 'interceptor') {
-      // 挂载拦截器
-      window.XMLHttpRequest = CreateXHR
-      window.fetch = CreateFetch
-    } else if (mode === 'redirector') {
-      // 挂载重定向
-      window.XMLHttpRequest = RedirectXHR
-      window.fetch = RedirectFetch
-    }
+  const currentXHR = window.XMLHttpRequest
+  const currentFetch = window.fetch
+  const canManageXHR =
+    currentXHR === pageXHRAtLoad || currentXHR === OriginXHR || isProxyXHR(currentXHR)
+  const canManageFetch =
+    currentFetch === pageFetchAtLoad || currentFetch === OriginFetch || isProxyFetch(currentFetch)
+
+  // 页面在扩展包装器外安装的包装器可能持有代理引用；不覆盖该表层，代理依共享状态停用。
+  if (canManageXHR) window.XMLHttpRequest = OriginXHR
+  if (canManageFetch) window.fetch = pageFetchAtLoad
+  if (!global_on) return
+
+  if (mode === 'interceptor') {
+    if (canManageXHR) window.XMLHttpRequest = CreateXHR
+    if (canManageFetch) window.fetch = CreateFetch
+  } else if (mode === 'redirector') {
+    if (canManageXHR) window.XMLHttpRequest = RedirectXHR
+    if (canManageFetch) window.fetch = RedirectFetch
   }
 }
 

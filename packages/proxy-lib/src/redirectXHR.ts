@@ -95,7 +95,9 @@ export default class CustomRedirectXHR extends XMLHttpRequest {
       let targetUrl = currentUrl
       let customHeaders: IRedirectHeader[] = []
 
-      for (const rule of globalState.value.redirector_matching_content) {
+      for (const rule of globalState.value.global_on && globalState.value.mode === 'redirector'
+        ? globalState.value.redirector_matching_content
+        : []) {
         const {
           switch_on = true,
           domain = '',

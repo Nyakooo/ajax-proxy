@@ -14,6 +14,9 @@ function createEffectiveRequest(input: RequestInfo | URL, init?: RequestInit): R
 }
 
 export default async function CustomFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+    if (!globalState.value.global_on || globalState.value.mode !== 'redirector') {
+        return OriginFetch(input, init)
+    }
     const request = createEffectiveRequest(input, init)
     const fetchMethod = request.method.toUpperCase()
     let redirectUrl = request.url

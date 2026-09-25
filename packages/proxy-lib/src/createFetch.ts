@@ -14,7 +14,7 @@ function CustomFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Resp
     const request = input instanceof Request ? input : undefined
     const fetchMethod = init?.method?.toUpperCase() || request?.method.toUpperCase() || "GET"
     return OriginFetch(input, init).then(async (response: Response) => {
-        if (!globalState.value.global_on) return response
+        if (!globalState.value.global_on || globalState.value.mode !== 'interceptor') return response
         const requestUrl = request?.url || response.url
         let txt: string | undefined;
         let status = response.status

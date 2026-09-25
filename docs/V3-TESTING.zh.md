@@ -31,13 +31,13 @@
 
 ## 当前覆盖率基线
 
-记录日期：2026-09-25。执行 `pnpm test:coverage`：6 个测试文件、36 个用例通过；workspace 全部 TypeScript 源码的当前总体覆盖率为：
+记录日期：2026-09-25。执行 `pnpm test:coverage`：7 个测试文件、38 个用例通过；workspace 全部 TypeScript 源码的当前总体覆盖率为：
 
 | 指标       |   基线 |
 | ---------- | -----: |
-| Statements | 42.19% |
-| Branches   | 38.46% |
-| Functions  | 36.94% |
-| Lines      | 43.32% |
+| Statements | 47.24% |
+| Branches   | 45.51% |
+| Functions  | 41.13% |
+| Lines      | 48.30% |
 
-本轮单元测试覆盖规则 URL 匹配、Fetch Request / 响应边界、callback / Promise 处理、Fetch 与 XHR 首条命中、重定向 XHR method mismatch、同步 XHR `open()` 与同步 callback / Promise 回退、XHR 实例复用及函数异常回退，以及 service worker 徽章按规则序号精确计数。proxy-lib 的 createFetch statements 覆盖率为 87.93%，createXHR 为 82.89%，redirectXHR 为 85.52%；badge 为 72.34%。浏览器 smoke 额外覆盖真实 Fetch / XHR 拦截、Request POST 重定向、Response 元数据与 Content-Length 清理，以及 JSON 编辑交互，但不计入 Vitest coverage。整体覆盖率低于完整发布标准，后续将分阶段增加各包测试。该基线不代表功能质量已经满足发布标准。
+本轮单元测试覆盖注入前页面包装器、扩展启停和模式更新、扩展外层页面包装器保留与同模式重新启用，以及规则 URL 匹配、Fetch Request / 响应边界、callback / Promise 处理、Fetch 与 XHR 首条命中、重定向 XHR method mismatch、同步 XHR `open()`、XHR 实例复用及函数异常回退、service worker 徽章按规则序号精确计数。proxy-lib 的 createFetch statements 覆盖率为 89.65%，createXHR 为 82.66%，redirectXHR 为 85.52%；lib 生命周期入口为 65.67%，badge 为 72.34%。浏览器 smoke 额外覆盖真实 Fetch / XHR 拦截、Request POST 重定向、Response 元数据与 Content-Length 清理，以及 JSON 编辑交互，但不计入 Vitest coverage。整体覆盖率低于完整发布标准，后续将分阶段增加各包测试。该基线不代表功能质量已经满足发布标准。
