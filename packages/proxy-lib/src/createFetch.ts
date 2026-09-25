@@ -48,6 +48,7 @@ function CustomFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Resp
                         response
                     )
                     const payload = await execSetup(ctx, override_func)
+                    if (Reflect.get(payload, Symbol.for('ajax-proxy.custom-function-fail-open'))) return response
                     if (payload.override)
                         txt = typeof payload.override === "string" ? payload.override : JSON.stringify(payload.override);
                     status = +payload.status!

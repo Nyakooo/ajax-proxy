@@ -31,13 +31,13 @@
 
 ## 当前覆盖率基线
 
-记录日期：2026-09-25。执行 `pnpm test:coverage`：3 个测试文件、13 个用例通过；workspace 全部 TypeScript 源码的当前总体覆盖率为：
+记录日期：2026-09-25。执行 `pnpm test:coverage`：4 个测试文件、19 个用例通过；workspace 全部 TypeScript 源码的当前总体覆盖率为：
 
 | 指标       |   基线 |
 | ---------- | -----: |
-| Statements | 13.40% |
-| Branches   | 13.24% |
-| Functions  |  9.79% |
-| Lines      | 13.51% |
+| Statements | 21.61% |
+| Branches   | 18.03% |
+| Functions  | 21.56% |
+| Lines      | 22.32% |
 
-本轮单元测试覆盖 `packages/proxy-lib/src/common.ts` 的 URL 匹配、忽略项和静态重定向，`packages/proxy-lib/src/createFetch.ts` 的 Request method / URL 解析，以及 `packages/proxy-lib/src/redirectFetch.ts` 的 Request 转发；createFetch statements 覆盖率为 81.25%，redirectFetch 为 71.79%。浏览器 smoke 额外覆盖真实 Fetch / XHR 拦截、Request POST 重定向和 JSON 编辑交互，但不计入 Vitest coverage。整体覆盖率低于完整发布标准，后续将分阶段增加各包测试。该基线不代表功能质量已经满足发布标准。
+本轮单元测试覆盖 `packages/proxy-lib/src/common.ts` 的 URL 匹配、忽略项和静态重定向，`packages/proxy-lib/src/createFetch.ts` 的 Request method / URL 解析及函数失败回退，`packages/proxy-lib/src/redirectFetch.ts` 的 Request 转发及函数失败回退，以及 `overrideFunc.ts` / `redirectUrlFunc.ts` 的 callback、Promise、异常和超时处理。createFetch statements 覆盖率为 86.00%，redirectFetch 为 78.04%，overrideFunc 为 75.00%，redirectUrlFunc 为 72.50%。浏览器 smoke 额外覆盖真实 Fetch / XHR 拦截、Request POST 重定向和 JSON 编辑交互，但不计入 Vitest coverage。整体覆盖率低于完整发布标准，后续将分阶段增加各包测试。该基线不代表功能质量已经满足发布标准。

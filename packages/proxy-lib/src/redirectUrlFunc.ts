@@ -1,9 +1,4 @@
-import { IRedirectHeader } from './types';
-
-
-const errLog = function (...args: any[]) {
-    console.log("%c[AjaxProxy][error]: ", "color: #ff4d4f", ...args)
-}
+import { IRedirectHeader } from './types'
 
 type Req = {
     url: string
@@ -11,41 +6,72 @@ type Req = {
 }
 
 type Next = {
-    url: string,
+    url: string
     headers?: { [key: IRedirectHeader['key']]: IRedirectHeader['value'] }
 }
 
-function isNext(x: any): x is Next {
-    if (!!x) return true
-    if (x.url && !x.headers) return true
-    return x.headers && Object.prototype.toString.call(x.headers) == '[object Object]'
+const FAILURE_MARKER = Symbol.for('ajax-proxy.custom-function-fail-open')
+const FUNCTION_TIMEOUT_MS = 5000
+
+function normalizeNext(value: unknown): Next | undefined {
+    if (!value || typeof value !== 'object') return undefined
+    const next = value as Partial<Next>
+    if (typeof next.url !== 'string') return undefined
+    if (next.headers !== undefined && (!next.headers || Object.prototype.toString.call(next.headers) !== '[object Object]')) {
+        return undefined
+    }
+    return { url: next.url, headers: next.headers }
+}
+
+function runCustomFunction(
+    funcText: string,
+    req: Req,
+    fallback: Next
+): Promise<Next> {
+    return new Promise(resolve => {
+        let settled = false
+        const timer = setTimeout(() => finishFailure(), FUNCTION_TIMEOUT_MS)
+
+        function finish(value: Next) {
+            if (settled) return
+            settled = true
+            clearTimeout(timer)
+            resolve(value)
+        }
+
+        function finishFailure() {
+            Object.defineProperty(fallback, FAILURE_MARKER, { value: true })
+            finish(fallback)
+        }
+
+        function complete(value: unknown) {
+            const normalized = normalizeNext(value)
+            if (normalized === undefined) finishFailure()
+            else finish(normalized)
+        }
+
+        try {
+            const execFunc = window.eval(`;(${funcText})`)
+            if (typeof execFunc !== 'function') {
+                console.error('[AjaxProxy][error] Invalid redirect function')
+                finishFailure()
+                return
+            }
+
+            const result = execFunc(req, complete)
+            Promise.resolve(result).then(value => {
+                if (value !== undefined) complete(value)
+            }, error => {
+                console.error('[AjaxProxy][error] redirect function rejected', error)
+                finishFailure()
+            })
+        } catch (error) {
+            console.error('[AjaxProxy][error] redirect function failed', error)
+            finishFailure()
+        }
+    })
 }
 
 export function execSetup(req: Req, funcText: string): Promise<Next> {
-    return new Promise(resolve => {
-        try {
-            const source = ';(' + funcText + ')'
-            const execFunc = window.eval(source)
-            const type = typeof execFunc
-            if (type === "function") {
-                if (!funcText.includes('next(')) {
-                    errLog("The structure of 'next' is incorrect [code 1]")
-                    // original
-                    return resolve({ url: req.url })
-                }
-                execFunc(req, (next: Next) => {
-                    // custom
-                    if (isNext(next)) {
-                        return resolve({ url: next.url, headers: next.headers })
-                    }
-                })
-                return resolve({ url: req.url })
-            }
-            errLog("Please enter a correct 'function' [code 2]")
-            return resolve({ url: req.url })
-        } catch (error) {
-            errLog(error)
-            return resolve({ url: req.url })
-        }
-    })
+    return runCustomFunction(funcText, req, { url: req.url })
 }

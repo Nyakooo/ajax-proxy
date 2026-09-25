@@ -37,6 +37,7 @@ export default async function CustomFetch(input: RequestInfo | URL, init?: Reque
             if (method && ![fetchMethod, "ANY"].includes(method.toUpperCase())) continue
             if (redirect_type === "function") {
                 const payload = await execSetup({ url: request.url, method: fetchMethod }, redirect_func)
+                if (Reflect.get(payload, Symbol.for('ajax-proxy.custom-function-fail-open'))) return OriginFetch(input, init)
                 redirectUrl = payload.url || request.url
                 if (payload.headers) {
                     for (const key in payload.headers) {

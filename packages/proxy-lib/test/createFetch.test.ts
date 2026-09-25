@@ -6,6 +6,8 @@ async function createFetchHarness(
     method: string
     matchUrl: string
     responseUrl?: string
+    overrideType?: 'json' | 'function'
+    overrideFunc?: string
   } = { method: 'POST', matchUrl: '/api/original' }
 ) {
   vi.resetModules()
@@ -15,7 +17,7 @@ async function createFetchHarness(
   })
   const originFetch = vi.fn().mockResolvedValue(response)
   const dispatchEvent = vi.fn()
-  vi.stubGlobal('window', { fetch: originFetch, dispatchEvent })
+  vi.stubGlobal('window', { fetch: originFetch, dispatchEvent, eval })
 
   const { default: customFetch, initInterceptorFetchState } = await import('../src/createFetch')
   const state: RefGlobalState = {
@@ -29,13 +31,15 @@ async function createFetchHarness(
           method: options.method as 'GET' | 'POST',
           override: 'intercepted response',
           status_code: '200',
+          override_type: options.overrideType,
+          override_func: options.overrideFunc,
         },
       ],
       redirector_matching_content: [],
     },
   }
   initInterceptorFetchState(state)
-  return { customFetch, originFetch, dispatchEvent }
+  return { customFetch, originFetch, dispatchEvent, originalResponse: response }
 }
 
 afterEach(() => {
@@ -85,5 +89,19 @@ describe('CustomFetch Request input', () => {
     const response = await customFetch('https://example.test/api/original')
 
     expect(await response.text()).toBe('intercepted response')
+  })
+
+  it('returns the original response when a custom function throws', async () => {
+    const { customFetch, originalResponse, dispatchEvent } = await createFetchHarness({
+      method: 'POST',
+      matchUrl: '/api/original',
+      overrideType: 'function',
+      overrideFunc: 'function(req, res, next) { throw new Error("failed") }',
+    })
+
+    const response = await customFetch('https://example.test/api/original', { method: 'POST' })
+
+    expect(response).toBe(originalResponse)
+    expect(dispatchEvent).not.toHaveBeenCalled()
   })
 })

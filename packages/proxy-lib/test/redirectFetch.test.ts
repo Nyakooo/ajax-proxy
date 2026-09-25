@@ -20,7 +20,7 @@ async function createRedirectHarness(
     forwardedRequest = input instanceof Request ? input : new Request(input, init)
     return new Response('redirected response')
   })
-  vi.stubGlobal('window', { fetch: originFetch })
+  vi.stubGlobal('window', { fetch: originFetch, eval })
 
   const { default: customFetch, initRedirectFetchState } = await import('../src/redirectFetch')
   const state: RefGlobalState = {
@@ -103,5 +103,23 @@ describe('RedirectFetch Request input', () => {
     await customFetch(new Request('https://example.test/api/users', { method: 'POST' }))
 
     expect(getForwardedRequest()?.url).toBe('https://target.test/second/users')
+  })
+
+  it('sends the original request when a redirect function throws', async () => {
+    const { customFetch, originFetch } = await createRedirectHarness([
+      {
+        switch_on: true,
+        domain: 'https://example.test/api',
+        redirect_url: '',
+        method: 'POST',
+        redirect_type: 'function',
+        redirect_func: 'function(req, next) { throw new Error("failed") }',
+      },
+    ])
+    const request = new Request('https://example.test/api/users', { method: 'POST' })
+
+    await customFetch(request)
+
+    expect(originFetch).toHaveBeenCalledWith(request, undefined)
   })
 })

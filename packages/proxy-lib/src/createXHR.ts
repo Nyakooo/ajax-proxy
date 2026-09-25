@@ -77,6 +77,7 @@ class CustomXHR extends XMLHttpRequest {
                 if (override_type === "function") {
                     const ctx = getCtx(this.responseURL, this.method, this.status, status_code, this.body, origin_xhr_response)
                     const payload = await execSetup(ctx, override_func)
+                    if (Reflect.get(payload, Symbol.for('ajax-proxy.custom-function-fail-open'))) return
                     if (payload.override) {
                         const _override = typeof payload.override === "string" ? payload.override : JSON.stringify(payload.override);
                         this.responseText = _override;

@@ -24,6 +24,15 @@
 - 原因与修复：旧实现依赖 `init` 提取 method 和 URL，无法正确处理仅传入 `Request` 的调用。现在先构造有效 Request 并据此匹配 URL / method；method 不匹配的规则继续查找。命中后按原 Request 属性重建目标 Request，并保留 headers、body、credentials、mode、cache、redirect、referrer、referrerPolicy、integrity、keepalive 和 signal。
 - 验证：3 项 Vitest 回归用例通过；生产扩展 E2E 在 Chrome for Testing 中通过面板建立 POST 规则，由目标服务验证 URL、method、body、原始 header、自定义 header 和 cookie。
 
+### 自定义规则函数的异步完成与失败回退
+
+- 状态：已修复并回归验证（2026-09-25）。
+- 影响范围：`packages/proxy-lib/src/overrideFunc.ts`、`packages/proxy-lib/src/redirectUrlFunc.ts` 及 Fetch、XHR 请求处理器。
+- 问题：旧执行器只检查代码文本是否含有 `next(`，并在调用函数后立即 resolve 原始值；异步 callback 结果可能被提前丢弃，Promise 结果也不受支持。未调用 callback 的场景没有明确等待上限。
+- 行为：保留 callback 用法并支持函数直接返回值或 Promise；首次有效完成生效，异步等待最多 5 秒。解析错误、同步异常、Promise 拒绝、无效结果和超时均返回未应用状态。响应拦截回退原响应且不触发命中通知；Fetch 重定向回退原始请求。XHR 共用执行器并在函数失败时保留原生响应 / 请求流程。
+- 验证：Vitest 覆盖异步 callback、Promise 结果、未完成 callback 超时、同步异常，以及 Fetch 响应和重定向请求的失败回退。
+- 限制：5 秒超时无法中断用户函数中的同步死循环；这需要隔离执行环境另行解决。
+
 ## 尚待复现的代码审查线索
 
 | 线索                                               | 位置                                    | 可能影响                                       | 验证安排                                           |

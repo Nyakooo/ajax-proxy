@@ -48,6 +48,7 @@ export default class CustomRedirectXHR extends XMLHttpRequest {
                     const currentUrl = fmtURLToString(url)
                     if (redirect_type === "function") {
                         const payload = await execSetup({ url: currentUrl, method: this.method }, redirect_func)
+                        if (Reflect.get(payload, Symbol.for('ajax-proxy.custom-function-fail-open'))) break
                         url = payload.url
                         this.send = (body?: Document | XMLHttpRequestBodyInit | null) => {
                             if (payload.headers) {
