@@ -108,6 +108,8 @@ jobs:
         run: pnpm format:check
       - name: Typecheck TypeScript packages
         run: pnpm typecheck
+      - name: Build protocol package for tests
+        run: pnpm build:protocol
       - name: Run unit tests and coverage
         run: pnpm test:coverage
       - name: Build production extension
