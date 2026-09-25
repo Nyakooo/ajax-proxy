@@ -11,6 +11,13 @@ import './style.css'
 
 const AjaxProxyPreset = definePreset(Aura, {
   semantic: {
+    focusRing: {
+      width: '3px',
+      style: 'solid',
+      color: '{primary.color}',
+      offset: '2px',
+      shadow: 'none',
+    },
     primary: {
       50: '#e6f4f3',
       100: '#c8e8e5',

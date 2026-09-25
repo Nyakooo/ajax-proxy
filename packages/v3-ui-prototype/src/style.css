@@ -1,19 +1,47 @@
 :root {
-  font-family: 'SF Pro Text', 'Segoe UI', system-ui, sans-serif;
-  color: #18343a;
-  background: #f5f9f8;
+  font-family: var(--ap-font-ui);
+  color: var(--ap-text-primary);
+  background: var(--ap-page);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
-  --ap-ink: #12343b;
-  --ap-teal: #006d75;
-  --ap-mint: #20aa9a;
-  --ap-coral: #f56f68;
-  --ap-amber: #f6bd58;
-  --ap-surface: #f5f9f8;
-  --ap-card: #ffffff;
+  --ap-font-ui: 'Inter', 'SF Pro Text', 'Segoe UI', system-ui, sans-serif;
+  --ap-font-code: 'SFMono-Regular', Consolas, ui-monospace, monospace;
+  --ap-space-1: 4px;
+  --ap-space-2: 8px;
+  --ap-space-3: 12px;
+  --ap-space-4: 16px;
+  --ap-space-6: 24px;
+  --ap-space-8: 32px;
+  --ap-radius-small: 4px;
+  --ap-radius-control: 8px;
+  --ap-radius-panel: 12px;
+  --ap-control-height: 36px;
+  --ap-brand-ink: #12343b;
+  --ap-brand-teal: #006d75;
+  --ap-brand-mint: #20aa9a;
+  --ap-brand-coral: #f56f68;
+  --ap-brand-amber: #f6bd58;
+  --ap-brand-teal-hover: #005b62;
+  --ap-page: #f5f9f8;
+  --ap-raised: #ffffff;
+  --ap-text-primary: #12343b;
+  --ap-text-secondary: #53686b;
+  --ap-text-tertiary: #5f7376;
+  --ap-text-on-primary: #f5f9f8;
   --ap-border: #dce8e6;
-  --ap-muted: #70878a;
-  --ap-muted-2: #93a5a6;
+  --ap-focus: #006d75;
+  --ap-status-positive: #006d75;
+  --ap-status-danger-text: #b54740;
+  --ap-status-warning-text: #684a16;
+  --ap-ink: var(--ap-text-primary);
+  --ap-teal: var(--ap-brand-teal);
+  --ap-mint: var(--ap-brand-mint);
+  --ap-coral: var(--ap-brand-coral);
+  --ap-amber: var(--ap-brand-amber);
+  --ap-surface: var(--ap-page);
+  --ap-card: var(--ap-raised);
+  --ap-muted: var(--ap-text-secondary);
+  --ap-muted-2: var(--ap-text-tertiary);
   --ap-shadow: 0 14px 38px rgb(18 52 59 / 7%);
 }
 
@@ -35,19 +63,29 @@ input {
 
 .app-dark {
   color-scheme: dark;
-  --ap-ink: #eaf2f1;
-  --ap-surface: #102a30;
-  --ap-card: #16353b;
+  --ap-page: #102a30;
+  --ap-raised: #16353b;
+  --ap-text-primary: #eaf2f1;
+  --ap-text-secondary: #b4c6c7;
+  --ap-text-tertiary: #91a8aa;
+  --ap-text-on-primary: #f5f9f8;
   --ap-border: #2b4a50;
-  --ap-muted: #a4b7b7;
-  --ap-muted-2: #789092;
+  --ap-focus: #20aa9a;
+  --ap-status-positive: #8ce0d5;
+  --ap-status-danger-text: #ff968d;
+  --ap-status-warning-text: #f6bd58;
+  --ap-ink: var(--ap-text-primary);
+  --ap-surface: var(--ap-page);
+  --ap-card: var(--ap-raised);
+  --ap-muted: var(--ap-text-secondary);
+  --ap-muted-2: var(--ap-text-tertiary);
   --ap-shadow: 0 14px 38px rgb(0 0 0 / 20%);
 }
 
 .shell-dark {
   color-scheme: dark;
-  border-color: #2b4a50;
-  background-color: #16353b;
+  border-color: var(--ap-border);
+  background-color: var(--ap-raised);
 }
 
 .shell {
@@ -56,7 +94,7 @@ input {
   margin: 24px auto;
   overflow: hidden;
   border: 1px solid var(--ap-border);
-  border-radius: 18px;
+  border-radius: var(--ap-radius-panel);
   background: var(--ap-card);
   box-shadow: var(--ap-shadow);
   transition:
@@ -65,14 +103,14 @@ input {
 }
 
 .app-dark .shell {
-  border-color: #2b4a50;
-  background-color: #16353b;
+  border-color: var(--ap-border);
+  background-color: var(--ap-raised);
 }
 
 .app-dark .nav-item.selected,
 .app-dark .priority-pill,
 .app-dark .language-toggle button.selected {
-  color: #8ce0d5;
+  color: var(--ap-status-positive);
 }
 
 .topbar {
@@ -183,7 +221,7 @@ input {
 }
 
 .p-button:not(.p-button-text):not(.p-button-outlined) {
-  color: #f5f9f8;
+  color: var(--ap-text-on-primary);
 }
 
 .language-toggle {
@@ -283,7 +321,7 @@ input {
 .nav-count {
   margin-left: auto;
   color: var(--ap-muted-2);
-  font-family: 'SFMono-Regular', Consolas, ui-monospace, monospace;
+  font-family: var(--ap-font-code);
   font-size: 10px;
 }
 
@@ -317,7 +355,7 @@ input {
   place-items: center;
   border-radius: 50%;
   background: var(--ap-amber);
-  color: #553c10;
+  color: var(--ap-status-warning-text);
   font-size: 10px;
   font-weight: 700;
 }
@@ -375,12 +413,12 @@ input {
 .search-box {
   display: flex;
   width: min(330px, 40vw);
-  height: 36px;
+  height: var(--ap-control-height);
   align-items: center;
   gap: 8px;
   padding: 0 10px;
   border: 1px solid var(--ap-border);
-  border-radius: 8px;
+  border-radius: var(--ap-radius-control);
   background: var(--ap-card);
 }
 
@@ -455,7 +493,7 @@ input {
 .rule-order {
   width: 19px;
   color: var(--ap-muted-2);
-  font-family: 'SFMono-Regular', Consolas, ui-monospace, monospace;
+  font-family: var(--ap-font-code);
   font-size: 10px;
 }
 
@@ -472,7 +510,7 @@ input {
 .rule-title-line code {
   overflow: hidden;
   color: var(--ap-ink);
-  font-family: 'DM Mono', ui-monospace, monospace;
+  font-family: var(--ap-font-code);
   font-size: 11px;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -534,7 +572,7 @@ input {
 
 .hit-count strong {
   color: var(--ap-muted);
-  font-family: 'DM Mono', ui-monospace, monospace;
+  font-family: var(--ap-font-code);
   font-size: 13px;
 }
 
@@ -585,13 +623,13 @@ input {
 /* Minimal PrimeVue Pass Through styling used by the unstyled comparison build. */
 .ap-pt-button {
   display: inline-flex;
-  min-height: 35px;
+  min-height: var(--ap-control-height);
   align-items: center;
   justify-content: center;
   gap: 7px;
   padding: 0 13px;
   border: 1px solid var(--ap-border);
-  border-radius: 8px;
+  border-radius: var(--ap-radius-control);
   background: var(--ap-card);
   color: var(--ap-ink);
   cursor: pointer;
@@ -607,22 +645,25 @@ input {
   border-color: var(--ap-mint);
 }
 
-.ap-pt-button:focus-visible,
-.ap-pt-input:focus-visible,
-.ap-pt-switch-input:focus-visible + .ap-pt-switch-slider {
-  outline: 3px solid rgb(32 170 154 / 40%);
+#app .p-button:focus-visible,
+#app .ap-pt-button:focus-visible,
+#app .p-inputtext:focus-visible,
+#app .ap-pt-input:focus-visible,
+#app .p-toggleswitch-input:focus-visible + .p-toggleswitch-slider,
+#app .ap-pt-switch-input:focus-visible + .ap-pt-switch-slider {
+  outline: 3px solid var(--ap-focus);
   outline-offset: 2px;
 }
 
 .ap-pt-button-primary {
   border-color: var(--ap-teal);
   background: var(--ap-teal);
-  color: #f5f9f8;
+  color: var(--ap-text-on-primary);
 }
 
 .ap-pt-button-primary:hover {
-  border-color: #005b62;
-  background: #005b62;
+  border-color: var(--ap-brand-teal-hover);
+  background: var(--ap-brand-teal-hover);
 }
 
 .ap-pt-button-label {
@@ -690,7 +731,7 @@ input {
   width: 13px;
   height: 13px;
   border-radius: 50%;
-  background: #fff;
+  background: var(--ap-raised);
   box-shadow: 0 1px 2px rgb(18 52 59 / 20%);
   transition: transform 140ms ease;
 }
@@ -700,7 +741,7 @@ input {
 }
 
 .app-dark .ap-pt-button-primary {
-  color: #f5f9f8;
+  color: var(--ap-text-on-primary);
 }
 
 @media (max-width: 900px) {
