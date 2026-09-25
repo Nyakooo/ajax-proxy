@@ -1,6 +1,6 @@
 # V3 PrimeVue / Vue 3 面板原型
 
-原型 package：`packages/v3-ui-prototype`。它使用独立 Vite 入口和 `dist/` 输出，不被扩展 `pkg` 脚本复制；现有 `packages/vue-panels` Vue 2 app 与 shell manifest 不改动。样例规则和开关均为页面内存状态，不连接浏览器 storage 或运行时代理。
+原型位于候选 Vue 3 面板 package：`packages/vue3-panels`（`@proxy/vue3-panels`）。它使用独立 Vite 入口和 `dist/` 输出，不被扩展 `pkg` 脚本复制；现有 `packages/vue-panels` Vue 2 app 与 shell manifest 不改动。当前样例规则和开关均为页面内存状态，不连接浏览器 storage 或运行时代理。
 
 ## 原型覆盖
 
@@ -14,12 +14,14 @@
 
 ```sh
 pnpm install --frozen-lockfile
-pnpm -C packages/v3-ui-prototype dev
-pnpm -C packages/v3-ui-prototype build
-pnpm -C packages/v3-ui-prototype build:unstyled
+pnpm -C packages/vue3-panels dev
+pnpm -C packages/vue3-panels build
+pnpm -C packages/vue3-panels build:unstyled
 ```
 
-`dist-unstyled/` 是独立的本地对照产物，不进入扩展打包。
+`dist/unstyled/` 是独立的本地对照产物，与 styled 产物位于同一忽略目录内，不进入扩展打包或 lint 源码范围。
+
+根目录可用 `pnpm build:v3-panels` 单独构建，或使用 `pnpm preview:v3-panels` 预览 styled 版本。`pnpm check:boundaries` 同时校验 Vue 2 / Vue 3 依赖隔离以及正式扩展的 Vue 2 面板复制路径。
 
 ## 验证边界
 

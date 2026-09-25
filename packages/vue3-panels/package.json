@@ -1,14 +1,14 @@
 {
-  "name": "@proxy/v3-ui-prototype",
+  "name": "@proxy/vue3-panels",
   "version": "0.1.0",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1",
     "build": "vite build",
-    "build:unstyled": "vite build --mode unstyled --outDir dist-unstyled",
+    "build:unstyled": "vite build --mode unstyled --outDir dist/unstyled",
     "preview": "vite preview --host 127.0.0.1",
-    "preview:unstyled": "vite preview --outDir dist-unstyled --host 127.0.0.1"
+    "preview:unstyled": "vite preview --outDir dist/unstyled --host 127.0.0.1"
   },
   "dependencies": {
     "@primeuix/themes": "^1.2.3",
