@@ -6,6 +6,7 @@ import { useStorage } from './env'
 
 let storageData
 let storageChangeListenerRegistered = false
+let localStorageChangeListenerRegistered = false
 type StorageChanges = Record<string, chrome.storage.StorageChange>
 let pendingStorageChanges: StorageChanges[] = []
 const STORAGE_ERROR_EVENT = 'ajax-proxy:storage-error'
@@ -54,6 +55,33 @@ function handleStorageChanged(changes: StorageChanges, areaName: string) {
   applyStorageChanges(changes)
 }
 
+function parseLocalStorageValue(value: string) {
+  try {
+    return JSON.parse(value)
+  } catch {
+    return value
+  }
+}
+
+function loadLocalStorage() {
+  return Object.keys(localStorage).reduce<Record<string, any>>((data, key) => {
+    const value = localStorage.getItem(key)
+    if (value !== null) data[key] = parseLocalStorageValue(value)
+    return data
+  }, {})
+}
+
+function handleLocalStorageChanged(event: StorageEvent) {
+  if (event.storageArea && event.storageArea !== localStorage) return
+  if (event.key === null) {
+    storageData = {}
+  } else if (event.newValue === null) {
+    delete storageData[event.key]
+  } else if (event.key) {
+    storageData[event.key] = parseLocalStorageValue(event.newValue)
+  }
+}
+
 export function initStorage(): Promise<void> {
   const operation = new Promise<void>((resolve, reject) => {
     if (useStorage) {
@@ -73,7 +101,11 @@ export function initStorage(): Promise<void> {
         resolve()
       })
     } else {
-      storageData = {}
+      storageData = loadLocalStorage()
+      if (!localStorageChangeListenerRegistered) {
+        globalThis.addEventListener?.('storage', handleLocalStorageChanged as EventListener)
+        localStorageChangeListenerRegistered = true
+      }
       resolve()
     }
   })
@@ -82,16 +114,7 @@ export function initStorage(): Promise<void> {
 
 export function getStorage(key: string, defaultValue: any = null) {
   checkStorage()
-  if (useStorage) {
-    return getDefaultValue(storageData[key], defaultValue)
-  } else {
-    try {
-      return getDefaultValue(JSON.parse(localStorage.getItem(key) as any), defaultValue)
-    } catch (error) {
-      reportStorageError(error, 'read', key)
-      return defaultValue
-    }
-  }
+  return getDefaultValue(storageData[key], defaultValue)
 }
 
 /**不走缓存获取数据 */
@@ -116,8 +139,14 @@ export function getRealStorage(key: StorageKey, defaultValue: any = null) {
     return reportRejectedStorageOperation(operation, 'read', key)
   } else {
     try {
-      const result = getDefaultValue(JSON.parse(localStorage.getItem(key) as any), defaultValue)
-      return Promise.resolve(result)
+      const storedValue = localStorage.getItem(key)
+      if (storedValue === null) {
+        delete storageData[key]
+        return Promise.resolve(defaultValue)
+      }
+      const value = parseLocalStorageValue(storedValue)
+      storageData[key] = value
+      return Promise.resolve(getDefaultValue(value, defaultValue))
     } catch (error) {
       return reportRejectedStorageOperation(Promise.reject(error), 'read', key)
     }
@@ -142,6 +171,7 @@ export function setStorage(key: string, val: any) {
   } else {
     try {
       localStorage.setItem(key, JSON.stringify(val))
+      storageData[key] = val
       return Promise.resolve()
     } catch (error) {
       return reportRejectedStorageOperation(Promise.reject(error), 'write', key)
@@ -173,6 +203,8 @@ export function removeStorage(keys: string | string[]) {
     try {
       if (Array.isArray(keys)) keys.forEach((target) => localStorage.removeItem(target))
       else localStorage.removeItem(keys)
+      if (Array.isArray(keys)) keys.forEach((target) => delete storageData[target])
+      else delete storageData[keys]
       return Promise.resolve()
     } catch (error) {
       return reportRejectedStorageOperation(
@@ -202,6 +234,7 @@ export function clearStorage() {
   } else {
     try {
       localStorage.clear()
+      storageData = {}
       return Promise.resolve()
     } catch (error) {
       return reportRejectedStorageOperation(Promise.reject(error), 'clear')
@@ -238,15 +271,6 @@ export function getStorageAll(): Promise<{ [key: string]: any }> {
     })
     return reportRejectedStorageOperation(operation, 'read')
   } else {
-    if (JSON.stringify(localStorage) === '{}') return Promise.resolve({})
-    const data = Object.keys(localStorage).reduce(function (obj, str) {
-      try {
-        obj[str] = JSON.parse(localStorage.getItem(str) as any)
-      } catch (e) {
-        obj[str] = localStorage.getItem(str)
-      }
-      return obj
-    }, {})
-    return Promise.resolve(data)
+    return Promise.resolve({ ...storageData })
   }
 }

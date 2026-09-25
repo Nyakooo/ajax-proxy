@@ -81,11 +81,11 @@
 
 ## 已验证的存储更新一致性
 
-- 状态：已实现并回归验证（2026-09-25）。
+- 状态：扩展上下文与普通网页存储均已实现并回归验证（2026-09-25）。
 - 影响范围：`packages/shared-utils/src/storage.ts`、`packages/shell-chrome/src/content.ts`、`packages/shell-chrome/src/service-worker/index.ts`。
-- 策略：各扩展上下文监听 `chrome.storage.onChanged` 更新本地缓存；每个标签页 content script 使用同一缓存快照通知页面代理。service worker 不再通过仅保存最近一个 content port 的方式同步规则。
-- 验证：storage 测试覆盖本地存储变更、删除、忽略其他 storage area、初始化期间竞态、初始化失败和配额写入失败。双标签页扩展 smoke 在面板更新规则后确认两个页面都应用 Fetch / XHR 拦截和 Fetch 重定向。
-- 错误处理：扩展存储操作检查 `chrome.runtime.lastError`；写操作成功后才更新缓存，失败保留原缓存并派发 `ajax-proxy:storage-error`，面板显示初始化或保存错误。
+- 策略：各扩展上下文监听 `chrome.storage.onChanged` 更新本地缓存；每个标签页 content script 使用同一缓存快照通知页面代理。service worker 不再通过仅保存最近一个 content port 的方式同步规则。普通网页初始化 localStorage 缓存，并监听跨标签 `storage` 事件，两种环境共用同步缓存访问方式。
+- 验证：storage 测试覆盖扩展与普通网页存储变更、读写、删除、清空、忽略其他 storage area、初始化期间竞态、初始化失败和配额写入失败。双标签页扩展 smoke 在面板更新规则后确认两个页面都应用 Fetch / XHR 拦截和 Fetch 重定向。
+- 错误处理：扩展存储操作检查 `chrome.runtime.lastError`；写操作成功后才更新缓存，失败保留原缓存并派发 `ajax-proxy:storage-error`，面板显示初始化或保存错误。普通网页 localStorage 初始化和读写异常采用同一 Promise 拒绝与错误报告机制。
 
 ## 技术债与待决语义
 
