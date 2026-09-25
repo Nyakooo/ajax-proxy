@@ -299,10 +299,10 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - [x] V3 最低支持哪些浏览器及版本？Chrome 稳定版 141+ 与 Edge 稳定版 140+（2026-09-24 初始策略；按季度复核）。
 - [x] 浏览器版本策略：以最近 12 个月发布的稳定正式版作为兼容窗口，每季度复核并提前公告停止支持的版本。
 - [x] 不要求 Beta / Dev 等预览版兼容；优先使用经过稳定发布的扩展 API、JavaScript 和 CSS 能力，非核心的新能力提供降级行为。
-- [ ] 编译目标与 CI 浏览器矩阵覆盖最低支持版本和当前稳定版；低于最低版本的浏览器不作为发布阻塞项。
+- [x] 编译目标与 CI 浏览器矩阵覆盖最低支持版本和当前稳定版；低于最低版本的浏览器不作为发布阻塞项。CI 覆盖 Chrome 141 / Edge 140 最低版及两者当前 Stable。
 - [x] 是否要求兼容 V2 规则和备份？不要求；V3 使用新的配置格式，不提供自动迁移。
-- [ ] 组合规则与多规则场景采用首条命中、按优先级叠加，还是显式链式执行？
-- [ ] 重定向目标计算失败、网络响应失败或响应解析失败时，组合规则如何回退？
+- [x] 组合规则与多规则场景采用首条命中、按优先级叠加，还是显式链式执行？采用列表中首条启用且 URL / method 命中的规则负责整次请求，不叠加或链式应用后续规则。
+- [x] 重定向目标计算失败、网络响应失败或响应解析失败时，组合规则如何回退？请求构造 / 目标解析在派发前失败时 fail-open 使用原请求；重定向请求已派发后网络错误沿用原生失败且不重试；响应替换 / 解析失败回退到原响应。
 - [x] V3 遇到 V2 格式备份时明确提示格式不兼容；不提供自动迁移或转换工具。
 - [x] 编辑器选型原则：轻量是约束之一，JSON 的直观结构化调整是明确需求；CodeMirror 6 可作为函数编辑和 JSON 文本模式的候选，但不得默认替代树形交互。允许按需组合代码编辑器和专用 JSON 树编辑器，以原型的真实交互和生产体积数据决定。
 - [ ] 自定义函数是否保留；若保留，如何呈现执行风险和超时策略？
@@ -436,4 +436,5 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - 2026-09-25：将 V3 hit 与活动规则的匹配复核、未知 / 非安全 counter 清理、计数汇总及 `MAX_SAFE_INTEGER` 安全递增放入 `@proxy/v3-domain/hitCounters.ts`；Chrome adapter 继续独占队列和平台副作用。全量 103/103 测试、typecheck、boundary、lint、format、build、V3 browser smoke、extension smoke 和声明一致性检查通过。完成 83 / 188 项（44.1%）。
 - 2026-09-25：`runtimeController.update()` 现在保留 `validateV3Backup()` 结构化 issues；proxy-lib `updateV3()` 对外返回辨识结果并输出路径化校验细节。无效配置继续保留活动 backup，合法 disabled 配置及 null 清除语义不变。全量 103/103 测试、typecheck、boundary、lint、format、proxy-lib build、V3 browser smoke、extension smoke、完整 build 和声明一致性检查通过。完成 84 / 189 项（44.4%）。
 - 2026-09-25：将 Fetch response body/header/status 处理与 metadata proxy 拆到 `responseAction.ts`，Fetch wrapper 仅在首条命中规则的网络阶段后调用该 helper；既有 Fetch 回退和 no-body 语义不变，未强制抽象不同的 XHR response 行为。全量 103/103 Vitest、typecheck、boundary、lint、format、proxy-lib build、Chromium V3 Fetch/XHR smoke 和声明一致性检查通过。完成 85 / 190 项（44.7%）。
+- 2026-09-25：按用户补充确认更新决策记录：首条完整命中规则负责整次请求；派发前重定向准备失败使用原请求，派发后网络错误不重试，响应替换失败保留原响应；CI 以 Chrome / Edge 当前稳定版和最低受支持版验收。对应选择和实现均已纳入阶段记录。完成 88 / 190 项（46.3%）。
 - GitHub 里程碑：[阶段 0](https://github.com/Nyakooo/ajax-proxy/milestone/1)、[阶段 1](https://github.com/Nyakooo/ajax-proxy/milestone/2)、[阶段 2](https://github.com/Nyakooo/ajax-proxy/milestone/3)、[阶段 3](https://github.com/Nyakooo/ajax-proxy/milestone/4)、[阶段 4](https://github.com/Nyakooo/ajax-proxy/milestone/5)、[阶段 5](https://github.com/Nyakooo/ajax-proxy/milestone/6)、[阶段 6](https://github.com/Nyakooo/ajax-proxy/milestone/7)、[阶段 7](https://github.com/Nyakooo/ajax-proxy/milestone/8)；已复现缺陷：[issue #56](https://github.com/Nyakooo/ajax-proxy/issues/56)。
