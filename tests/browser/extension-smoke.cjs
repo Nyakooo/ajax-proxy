@@ -1,5 +1,7 @@
 const assert = require('node:assert/strict')
+const fs = require('node:fs')
 const http = require('node:http')
+const os = require('node:os')
 const path = require('node:path')
 const { chromium } = require('playwright')
 
@@ -10,6 +12,7 @@ async function main() {
     if (request.url === '/') {
       response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' })
       response.end(`<!doctype html>
+        <iframe id="child-frame" src="/frame"></iframe>
         <button id="fetch">Fetch</button>
         <button id="xhr">XHR</button>
         <button id="redirect-fetch">Redirect Fetch</button>
@@ -57,6 +60,20 @@ async function main() {
       return
     }
 
+    if (request.url === '/frame') {
+      response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' })
+      response.end(`<!doctype html>
+        <button id="frame-fetch">Fetch from frame</button>
+        <pre id="frame-result">ready</pre>
+        <script>
+          document.querySelector('#frame-fetch').onclick = async () => {
+            const response = await fetch('/api/echo')
+            document.querySelector('#frame-result').textContent = await response.text()
+          }
+        </script>`)
+      return
+    }
+
     const chunks = []
     request.on('data', (chunk) => chunks.push(chunk))
     request.on('end', () => {
@@ -90,15 +107,17 @@ async function main() {
 
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve))
   const { port } = server.address()
+  const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ajax-proxy-extension-smoke-'))
+  const contextOptions = {
+    channel: process.env.BROWSER_EXECUTABLE_PATH ? undefined : 'chromium',
+    executablePath: process.env.BROWSER_EXECUTABLE_PATH,
+    headless: true,
+    args: [`--disable-extensions-except=${extensionPath}`, `--load-extension=${extensionPath}`],
+  }
   let context
 
   try {
-    context = await chromium.launchPersistentContext('', {
-      channel: process.env.BROWSER_EXECUTABLE_PATH ? undefined : 'chromium',
-      executablePath: process.env.BROWSER_EXECUTABLE_PATH,
-      headless: true,
-      args: [`--disable-extensions-except=${extensionPath}`, `--load-extension=${extensionPath}`],
-    })
+    context = await chromium.launchPersistentContext(userDataDir, contextOptions)
 
     const serviceWorker =
       context.serviceWorkers()[0] || (await context.waitForEvent('serviceworker'))
@@ -202,6 +221,11 @@ async function main() {
 
     const result = page.locator('#result')
 
+    const childFrame = page.frameLocator('#child-frame')
+    await childFrame.locator('#frame-fetch').click()
+    await childFrame.locator('#frame-result').waitFor()
+    await childFrame.locator('#frame-result').getByText('intercepted').waitFor()
+
     await page.locator('#fetch').click()
     await result.waitFor({ state: 'visible' })
     await page.waitForFunction(() =>
@@ -298,9 +322,29 @@ async function main() {
       `http://127.0.0.1:${port}/mock/echo`
     )
 
-    console.log('Unpacked extension Fetch, XHR, and Request redirect smoke passed')
+    await context.close()
+    context = await chromium.launchPersistentContext(userDataDir, contextOptions)
+    const restartedWorker =
+      context.serviceWorkers()[0] || (await context.waitForEvent('serviceworker'))
+    assert.equal(new URL(restartedWorker.url()).host, extensionId)
+    await restartedWorker.evaluate(() => chrome.storage.local.get(null))
+    const restartedPage = await context.newPage()
+    await restartedPage.goto(`http://127.0.0.1:${port}/`)
+    await restartedPage.locator('#redirect-fetch').click()
+    await restartedPage.waitForFunction(() =>
+      document.querySelector('#result').textContent.startsWith('{"kind":"redirect-fetch"')
+    )
+    assert.equal(
+      JSON.parse(await restartedPage.locator('#result').textContent()).url,
+      `http://127.0.0.1:${port}/mock/echo`
+    )
+
+    console.log(
+      'Unpacked extension Fetch, XHR, iframe, redirect, and service worker restart smoke passed'
+    )
   } finally {
     await context?.close()
+    fs.rmSync(userDataDir, { recursive: true, force: true })
     await new Promise((resolve, reject) => {
       server.close((error) => (error ? reject(error) : resolve()))
     })
