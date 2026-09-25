@@ -14,7 +14,7 @@
 
 按“最近 12 个月发布的稳定版”计算，初始最低支持主版本锁定为 Chrome 141（2025-09-30 首次稳定发布）和 Edge 140（2025-09-25 稳定发布）。当前 API 盘点没有发现高于此窗口的核心版本要求。CI 固定版本矩阵使用 Chrome for Testing 141.0.7390.122 和 Microsoft Edge 140.0.3485.94。2026-09-25 在 macOS arm64 安装 Chrome for Testing 141.0.7390.122 后，当前构建的网页运行时 smoke 和扩展 Fetch / XHR / iframe / redirect / service worker 重启 smoke 均通过；Edge 140 的 CI 步骤已配置但尚无远端运行结果。本机 Edge 最低版本下载脚本只支持 Linux x64，因此品牌 Edge 140 验证需要 CI。当前稳定版会持续变化，CI 另安装 Chrome Stable 与 Edge Stable 并运行基础网页运行时 smoke test。
 
-版本依据：[Chrome 141 稳定版公告](https://chromereleases.googleblog.com/2025/09/stable-channel-update-for-desktop_30.html)、[Edge 140 稳定版公告](https://learn.microsoft.com/en-us/deployedge/microsoft-edge-relnote-archive-stable-channel)。2026-09-25 本机验证版本为 Chrome Stable 154.0.8037.58 与 Edge Stable 153.0.4234.48；Microsoft 的 Edge 153 稳定版公告显示主版本于 2026-09-10 发布，153.0.4234.48 于 2026-09-18 更新。支持矩阵的 `current` 项应跟随最新稳定版而不是写死某个版本号。
+版本依据：[Chrome 141 稳定版公告](https://chromereleases.googleblog.com/2025/09/stable-channel-update-for-desktop_30.html)、[Edge 140 稳定版公告](https://learn.microsoft.com/en-us/deployedge/microsoft-edge-relnote-archive-stable-channel)。2026-09-25 本机验证版本为 Chrome Stable 154.0.8037.58 与 Edge Stable 153.0.4234.48；Microsoft 的 Edge 153 稳定版公告显示主版本于 2026-09-10 发布，153.0.4234.48 于 2026-09-18 更新。Stable 扩展回归中，Edge 153 的自动化 smoke 通过；Chrome 154 通过 `chrome://extensions` 手动加载本地构建，并验证 `/api/(echo|items)$` 正则可拦截 Fetch / XHR，`/api/nope` 未命中并回源。Playwright 当前要求扩展自动化使用其附带的 Chromium，因为 Chrome / Edge Stable 已移除侧载所需的命令行参数；本项目 `extension:smoke` 使用附带 Chromium。支持矩阵的 `current` 项应跟随最新稳定版而不是写死某个版本号。
 
 逐项记录 API 依据和实际验证：
 
