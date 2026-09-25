@@ -102,13 +102,15 @@ V3 备份使用独立标识，不通过字段猜测把旧文件转换成新格�
 - **XHR 响应替换**：XHR 的 `response`、`responseText`、`status` 等原生状态并非可任意写入。需用原型验证能否在不破坏事件顺序、`responseType` 和同步请求语义的条件下实现替换；若不能，应缩小 XHR 支持范围并在 UI 明示，不能宣称与 Fetch 完全一致。
 - **共同场景**：验证多条规则命中、规则禁用、重定向失败、函数异常 / 超时、请求循环风险、其他包装器共存、iframe、多标签和 service worker 状态更新。
 
-当前纯 XHR 原型将实现范围明确为：异步请求按原 URL / method 选择首条规则，支持同步完成的静态 HTTP(S) 重定向，以及空 / `text` / `json` responseType 的静态 body / status 替换；同步 XHR、函数 code、其他 responseType 和带 response headers 覆盖的 action 均 fail-open。它不改写响应头、不合成事件，也没有接入扩展 runtime。当前 Vitest 使用 FakeXHR 验证代理语义；浏览器原生 responseType 与事件顺序仍需真实浏览器验证，不能据此宣称 Fetch / XHR 等价。
+当前扩展 XHR runtime 对异步请求按原 URL / method 选择首条规则，支持静态 HTTP(S) 重定向，以及空 / `text` / `json` responseType 下的静态 body / status 替换；同步 XHR、函数 `code`、其他 responseType 和带 response headers 覆盖的 action 均 fail-open。它不重写响应头，也不合成原生网络事件；代理给事件监听器包装代理 `this`、`target` 和 `currentTarget`。FakeXHR 单测与 Chrome / Edge Stable、最低 Chrome 141 / Edge 140 扩展 smoke 已覆盖组合 Fetch / XHR 路径，但两者的原生能力仍不完全等价，UI 需要标明受限 action。
 
 ## 扩展运行时接入边界
 
 页面请求 API 只能在 MAIN world 包装，因此扩展 content script 通过同源 `window.postMessage` 把 V3 配置交给 MAIN-world runtime。该消息通道不是身份认证机制：页面脚本能观察消息，也能伪造格式正确的配置消息；MAIN-world 的 schema 校验只限制结构，不证明消息来自扩展。运行时因此只消费格式化、受限长度且经 schema 校验的规则，但 V3 配置不得视为页面不可见或防篡改的机密。跨 origin 重定向会剥离 `Authorization`、`Proxy-Authorization`、`Cookie` 和 `Cookie2`；这不能替代安全隔离。若页面已在扩展代理外包装 Fetch / XHR，扩展遵循现有“不覆盖页面包装器”策略，不能保证 V3 立即接管；已捕获的 V2 代理会在 V3 状态生效时停止应用旧规则。
 
-V3 runtime 暂不发送 V2 badge 命中消息，避免将 V3 的 rule index 错记到 V2 列表。独立的 V3 命中统计 / 诊断通道仍待实施。
+V3 runtime 使用独立 `V3_HIT` 消息和 `V3_HITS` 存储，不发送 V2 badge 命中消息，也不把计数写进 V2 规则或 V3 backup。Fetch / XHR 选择第一条完整命中规则后上报其 ID、匹配条件与原始 URL / method；service worker 重新校验活动 backup、启用状态和规则字段，再串行递增对应计数。扩展徽章在有效 V3 配置启用时显示 V3 总命中数；清除配置后再恢复 V2 badge 逻辑。当前还没有面板内逐条规则诊断、action 执行结果或未命中原因视图，不能将徽章计数解释为完整诊断记录。
+
+页面主世界事件依然可以由网页脚本伪造，因此 V3 计数是便于排查的提示，不可信任为审计日志或安全依据。计数写入失败不会影响请求，并且后续命中会继续尝试更新。
 
 ## 待确认项
 

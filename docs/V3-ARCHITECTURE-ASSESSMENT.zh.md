@@ -155,18 +155,22 @@ sequenceDiagram
   participant Content as content script（isolated world）
   participant Worker as service worker
   participant Badge as chrome.action badge
+  participant V2Store as V2 INTERCEPT_LIST
+  participant V3Store as V3_HITS
 
   Page->>Lib: fetch() / XMLHttpRequest
   Lib->>Network: 原请求、改写请求或拦截响应
   Network-->>Lib: 原始响应
   Lib-->>Page: 原始响应或规则响应
   Lib->>Content: window CustomEvent（命中数据）
-  Content->>Content: 校验不可信页面事件的规则序号与字段
+  Content->>Content: 按 V2 / V3 专用结构校验不可信页面事件
   Content->>Worker: chrome.runtime.sendMessage
   Worker->>Worker: 校验扩展 sender、tab 和消息结构
-  Worker->>Badge: 只累计最终命中规则
+  Worker->>V2Store: V2 事件只累计 V2 rule index
+  Worker->>V3Store: V3 事件复核活动 backup 与 rule id / URL / method 后串行计数
+  Worker->>Badge: 活动 V3 时显示 V3_HITS 总数，否则显示 V2 总数
 ```
 
-命中事件从页面主世界发出，页面自身可以伪造同页事件；content script 和 service worker 均校验结构，service worker 另核对扩展 ID 与 tab sender。系统把该通道限于本页代理状态和命中展示。
+命中事件从页面主世界发出，页面自身可以伪造同页事件；content script 和 service worker 均校验结构，service worker 另核对扩展 ID 与 tab sender。V2 事件按规则序号写回 V2 `INTERCEPT_LIST`；V3 事件经活动 backup 与规则字段二次核验，计数独立存于 `V3_HITS`，不写入 V3 backup 或 V2 规则。统计只供徽章和排查提示，不能视为可信日志或安全证据。
 
-更新（2026-09-25）：阶段 2 补充当前架构图和两条运行链路。依赖图按 9 个 workspace manifest 核对，并由 `pnpm check:boundaries` 确认无环；配置同步、页面代理、命中事件和 service worker sender 校验依据 `content.ts`、`document.ts`、`proxy-lib/src/index.ts` 与 `service-worker/index.ts` 核对。图表示当前实现；`@proxy/v3-domain` 尚未接入请求运行时。
+更新（2026-09-25）：阶段 2 补充当前架构图和运行链路。依赖图按 9 个 workspace manifest 核对，并由 `pnpm check:boundaries` 确认无环；配置同步、页面代理、V2 / V3 独立命中事件和 service worker sender 校验依据 `content.ts`、`document.ts`、`proxy-lib/src/index.ts` 与 `service-worker` 代码核对。`@proxy/v3-domain` 已接入 backup 校验、规则选择和扩展 runtime；面板 UI 仍待迁移。
