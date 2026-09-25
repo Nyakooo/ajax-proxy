@@ -44,6 +44,11 @@ class CustomXHR extends XMLHttpRequest {
             username?: string | null,
             password?: string | null,
         ) => {
+            this.body = undefined
+            this.message_once_lock = false
+            for (const attr of ['responseText', 'response', 'status', 'statusText']) {
+                Reflect.deleteProperty(this, `_${attr}`)
+            }
             // 获取当前请求协议
             this.method = (method || 'ANY').toUpperCase()
             open.apply(this, [method, url, async !== undefined ? async : true, username, password])
