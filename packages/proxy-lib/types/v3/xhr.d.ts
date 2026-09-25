@@ -1,11 +1,5 @@
-import type { V3Rule } from '@proxy/v3-domain';
-export interface V3XHROptions {
-    getRules: () => readonly V3Rule[];
-    onMatched?: (rule: V3Rule, index: number, request: {
-        url: string;
-        method: string;
-    }) => void;
-}
+import type { V3RuntimeHostOptions } from './runtimeOptions';
+export type V3XHROptions = V3RuntimeHostOptions;
 export type V3XHRConstructor = new () => XMLHttpRequest;
 /**
  * Create an isolated XMLHttpRequest prototype for V3 rules.

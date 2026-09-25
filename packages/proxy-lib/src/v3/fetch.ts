@@ -1,12 +1,9 @@
 import { selectV3Rule } from '@proxy/v3-domain'
 import type { V3Rule } from '@proxy/v3-domain'
+import type { V3RuntimeHostOptions } from './runtimeOptions'
 
 export type V3Fetch = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>
-
-export interface V3FetchOptions {
-  getRules: () => readonly V3Rule[]
-  onMatched?: (rule: V3Rule, index: number, request: { url: string; method: string }) => void
-}
+export type V3FetchOptions = V3RuntimeHostOptions
 
 function responseMetadataProxy(response: Response, original: Response): Response {
   return new Proxy(response, {

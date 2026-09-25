@@ -225,3 +225,6 @@ export type {
   RedirectType,
   RefGlobalState,
 }
+export type { V3RuntimeHostOptions } from './v3/runtimeOptions'
+export type { V3Fetch, V3FetchOptions } from './v3/fetch'
+export type { V3XHRConstructor, V3XHROptions } from './v3/xhr'

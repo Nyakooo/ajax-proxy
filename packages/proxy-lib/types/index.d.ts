@@ -21,3 +21,6 @@ declare const _default: {
 export default _default;
 export { isRecord, isValidGlobalState, isValidInterceptors, isValidMode, isValidRedirectors, } from './validateState';
 export type { IFilterType, IGlobalState, IRequestMethod, IMode, IMatchInterceptorContent, IMatchRedirectContent, IRedirectHeader, OverrideType, RedirectType, RefGlobalState, };
+export type { V3RuntimeHostOptions } from './v3/runtimeOptions';
+export type { V3Fetch, V3FetchOptions } from './v3/fetch';
+export type { V3XHRConstructor, V3XHROptions } from './v3/xhr';
