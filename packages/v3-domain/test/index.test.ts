@@ -139,6 +139,15 @@ describe('V3 backup schema', () => {
     }
   })
 
+  it('rejects native JavaScript regex features outside the safe RE2 syntax', () => {
+    const backup = structuredClone(validBackup)
+    ;(backup.rules[0] as unknown as Record<string, unknown>).match = {
+      url: '(?=admin)',
+      type: 'regex',
+    }
+    expect(validateV3Backup(backup)).toMatchObject({ ok: false })
+  })
+
   it('bounds backup size, rule count, function source, and JSON body complexity', () => {
     const oversizedText = ' '.repeat(5 * 1024 * 1024 + 1)
     expect(parseV3BackupJson(oversizedText)).toMatchObject({

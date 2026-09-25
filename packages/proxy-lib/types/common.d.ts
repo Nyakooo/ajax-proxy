@@ -1,4 +1,4 @@
-import { IMatchInterceptorContent, IMatchRedirectContent } from "./types";
+import { IMatchInterceptorContent, IMatchRedirectContent } from './types';
 export declare function maybeMatching(url: string, match: string, type?: IMatchInterceptorContent['filter_type']): boolean;
 /**
  * 规则过滤

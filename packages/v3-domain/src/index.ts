@@ -1,8 +1,11 @@
+import { isValidRegexPattern } from '@proxy/protocol'
+
 export const V3_BACKUP_FORMAT = 'ajax-proxy-backup' as const
 export const V3_BACKUP_VERSION = 3 as const
 export const V3_BACKUP_MAX_BYTES = 5 * 1024 * 1024
 
-const MAX_RULES = 5000
+const MAX_RULES = 1000
+const MAX_REGEX_RULES = 100
 const MAX_TAGS = 500
 const MAX_ID_LENGTH = 256
 const MAX_LABEL_LENGTH = 512
@@ -206,11 +209,13 @@ function validateRule(value: unknown, index: number, issues: V3ValidationIssue[]
     ) {
       addIssue(issues, `${path}.match.type`, 'Expected "normal" or "regex".')
     }
-    if (value.match.type === 'regex' && typeof value.match.url === 'string') {
-      try {
-        new RegExp(value.match.url, 'i')
-      } catch {
-        addIssue(issues, `${path}.match.url`, 'Expected a valid regular expression.')
+    if (
+      value.match.type === 'regex' &&
+      typeof value.match.url === 'string' &&
+      value.match.url.length <= MAX_MATCH_URL_LENGTH
+    ) {
+      if (!isValidRegexPattern(value.match.url)) {
+        addIssue(issues, `${path}.match.url`, 'Expected a valid RE2 regular expression.')
       }
     }
   }
@@ -369,6 +374,12 @@ export function validateV3Backup(value: unknown): V3BackupValidation {
   } else {
     if (value.rules.length > MAX_RULES)
       addIssue(issues, 'rules', `At most ${MAX_RULES} rules are allowed.`)
+    const regexRuleCount = value.rules.filter(
+      (rule) => isObject(rule) && isObject(rule.match) && rule.match.type === 'regex'
+    ).length
+    if (regexRuleCount > MAX_REGEX_RULES) {
+      addIssue(issues, 'rules', `At most ${MAX_REGEX_RULES} regular expression rules are allowed.`)
+    }
     const ids = new Set<string>()
     value.rules.forEach((rule, index) => {
       validateRule(rule, index, issues)

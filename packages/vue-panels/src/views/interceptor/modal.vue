@@ -134,6 +134,7 @@
 <script>
 import { uniqueId } from '@/shared/identity'
 import { useTags } from '@/infrastructure/storage'
+import { isValidInterceptors } from '@proxy/shared-utils'
 import JsonEditor from './jsonEdit'
 import { VueCodeEditor } from '@proxy/code-editor'
 
@@ -200,6 +201,10 @@ export default {
     },
     // 表单提交
     handleSubmit() {
+      if (!isValidInterceptors([{ ...this.form, switch_on: true }])) {
+        this.$message.error(this.$t('msg.formatErr'))
+        return
+      }
       this.$refs.form.validate((valid) => {
         if (valid) this.createData()
       })

@@ -8,5 +8,8 @@
   "scripts": {
     "build": "rm -rf lib types && tsc"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "@proxy/protocol": "workspace:^"
+  }
 }

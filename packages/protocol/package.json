@@ -9,5 +9,8 @@
     "watch": "tsc --watch",
     "build": "rm -rf lib types && tsc"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "re2js": "2.8.6"
+  }
 }

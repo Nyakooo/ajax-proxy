@@ -25,6 +25,7 @@
     "vite": "^2.9.13"
   },
   "dependencies": {
-    "@proxy/protocol": "workspace:^1.0.0"
+    "@proxy/protocol": "workspace:^1.0.0",
+    "re2js": "2.8.6"
   }
 }

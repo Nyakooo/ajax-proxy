@@ -16,6 +16,15 @@ describe('maybeMatching', () => {
   it('returns false for an invalid regular expression', () => {
     expect(maybeMatching('https://example.com/api', '[', 'regex')).toBe(false)
   })
+
+  it('uses bounded linear-time matching for nested quantifiers', () => {
+    expect(maybeMatching(`${'a'.repeat(20000)}!`, '([a-z]+)+$', 'regex')).toBe(false)
+  })
+
+  it('skips overlong patterns and request URLs', () => {
+    expect(maybeMatching('https://example.com/api', 'a'.repeat(4097), 'regex')).toBe(false)
+    expect(maybeMatching('x'.repeat(65537), 'x', 'normal')).toBe(false)
+  })
 })
 
 describe('matchIgnoresAndRule', () => {
@@ -48,5 +57,11 @@ describe('finalRedirectUrl', () => {
         'regex'
       )
     ).toBe('http://localhost:3000/mock/users')
+  })
+
+  it('replaces only when an RE2 expression matches', () => {
+    expect(finalRedirectUrl('https://example.com/api', '(?=api)', '/mock', 'regex')).toBe(
+      'https://example.com/api'
+    )
   })
 })
