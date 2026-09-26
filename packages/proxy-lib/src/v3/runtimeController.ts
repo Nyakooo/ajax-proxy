@@ -1,4 +1,4 @@
-import { analyzeV3RuleMatches, validateV3Backup } from '@proxy/v3-domain'
+import { analyzeV3RuleMatches, isV3OriginDisabled, validateV3Backup } from '@proxy/v3-domain'
 import type { V3Backup, V3Rule, V3ValidationIssue } from '@proxy/v3-domain'
 import { NoticeTo } from '@proxy/protocol'
 import type { V3Hit } from '@proxy/protocol'
@@ -140,11 +140,21 @@ export function createV3RuntimeController(
   let diagnosticsArmed = false
   let fetchOutcomeDiagnosticsArmed = false
   const options = {
-    getRules: () => (backup?.settings.globalEnabled ? backup.rules : []),
+    getRules: () =>
+      backup?.settings.globalEnabled &&
+      !isV3OriginDisabled(host.location?.origin ?? '', backup.disabledOrigins)
+        ? backup.rules
+        : [],
     onMatched: (rule: V3Rule, _index: number, request: { url: string; method: string }) =>
       notifyV3Match(host, rule, request),
     onNoMatch: (request: { url: string; method: string }) => {
-      if (diagnosticsArmed && backup) notifyV3NoMatch(host, backup, request)
+      if (
+        diagnosticsArmed &&
+        backup &&
+        !isV3OriginDisabled(host.location?.origin ?? '', backup.disabledOrigins)
+      ) {
+        notifyV3NoMatch(host, backup, request)
+      }
     },
     isFetchOutcomeDiagnosticsArmed: () => fetchOutcomeDiagnosticsArmed,
     onFetchOutcome: (

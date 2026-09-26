@@ -26,6 +26,7 @@ interface Rule {
 
 - `match` 只匹配原始请求。本阶段定义 URL 与 method：`normal` 是原始 URL 的区分大小写子串匹配；`regex` 使用不区分大小写的 RE2；`exact` 将完整原始 URL 字符串区分大小写比较，不额外规范化、拆分或忽略 query 参数。method 按大写后的 HTTP token 精确匹配，未填写或填写 `ANY` 表示任意 method。headers 等条件不属于当前 schema。
 - 缺省 `type` 仍表示 `normal`。格式版本 3 仅允许 `normal` / `regex`；版本 4 新增 `exact`，旧版本 3 备份仍可导入且保留原有匹配语义。请求 header 条件和忽略列表不属于本次 matcher 切片。
+- 版本 5 增加完整备份字段 `disabledOrigins`，用规范化 HTTP(S) origin（协议、主机名、端口）精确关闭当前站点的 V3 规则；路径不参与站点识别。未列出的站点默认启用。关闭站点不会修改规则自身启用状态或顺序；全局开关关闭时仍以全局设置为准。导入版本 3 / 4 时站点列表默认为空，并规范化为版本 5。
 - `request` 和 `response` 是独立能力；至少开启一项的规则才参与匹配。
 - 列表顺序就是规则优先级，界面允许调整顺序。第一条满足规则级 `enabled`、至少一个 action 的 `enabled`，且 URL / method 全部匹配的规则负责请求。两种 action 均关闭的规则仍可保存（例如函数代码导入时自动停用 response action），但运行时将其视为不参与匹配。选中后锁定稳定的规则 ID；action 失败也不会把请求交给后续规则。
 - schema 需要格式版本、严格校验和可读错误；不读取或转换 V2 字段。
@@ -51,7 +52,8 @@ V3 备份使用独立标识，不通过字段猜测把旧文件转换成新格�
 ```json
 {
   "format": "ajax-proxy-backup",
-  "formatVersion": 4,
+  "formatVersion": 5,
+  "disabledOrigins": [],
   "settings": {
     "globalEnabled": true,
     "mode": "interceptor",
@@ -62,7 +64,7 @@ V3 备份使用独立标识，不通过字段猜测把旧文件转换成新格�
 }
 ```
 
-- 顶层必须且只能包含 `format`、`formatVersion`、`settings`、`tags`、`rules`。格式标识固定为 `ajax-proxy-backup`；当前导出版本为整数 `4`，同时接受只含 `normal` / `regex` 的版本 `3` 备份。其它未知格式 / 版本拒绝，检测到 V2 字段时返回明确的不兼容提示。
+- 顶层必须且只能包含 `format`、`formatVersion`、`settings`、`tags`、`rules`、`disabledOrigins`。格式标识固定为 `ajax-proxy-backup`；当前导出版本为整数 `5`，同时读取版本 `3` / `4` 备份并规范化为版本 `5`。`disabledOrigins` 最多 1000 项，每项必须是唯一、无路径和凭据的规范 HTTP(S) origin。其它未知格式 / 版本拒绝，检测到 V2 字段时返回明确的不兼容提示。
 - `settings` 必须包含布尔值 `globalEnabled`、`interceptor` / `redirector` 模式和 `zh-CN` / `en` 语言。未知字段拒绝，避免输入拼错后被静默忽略。
 - `tags` 必须是数组；每个 tag 包含唯一非空字符串 `id`、非空 `name` 和布尔 `used`，不允许未知字段。空数组合法。
 - `rules` 必须是数组；每条规则包含唯一非空 `id`、布尔 `enabled`、非空 URL `match`，可选 `tagIds`、`request` 重定向 action 和 `response` 替换 action。`tagIds` 缺省表示无标签；提供时必须是唯一标签 ID 数组，且每个 ID 都必须指向顶层 `tags`。未知规则和 matcher 字段拒绝。

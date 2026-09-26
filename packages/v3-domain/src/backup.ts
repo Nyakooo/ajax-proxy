@@ -482,6 +482,7 @@ export function validateV3Backup(value: unknown): V3BackupValidation {
         ok: true,
         data: {
           ...value,
+          formatVersion: V3_BACKUP_VERSION,
           disabledOrigins: value.formatVersion === V3_BACKUP_VERSION ? value.disabledOrigins : [],
         } as unknown as V3Backup,
       }

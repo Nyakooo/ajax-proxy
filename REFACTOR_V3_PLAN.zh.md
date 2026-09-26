@@ -231,7 +231,9 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - [x] 评估更灵活的请求匹配条件及响应配置：先实施完整 URL 精确匹配；暂不扩展请求 header 条件或 V2 忽略列表。静态响应 header 编辑单独评估 Fetch / XHR 能力差异后再定范围。
 - [x] 为 URL matcher 增加精确相等模式，保留现有 normal 子串与 regex 行为，并让列表、规则编辑器、离线试算和 Fetch / XHR 共用同一语义。
 - [x] 评估静态响应 header 编辑能力及其 Fetch / XHR 差异；由于 XHR 无法忠实替换响应头，本期暂缓增加配置入口，待接受明确的能力降级方案后再决定是否实施。
-- [ ] 规则分组、站点级开关和配置预设。
+- [x] 规则分组沿用现有多标签关联，标签可组合筛选；暂不增加嵌套分组或组级启停 / 优先级语义。
+- [x] 提供活动页面的精确 origin 站点开关：按协议、主机名和端口独立启停当前 frame 的 V3 规则，默认启用；不改规则自身启用状态或顺序，全局关闭优先。完整备份升至 v5，旧 v3 / v4 导入时升级并补空站点列表。
+- [x] 评估配置预设范围：内置规则模板已覆盖常见场景；用户命名的多套完整配置 profile 会引入活动配置切换、命中统计归属和 profile 间导入 / 覆盖语义，本阶段先不做，待明确需求后单独设计。
 - [x] 面向常见场景的规则模板及示例：提供静态 JSON 响应与 HTTP 重定向两个离线模板；模板仅使用 `.invalid` 占位域名、默认停用、追加到列表末尾、每次创建重建 ID，不带函数代码。添加前可预览，取消不修改配置；保存失败时在模板弹窗内显示错误。
 - [ ] 按用户反馈和维护成本评估其余功能请求，并明确不纳入 V3 的项目。
 
@@ -504,4 +506,5 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - 2026-09-26：完成 opt-in Fetch 请求 / 响应 action outcome 诊断。固定分类区分重定向应用、构造失败后回退、网络失败、响应替换成功 / 回退 / 不支持；同一请求两阶段共用随机运行时片段 + 序号关联 ID，不改变 Fetch 回退及命中计数。只有开启临时捕获后才生成 / 转发诊断，Service Worker 校验活动 V3 配置、规则、动作与结果类型；面板只保留最近 10 条内存记录，关闭后清除开关，不持久化请求 / 响应内容。扩展 smoke 在 Chromium 与 Edge Stable 通过；全量 198 项 Vitest、typecheck、包边界 / isolation、格式和改动文件 ESLint 通过。完成 130 / 213 项（61.0%）。
 - 2026-09-26：完成 opt-in 异步 XHR action outcome 诊断，并复用临时 action outcome 开关与面板。独立 `v3-xhr-outcome` 协议区分 redirect 应用 / open fallback / 不支持、send 同步失败，以及 response replacement 成功 / 失败 / 不支持；redirect 等 `send()` 成功返回后才报告，响应成功等完成响应的替换属性实际读取后才报告；同步 XHR、未配置动作及未 opt-in 时不产生事件。诊断仅含 rule ID、关联 ID、阶段和固定分类；SW 校验配置与动作，面板内存最多保留 10 条。异步网络 error / timeout / abort 暂不单独报告。全量 208 项 Vitest、typecheck、协议 / 面板 / 扩展构建、包边界 / isolation、格式、改动文件 ESLint 和生成声明检查通过；Chromium 与 Edge Stable 扩展 smoke 均通过，确认双阶段关联、隐私过滤、关闭 gate 与命中计数。Chrome Stable 在 Playwright 隔离启动配置下未能启动扩展 Service Worker（30 秒超时）；品牌 Chrome 自动化限制仍待用交互式浏览器方式补验。完成 131 / 213 项（61.5%）。
 - 2026-09-26：完成规则模板切片：新增静态 JSON 响应、HTTP 重定向两个内置离线模板，仅使用 `.invalid` 占位 URL；模板默认停用、重建规则 ID、追加到末尾、不含函数代码，弹窗展示用途 / 动作预览，取消不改活动配置，保存失败可在弹窗内查看原因。全量 212 项 Vitest、类型检查、包边界 / Vue 3 面板隔离、生成声明、格式与改动文件 ESLint 通过；Vue 3 / Chrome 扩展生产构建和 staging 打包通过；Chromium 与 Edge Stable 扩展 smoke 通过，验证取消、重复创建 ID 唯一、停用状态和静态规则内容。Chrome Stable 的 Playwright Service Worker 启动限制仍待交互式方式补验。完成 132 / 213 项（62.0%）。
+- 2026-09-26：完成规则分组与站点级开关范围：规则继续使用既有多标签关联分组，不增加嵌套目录或改变首条命中优先级；新增按当前 frame 的精确 HTTP(S) origin（协议、主机名、端口）开关。站点关闭时 Fetch / XHR 走原生路径，不改变规则启停或顺序，也不产生误导性的未命中诊断；全局开关优先。备份升为 v5，规范化读入 v3 / v4 并迁移为空 `disabledOrigins`；v5 严格验证规范 origin。完成 219 项 Vitest、全量 build、typecheck、边界 / isolation、生成声明、格式和受影响文件零告警 ESLint；Chromium 与 Edge Stable 扩展 smoke 通过，覆盖 Fetch / XHR 原生回退、配置持久化和 service worker 重启。Chrome Stable 真实 `panels-v3/` 页面完成停用、回读和重新启用验证；手动复验发现并修复 MV3 冷启动时消息监听器延迟注册，新增启动期消息回归用例。用户命名的多套完整配置 profile 经评估暂缓，内置规则模板用于常见场景。完成 135 / 215 项（62.8%）。
 - GitHub 里程碑：[阶段 0](https://github.com/Nyakooo/ajax-proxy/milestone/1)、[阶段 1](https://github.com/Nyakooo/ajax-proxy/milestone/2)、[阶段 2](https://github.com/Nyakooo/ajax-proxy/milestone/3)、[阶段 3](https://github.com/Nyakooo/ajax-proxy/milestone/4)、[阶段 4](https://github.com/Nyakooo/ajax-proxy/milestone/5)、[阶段 5](https://github.com/Nyakooo/ajax-proxy/milestone/6)、[阶段 6](https://github.com/Nyakooo/ajax-proxy/milestone/7)、[阶段 7](https://github.com/Nyakooo/ajax-proxy/milestone/8)；已复现缺陷：[issue #56](https://github.com/Nyakooo/ajax-proxy/issues/56)。

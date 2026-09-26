@@ -396,6 +396,52 @@ async function main() {
       url: `http://127.0.0.1:${port}/mock/echo`,
       body: v3ResponseBody,
     })
+    const siteOrigin = new URL(page.url()).origin
+    await serviceWorker.evaluate(
+      async ({ key, origin }) => {
+        const config = (await chrome.storage.local.get(key))[key]
+        await chrome.storage.local.set({
+          [key]: { ...config, formatVersion: 5, disabledOrigins: [origin] },
+        })
+      },
+      { key: 'ajax-proxy:storage:v3-config', origin: siteOrigin }
+    )
+    await page.reload()
+    const siteDisabledFetch = await page.evaluate(async () => {
+      const response = await fetch('/api/echo', { method: 'POST', body: 'site disabled fetch' })
+      return { status: response.status, url: response.url, body: await response.json() }
+    })
+    assert.equal(siteDisabledFetch.status, 200)
+    assert.equal(siteDisabledFetch.url, `http://127.0.0.1:${port}/api/echo`)
+    assert.equal(siteDisabledFetch.body.source, 'server')
+    const siteDisabledXhr = await page.evaluate(
+      () =>
+        new Promise((resolve) => {
+          const request = new XMLHttpRequest()
+          request.onload = () =>
+            resolve({
+              status: request.status,
+              url: request.responseURL,
+              body: request.responseText,
+            })
+          request.open('POST', '/api/echo')
+          request.send('site disabled xhr')
+        })
+    )
+    assert.equal(siteDisabledXhr.status, 200)
+    assert.equal(siteDisabledXhr.url, `http://127.0.0.1:${port}/api/echo`)
+    assert.match(siteDisabledXhr.body, /"source":"server"/)
+    const siteDisabledConfig = await serviceWorker.evaluate(
+      async (key) => (await chrome.storage.local.get(key))[key],
+      'ajax-proxy:storage:v3-config'
+    )
+    assert.deepEqual(siteDisabledConfig.disabledOrigins, [siteOrigin])
+    assert.equal(siteDisabledConfig.rules[0].enabled, true)
+    await serviceWorker.evaluate(async (key) => {
+      const config = (await chrome.storage.local.get(key))[key]
+      await chrome.storage.local.set({ [key]: { ...config, disabledOrigins: [] } })
+    }, 'ajax-proxy:storage:v3-config')
+    await page.reload()
     let v3Counters = {}
     for (let attempt = 0; attempt < 40; attempt += 1) {
       v3Counters = await serviceWorker.evaluate(
@@ -496,6 +542,33 @@ async function main() {
       false,
       'CodeMirror must stay unloaded before opening a rule editor'
     )
+    const siteSwitchOrigin = `http://127.0.0.1:${port}`
+    await v3Panel.getByRole('button', { name: 'Site switches' }).click()
+    const siteSwitchesDialog = v3Panel.getByRole('dialog', { name: 'Manage site switches' })
+    await siteSwitchesDialog.getByLabel('Site URL or origin').fill(`${siteSwitchOrigin}/settings`)
+    await siteSwitchesDialog
+      .getByText(`This exact origin will be affected: ${siteSwitchOrigin}`)
+      .waitFor()
+    await siteSwitchesDialog.getByRole('button', { name: 'Disable this site' }).click()
+    await siteSwitchesDialog.waitFor({ state: 'hidden' })
+    const disabledSiteConfig = await restartedWorker.evaluate(
+      async (key) => (await chrome.storage.local.get(key))[key],
+      'ajax-proxy:storage:v3-config'
+    )
+    assert.equal(disabledSiteConfig.formatVersion, 5)
+    assert.deepEqual(disabledSiteConfig.disabledOrigins, [siteSwitchOrigin])
+    await v3Panel.getByRole('button', { name: 'Site switches' }).click()
+    const disabledSiteRow = siteSwitchesDialog
+      .locator('.disabled-origin-list li')
+      .filter({ hasText: siteSwitchOrigin })
+    await disabledSiteRow.getByRole('button', { name: `Enable site ${siteSwitchOrigin}` }).click()
+    await v3Panel.waitForFunction(async (origin) => {
+      const stored = (await chrome.storage.local.get('ajax-proxy:storage:v3-config'))[
+        'ajax-proxy:storage:v3-config'
+      ]
+      return stored.disabledOrigins.includes(origin) === false
+    }, siteSwitchOrigin)
+    await siteSwitchesDialog.getByRole('button', { name: 'Close' }).last().click()
     const englishButton = v3Panel.getByRole('button', { name: 'English' })
     if ((await englishButton.getAttribute('aria-pressed')) !== 'true') {
       await englishButton.click()
@@ -1010,7 +1083,8 @@ async function main() {
     ])
     const exportedBackup = JSON.parse(fs.readFileSync(await backupDownload.path(), 'utf8'))
     assert.equal(exportedBackup.format, 'ajax-proxy-backup')
-    assert.equal(exportedBackup.formatVersion, 3)
+    assert.equal(exportedBackup.formatVersion, 5)
+    assert.deepEqual(exportedBackup.disabledOrigins, [])
     assert.deepEqual(exportedBackup.rules, backupConfigBefore.rules)
     assert.equal('hitCounters' in exportedBackup, false)
 
@@ -1528,7 +1602,7 @@ async function main() {
       async (key) => (await chrome.storage.local.get(key))[key].formatVersion,
       'ajax-proxy:storage:v3-config'
     )
-    assert.equal(exactBackupVersion, 4, 'saving an exact matcher upgrades to backup format 4')
+    assert.equal(exactBackupVersion, 5, 'saving an exact matcher keeps the latest backup format')
     assert.deepEqual(quickCreatedRule.response, {
       enabled: true,
       replace: { status: 200, body: {} },
@@ -1647,7 +1721,7 @@ async function main() {
     )
 
     console.log(
-      'Unpacked extension V2 and V3 panel persistence, safe rule templates, JSON and function Fetch interception, XHR, iframe, redirect, and service worker restart smoke passed'
+      'Unpacked extension V2 and V3 panel persistence, exact-origin site switches, safe rule templates, JSON and function Fetch interception, XHR, iframe, redirect, and service worker restart smoke passed'
     )
   } finally {
     await context?.close()

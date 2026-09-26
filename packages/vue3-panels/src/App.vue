@@ -38,12 +38,14 @@ const BackupRestoreDialog = defineAsyncComponent(
 const RuleTemplatesDialog = defineAsyncComponent(
   () => import('./components/RuleTemplatesDialog.vue')
 )
+const SiteSwitchesDialog = defineAsyncComponent(() => import('./components/SiteSwitchesDialog.vue'))
 
 const darkMode = ref(false)
 const section = ref('intercept')
 const search = ref('')
 const { locale, t } = useI18n({ useScope: 'global' })
 const extensionRuntime = globalThis.chrome?.runtime
+const browserTabs = globalThis.chrome?.tabs
 let configService
 let ruleOperations
 let quickCreateReturnSection = null
@@ -61,6 +63,7 @@ const editingResponseRule = ref(null)
 const responseEditorIssue = ref('')
 const backupDialogOpen = ref(false)
 const ruleTemplatesDialogOpen = ref(false)
+const siteSwitchesDialogOpen = ref(false)
 const ruleFiltersOpen = ref(false)
 const ruleTagFilterOpen = ref(false)
 const ruleTagsDialogOpen = ref(false)
@@ -80,6 +83,9 @@ const noMatchCaptureArmed = ref(false)
 const recentNoMatches = ref([])
 const fetchOutcomeCaptureArmed = ref(false)
 const recentFetchOutcomes = ref([])
+const currentSiteOrigin = ref('')
+let tabActivatedListener
+let tabUpdatedListener
 const languages = [
   { code: 'zh-CN', label: '简体中文', shortLabel: '中' },
   { code: 'en', label: 'English', shortLabel: 'EN' },
@@ -99,6 +105,7 @@ function createEmptyConfig() {
     settings: { globalEnabled: true, mode: 'interceptor', language: locale.value },
     tags: [],
     rules: [],
+    disabledOrigins: [],
   }
 }
 
@@ -129,9 +136,30 @@ function createPreviewConfig() {
   }
 }
 
+function normalizeSiteOrigin(value) {
+  if (typeof value !== 'string') return ''
+  try {
+    const url = new URL(value)
+    return url.protocol === 'http:' || url.protocol === 'https:' ? url.origin : ''
+  } catch {
+    return ''
+  }
+}
+
+async function refreshCurrentSiteOrigin() {
+  if (!browserTabs?.query) return
+  try {
+    const tabs = await browserTabs.query({ active: true, lastFocusedWindow: true })
+    currentSiteOrigin.value = normalizeSiteOrigin(tabs?.[0]?.url)
+  } catch {
+    currentSiteOrigin.value = ''
+  }
+}
+
 const activeMark = computed(() => (darkMode.value ? darkMark : lightMark))
 const rules = computed(() => config.value.rules)
 const enabled = computed(() => config.value.settings.globalEnabled)
+const disabledOrigins = computed(() => config.value.disabledOrigins ?? [])
 const redirectRuleCount = computed(() => rules.value.filter((rule) => rule.request).length)
 const interceptRuleCount = computed(() => rules.value.filter((rule) => rule.response).length)
 const ruleFiltersActive = computed(
@@ -418,6 +446,13 @@ watch(
 )
 
 onMounted(async () => {
+  void refreshCurrentSiteOrigin()
+  tabActivatedListener = () => void refreshCurrentSiteOrigin()
+  tabUpdatedListener = (_tabId, _changeInfo, tab) => {
+    if (tab.active || tab.url) void refreshCurrentSiteOrigin()
+  }
+  browserTabs?.onActivated?.addListener(tabActivatedListener)
+  browserTabs?.onUpdated?.addListener(tabUpdatedListener)
   try {
     const {
       analyzeV3RuleMatches,
@@ -448,9 +483,16 @@ onMounted(async () => {
     configService = createV3ConfigService(extensionRuntime)
     const result = await configService.getSnapshot()
     if (result.ok) {
-      config.value = result.snapshot.config ?? createEmptyConfig()
+      const snapshotConfig = result.snapshot.config
+      config.value = snapshotConfig
+        ? {
+            ...snapshotConfig,
+            formatVersion: v3BackupVersion,
+            disabledOrigins: snapshotConfig.disabledOrigins ?? [],
+          }
+        : createEmptyConfig()
       hitCounters.value = result.snapshot.hitCounters
-      if (result.snapshot.config) locale.value = result.snapshot.config.settings.language
+      if (snapshotConfig) locale.value = snapshotConfig.settings.language
       configReady.value = true
       extensionRuntime.onMessage?.addListener(receiveExtensionMessage)
       removeExtensionMessageListener = () =>
@@ -486,12 +528,16 @@ onBeforeUnmount(() => {
   removeDiagnosticsStorageListener?.()
   window.removeEventListener('pagehide', cancelNoMatchCapture)
   window.removeEventListener('pagehide', cancelFetchOutcomeCapture)
+  if (tabActivatedListener) browserTabs?.onActivated?.removeListener(tabActivatedListener)
+  if (tabUpdatedListener) browserTabs?.onUpdated?.removeListener(tabUpdatedListener)
 })
 
 async function persistConfig(nextConfig) {
   operationError.value = ''
-  if (nextConfig.rules.some((rule) => rule.match.type === 'exact')) {
-    nextConfig = { ...nextConfig, formatVersion: v3BackupVersion }
+  nextConfig = {
+    ...nextConfig,
+    formatVersion: v3BackupVersion,
+    disabledOrigins: nextConfig.disabledOrigins ?? [],
   }
   if (memoryOnly.value) {
     config.value = nextConfig
@@ -776,6 +822,24 @@ async function setGlobalEnabled(value) {
   })
 }
 
+async function disableSiteOrigin(origin) {
+  const nextDisabledOrigins = new Set(disabledOrigins.value)
+  nextDisabledOrigins.add(origin)
+  if (
+    await persistConfig({
+      ...config.value,
+      disabledOrigins: [...nextDisabledOrigins].sort(),
+    })
+  ) {
+    siteSwitchesDialogOpen.value = false
+  }
+}
+
+async function enableSiteOrigin(origin) {
+  const nextDisabledOrigins = disabledOrigins.value.filter((item) => item !== origin)
+  await persistConfig({ ...config.value, disabledOrigins: nextDisabledOrigins })
+}
+
 async function setRuleEnabled(id, value) {
   const nextRules = ruleOperations.setV3RuleEnabled(config.value.rules, id, value)
   if (nextRules !== config.value.rules) {
@@ -952,7 +1016,7 @@ async function moveRule(rule, targetRule) {
           <span class="context-dot" :class="{ 'context-dot-off': !enabled }" />
           <div>
             <span class="context-label">{{ t('page.current') }}</span>
-            <strong>dev.example.com</strong>
+            <strong>{{ currentSiteOrigin || t('site.unavailable') }}</strong>
           </div>
         </div>
 
@@ -1117,6 +1181,13 @@ async function moveRule(rule, targetRule) {
             </div>
             <div class="toolbar-spacer" />
             <span class="result-count">{{ loading ? t('editor.loading') : resultCount }}</span>
+            <AppButton
+              :label="t('site.manage')"
+              severity="secondary"
+              text
+              :disabled="loading || saving"
+              @click="siteSwitchesDialogOpen = true"
+            />
             <AppButton
               :label="t('ruleTemplates.open')"
               severity="secondary"
@@ -1631,6 +1702,16 @@ async function moveRule(rule, targetRule) {
       :issue="operationError"
       @close="ruleTemplatesDialogOpen = false"
       @apply="addRuleTemplate"
+    />
+    <SiteSwitchesDialog
+      :open="siteSwitchesDialogOpen"
+      :disabled-origins="disabledOrigins"
+      :current-origin="currentSiteOrigin"
+      :saving="saving"
+      :issue="operationError"
+      @close="siteSwitchesDialogOpen = false"
+      @disable="disableSiteOrigin"
+      @enable="enableSiteOrigin"
     />
     <RuleTagsDialog
       :open="ruleTagsDialogOpen"

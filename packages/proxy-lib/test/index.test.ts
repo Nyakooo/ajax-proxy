@@ -137,7 +137,7 @@ describe('proxy lifecycle and page wrappers', () => {
     })
     expect(warn).toHaveBeenCalledWith(
       'invalid V3 configuration',
-      'formatVersion: Expected version 3 or 4.'
+      'formatVersion: Expected version 3, 4, or 5.'
     )
 
     expect(await (await window.fetch('https://example.test/no-match')).text()).toBe('native')

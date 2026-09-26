@@ -4,6 +4,7 @@ import {
   NoticeFrom,
   NoticeTo,
   NoticeKey,
+  isV3PanelMessage,
   StorageKey,
   initStorage,
   noticePanelsByServiceWorker,
@@ -28,11 +29,21 @@ import { notifyV3FunctionError } from './v3FunctionError'
 import { notifyV3NoMatch } from './v3NoMatch'
 import { notifyV3FetchOutcome } from './v3FetchOutcome'
 import { notifyV3XHROutcome } from './v3XHROutcome'
-import { createV3PanelMessageHandler } from './v3Panel'
+import { createV3PanelStartupMessageHandler } from './v3Panel'
 import { INIT_CURRENT_TITLE } from '../consts'
 import { isPageBadgeHit } from '../messageValidation'
 
-initStorage()
+const storageReady = initStorage()
+const handleV3PanelStartupMessage = createV3PanelStartupMessageHandler({
+  extensionId: chrome.runtime.id,
+  extensionUrl: chrome.runtime.getURL(''),
+  storageReady,
+})
+chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+  return handleV3PanelStartupMessage(msg, sender, sendResponse)
+})
+
+storageReady
   .then(() => {
     chrome.storage.onChanged.addListener((changes, areaName) => {
       if (areaName === 'local' && (changes[StorageKey.V3_CONFIG] || changes[StorageKey.V3_HITS])) {
@@ -40,13 +51,15 @@ initStorage()
       }
     })
     // 接收content 和 panels 传来的信息
-    chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+    chrome.runtime.onMessage.addListener((msg, sender) => {
       if (
         !isMessageRecord(msg) ||
         sender.id !== chrome.runtime.id ||
         msg.to !== NoticeTo.SERVICE_WORKER
       )
         return
+      // V3 panel requests are handled by the synchronous startup listener above.
+      if (isV3PanelMessage(msg)) return
       const { from, key, value } = msg
       const isContentSender = Boolean(sender.tab)
       const isPanelSender =
@@ -75,12 +88,6 @@ initStorage()
       }
 
       if (from !== NoticeFrom.PANELS || !isPanelSender) return
-      const handleV3PanelMessage = createV3PanelMessageHandler({
-        extensionId: chrome.runtime.id,
-        extensionUrl: chrome.runtime.getURL(''),
-        sendResponse,
-      })
-      if (handleV3PanelMessage(msg, sender)) return true
       if (key === NoticeKey.BADGE_STATUS && value === null) {
         // 面板清空统计后重新计算总徽章。
         chromeBadge()

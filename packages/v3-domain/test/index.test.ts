@@ -40,7 +40,7 @@ describe('V3 backup schema', () => {
     expect(validateV3Backup(exactBackup)).toMatchObject({ ok: true })
     expect(parseV3BackupJson(JSON.stringify(exactBackup))).toMatchObject({
       ok: true,
-      data: { formatVersion: 4, rules: [{ match: { type: 'exact' } }] },
+      data: { formatVersion: 5, disabledOrigins: [], rules: [{ match: { type: 'exact' } }] },
     })
 
     const unsupportedLegacyExactBackup = structuredClone(validBackup)
@@ -55,10 +55,13 @@ describe('V3 backup schema', () => {
     for (const formatVersion of [3, 4]) {
       const backup = { ...structuredClone(validBackup), formatVersion }
       const validation = validateV3Backup(backup)
-      expect(validation).toMatchObject({ ok: true, data: { formatVersion, disabledOrigins: [] } })
+      expect(validation).toMatchObject({
+        ok: true,
+        data: { formatVersion: 5, disabledOrigins: [] },
+      })
       expect(parseV3BackupJson(JSON.stringify(backup))).toMatchObject({
         ok: true,
-        data: { formatVersion, disabledOrigins: [] },
+        data: { formatVersion: 5, disabledOrigins: [] },
       })
     }
   })

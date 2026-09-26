@@ -1,4 +1,8 @@
-import { isV3PanelGetSnapshotRequest, isV3PanelSaveConfigRequest } from '@proxy/protocol'
+import {
+  isV3PanelGetSnapshotRequest,
+  isV3PanelMessage,
+  isV3PanelSaveConfigRequest,
+} from '@proxy/protocol'
 import type { V3PanelGetSnapshotResponse, V3PanelSaveConfigResponse } from '@proxy/protocol'
 import { StorageKey, getRealStorage, setStorage } from '@proxy/shared-utils'
 import { sanitizeV3HitCounters, validateV3Backup } from '@proxy/v3-domain'
@@ -83,7 +87,11 @@ export function createV3PanelMessageHandler(options: {
 }) {
   const storage = options.storage ?? extensionStorage
 
-  return (message: unknown, sender: V3PanelMessageSender): boolean => {
+  return (
+    message: unknown,
+    sender: V3PanelMessageSender,
+    sendResponse = options.sendResponse
+  ): boolean => {
     if (
       sender.id !== options.extensionId ||
       typeof sender.url !== 'string' ||
@@ -93,14 +101,58 @@ export function createV3PanelMessageHandler(options: {
     }
 
     if (isV3PanelGetSnapshotRequest(message)) {
-      void readV3PanelSnapshot(storage).then(options.sendResponse)
+      void readV3PanelSnapshot(storage).then(sendResponse)
       return true
     }
     if (isV3PanelSaveConfigRequest(message)) {
       const config = message.value.config
-      void saveV3PanelConfig(config, storage).then(options.sendResponse)
+      void saveV3PanelConfig(config, storage).then(sendResponse)
       return true
     }
     return false
+  }
+}
+
+/**
+ * Registerable MV3 startup adapter. The listener itself is installed before
+ * asynchronous storage initialization; accepted requests wait for that
+ * initialization before using the regular panel handler.
+ */
+export function createV3PanelStartupMessageHandler(options: {
+  extensionId: string
+  extensionUrl: string
+  storageReady: Promise<unknown>
+  storage?: V3PanelStorage
+}) {
+  const handlePanelMessage = (
+    message: unknown,
+    sender: V3PanelMessageSender,
+    sendResponse: (response: unknown) => void
+  ) => createV3PanelMessageHandler({ ...options, sendResponse })(message, sender, sendResponse)
+
+  return (
+    message: unknown,
+    sender: V3PanelMessageSender,
+    sendResponse: (response: unknown) => void
+  ): boolean => {
+    if (
+      !isV3PanelMessage(message) ||
+      sender.id !== options.extensionId ||
+      typeof sender.url !== 'string' ||
+      !sender.url.startsWith(`${options.extensionUrl}panels-v3/`)
+    ) {
+      return false
+    }
+
+    void options.storageReady
+      .then(() => handlePanelMessage(message, sender, sendResponse))
+      .catch(() => {
+        sendResponse(
+          isV3PanelGetSnapshotRequest(message)
+            ? { ok: false, error: 'storage-read-failed' }
+            : { ok: false, error: 'storage-write-failed' }
+        )
+      })
+    return true
   }
 }

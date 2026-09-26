@@ -3,6 +3,7 @@ import { NoticeFrom, NoticeTo, StorageKey, V3PanelMessageKey } from '@proxy/prot
 import type { V3PanelStorage } from '../src/service-worker/v3Panel'
 import {
   createV3PanelMessageHandler,
+  createV3PanelStartupMessageHandler,
   readV3PanelSnapshot,
   saveV3PanelConfig,
 } from '../src/service-worker/v3Panel'
@@ -70,7 +71,10 @@ describe('V3 panel configuration adapter', () => {
 
     await expect(readV3PanelSnapshot(storage)).resolves.toEqual({
       ok: true,
-      snapshot: { config: backup, hitCounters: { 'rule-1': 5 } },
+      snapshot: {
+        config: { ...backup, formatVersion: 5, disabledOrigins: [] },
+        hitCounters: { 'rule-1': 5 },
+      },
     })
     expect(storage.read).toHaveBeenCalledWith(StorageKey.V3_CONFIG, null)
     expect(storage.read).toHaveBeenCalledWith(StorageKey.V3_HITS, {})
@@ -122,7 +126,11 @@ describe('V3 panel configuration adapter', () => {
 
     await expect(saveV3PanelConfig(backup, storage)).resolves.toEqual({ ok: true })
     expect(storage.write).toHaveBeenCalledOnce()
-    expect(storage.write).toHaveBeenCalledWith(StorageKey.V3_CONFIG, backup)
+    expect(storage.write).toHaveBeenCalledWith(StorageKey.V3_CONFIG, {
+      ...backup,
+      formatVersion: 5,
+      disabledOrigins: [],
+    })
     expect(storage.write).not.toHaveBeenCalledWith(StorageKey.INTERCEPT_LIST, expect.anything())
   })
 
@@ -180,6 +188,62 @@ describe('V3 panel configuration adapter', () => {
 
     expect(handler(message, trustedPanelSender)).toBe(true)
     await vi.waitFor(() => expect(sendResponse).toHaveBeenCalledWith({ ok: true }))
-    expect(storage.write).toHaveBeenCalledWith(StorageKey.V3_CONFIG, backup)
+    expect(storage.write).toHaveBeenCalledWith(StorageKey.V3_CONFIG, {
+      ...backup,
+      formatVersion: 5,
+      disabledOrigins: [],
+    })
+  })
+
+  it('registers V3 requests before storage is ready and handles them after initialization', async () => {
+    const storage = createStorage()
+    let resolveStorageReady!: () => void
+    const storageReady = new Promise<void>((resolve) => {
+      resolveStorageReady = resolve
+    })
+    const sendResponse = vi.fn()
+    const handler = createV3PanelStartupMessageHandler({
+      extensionId: 'test-extension',
+      extensionUrl: 'chrome-extension://test-extension/',
+      storageReady,
+      storage,
+    })
+    const message = {
+      from: NoticeFrom.PANELS,
+      to: NoticeTo.SERVICE_WORKER,
+      key: V3PanelMessageKey.SAVE_CONFIG,
+      value: { config: backup },
+    }
+
+    expect(handler(message, trustedPanelSender, sendResponse)).toBe(true)
+    expect(storage.write).not.toHaveBeenCalled()
+    resolveStorageReady()
+
+    await vi.waitFor(() => expect(sendResponse).toHaveBeenCalledWith({ ok: true }))
+    expect(storage.write).toHaveBeenCalledWith(StorageKey.V3_CONFIG, {
+      ...backup,
+      formatVersion: 5,
+      disabledOrigins: [],
+    })
+  })
+
+  it('answers startup requests when storage initialization fails', async () => {
+    const sendResponse = vi.fn()
+    const handler = createV3PanelStartupMessageHandler({
+      extensionId: 'test-extension',
+      extensionUrl: 'chrome-extension://test-extension/',
+      storageReady: Promise.reject(new Error('storage unavailable')),
+    })
+    const message = {
+      from: NoticeFrom.PANELS,
+      to: NoticeTo.SERVICE_WORKER,
+      key: V3PanelMessageKey.SAVE_CONFIG,
+      value: { config: backup },
+    }
+
+    expect(handler(message, trustedPanelSender, sendResponse)).toBe(true)
+    await vi.waitFor(() =>
+      expect(sendResponse).toHaveBeenCalledWith({ ok: false, error: 'storage-write-failed' })
+    )
   })
 })

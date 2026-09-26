@@ -34,6 +34,7 @@ class RuntimeXHR extends EventTarget {
 describe('createV3RuntimeController', () => {
   it('owns V3 configuration lifecycle and retains active state on invalid updates', () => {
     const host = {
+      location: { origin: 'https://example.test' },
       dispatchEvent: vi.fn(),
       addEventListener: vi.fn(),
       removeEventListener: vi.fn(),
@@ -47,7 +48,7 @@ describe('createV3RuntimeController', () => {
     expect(controller.backup).toBeNull()
     expect(controller.update(backup)).toEqual({ ok: true, status: 'updated' })
     const active = controller.backup
-    expect(active).toEqual(backup)
+    expect(active).toEqual({ ...backup, formatVersion: 5, disabledOrigins: [] })
 
     const invalidUpdate = controller.update({ ...backup, formatVersion: 2 })
     expect(invalidUpdate).toMatchObject({
@@ -65,9 +66,56 @@ describe('createV3RuntimeController', () => {
     expect(controller.backup).toBeNull()
   })
 
+  it('leaves a disabled exact origin native without changing the configured rules', async () => {
+    const host = {
+      location: { origin: 'https://example.test' },
+      dispatchEvent: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    } as unknown as Window
+    const fetcher = vi.fn(async () => new Response('native'))
+    const controller = createV3RuntimeController(
+      host,
+      fetcher as typeof window.fetch,
+      class {} as unknown as typeof window.XMLHttpRequest
+    )
+    const configuredBackup = {
+      ...backup,
+      formatVersion: 5,
+      disabledOrigins: ['https://example.test'],
+      rules: [
+        {
+          id: 'site-rule',
+          enabled: true,
+          match: { url: '/api', method: 'GET' },
+          response: { enabled: true, replace: { body: { intercepted: true } } },
+        },
+      ],
+    }
+    controller.update(configuredBackup)
+    controller.setDiagnosticsArmed(true)
+
+    const native = await controller.fetch('https://example.test/api')
+    expect(await native.text()).toBe('native')
+    expect(fetcher).toHaveBeenCalledOnce()
+    expect(host.dispatchEvent).not.toHaveBeenCalled()
+    expect(controller.backup?.rules).toEqual(configuredBackup.rules)
+    expect(controller.backup?.disabledOrigins).toEqual(['https://example.test'])
+
+    expect(controller.update({ ...configuredBackup, disabledOrigins: [] })).toEqual({
+      ok: true,
+      status: 'updated',
+    })
+    const intercepted = await controller.fetch('https://example.test/api')
+    expect(await intercepted.text()).toBe('{"intercepted":true}')
+    expect(fetcher).toHaveBeenCalledTimes(2)
+    expect(host.dispatchEvent).toHaveBeenCalledOnce()
+  })
+
   it('emits privacy-limited diagnostics only while armed and leaves fetch native', async () => {
     const dispatchEvent = vi.fn()
     const host = {
+      location: { origin: 'https://example.test' },
       dispatchEvent,
       addEventListener: vi.fn(),
       removeEventListener: vi.fn(),
@@ -113,6 +161,7 @@ describe('createV3RuntimeController', () => {
   it('dispatches correlated Fetch outcomes only under their independent opt-in gate', async () => {
     const dispatchEvent = vi.fn()
     const host = {
+      location: { origin: 'https://example.test' },
       dispatchEvent,
       addEventListener: vi.fn(),
       removeEventListener: vi.fn(),
@@ -188,6 +237,7 @@ describe('createV3RuntimeController', () => {
   it('dispatches a distinct XHR outcome notice only after a replacement is observed', () => {
     const dispatchEvent = vi.fn()
     const host = {
+      location: { origin: 'https://example.test' },
       dispatchEvent,
       addEventListener: vi.fn(),
       removeEventListener: vi.fn(),

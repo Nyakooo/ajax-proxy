@@ -73,7 +73,7 @@ describe('V3 config panel adapter', () => {
       from: NoticeFrom.PANELS,
       to: NoticeTo.SERVICE_WORKER,
       key: V3PanelMessageKey.SAVE_CONFIG,
-      value: { config: backup },
+      value: { config: { ...backup, formatVersion: 5, disabledOrigins: [] } },
     })
     expect(runtime.sendMessage).toHaveBeenNthCalledWith(2, {
       from: NoticeFrom.PANELS,
