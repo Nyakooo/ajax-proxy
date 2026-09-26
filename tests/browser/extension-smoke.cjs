@@ -926,6 +926,79 @@ async function main() {
       'a copied rule does not copy hit counters'
     )
 
+    const sourceRuleCheckbox = v3Panel.getByRole('checkbox', {
+      name: `Select rule /api/v3-ui (${taggedRule.id})`,
+    })
+    const duplicateRuleCheckbox = v3Panel.getByRole('checkbox', {
+      name: `Select rule /api/v3-ui (${duplicatedTaggedRule.id})`,
+    })
+    await sourceRuleCheckbox.check()
+    await duplicateRuleCheckbox.check()
+    await v3Panel.getByText('2 rules selected', { exact: true }).waitFor()
+    const configBeforeBulkUpdate = configAfterDuplicate
+    await v3Panel.getByRole('button', { name: 'Enable selected', exact: true }).click()
+    let configAfterBulkEnable
+    for (let attempt = 0; attempt < 40; attempt += 1) {
+      configAfterBulkEnable = await restartedWorker.evaluate(
+        async (key) => (await chrome.storage.local.get(key))[key],
+        'ajax-proxy:storage:v3-config'
+      )
+      if (
+        configAfterBulkEnable.rules
+          .filter((rule) => [taggedRule.id, duplicatedTaggedRule.id].includes(rule.id))
+          .every((rule) => rule.enabled)
+      )
+        break
+      await new Promise((resolve) => setTimeout(resolve, 50))
+    }
+    const selectedRulesAfterBulkEnable = configAfterBulkEnable.rules.filter((rule) =>
+      [taggedRule.id, duplicatedTaggedRule.id].includes(rule.id)
+    )
+    assert.equal(selectedRulesAfterBulkEnable.length, 2)
+    assert.ok(selectedRulesAfterBulkEnable.every((rule) => rule.enabled))
+    for (const updatedRule of selectedRulesAfterBulkEnable) {
+      const originalRule = configBeforeBulkUpdate.rules.find((rule) => rule.id === updatedRule.id)
+      assert.deepEqual(updatedRule.request, originalRule.request)
+      assert.deepEqual(updatedRule.response, originalRule.response)
+    }
+    assert.deepEqual(
+      configAfterBulkEnable.rules
+        .filter((rule) => ![taggedRule.id, duplicatedTaggedRule.id].includes(rule.id))
+        .map((rule) => [rule.id, rule.enabled]),
+      configBeforeBulkUpdate.rules
+        .filter((rule) => ![taggedRule.id, duplicatedTaggedRule.id].includes(rule.id))
+        .map((rule) => [rule.id, rule.enabled]),
+      'bulk enable leaves unselected rules unchanged'
+    )
+    await sourceRuleCheckbox.check()
+    await duplicateRuleCheckbox.check()
+    await v3Panel.getByText('2 rules selected', { exact: true }).waitFor()
+    await v3Panel.getByRole('button', { name: 'Disable selected', exact: true }).click()
+    let configAfterBulkDisable
+    for (let attempt = 0; attempt < 40; attempt += 1) {
+      configAfterBulkDisable = await restartedWorker.evaluate(
+        async (key) => (await chrome.storage.local.get(key))[key],
+        'ajax-proxy:storage:v3-config'
+      )
+      if (
+        configAfterBulkDisable.rules
+          .filter((rule) => [taggedRule.id, duplicatedTaggedRule.id].includes(rule.id))
+          .every((rule) => !rule.enabled)
+      )
+        break
+      await new Promise((resolve) => setTimeout(resolve, 50))
+    }
+    const selectedRulesAfterBulkDisable = configAfterBulkDisable.rules.filter((rule) =>
+      [taggedRule.id, duplicatedTaggedRule.id].includes(rule.id)
+    )
+    assert.ok(selectedRulesAfterBulkDisable.every((rule) => !rule.enabled))
+    for (const updatedRule of selectedRulesAfterBulkDisable) {
+      const enabledRule = configAfterBulkEnable.rules.find((rule) => rule.id === updatedRule.id)
+      assert.deepEqual(updatedRule.request, enabledRule.request)
+      assert.deepEqual(updatedRule.response, enabledRule.response)
+    }
+    await v3Panel.getByRole('group', { name: 'Bulk rule actions' }).waitFor({ state: 'detached' })
+
     await v3Panel.locator('.sidebar .nav-item').nth(1).click()
     await v3Panel.getByRole('button', { name: 'Create redirect rule' }).click()
     const taggedRedirectEditor = v3Panel.locator('.rule-editor[role="dialog"]')

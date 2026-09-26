@@ -579,6 +579,44 @@ input {
   border-bottom: 1px solid var(--ap-border);
 }
 
+.rule-selection {
+  display: flex;
+  flex: 0 0 16px;
+  align-items: center;
+  justify-content: center;
+}
+
+.rule-selection input {
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  accent-color: var(--ap-accent);
+  cursor: pointer;
+}
+
+.rule-selection input:focus-visible {
+  outline: 2px solid var(--ap-accent);
+  outline-offset: 2px;
+}
+
+.bulk-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--ap-border);
+  border-radius: 10px;
+  background: var(--ap-surface-soft);
+}
+
+.bulk-actions > span {
+  margin-right: auto;
+  color: var(--ap-muted);
+  font-size: 11px;
+}
+
 .rule-order {
   width: 19px;
   color: var(--ap-muted-2);

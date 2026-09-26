@@ -50,6 +50,7 @@ const ruleTagsDialogOpen = ref(false)
 const ruleStatusFilter = ref('all')
 const ruleMatchTypeFilter = ref('all')
 const selectedTagId = ref('')
+const selectedRuleIds = ref([])
 const config = ref(createEmptyConfig())
 const hitCounters = ref({})
 const recentMatch = ref(null)
@@ -170,6 +171,20 @@ const visibleRules = computed(() => {
     return matchesSearch && matchesSection && matchesStatus && matchesType && matchesTag
   })
 })
+
+watch(
+  () => visibleRules.value.map((rule) => rule.id),
+  (visibleIds) => {
+    const visible = new Set(visibleIds)
+    selectedRuleIds.value = selectedRuleIds.value.filter((id) => visible.has(id))
+  }
+)
+
+const allVisibleRulesSelected = computed(
+  () =>
+    visibleRules.value.length > 0 &&
+    visibleRules.value.every((rule) => selectedRuleIds.value.includes(rule.id))
+)
 
 function clearRuleFilters() {
   ruleStatusFilter.value = 'all'
@@ -537,6 +552,32 @@ async function setRuleEnabled(id, value) {
   }
 }
 
+function toggleVisibleRuleSelection() {
+  const visibleIds = visibleRules.value.map((rule) => rule.id)
+  if (allVisibleRulesSelected.value) {
+    const visible = new Set(visibleIds)
+    selectedRuleIds.value = selectedRuleIds.value.filter((id) => !visible.has(id))
+    return
+  }
+  selectedRuleIds.value = [...new Set([...selectedRuleIds.value, ...visibleIds])]
+}
+
+function setRuleSelected(id, selected) {
+  const selection = new Set(selectedRuleIds.value)
+  if (selected) selection.add(id)
+  else selection.delete(id)
+  selectedRuleIds.value = [...selection]
+}
+
+async function setSelectedRulesEnabled(value) {
+  const selected = new Set(selectedRuleIds.value)
+  if (selected.size === 0) return
+  const nextRules = config.value.rules.map((rule) =>
+    selected.has(rule.id) && rule.enabled !== value ? { ...rule, enabled: value } : rule
+  )
+  if (await persistConfig({ ...config.value, rules: nextRules })) selectedRuleIds.value = []
+}
+
 async function duplicateRule(rule) {
   const current = config.value
   const sourceIndex = current.rules.findIndex((item) => item.id === rule.id)
@@ -712,6 +753,17 @@ async function moveRule(rule, targetRule) {
               <InputText v-model="search" :placeholder="t('rules.searchPlaceholder')" />
               <kbd>⌘ K</kbd>
             </label>
+            <AppButton
+              :label="
+                allVisibleRulesSelected
+                  ? t('rules.clearVisibleSelection')
+                  : t('rules.selectVisible')
+              "
+              severity="secondary"
+              outlined
+              :disabled="loading || saving || visibleRules.length === 0"
+              @click="toggleVisibleRuleSelection"
+            />
             <div ref="ruleTagsControl" class="filter-control">
               <AppButton
                 :label="
@@ -768,6 +820,36 @@ async function moveRule(rule, targetRule) {
             {{ operationError }}
           </div>
 
+          <div
+            v-if="selectedRuleIds.length"
+            class="bulk-actions"
+            role="group"
+            :aria-label="t('rules.bulkActions')"
+          >
+            <span>{{ t('rules.selectedCount', { count: selectedRuleIds.length }) }}</span>
+            <AppButton
+              :label="t('rules.enableSelected')"
+              severity="secondary"
+              outlined
+              :disabled="saving || loading"
+              @click="setSelectedRulesEnabled(true)"
+            />
+            <AppButton
+              :label="t('rules.disableSelected')"
+              severity="secondary"
+              outlined
+              :disabled="saving || loading"
+              @click="setSelectedRulesEnabled(false)"
+            />
+            <AppButton
+              :label="t('rules.clearSelection')"
+              severity="secondary"
+              text
+              :disabled="saving"
+              @click="selectedRuleIds = []"
+            />
+          </div>
+
           <div v-if="!enabled" class="disabled-notice" role="status">
             {{ t('proxy.disabledNotice') }}
           </div>
@@ -808,6 +890,15 @@ async function moveRule(rule, targetRule) {
 
           <div v-if="visibleRules.length" class="rule-list">
             <article v-for="(rule, index) in visibleRules" :key="rule.id" class="rule-row">
+              <label class="rule-selection">
+                <input
+                  type="checkbox"
+                  :checked="selectedRuleIds.includes(rule.id)"
+                  :aria-label="t('rules.selectRule', { url: rule.match.url, id: rule.id })"
+                  :disabled="saving || loading"
+                  @change="setRuleSelected(rule.id, $event.target.checked)"
+                />
+              </label>
               <div class="rule-order">
                 {{ String(index + 1).padStart(2, '0') }}
               </div>
