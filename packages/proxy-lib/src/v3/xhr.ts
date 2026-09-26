@@ -1,6 +1,7 @@
 import { selectV3Rule } from '@proxy/v3-domain'
 import type { V3Rule } from '@proxy/v3-domain'
 import type { V3RuntimeHostOptions } from './runtimeOptions'
+import type { V3FetchOutcomeStage, V3FetchOutcomeStatus, V3XHROutcomeReason } from '@proxy/protocol'
 
 export type V3XHROptions = V3RuntimeHostOptions
 
@@ -11,6 +12,20 @@ interface Replacement {
   status: number
   statusText: string
   json?: unknown
+}
+
+interface ReplacementResolution {
+  replacement?: Replacement
+  failure?: 'failed' | 'unsupported'
+  hasStatus: boolean
+  hasBody: boolean
+}
+
+const correlationNonce = Math.random().toString(36).slice(2, 10)
+let correlationSequence = 0
+
+function createCorrelationId(): string {
+  return `v3-xhr-${Date.now().toString(36)}-${correlationNonce}-${++correlationSequence}`
 }
 
 function absoluteUrl(value: string | URL): string {
@@ -28,30 +43,56 @@ function resolveRedirect(value: string, originalUrl: string): string | undefined
   }
 }
 
-function getReplacement(xhr: XMLHttpRequest, rule: V3Rule): Replacement | undefined {
+function getReplacement(xhr: XMLHttpRequest, rule: V3Rule): ReplacementResolution | undefined {
   const config = rule.response?.replace
-  if (!rule.response?.enabled || !config || (config.code?.trim() ?? '') !== '') return undefined
+  if (!rule.response?.enabled || !config) return undefined
+  if ((config.code?.trim() ?? '') !== '') {
+    return { failure: 'unsupported', hasStatus: false, hasBody: false }
+  }
   // XHR response headers cannot be faithfully replaced, so this prototype only
   // exposes body/status overrides and leaves the browser's response headers intact.
   // If a rule requests header changes, leave the complete response untouched
   // instead of silently applying only part of its response action.
-  if (config.headers && Object.keys(config.headers).length > 0) return undefined
+  if (config.headers && Object.keys(config.headers).length > 0) {
+    return { failure: 'unsupported', hasStatus: false, hasBody: false }
+  }
   const type = xhr.responseType
-  if (type !== '' && type !== 'text' && type !== 'json') return undefined
+  if (type !== '' && type !== 'text' && type !== 'json') {
+    return { failure: 'unsupported', hasStatus: false, hasBody: false }
+  }
   try {
     const status = config.status ?? xhr.status
-    if (!Number.isInteger(status) || status < 200 || status > 599) return undefined
+    if (!Number.isInteger(status) || status < 200 || status > 599) {
+      return { failure: 'failed', hasStatus: false, hasBody: false }
+    }
     const body = config.body === undefined ? undefined : JSON.stringify(config.body)
-    if (config.body !== undefined && body === undefined) return undefined
+    if (config.body !== undefined && body === undefined) {
+      return { failure: 'failed', hasStatus: false, hasBody: false }
+    }
     const json = type === 'json' && body !== undefined ? JSON.parse(body) : undefined
     return {
-      body,
-      status,
-      statusText: xhr.statusText,
-      json,
+      replacement: { body, status, statusText: xhr.statusText, json },
+      hasStatus: config.status !== undefined,
+      hasBody: config.body !== undefined,
     }
   } catch {
-    return undefined
+    return { failure: 'failed', hasStatus: false, hasBody: false }
+  }
+}
+
+function outcomeReason(
+  stage: V3FetchOutcomeStage,
+  outcome: V3FetchOutcomeStatus,
+  reason: V3XHROutcomeReason,
+  options: V3XHROptions,
+  rule: V3Rule,
+  correlationId: string | undefined
+) {
+  if (!correlationId || !(options.isFetchOutcomeDiagnosticsArmed?.() ?? true)) return
+  try {
+    options.onXHROutcome?.(rule, correlationId, stage, outcome, reason)
+  } catch {
+    // Outcome diagnostics must not affect XHR behavior.
   }
 }
 
@@ -65,7 +106,11 @@ export function createV3XHR(NativeXHR: V3XHRConstructor, options: V3XHROptions):
     constructor() {
       super()
       let selected: V3Rule | undefined
-      let replacement: Replacement | undefined
+      let replacementResolution: ReplacementResolution | undefined
+      let replacementResolved = false
+      let replacementOutcomeReported = false
+      let requestOutcome: { outcome: V3FetchOutcomeStatus; reason: V3XHROutcomeReason } | undefined
+      let correlationId: string | undefined
       let stripSensitiveHeaders = false
       const listenerWrappers = new WeakMap<object, Map<string, Map<boolean, EventListener>>>()
       const handlerProperties = new Map<
@@ -121,7 +166,11 @@ export function createV3XHR(NativeXHR: V3XHRConstructor, options: V3XHROptions):
             return (...args: Parameters<XMLHttpRequest['open']>) => {
               const [method, url, async] = args
               selected = undefined
-              replacement = undefined
+              replacementResolution = undefined
+              replacementResolved = false
+              replacementOutcomeReported = false
+              requestOutcome = undefined
+              correlationId = undefined
               stripSensitiveHeaders = false
 
               // Synchronous XHR has different response and event timing. Leave it native.
@@ -165,16 +214,70 @@ export function createV3XHR(NativeXHR: V3XHRConstructor, options: V3XHROptions):
                   ? resolveRedirect(redirectValue, originalUrl)
                   : undefined
               // Only static targets are supported. Function source is intentionally ignored.
-              if (!targetUrl) return target.open(...args)
+              if (!targetUrl) {
+                if (redirect?.enabled && selected) {
+                  requestOutcome = {
+                    outcome: 'fallback',
+                    reason: 'redirect-target-unsupported',
+                  }
+                }
+                return target.open(...args)
+              }
               args[1] = targetUrl
               try {
                 stripSensitiveHeaders = new URL(targetUrl).origin !== new URL(originalUrl).origin
-                return target.open(...args)
+                const result = target.open(...args)
+                requestOutcome = { outcome: 'applied', reason: 'redirect-applied' }
+                return result
               } catch {
                 // open has not sent a request yet, so falling back is safe here.
                 args[1] = url
                 stripSensitiveHeaders = false
-                return target.open(...args)
+                const result = target.open(...args)
+                requestOutcome = { outcome: 'fallback', reason: 'redirect-open-failed' }
+                return result
+              }
+            }
+          }
+
+          if (property === 'send') {
+            return (...args: Parameters<XMLHttpRequest['send']>) => {
+              const armed =
+                options.onXHROutcome !== undefined &&
+                (options.isFetchOutcomeDiagnosticsArmed?.() ?? true)
+              if (armed && selected) {
+                const response = selected.response
+                if (requestOutcome || (response?.enabled && response.replace)) {
+                  correlationId ??= createCorrelationId()
+                }
+              }
+              try {
+                const result = target.send(...args)
+                if (requestOutcome && selected && correlationId) {
+                  outcomeReason(
+                    'request',
+                    requestOutcome.outcome,
+                    requestOutcome.reason,
+                    options,
+                    selected,
+                    correlationId
+                  )
+                }
+                requestOutcome = undefined
+                return result
+              } catch (error) {
+                if (requestOutcome && selected && correlationId) {
+                  outcomeReason(
+                    'request',
+                    'failed',
+                    'send-failed',
+                    options,
+                    selected,
+                    correlationId
+                  )
+                }
+                requestOutcome = undefined
+                throw error
               }
             }
           }
@@ -223,18 +326,51 @@ export function createV3XHR(NativeXHR: V3XHRConstructor, options: V3XHROptions):
             return handlerProperties.get(property)?.original
           }
 
-          if (
-            property === 'response' ||
-            property === 'responseText' ||
-            property === 'status' ||
-            property === 'statusText'
-          ) {
-            if (target.readyState === 4 && selected && !replacement) {
-              replacement = getReplacement(target, selected)
+          if (property === 'response' || property === 'responseText' || property === 'status') {
+            if (target.readyState === 4 && selected && !replacementResolved) {
+              replacementResolved = true
+              replacementResolution = getReplacement(target, selected)
             }
+            if (replacementResolution && !replacementOutcomeReported && correlationId) {
+              if (replacementResolution.failure) {
+                replacementOutcomeReported = true
+                outcomeReason(
+                  'response',
+                  replacementResolution.failure,
+                  replacementResolution.failure === 'unsupported'
+                    ? 'response-replacement-unsupported'
+                    : 'response-replacement-failed',
+                  options,
+                  selected!,
+                  correlationId
+                )
+              } else if (
+                (property === 'status' && replacementResolution.hasStatus) ||
+                ((property === 'response' || property === 'responseText') &&
+                  replacementResolution.hasBody)
+              ) {
+                if (
+                  property === 'responseText' &&
+                  target.responseType !== '' &&
+                  target.responseType !== 'text'
+                ) {
+                  // Preserve the native invalid-state behavior and do not claim application.
+                } else {
+                  replacementOutcomeReported = true
+                  outcomeReason(
+                    'response',
+                    'applied',
+                    'response-replacement-applied',
+                    options,
+                    selected!,
+                    correlationId
+                  )
+                }
+              }
+            }
+            const replacement = replacementResolution?.replacement
             if (replacement) {
               if (property === 'status') return replacement.status
-              if (property === 'statusText') return replacement.statusText
               if (property === 'responseText' && replacement.body !== undefined) {
                 if (target.responseType !== '' && target.responseType !== 'text') {
                   throw new DOMException(

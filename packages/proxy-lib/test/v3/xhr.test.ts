@@ -2,10 +2,17 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { JsonValue, V3Rule } from '@proxy/v3-domain'
 import { createV3XHR } from '../../src/v3/xhr'
 import type { V3XHRConstructor } from '../../src/v3/xhr'
+import type { V3RuntimeHostOptions } from '../../src/v3/runtimeOptions'
 
-afterEach(() => vi.restoreAllMocks())
+afterEach(() => {
+  vi.restoreAllMocks()
+  FakeXHR.failRedirectOpenTarget = false
+  FakeXHR.sendFailure = undefined
+})
 
 class FakeXHR extends EventTarget {
+  static failRedirectOpenTarget = false
+  static sendFailure: Error | undefined
   readyState = 0
   responseType: XMLHttpRequestResponseType = ''
   status = 200
@@ -21,6 +28,9 @@ class FakeXHR extends EventTarget {
   }
 
   open = vi.fn((...args: unknown[]) => {
+    if (FakeXHR.failRedirectOpenTarget && args[1] === 'https://target.test/api') {
+      throw new Error('native open failed')
+    }
     this.openArgs = args
     this.readyState = 1
   })
@@ -28,6 +38,7 @@ class FakeXHR extends EventTarget {
     this.requestHeaders.push([name, value])
   })
   send = vi.fn((body?: Document | XMLHttpRequestBodyInit | null) => {
+    if (FakeXHR.sendFailure) throw FakeXHR.sendFailure
     this.sentBody = body
   })
 
@@ -53,12 +64,16 @@ function rule(id: string, options: Partial<V3Rule> = {}): V3Rule {
 function makeXHR(
   rules: readonly V3Rule[],
   onMatched?: (rule: V3Rule, index: number, request: { url: string; method: string }) => void,
-  onNoMatch?: (request: { url: string; method: string }) => void
+  onNoMatch?: (request: { url: string; method: string }) => void,
+  onXHROutcome?: V3RuntimeHostOptions['onXHROutcome'],
+  armed = false
 ) {
   const Constructor = createV3XHR(FakeXHR as unknown as V3XHRConstructor, {
     getRules: () => rules,
     onMatched,
     onNoMatch,
+    onXHROutcome,
+    isFetchOutcomeDiagnosticsArmed: () => armed,
   })
   return new Constructor() as unknown as XMLHttpRequest & FakeXHR
 }
@@ -229,5 +244,110 @@ describe('createV3XHR', () => {
     xhr.complete('original two')
     expect(xhr.responseText).toBe('original two')
     expect(onMatched).toHaveBeenCalledOnce()
+  })
+
+  it('reports redirected async XHR only after send and keeps the notice private and opt-in', () => {
+    const outcome = vi.fn()
+    const selectedRule = rule('redirect', {
+      request: { enabled: true, redirect: { url: 'https://target.test/api' } },
+    })
+    const xhr = makeXHR([selectedRule], undefined, undefined, outcome, true)
+
+    xhr.open('POST', 'https://example.test/api?secret=query', true)
+    expect(outcome).not.toHaveBeenCalled()
+    expect(xhr.openArgs[1]).toBe('https://target.test/api')
+
+    xhr.send('private body')
+    expect(outcome).toHaveBeenCalledExactlyOnceWith(
+      selectedRule,
+      expect.stringMatching(/^v3-xhr-/),
+      'request',
+      'applied',
+      'redirect-applied'
+    )
+    expect(JSON.stringify(outcome.mock.calls)).not.toContain('secret')
+    expect(JSON.stringify(outcome.mock.calls)).not.toContain('private body')
+
+    const unarmedOutcome = vi.fn()
+    const unarmed = makeXHR([selectedRule], undefined, undefined, unarmedOutcome)
+    unarmed.open('POST', 'https://example.test/api', true)
+    unarmed.send()
+    expect(unarmedOutcome).not.toHaveBeenCalled()
+  })
+
+  it('reports a redirect open fallback after successful send, and preserves synchronous send errors', () => {
+    const outcome = vi.fn()
+    const selectedRule = rule('redirect', {
+      request: { enabled: true, redirect: { url: 'https://target.test/api' } },
+    })
+    const xhr = makeXHR([selectedRule], undefined, undefined, outcome, true)
+    FakeXHR.failRedirectOpenTarget = true
+
+    xhr.open('POST', 'https://example.test/api', true)
+    expect(outcome).not.toHaveBeenCalled()
+    expect(xhr.openArgs[1]).toBe('https://example.test/api')
+    xhr.send()
+    expect(outcome.mock.calls[0]?.slice(2)).toEqual(['request', 'fallback', 'redirect-open-failed'])
+
+    const sendError = new Error('native send failed')
+    const failedOutcome = vi.fn()
+    const failed = makeXHR([selectedRule], undefined, undefined, failedOutcome, true)
+    failed.open('POST', 'https://example.test/api', true)
+    FakeXHR.sendFailure = sendError
+    expect(() => failed.send()).toThrow(sendError)
+    expect(failedOutcome.mock.calls[0]?.slice(2)).toEqual(['request', 'failed', 'send-failed'])
+  })
+
+  it('reports response replacement only when a completed response getter returns it', () => {
+    const outcome = vi.fn()
+    const selectedRule = rule('replace', {
+      response: { enabled: true, replace: { status: 202, body: { safe: true } } },
+    })
+    const xhr = makeXHR([selectedRule], undefined, undefined, outcome, true)
+    xhr.open('POST', 'https://example.test/api', true)
+    expect(outcome).not.toHaveBeenCalled()
+    xhr.send()
+    expect(outcome).not.toHaveBeenCalled()
+    xhr.complete('native response')
+    expect(outcome).not.toHaveBeenCalled()
+
+    expect(xhr.status).toBe(202)
+    expect(outcome).toHaveBeenCalledOnce()
+    expect(outcome.mock.calls[0]?.slice(2)).toEqual([
+      'response',
+      'applied',
+      'response-replacement-applied',
+    ])
+    expect(xhr.responseText).toBe('{"safe":true}')
+    expect(outcome).toHaveBeenCalledOnce()
+  })
+
+  it('reports unsupported response actions after completion without reporting absent actions', () => {
+    const outcome = vi.fn()
+    const selectedRule = rule('unsupported', {
+      response: {
+        enabled: true,
+        replace: { headers: { 'x-replacement': 'value' }, body: 'ignored' },
+      },
+    })
+    const xhr = makeXHR([selectedRule], undefined, undefined, outcome, true)
+    xhr.open('POST', 'https://example.test/api', true)
+    xhr.send()
+    xhr.complete('native response')
+    expect(outcome).not.toHaveBeenCalled()
+    expect(xhr.responseText).toBe('native response')
+    expect(outcome.mock.calls[0]?.slice(2)).toEqual([
+      'response',
+      'unsupported',
+      'response-replacement-unsupported',
+    ])
+
+    const noActionOutcome = vi.fn()
+    const noAction = makeXHR([rule('no-action')], undefined, undefined, noActionOutcome, true)
+    noAction.open('POST', 'https://example.test/api', true)
+    noAction.send()
+    noAction.complete('native response')
+    void noAction.responseText
+    expect(noActionOutcome).not.toHaveBeenCalled()
   })
 })

@@ -10,6 +10,7 @@ import type {
   V3FetchOutcomeStage,
   V3FetchOutcomeStatus,
 } from '@proxy/protocol'
+import type { V3XHROutcome, V3XHROutcomeReason } from '@proxy/protocol'
 import { createV3Fetch } from './fetch'
 import { createV3ResponseFunctionExecutor } from './responseFunctionSandbox'
 import { createV3XHR } from './xhr'
@@ -107,6 +108,29 @@ function notifyV3FetchOutcome(
   }
 }
 
+function notifyV3XHROutcome(
+  host: Window,
+  rule: V3Rule,
+  correlationId: string,
+  stage: V3FetchOutcomeStage,
+  outcome: V3FetchOutcomeStatus,
+  reason: V3XHROutcomeReason
+) {
+  try {
+    const detail: V3XHROutcome = {
+      kind: 'v3-xhr-outcome',
+      correlation_id: correlationId,
+      rule_id: rule.id,
+      stage,
+      outcome,
+      reason,
+    }
+    host.dispatchEvent(new CustomEvent(NoticeTo.CONTENT, { detail }))
+  } catch {
+    // Outcome diagnostics must not affect XHR behavior.
+  }
+}
+
 export function createV3RuntimeController(
   host: Window,
   pageFetchAtLoad: typeof window.fetch,
@@ -132,6 +156,17 @@ export function createV3RuntimeController(
     ) => {
       if (fetchOutcomeDiagnosticsArmed) {
         notifyV3FetchOutcome(host, rule, correlationId, stage, outcome, reason)
+      }
+    },
+    onXHROutcome: (
+      rule: V3Rule,
+      correlationId: string,
+      stage: V3FetchOutcomeStage,
+      outcome: V3FetchOutcomeStatus,
+      reason: V3XHROutcomeReason
+    ) => {
+      if (fetchOutcomeDiagnosticsArmed) {
+        notifyV3XHROutcome(host, rule, correlationId, stage, outcome, reason)
       }
     },
     onFunctionError: (

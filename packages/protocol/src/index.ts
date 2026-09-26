@@ -4,6 +4,7 @@ export * from './v3Hit'
 export * from './v3FunctionError'
 export * from './v3NoMatch'
 export * from './v3FetchOutcome'
+export * from './v3XHROutcome'
 
 export enum StorageKey {
   LANGUAGE = 'ajax-proxy:storage:language',

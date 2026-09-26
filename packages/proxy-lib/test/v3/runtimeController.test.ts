@@ -9,6 +9,28 @@ const backup = {
   rules: [],
 }
 
+class RuntimeXHR extends EventTarget {
+  readyState = 0
+  responseType: XMLHttpRequestResponseType = ''
+  status = 200
+  statusText = 'OK'
+  response: unknown = ''
+  responseText = ''
+
+  open() {
+    this.readyState = 1
+  }
+
+  send() {}
+
+  complete(body: string) {
+    this.readyState = 4
+    this.responseText = body
+    this.response = body
+    this.dispatchEvent(new Event('loadend'))
+  }
+}
+
 describe('createV3RuntimeController', () => {
   it('owns V3 configuration lifecycle and retains active state on invalid updates', () => {
     const host = {
@@ -161,5 +183,53 @@ describe('createV3RuntimeController', () => {
     expect(laterEvents).toHaveLength(4)
     expect(laterEvents[2].correlation_id).not.toBe(events[0].correlation_id)
     expect(JSON.stringify(events)).not.toContain('https://example.test')
+  })
+
+  it('dispatches a distinct XHR outcome notice only after a replacement is observed', () => {
+    const dispatchEvent = vi.fn()
+    const host = {
+      dispatchEvent,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    } as unknown as Window
+    const controller = createV3RuntimeController(
+      host,
+      vi.fn(async () => new Response('native')) as typeof window.fetch,
+      RuntimeXHR as unknown as typeof window.XMLHttpRequest
+    )
+    controller.update({
+      ...backup,
+      rules: [
+        {
+          id: 'xhr-rule',
+          enabled: true,
+          match: { url: '/api', method: 'GET' },
+          request: { enabled: false, redirect: { url: 'https://unused.test/' } },
+          response: { enabled: true, replace: { body: 'replacement' } },
+        },
+      ],
+    })
+    controller.setFetchOutcomeDiagnosticsArmed(true)
+    const xhr = new controller.xhr() as unknown as RuntimeXHR
+    xhr.open('GET', 'https://example.test/api')
+    xhr.send()
+    xhr.complete('native')
+
+    expect(
+      dispatchEvent.mock.calls.map(([event]) => (event as CustomEvent).detail.kind)
+    ).not.toContain('v3-xhr-outcome')
+    expect(xhr.responseText).toBe('"replacement"')
+    const event = dispatchEvent.mock.calls
+      .map(([item]) => (item as CustomEvent).detail)
+      .find(({ kind }) => kind === 'v3-xhr-outcome')
+    expect(event).toMatchObject({
+      kind: 'v3-xhr-outcome',
+      rule_id: 'xhr-rule',
+      stage: 'response',
+      outcome: 'applied',
+      reason: 'response-replacement-applied',
+    })
+    expect(event.correlation_id).toMatch(/^v3-xhr-/)
+    expect(JSON.stringify(event)).not.toContain('https://example.test')
   })
 })

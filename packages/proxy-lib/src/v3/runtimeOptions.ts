@@ -5,6 +5,7 @@ import type {
   V3FetchOutcomeStatus,
   V3FunctionErrorCode,
 } from '@proxy/protocol'
+import type { V3XHROutcomeReason } from '@proxy/protocol'
 import type { V3ResponseFunctionExecutor } from './responseFunctionSandbox'
 
 export interface V3RuntimeHostOptions {
@@ -23,6 +24,13 @@ export interface V3RuntimeHostOptions {
     stage: V3FetchOutcomeStage,
     outcome: V3FetchOutcomeStatus,
     reason: V3FetchOutcomeReason
+  ) => void
+  onXHROutcome?: (
+    rule: V3Rule,
+    correlationId: string,
+    stage: V3FetchOutcomeStage,
+    outcome: V3FetchOutcomeStatus,
+    reason: V3XHROutcomeReason
   ) => void
   executeResponseFunction?: V3ResponseFunctionExecutor
 }
