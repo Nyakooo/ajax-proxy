@@ -482,6 +482,20 @@ describe('createV3XHR', () => {
     expect(onMatched).toHaveBeenCalledOnce()
   })
 
+  it('fails open for malformed original URLs and malformed redirect URLs', () => {
+    const invalidOriginalUrl = makeXHR([rule('original-url')])
+    invalidOriginalUrl.open('POST', 'http://[', true)
+    expect(invalidOriginalUrl.openArgs).toEqual(['POST', 'http://[', true])
+
+    const invalidRedirect = makeXHR([
+      rule('redirect-url', {
+        request: { enabled: true, redirect: { url: 'http://[' } },
+      }),
+    ])
+    invalidRedirect.open('POST', 'https://example.test/api', true)
+    expect(invalidRedirect.openArgs).toEqual(['POST', 'https://example.test/api', true])
+  })
+
   it('reports redirected async XHR only after send and keeps the notice private and opt-in', () => {
     const outcome = vi.fn()
     const selectedRule = rule('redirect', {
