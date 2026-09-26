@@ -223,7 +223,8 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - [x] 按当前 V3 完整规则顺序离线试算 URL / method，逐条说明首条匹配、优先级遮蔽、禁用状态、method / URL 不匹配及无效正则；不发请求、不保存输入或改动运行状态。
 - [ ] 记录实际请求的未命中原因和 action 最终结果；不能从模拟结果或“匹配”事件推断历史请求的实际处理。
 - [x] 提供离线规则匹配试算：按当前 V3 完整规则顺序复用 domain matcher，逐条说明首条匹配、优先级遮蔽、停用状态、method / URL 不匹配及无效正则；不发请求、不保存输入或改动运行状态。
-- [ ] 评估从实际请求或命中记录快捷创建规则的能力。
+- [x] 评估快捷创建规则：限定从面板内存的最近命中记录发起，预填实际 URL / method，用户编辑审核；默认停用、不复制响应数据或函数代码。
+- [ ] 从最近命中记录打开预填规则编辑器，用户确认保存并显式启用后才参与请求处理。
 - [ ] 更灵活的请求匹配条件及响应配置能力。
 - [ ] 规则分组、站点级开关和配置预设。
 - [ ] 面向常见场景的规则模板及示例。
@@ -487,5 +488,6 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - 2026-09-26：完成规则批量导出与追加导入：选择规则导出为只包含所选规则及其引用标签的 V3 文件；预览后按规则 ID 跳过冲突并将新规则追加到列表末尾，现有配置与设置不变；同名标签复用，标签 ID 相同但名称不同则阻止写入。扩展 smoke 验证单规则含多标签导出、相同 URL 不同 ID 可导入、重复 ID 跳过、追加顺序、设置和既有规则保持不变、标签 ID 冲突阻止导入。Chromium 与 Edge Stable 153.0.4234.48 扩展 smoke、167 项 Vitest、Vue 3 面板构建 / staging 打包、typecheck、包边界、生成声明、ESLint、Prettier 均通过；追加导入说明补入备份文档。完成 120 / 205 项（58.5%）。
 - 2026-09-26：面板最近匹配区升级为内存中的最多 10 条命中记录，显示跨标签页收到的 method、URL、匹配条件和本地时间；明确不记录未命中，面板关闭 / 刷新即清空，未增加存储字段或请求内容采集。扩展 smoke 覆盖多次命中保留上限及重载清空；Chromium 与 Edge Stable 153.0.4234.48 扩展 smoke、167 项 Vitest、V3 面板构建 / staging 打包、typecheck、包边界、生成声明、ESLint、Prettier 均通过。将“命中历史 / 未命中诊断”拆成两个可验收项；未命中原因与 action 最终结果仍待设计。完成 121 / 206 项（58.7%）。
 - 2026-09-26：增加离线规则匹配试算，复用 domain 的实际规则匹配器，显示逐条未命中原因、全局 / 规则 / action 停用、第一条命中和后续优先级遮蔽；输入不发请求、不保存，也不影响命中计数。Vitest 新增分类与优先级用例；扩展 smoke 在当前规则上分别验证首条匹配、method mismatch 和 no-match，并确认配置 / 计数不变。Chromium 与 Edge Stable 153.0.4234.48 扩展 smoke、169 项 Vitest、domain / V3 面板构建、typecheck、包边界、生成声明、ESLint、Prettier 通过。将计划进一步拆为离线试算和真实运行时诊断两项。完成 122 / 207 项（58.9%）。
+- 2026-09-26：评估快捷建规则来源，决定只从已有最近命中通知创建，不采集任意页面请求；将预填实际 URL / method、普通匹配、默认停用、空标签和 JSON `{}` 响应作为人工审核草稿，不复制原响应正文、重定向目标或函数代码。完整请求 URL 可能含敏感 query 参数，编辑器须保持可见可改；关闭不得写配置，保存后仍须显式启用。将评估项与实现项拆分。完成 123 / 208 项（59.1%）。
 - 2026-09-26：增加离线规则匹配试算，复用 domain 的实际规则匹配器，显示逐条未命中原因、全局 / 规则 / action 停用、第一条命中和后续优先级遮蔽；输入不发请求、不保存，也不影响命中计数。Vitest 新增分类与优先级用例；扩展 smoke 在当前规则上分别验证首条匹配、method mismatch 和 no-match，并确认配置 / 计数不变。Chromium 与 Edge Stable 153.0.4234.48 扩展 smoke、169 项 Vitest、domain / V3 面板构建、typecheck、包边界、生成声明、ESLint、Prettier 通过。将计划进一步拆为离线试算和真实运行时诊断两项。完成 122 / 207 项（58.9%）。
 - GitHub 里程碑：[阶段 0](https://github.com/Nyakooo/ajax-proxy/milestone/1)、[阶段 1](https://github.com/Nyakooo/ajax-proxy/milestone/2)、[阶段 2](https://github.com/Nyakooo/ajax-proxy/milestone/3)、[阶段 3](https://github.com/Nyakooo/ajax-proxy/milestone/4)、[阶段 4](https://github.com/Nyakooo/ajax-proxy/milestone/5)、[阶段 5](https://github.com/Nyakooo/ajax-proxy/milestone/6)、[阶段 6](https://github.com/Nyakooo/ajax-proxy/milestone/7)、[阶段 7](https://github.com/Nyakooo/ajax-proxy/milestone/8)；已复现缺陷：[issue #56](https://github.com/Nyakooo/ajax-proxy/issues/56)。
