@@ -13,6 +13,62 @@ afterEach(() => {
 })
 
 describe('createV3ResponseFunctionExecutor', () => {
+  it('keeps other ready waiters after one execution times out while loading', async () => {
+    vi.useFakeTimers()
+    vi.stubGlobal('HTMLIFrameElement', FakeIFrameElement)
+    const frame = new FakeIFrameElement()
+    let onMessage: ((event: MessageEvent) => void) | undefined
+    let nextId = 0
+    const host = {
+      document: { getElementById: vi.fn(() => frame) },
+      addEventListener: vi.fn((_type: string, listener: EventListenerOrEventListenerObject) => {
+        if (typeof listener === 'function') onMessage = listener as (event: MessageEvent) => void
+      }),
+      crypto: { randomUUID: () => `loading-execution-${++nextId}` },
+    } as unknown as Window
+    const execute = createV3ResponseFunctionExecutor(host)
+    const request = { url: '/api', method: 'GET' }
+    const response = { status: 200, statusText: 'OK', headers: {}, body: 'native' }
+    const earlierExecution = execute('return response.body', request, response)
+
+    await vi.advanceTimersByTimeAsync(4900)
+    const laterExecution = execute('return response.status', request, response)
+    const earlierRejection = expect(earlierExecution).rejects.toThrow(
+      'Function sandbox timed out while loading.'
+    )
+
+    await vi.advanceTimersByTimeAsync(100)
+    await earlierRejection
+    expect(frame.contentWindow.postMessage).not.toHaveBeenCalled()
+
+    onMessage?.({
+      origin: 'null',
+      source: frame.contentWindow,
+      data: { channel: 'ajax-proxy-v3-function-sandbox', type: 'ready' },
+    } as MessageEvent)
+    await vi.advanceTimersByTimeAsync(0)
+
+    expect(frame.contentWindow.postMessage).toHaveBeenCalledOnce()
+    expect(frame.contentWindow.postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'run', id: 'loading-execution-2' }),
+      '*'
+    )
+    onMessage?.({
+      origin: 'null',
+      source: frame.contentWindow,
+      data: {
+        channel: 'ajax-proxy-v3-function-sandbox',
+        type: 'result',
+        id: 'loading-execution-2',
+        ok: true,
+        result: 200,
+      },
+    } as MessageEvent)
+
+    await expect(laterExecution).resolves.toBe(200)
+    expect(frame.remove).not.toHaveBeenCalled()
+  })
+
   it('reuses a ready sandbox frame and accepts round trips only from it', async () => {
     vi.stubGlobal('HTMLIFrameElement', FakeIFrameElement)
     const frame = new FakeIFrameElement()
