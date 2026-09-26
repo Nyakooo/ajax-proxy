@@ -2,6 +2,25 @@
 >
 > **Version note:** This page describes Ajax Proxy V2's legacy API only. Its examples do not apply to V3. See the [V3 custom function guide](docs/V3-USER-FUNCTIONS.zh.md).
 
+## V2 函数式重定向（旧能力）
+
+下面的函数表达式可用于 V2 重定向规则的函数模式。扩展会先按规则的 method 条件过滤，再把请求 URL 和 method 传给函数；函数代码需要自行检查 URL 并决定目标地址。函数模式不会自动使用规则的 `domain` / regex 条件来筛选请求。返回值可以是 `{ url, headers? }`，也可以通过第二个参数 `next({ url, headers? })` 完成；Promise 返回值同样支持。
+
+```js
+function redirect(req) {
+  if (req.method === 'GET' && req.url.includes('/api/profile')) {
+    return Promise.resolve({
+      url: req.url.replace('/api/profile', '/mock/profile'),
+      headers: { 'x-ajax-proxy': 'v2-function' },
+    })
+  }
+
+  return { url: req.url }
+}
+```
+
+此功能通过 V2 的 `window.eval()` 在网页主世界运行，只能使用你信任的代码。函数抛错、拒绝、返回无效结果或超时会按 fail-open 继续原请求；同步死循环会阻塞页面线程，超时无法中断它。函数式重定向尚未迁移到 V3；V3 规则使用独立 schema 和受限 sandbox 函数响应能力。
+
 ## 函数式响应
 
 **函数式响应**面向特殊需求。本质上也是通过代码片段方式注入到浏览器中，相比固定格式它可以更灵活，支持 Promise。你甚至可以直接在函数体内使用**XHR/Fetch**去发起独立请求。但需要注意的是，所有逻辑只能写在**setup**函数中。

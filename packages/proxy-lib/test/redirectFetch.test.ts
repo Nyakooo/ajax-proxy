@@ -143,4 +143,41 @@ describe('RedirectFetch Request input', () => {
 
     expect(originFetch).toHaveBeenCalledWith(request, undefined)
   })
+
+  it('applies a successful URL-aware redirect function once with its returned headers', async () => {
+    const { customFetch, originFetch, getForwardedRequest } = await createRedirectHarness([
+      {
+        switch_on: true,
+        domain: '/this-field-is-not-used-for-function-matching',
+        redirect_url: '',
+        method: 'POST',
+        redirect_type: 'function',
+        redirect_func: `function(req) {
+          if (req.method === 'POST' && req.url.includes('/api/orders')) {
+            return Promise.resolve({
+              url: req.url.replace('/api/orders', '/mock/orders'),
+              headers: { 'x-redirected-by-function': 'yes' },
+            })
+          }
+          return { url: req.url }
+        }`,
+      },
+    ])
+    const request = new Request('https://example.test/api/orders/42', {
+      method: 'POST',
+      headers: { 'x-original': 'kept' },
+      body: '{"item":"book"}',
+    })
+
+    const response = await customFetch(request)
+    const forwardedRequest = getForwardedRequest()
+
+    expect(await response.text()).toBe('redirected response')
+    expect(originFetch).toHaveBeenCalledTimes(1)
+    expect(forwardedRequest?.url).toBe('https://example.test/mock/orders/42')
+    expect(forwardedRequest?.method).toBe('POST')
+    expect(forwardedRequest?.headers.get('x-original')).toBe('kept')
+    expect(forwardedRequest?.headers.get('x-redirected-by-function')).toBe('yes')
+    expect(await forwardedRequest?.text()).toBe('{"item":"book"}')
+  })
 })
