@@ -482,4 +482,32 @@ describe('createV3Fetch', () => {
       ['response', 'unsupported', 'response-replacement-unsupported'],
     ])
   })
+
+  it('fails open when response snapshot headers exceed the safe count', async () => {
+    const response = new Response('native', {
+      headers: {
+        'content-type': 'text/plain',
+        ...Object.fromEntries(
+          Array.from({ length: 100 }, (_, index) => [`x-header-${index}`, 'ok'])
+        ),
+      },
+    })
+    const executeResponseFunction = vi.fn()
+    const onFunctionError = vi.fn()
+    const selectedRule = rule('too-many-snapshot-headers', {
+      response: { enabled: true, replace: { code: 'return { body: "changed" }' } },
+    })
+    const fetch = createV3Fetch(async () => response, {
+      getRules: () => [selectedRule],
+      executeResponseFunction,
+      onFunctionError,
+    })
+
+    const result = await fetch('https://example.test/api', { method: 'POST' })
+
+    expect(result).toBe(response)
+    expect(await result.text()).toBe('native')
+    expect(executeResponseFunction).not.toHaveBeenCalled()
+    expect(onFunctionError.mock.calls[0][2]).toBe('snapshot-too-large')
+  })
 })
