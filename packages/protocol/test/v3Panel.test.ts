@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import {
   isV3PanelGetSnapshotRequest,
   isV3PanelMessage,
@@ -83,5 +83,43 @@ describe('V3 panel message guard', () => {
         )
       )
     ).toBe(false)
+  })
+
+  it('rejects accessor routing fields and config without invoking their getters', () => {
+    const getKey = vi.fn(() => V3PanelMessageKey.GET_SNAPSHOT)
+    const getConfig = vi.fn(() => null)
+    const accessorGet = { ...getSnapshotMessage }
+    Object.defineProperty(accessorGet, 'key', { enumerable: true, get: getKey })
+    const accessorSave = {
+      ...saveConfigMessage,
+      value: Object.defineProperty({}, 'config', { enumerable: true, get: getConfig }),
+    }
+
+    expect(isV3PanelGetSnapshotRequest(accessorGet)).toBe(false)
+    expect(isV3PanelSaveConfigRequest(accessorSave)).toBe(false)
+    expect(getKey).not.toHaveBeenCalled()
+    expect(getConfig).not.toHaveBeenCalled()
+  })
+
+  it('reads valid proxy messages through descriptors without invoking get traps', () => {
+    const get = vi.fn()
+    const descriptorTrap = vi.fn((target: object, key: PropertyKey) =>
+      Reflect.getOwnPropertyDescriptor(target, key)
+    )
+    const proxied = new Proxy(getSnapshotMessage, {
+      get,
+      getOwnPropertyDescriptor: descriptorTrap,
+    })
+
+    expect(isV3PanelGetSnapshotRequest(proxied)).toBe(true)
+    expect(get).not.toHaveBeenCalled()
+    expect(descriptorTrap).toHaveBeenCalled()
+
+    const hostileDescriptor = new Proxy(getSnapshotMessage, {
+      getOwnPropertyDescriptor() {
+        throw new Error('descriptor access blocked')
+      },
+    })
+    expect(isV3PanelGetSnapshotRequest(hostileDescriptor)).toBe(false)
   })
 })

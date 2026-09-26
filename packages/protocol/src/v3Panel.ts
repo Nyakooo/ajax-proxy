@@ -52,16 +52,29 @@ function hasExactlyKeys(value: Record<string, unknown>, keys: string[]) {
   return ownKeys.length === keys.length && ownKeys.every((key) => keys.includes(key))
 }
 
+function getOwnDataProperty(value: Record<string, unknown>, key: string) {
+  const descriptor = Object.getOwnPropertyDescriptor(value, key)
+  return descriptor !== undefined && 'value' in descriptor
+    ? { ok: true as const, value: descriptor.value }
+    : { ok: false as const, value: undefined }
+}
+
 /** Guard the strict panel-to-service-worker V3 snapshot request envelope. */
 export function isV3PanelGetSnapshotRequest(value: unknown): value is V3PanelGetSnapshotRequest {
   if (!isPlainRecord(value)) return false
 
   try {
+    const from = getOwnDataProperty(value, 'from')
+    const to = getOwnDataProperty(value, 'to')
+    const key = getOwnDataProperty(value, 'key')
     return (
       hasExactlyKeys(value, ['from', 'to', 'key']) &&
-      value.from === NoticeFrom.PANELS &&
-      value.to === NoticeTo.SERVICE_WORKER &&
-      value.key === V3PanelMessageKey.GET_SNAPSHOT
+      from.ok &&
+      from.value === NoticeFrom.PANELS &&
+      to.ok &&
+      to.value === NoticeTo.SERVICE_WORKER &&
+      key.ok &&
+      key.value === V3PanelMessageKey.GET_SNAPSHOT
     )
   } catch {
     return false
@@ -73,13 +86,22 @@ export function isV3PanelSaveConfigRequest(value: unknown): value is V3PanelSave
   if (!isPlainRecord(value)) return false
 
   try {
+    const from = getOwnDataProperty(value, 'from')
+    const to = getOwnDataProperty(value, 'to')
+    const key = getOwnDataProperty(value, 'key')
+    const messageValue = getOwnDataProperty(value, 'value')
+    if (!messageValue.ok || !isPlainRecord(messageValue.value)) return false
+    const config = getOwnDataProperty(messageValue.value, 'config')
     return (
       hasExactlyKeys(value, ['from', 'to', 'key', 'value']) &&
-      value.from === NoticeFrom.PANELS &&
-      value.to === NoticeTo.SERVICE_WORKER &&
-      value.key === V3PanelMessageKey.SAVE_CONFIG &&
-      isPlainRecord(value.value) &&
-      hasExactlyKeys(value.value, ['config'])
+      from.ok &&
+      from.value === NoticeFrom.PANELS &&
+      to.ok &&
+      to.value === NoticeTo.SERVICE_WORKER &&
+      key.ok &&
+      key.value === V3PanelMessageKey.SAVE_CONFIG &&
+      hasExactlyKeys(messageValue.value, ['config']) &&
+      config.ok
     )
   } catch {
     return false
