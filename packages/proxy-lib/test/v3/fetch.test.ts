@@ -641,6 +641,37 @@ describe('createV3Fetch', () => {
     ])
   })
 
+  it('fails open when the request body exceeds the function snapshot size limit', async () => {
+    const response = new Response('native', { headers: { 'content-type': 'text/plain' } })
+    const executeResponseFunction = vi.fn(async () => ({ body: 'changed' }))
+    const onFunctionError = vi.fn()
+    const onFetchOutcome = vi.fn()
+    const selectedRule = rule('large-request-snapshot', {
+      response: { enabled: true, replace: { code: 'return { body: "changed" }' } },
+    })
+    const fetch = createV3Fetch(async () => response, {
+      getRules: () => [selectedRule],
+      executeResponseFunction,
+      onFunctionError,
+      isFetchOutcomeDiagnosticsArmed: () => true,
+      onFetchOutcome,
+    })
+
+    const result = await fetch('https://example.test/api', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: 'x'.repeat(512 * 1024 + 1),
+    })
+
+    expect(result).toBe(response)
+    expect(await result.text()).toBe('native')
+    expect(executeResponseFunction).not.toHaveBeenCalled()
+    expect(onFunctionError.mock.calls[0][2]).toBe('snapshot-too-large')
+    expect(onFetchOutcome.mock.calls.map((call) => call.slice(2))).toEqual([
+      ['response', 'fallback', 'response-replacement-failed'],
+    ])
+  })
+
   it('fails open with the original bytes when a text snapshot is not valid UTF-8', async () => {
     const bytes = new Uint8Array([0xff, 0xfe, 0xc3, 0x28])
     const response = new Response(bytes, { headers: { 'content-type': 'text/plain' } })

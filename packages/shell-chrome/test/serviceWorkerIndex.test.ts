@@ -1,8 +1,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { NoticeFrom, NoticeKey, NoticeTo } from '@proxy/shared-utils'
+import { NoticeFrom, NoticeKey, NoticeTo, StorageKey } from '@proxy/shared-utils'
 import { INIT_CURRENT_TITLE } from '../src/consts'
 
 type MessageListener = (message: unknown, sender: chrome.runtime.MessageSender) => unknown
+type StorageChangeListener = (
+  changes: Record<string, { newValue?: unknown; oldValue?: unknown }>,
+  areaName: string
+) => void
 
 function deferred<T>() {
   let resolve!: (value: T) => void
@@ -37,6 +41,8 @@ describe('service worker message entry', () => {
     const notifyV3NoMatch = vi.fn().mockResolvedValue(undefined)
     const notifyV3FetchOutcome = vi.fn().mockResolvedValue(undefined)
     const notifyV3XHROutcome = vi.fn().mockResolvedValue(undefined)
+    const chromeBadge = vi.fn()
+    const storageChangeListeners: StorageChangeListener[] = []
     const chromeMock = {
       runtime: {
         id: 'test-extension',
@@ -46,7 +52,11 @@ describe('service worker message entry', () => {
         },
       },
       storage: {
-        onChanged: { addListener: vi.fn() },
+        onChanged: {
+          addListener: vi.fn((listener: StorageChangeListener) =>
+            storageChangeListeners.push(listener)
+          ),
+        },
       },
       action: { setIcon: vi.fn() },
     }
@@ -63,7 +73,7 @@ describe('service worker message entry', () => {
     vi.doMock('../src/service-worker/notice', () => ({ useCurrentTitle: vi.fn(() => '') }))
     vi.doMock('../src/service-worker/init', () => ({ initDefaultSth: vi.fn() }))
     vi.doMock('../src/service-worker/event', () => ({ injectEventListener: vi.fn() }))
-    vi.doMock('../src/service-worker/badge', () => ({ chromeBadge: vi.fn() }))
+    vi.doMock('../src/service-worker/badge', () => ({ chromeBadge }))
     vi.doMock('../src/service-worker/v3Hit', () => ({ chromeBadgeV3: vi.fn() }))
     vi.doMock('../src/service-worker/v3FunctionError', () => ({ notifyV3FunctionError }))
     vi.doMock('../src/service-worker/v3NoMatch', () => ({ notifyV3NoMatch }))
@@ -76,6 +86,17 @@ describe('service worker message entry', () => {
     await import('../src/service-worker/index')
     storageReady.resolve()
     await vi.waitFor(() => expect(runtimeListeners).toHaveLength(2))
+    await vi.waitFor(() => expect(storageChangeListeners).toHaveLength(1))
+
+    const onStorageChanged = storageChangeListeners[0]
+    onStorageChanged({ [StorageKey.V3_CONFIG]: { newValue: {} } }, 'local')
+    onStorageChanged({ [StorageKey.V3_HITS]: { newValue: {} } }, 'local')
+    expect(chromeBadge).toHaveBeenCalledTimes(2)
+
+    chromeBadge.mockClear()
+    onStorageChanged({ [StorageKey.V3_CONFIG]: { newValue: {} } }, 'sync')
+    onStorageChanged({ unrelated: { newValue: true } }, 'local')
+    expect(chromeBadge).not.toHaveBeenCalled()
 
     const listener = runtimeListeners[1]
     const contentSender = { id: 'test-extension', tab: { id: 1 } }

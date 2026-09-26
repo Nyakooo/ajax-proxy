@@ -266,6 +266,7 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - [x] 为 V3 XHR 网络失败增加回归：网络错误下的 `status=0` 不得被响应替换伪装成成功状态，`readystatechange` 与 `error` 处理器读取到原生失败结果。
 - [x] 将 V3 XHR 原生失败保留断言扩展至 `abort` 与 `timeout` 终态。
 - [x] 为 service worker 启动期 V3 面板消息入口覆盖发送方与 envelope 拒绝路径；错误扩展 ID、非 V3 面板 URL 和畸形消息均不得访问 storage 或调用响应回调。
+- [x] 为 Service Worker 的 storage change 入口覆盖 local 区域 V3 config / hit counter 刷新 badge，并确认 sync 区域与无关 key 不触发刷新。
 - [x] 为 V3 XHR `on*` 属性处理器覆盖重复赋值及设为 `null` 的移除语义，避免旧回调跨事件 / 请求残留。
 - [x] 为 V3 面板启动期 GET 快照覆盖 storage 初始化失败分支；返回稳定 `storage-read-failed`，且初始化失败时不访问 storage。
 - [x] 为 V3 response function executor 覆盖 iframe `ready` / `result` 可信往返；错误 source 不得触发执行，正确 source 与 opaque origin 才能完成结果。
@@ -296,6 +297,7 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - [x] 为 V3 no-match Service Worker 队列覆盖 storage 读取异常；失败不得消耗一次性诊断开关或污染后续排队事件。
 - [x] 为 V3 backup 校验覆盖 regex 数量、header 数量 / UTF-8 总字节数和 disabled origin 数量上限。
 - [x] 为 V3 response function 覆盖超出 512 KiB 快照上限后的 fail-open；不执行函数，保留完整原响应并记录固定错误类别。
+- [x] 为 V3 response function 覆盖请求体快照超过 512 KiB 时 fail-open；不执行函数，保留完整原响应并报告 `snapshot-too-large`。
 - [x] 为 V3 XHR 覆盖 `EventListenerObject.handleEvent` 的 `this` 绑定，以及事件 target / currentTarget 的代理语义。
 - [x] 为 V3 backup 严格校验补结构畸形回归，覆盖非对象 settings / rule、非对象 action / payload / headers，以及缺少 action 的规则。
 - [x] 为 V3 backup / response result validator 补未知规则字段、原型读取抛错和空结果边界回归。
@@ -748,4 +750,5 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - 2026-09-26：阶段 7 更新中英文 README 的 V3 staging 安装、显式打开路径、当前功能范围、V2 / V3 备份兼容说明、规则优先级 FAQ 和 workspace package 清单；保留商店与媒体链接，并指向迁移、备份和规则模型指南。中英文 README Prettier / diff 检查通过。完成 290 / 346 项（83.8%）。
 - 2026-09-26：阶段 7 建立 V3 版本策略、changelog / 发行说明模板、发布前清单、问题反馈与回滚要求；明确建议正式首发 3.0.0，当前仍保持 2.2.10，未更改版本号或发布。复核 permissions、兼容矩阵、核心 Fetch / XHR 及导入导出回归证据，最新分支 CI 全部通过。发布前仍需干净构建并完成目标浏览器实载；另记录现有 ZIP 清单缺少 `panels-v3/**`，须在选定正式面板目标后修复与审查。文档 Prettier / diff 检查通过。完成 294 / 347 项（84.7%）。
 - 2026-09-26：阶段 7 在干净 clone `9c88d81` 执行 `pnpm install --frozen-lockfile`、`pnpm clean:build` 和 `pnpm build`；产物含 `packages/shell-chrome/build/manifest.json` 与 `panels-v3/index.html`。随后 `pnpm typecheck`、覆盖率测试（34 个文件 / 323 项）、Vue 3 UI 测试（7 个文件 / 32 项）、包边界、生成声明、lint 与格式检查均通过；Chrome Stable 真实 Fetch / XHR 实载结果见测试记录。完成 296 / 348 项（85.1%）。
+- 2026-09-26：阶段 6 补充响应函数请求体快照超过 512 KiB 时不调用 sandbox、保留网络响应并报告 `snapshot-too-large`；另覆盖 Service Worker 仅因 local 区域 V3 配置 / 命中计数变化刷新徽章。两份定向测试通过；全量覆盖测试 34 个文件 / 324 项通过，整体语句 / 分支 / 函数 / 行覆盖为 80.70% / 78.94% / 79.85% / 82.25%，`responseAction.ts` 分支覆盖 95.12%。typecheck、改动文件 ESLint / Prettier 与 `git diff --check` 通过。本次不测试由每部分硬上限推导为不可达的 1 MiB 合计超限分支。完成 298 / 350 项（85.1%）。
 - GitHub 里程碑：[阶段 0](https://github.com/Nyakooo/ajax-proxy/milestone/1)、[阶段 1](https://github.com/Nyakooo/ajax-proxy/milestone/2)、[阶段 2](https://github.com/Nyakooo/ajax-proxy/milestone/3)、[阶段 3](https://github.com/Nyakooo/ajax-proxy/milestone/4)、[阶段 4](https://github.com/Nyakooo/ajax-proxy/milestone/5)、[阶段 5](https://github.com/Nyakooo/ajax-proxy/milestone/6)、[阶段 6](https://github.com/Nyakooo/ajax-proxy/milestone/7)、[阶段 7](https://github.com/Nyakooo/ajax-proxy/milestone/8)；已复现缺陷：[issue #56](https://github.com/Nyakooo/ajax-proxy/issues/56)。
