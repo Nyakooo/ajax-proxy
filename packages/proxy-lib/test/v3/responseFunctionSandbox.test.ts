@@ -13,7 +13,7 @@ afterEach(() => {
 })
 
 describe('createV3ResponseFunctionExecutor', () => {
-  it('accepts a round trip only from the configured sandbox frame', async () => {
+  it('reuses a ready sandbox frame and accepts round trips only from it', async () => {
     vi.stubGlobal('HTMLIFrameElement', FakeIFrameElement)
     const frame = new FakeIFrameElement()
     const otherWindow = {} as Window
@@ -100,6 +100,19 @@ describe('createV3ResponseFunctionExecutor', () => {
     })
 
     await expect(result).resolves.toEqual({ body: 'mock' })
+
+    const reusedExecution = execute('return response.status', request, response)
+    await vi.waitFor(() => expect(frame.contentWindow.postMessage).toHaveBeenCalledTimes(2))
+    const [reusedRunMessage] = vi.mocked(frame.contentWindow.postMessage).mock.calls[1] ?? []
+    expect(reusedRunMessage).toMatchObject({ type: 'run', id: 'test-execution-id' })
+    sendMessage('null', frame.contentWindow, {
+      channel: 'ajax-proxy-v3-function-sandbox',
+      type: 'result',
+      id: reusedRunMessage.id,
+      ok: true,
+      result: { status: 204 },
+    })
+    await expect(reusedExecution).resolves.toEqual({ status: 204 })
   })
 
   it('uses a fallback execution id when crypto.randomUUID throws', async () => {
