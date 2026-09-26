@@ -606,6 +606,28 @@ describe('createV3ResponseFunctionExecutor', () => {
     }
   )
 
+  it('rejects a non-iframe element even when it advertises the sandbox URL', async () => {
+    vi.stubGlobal('HTMLIFrameElement', FakeIFrameElement)
+    const fakeElement = {
+      src: 'chrome-extension://test-extension/v3-sandbox/sandbox.html',
+      contentWindow: { postMessage: vi.fn() },
+    }
+    const host = {
+      document: { getElementById: vi.fn(() => fakeElement) },
+      addEventListener: vi.fn(),
+    } as unknown as Window
+    const execute = createV3ResponseFunctionExecutor(host)
+
+    await expect(
+      execute(
+        'return response.body',
+        { url: '/api', method: 'GET' },
+        { status: 200, statusText: 'OK', headers: {}, body: 'native' }
+      )
+    ).rejects.toThrow('Function sandbox is unavailable on this page.')
+    expect(fakeElement.contentWindow.postMessage).not.toHaveBeenCalled()
+  })
+
   it('ignores malformed or untrusted ready messages and times out while loading', async () => {
     vi.useFakeTimers()
     vi.stubGlobal('HTMLIFrameElement', FakeIFrameElement)
