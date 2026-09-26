@@ -893,6 +893,39 @@ async function main() {
       .getByRole('button', { name: 'Close filters' })
       .click()
 
+    await taggedRuleRow.first().getByRole('button', { name: 'Duplicate' }).click()
+    let configAfterDuplicate
+    let duplicatedTaggedRule
+    for (let attempt = 0; attempt < 40; attempt += 1) {
+      configAfterDuplicate = await restartedWorker.evaluate(
+        async (key) => (await chrome.storage.local.get(key))[key],
+        'ajax-proxy:storage:v3-config'
+      )
+      duplicatedTaggedRule = configAfterDuplicate.rules.find(
+        (rule) => rule.match.url === '/api/v3-ui' && rule.id !== taggedRule.id
+      )
+      if (duplicatedTaggedRule) break
+      await new Promise((resolve) => setTimeout(resolve, 50))
+    }
+    const sourceRuleIndex = configAfterDuplicate.rules.findIndex(
+      (rule) => rule.id === taggedRule.id
+    )
+    const duplicateRuleIndex = configAfterDuplicate.rules.findIndex(
+      (rule) => rule.id === duplicatedTaggedRule.id
+    )
+    assert.equal(duplicateRuleIndex, sourceRuleIndex + 1, 'the copy follows its source rule')
+    assert.equal(duplicatedTaggedRule.enabled, false, 'a copied rule starts disabled')
+    assert.deepEqual(duplicatedTaggedRule.tagIds, taggedRule.tagIds)
+    assert.deepEqual(duplicatedTaggedRule.response, taggedRule.response)
+    assert.equal(
+      await restartedWorker.evaluate(
+        async ({ key, ruleId }) => ((await chrome.storage.local.get(key))[key] || {})[ruleId] || 0,
+        { key: 'ajax-proxy:storage:v3-hits', ruleId: duplicatedTaggedRule.id }
+      ),
+      0,
+      'a copied rule does not copy hit counters'
+    )
+
     await v3Panel.locator('.sidebar .nav-item').nth(1).click()
     await v3Panel.getByRole('button', { name: 'Create redirect rule' }).click()
     const taggedRedirectEditor = v3Panel.locator('.rule-editor[role="dialog"]')
@@ -951,7 +984,9 @@ async function main() {
     assert.equal(configAfterTagDelete.tags.length, 1)
     assert.ok(
       configAfterTagDelete.rules
-        .filter((rule) => [taggedRule.id, taggedRedirectRule.id].includes(rule.id))
+        .filter((rule) =>
+          [taggedRule.id, taggedRedirectRule.id, duplicatedTaggedRule.id].includes(rule.id)
+        )
         .every(
           (rule) => rule.tagIds?.length === 1 && ![taggedRule.tagIds[0]].includes(rule.tagIds[0])
         ),

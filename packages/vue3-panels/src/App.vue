@@ -6,6 +6,7 @@ import {
   onBeforeUnmount,
   onMounted,
   ref,
+  toRaw,
   watch,
 } from 'vue'
 import { useI18n } from 'vue-i18n'
@@ -536,6 +537,17 @@ async function setRuleEnabled(id, value) {
   }
 }
 
+async function duplicateRule(rule) {
+  const current = config.value
+  const sourceIndex = current.rules.findIndex((item) => item.id === rule.id)
+  if (sourceIndex < 0) return
+  const duplicate = structuredClone(toRaw(rule))
+  duplicate.id = createRuleId(current.rules)
+  duplicate.enabled = false
+  const nextRules = ruleOperations.insertV3Rule(current.rules, duplicate, sourceIndex + 1)
+  if (nextRules !== current.rules) await persistConfig({ ...current, rules: [...nextRules] })
+}
+
 async function deleteRule(rule) {
   const isRedirect = section.value === 'redirect'
   const actionExists = isRedirect ? Boolean(rule.request) : Boolean(rule.response)
@@ -877,6 +889,9 @@ async function moveRule(rule, targetRule) {
                   @click="moveRule(rule, visibleRules[index + 1])"
                 >
                   ↓
+                </button>
+                <button type="button" :disabled="saving || loading" @click="duplicateRule(rule)">
+                  {{ t('editor.duplicate') }}
                 </button>
                 <template v-if="section === 'redirect'">
                   <button type="button" :disabled="saving" @click="showEditor(rule)">

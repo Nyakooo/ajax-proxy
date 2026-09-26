@@ -216,7 +216,9 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - [x] 使用列表上移 / 下移调整首条匹配优先级；搜索或筛选期间暂禁调序。
 - [x] V3 规则支持可选多标签关联；备份 / 保存校验关联必须引用现有唯一标签，缺省关联兼容既有 V3 规则。
 - [x] 面板支持创建 / 改名 / 删除标签、规则多标签关联、列表展示和与搜索 / 状态 / 匹配类型组合筛选；删除标签前确认并清理引用。
-- [ ] 规则复制、批量启停、批量导入导出。
+- [x] 复制单条规则，副本默认停用并生成新 ID；插在来源规则之后，保留 action 与标签关联，不复制命中计数。
+- [ ] 批量启用、停用所选规则。
+- [ ] 批量导入、导出规则并校验冲突与覆盖范围。
 - [ ] 命中历史或诊断视图，解释规则未命中的原因。
 - [ ] 评估从实际请求或命中记录快捷创建规则的能力。
 - [ ] 更灵活的请求匹配条件及响应配置能力。
@@ -477,4 +479,5 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - 2026-09-26：完成 V3 规则列表基础筛选切片：按规则启用状态及普通 / 正则匹配类型过滤；搜索仍覆盖 ID、URL、method、跳转目标和 action，并让导入后停用的函数 response action 可见、可编辑。分类按 action 配置存在性统计；移除一个 action 时保留同规则中的另一个（即使其停用），搜索 / 筛选时禁用调序。Playwright 扩展 smoke 验证导入函数规则仍显示、打开编辑器后函数响应保持未启用、删除 action 保留同规则的请求 action、状态筛选、匹配类型空态、清除筛选、搜索和调序限制；Playwright Chromium 与 Edge Stable 153.0.4234.48 扩展 smoke、165 项 Vitest、Vue 3 面板构建 / staging 打包、typecheck、包边界、改动文件 ESLint / Prettier 通过。Chrome Stable 154.0.8037.58 真实本地扩展面板验证筛选弹层、无结果态和清除筛选；当前 profile 规则仍为空。将原“搜索、筛选、排序、标签”综合项拆为独立进度项。完成 115 / 202 项（56.9%）。
 - 2026-09-26：V3 标签数据契约支持可选多标签 `rule.tagIds`；严格校验非空、唯一 ID 且每个引用必须对应备份内已定义标签，缺省字段继续接受既有 V3 配置。新增 domain 校验回归用例，定向 18 项测试、domain 构建、ESLint、Prettier 通过。面板标签管理、关联与筛选交互仍待完成。完成 116 / 203 项（57.1%）。
 - 2026-09-26：完成 V3 标签管理与关联切片：工具栏可创建、改名、删除标签；拦截与重定向编辑器均支持多标签；列表显示标签并将标签名纳入搜索；单标签筛选可与启用状态、普通 / 正则条件组合。删除标签先确认，再从所有相关规则解除该引用。扩展 smoke 验证两个 editor 各保存两个标签、重载后显示、筛选与清空、删除单个关联时保留其他标签并最终清除关联；Chromium 与 Edge Stable 153.0.4234.48 扩展 smoke、167 项 Vitest、Vue 3 / Chrome extension build 与 staging packaging、typecheck、包边界、生成声明、ESLint、Prettier 通过。标签数据契约与面板阶段分别提交。完成 117 / 203 项（57.6%）。
+- 2026-09-26：规则行新增复制操作：深拷贝完整组合规则、生成新 ID、插在原规则之后并将规则级 enabled 设为 false；保留 action 配置和 tagIds，命中计数按新 ID 从 0 开始。扩展 smoke 验证标签规则副本保留两个标签及 response 内容、紧邻原规则且默认停用，命中计数不复制；Chromium 与 Edge Stable 153.0.4234.48 smoke、167 项 Vitest、Vue 3 面板构建 / staging 打包、typecheck、包边界、生成声明、ESLint、Prettier 均通过。计划项“规则复制、批量启停、批量导入导出”拆为独立工作项。完成 118 / 205 项（57.6%）。
 - GitHub 里程碑：[阶段 0](https://github.com/Nyakooo/ajax-proxy/milestone/1)、[阶段 1](https://github.com/Nyakooo/ajax-proxy/milestone/2)、[阶段 2](https://github.com/Nyakooo/ajax-proxy/milestone/3)、[阶段 3](https://github.com/Nyakooo/ajax-proxy/milestone/4)、[阶段 4](https://github.com/Nyakooo/ajax-proxy/milestone/5)、[阶段 5](https://github.com/Nyakooo/ajax-proxy/milestone/6)、[阶段 6](https://github.com/Nyakooo/ajax-proxy/milestone/7)、[阶段 7](https://github.com/Nyakooo/ajax-proxy/milestone/8)；已复现缺陷：[issue #56](https://github.com/Nyakooo/ajax-proxy/issues/56)。

@@ -154,6 +154,7 @@ export const messages = {
       validationFailed: '规则未保存：{issue}',
       edit: '编辑',
       delete: '删除',
+      duplicate: '复制',
     },
     responseEditor: {
       createTitle: '创建 JSON 响应规则',
@@ -368,6 +369,7 @@ export const messages = {
       validationFailed: 'Rule not saved: {issue}',
       edit: 'Edit',
       delete: 'Delete',
+      duplicate: 'Duplicate',
     },
     responseEditor: {
       createTitle: 'Create JSON response rule',
