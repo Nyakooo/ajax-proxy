@@ -273,6 +273,56 @@ describe('RedirectRuleEditor', () => {
       ],
     ])
   })
+
+  it('reloads the selected rule while editing and clears the previous validation issue', async () => {
+    const firstRule = {
+      enabled: false,
+      match: { url: '/first', type: 'normal', method: 'GET' },
+      request: { redirect: { url: 'https://first.test/' } },
+      tagIds: ['tag-a'],
+    }
+    const secondRule = {
+      enabled: true,
+      match: { url: '/second', type: 'exact', method: 'POST' },
+      request: { redirect: { url: 'https://second.test/' } },
+      tagIds: ['tag-b'],
+    }
+    const wrapper = mount(RedirectRuleEditor, {
+      props: {
+        open: true,
+        rule: firstRule,
+        tags: [
+          { id: 'tag-a', name: 'First' },
+          { id: 'tag-b', name: 'Second' },
+        ],
+      },
+      global: { plugins: [i18n] },
+    })
+    const inputs = wrapper.findAll('input:not([type="checkbox"])')
+    await inputs[0].setValue(' /invalid ')
+    await wrapper.get('form').trigger('submit')
+    expect(wrapper.get('[role="alert"]').exists()).toBe(true)
+
+    await wrapper.setProps({ rule: secondRule })
+    await nextTick()
+    await flushPromises()
+
+    expect(inputs[0].element.value).toBe('/second')
+    expect(inputs[1].element.value).toBe('https://second.test/')
+    expect(wrapper.findAll('select')[0].element.value).toBe('exact')
+    expect(wrapper.findAll('select')[1].element.value).toBe('POST')
+    expect(wrapper.findAll('.rule-tag-picker input[type="checkbox"]')[1].element.checked).toBe(true)
+    expect(wrapper.find('[role="alert"]').exists()).toBe(false)
+
+    await wrapper.get('form').trigger('submit')
+
+    expect(wrapper.emitted('save')?.at(-1)?.[0]).toEqual({
+      enabled: true,
+      match: { url: '/second', type: 'exact', method: 'POST' },
+      redirectUrl: 'https://second.test/',
+      tagIds: ['tag-b'],
+    })
+  })
 })
 
 afterEach(() => {
