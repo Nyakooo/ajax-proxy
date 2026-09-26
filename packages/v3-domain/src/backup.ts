@@ -1,14 +1,19 @@
 import { isValidRegexPattern } from '@proxy/protocol'
-import { V3_BACKUP_LEGACY_VERSION, V3_BACKUP_VERSION } from './backupVersion'
+import {
+  V3_BACKUP_LEGACY_VERSION,
+  V3_BACKUP_PREVIOUS_VERSION,
+  V3_BACKUP_VERSION,
+} from './backupVersion'
 import type { JsonValue, V3ResponseFunctionResult, V3Rule, V3Tag } from './rules'
 
 export const V3_BACKUP_FORMAT = 'ajax-proxy-backup' as const
-export { V3_BACKUP_LEGACY_VERSION, V3_BACKUP_VERSION }
+export { V3_BACKUP_LEGACY_VERSION, V3_BACKUP_PREVIOUS_VERSION, V3_BACKUP_VERSION }
 export const V3_BACKUP_MAX_BYTES = 5 * 1024 * 1024
 
 const MAX_RULES = 1000
 const MAX_REGEX_RULES = 100
 const MAX_TAGS = 500
+const MAX_DISABLED_ORIGINS = 1000
 const MAX_ID_LENGTH = 256
 const MAX_LABEL_LENGTH = 512
 const MAX_MATCH_URL_LENGTH = 4096
@@ -28,7 +33,8 @@ export type V3Language = 'zh-CN' | 'en'
 
 export interface V3Backup {
   format: typeof V3_BACKUP_FORMAT
-  formatVersion: typeof V3_BACKUP_VERSION | typeof V3_BACKUP_LEGACY_VERSION
+  formatVersion:
+    typeof V3_BACKUP_VERSION | typeof V3_BACKUP_PREVIOUS_VERSION | typeof V3_BACKUP_LEGACY_VERSION
   settings: {
     globalEnabled: boolean
     mode: V3Mode
@@ -36,6 +42,25 @@ export interface V3Backup {
   }
   tags: V3Tag[]
   rules: V3Rule[]
+  disabledOrigins: string[]
+}
+
+/** Normalize an absolute HTTP(S) URL to its exact origin. */
+export function normalizeV3Origin(value: unknown): string | null {
+  if (typeof value !== 'string') return null
+  try {
+    const url = new URL(value)
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') return null
+    return url.origin
+  } catch {
+    return null
+  }
+}
+
+/** Check whether an exact HTTP(S) origin is present in a disabled-origin list. */
+export function isV3OriginDisabled(origin: string, disabledOrigins: readonly string[]): boolean {
+  const normalizedOrigin = normalizeV3Origin(origin)
+  return normalizedOrigin !== null && disabledOrigins.includes(normalizedOrigin)
 }
 
 export interface V3ValidationIssue {
@@ -216,12 +241,12 @@ function validateRule(
       value.match.type !== undefined &&
       value.match.type !== 'normal' &&
       value.match.type !== 'regex' &&
-      (value.match.type !== 'exact' || formatVersion < V3_BACKUP_VERSION)
+      (value.match.type !== 'exact' || formatVersion < V3_BACKUP_PREVIOUS_VERSION)
     ) {
       addIssue(
         issues,
         `${path}.match.type`,
-        formatVersion < V3_BACKUP_VERSION
+        formatVersion < V3_BACKUP_PREVIOUS_VERSION
           ? 'Expected "normal" or "regex" for backup version 3.'
           : 'Expected "normal", "regex", or "exact".'
       )
@@ -328,18 +353,53 @@ export function validateV3Backup(value: unknown): V3BackupValidation {
       ],
     }
   }
-  if (!hasOnlyKeys(value, ['format', 'formatVersion', 'settings', 'tags', 'rules'])) {
+  if (
+    !hasOnlyKeys(value, [
+      'format',
+      'formatVersion',
+      'settings',
+      'tags',
+      'rules',
+      ...(value.formatVersion === V3_BACKUP_VERSION ? ['disabledOrigins'] : []),
+    ])
+  ) {
     addIssue(issues, '$', 'Backup contains an unsupported field.')
   }
   if (
     value.formatVersion !== V3_BACKUP_VERSION &&
+    value.formatVersion !== V3_BACKUP_PREVIOUS_VERSION &&
     value.formatVersion !== V3_BACKUP_LEGACY_VERSION
   ) {
     addIssue(
       issues,
       'formatVersion',
-      `Expected version ${V3_BACKUP_LEGACY_VERSION} or ${V3_BACKUP_VERSION}.`
+      `Expected version ${V3_BACKUP_LEGACY_VERSION}, ${V3_BACKUP_PREVIOUS_VERSION}, or ${V3_BACKUP_VERSION}.`
     )
+  }
+  if (value.formatVersion === V3_BACKUP_VERSION) {
+    if (!Array.isArray(value.disabledOrigins)) {
+      addIssue(issues, 'disabledOrigins', 'Expected an array of canonical HTTP(S) origins.')
+    } else {
+      if (value.disabledOrigins.length > MAX_DISABLED_ORIGINS) {
+        addIssue(issues, 'disabledOrigins', `At most ${MAX_DISABLED_ORIGINS} origins are allowed.`)
+      }
+      const seenOrigins = new Set<string>()
+      value.disabledOrigins.forEach((origin, index) => {
+        const path = `disabledOrigins[${index}]`
+        const normalized = normalizeV3Origin(origin)
+        if (normalized === null || normalized !== origin) {
+          addIssue(
+            issues,
+            path,
+            'Expected a canonical HTTP(S) origin without a path or credentials.'
+          )
+        } else if (seenOrigins.has(origin)) {
+          addIssue(issues, path, 'Disabled origins must be unique.')
+        } else {
+          seenOrigins.add(origin)
+        }
+      })
+    }
   }
   if (
     !isObject(value.settings) ||
@@ -418,7 +478,13 @@ export function validateV3Backup(value: unknown): V3BackupValidation {
     })
   }
   return issues.length === 0
-    ? { ok: true, data: value as unknown as V3Backup }
+    ? {
+        ok: true,
+        data: {
+          ...value,
+          disabledOrigins: value.formatVersion === V3_BACKUP_VERSION ? value.disabledOrigins : [],
+        } as unknown as V3Backup,
+      }
     : { ok: false, issues }
 }
 

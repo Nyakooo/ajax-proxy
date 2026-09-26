@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest'
 import {
   analyzeV3RuleMatches,
   formatV3ValidationIssues,
+  isV3OriginDisabled,
+  normalizeV3Origin,
   parseV3BackupJson,
   selectV3Rule,
   validateV3Backup,
@@ -47,6 +49,72 @@ describe('V3 backup schema', () => {
       ok: false,
       issues: expect.arrayContaining([expect.objectContaining({ path: 'rules[0].match.type' })]),
     })
+  })
+
+  it('normalizes V3 and V4 backups with an empty disabled-origin list', () => {
+    for (const formatVersion of [3, 4]) {
+      const backup = { ...structuredClone(validBackup), formatVersion }
+      const validation = validateV3Backup(backup)
+      expect(validation).toMatchObject({ ok: true, data: { formatVersion, disabledOrigins: [] } })
+      expect(parseV3BackupJson(JSON.stringify(backup))).toMatchObject({
+        ok: true,
+        data: { formatVersion, disabledOrigins: [] },
+      })
+    }
+  })
+
+  it('validates and roundtrips canonical V5 disabled origins', () => {
+    const backup = {
+      ...structuredClone(validBackup),
+      formatVersion: 5,
+      disabledOrigins: ['https://example.com', 'http://localhost:5173'],
+    }
+    expect(validateV3Backup(backup)).toMatchObject({
+      ok: true,
+      data: { formatVersion: 5, disabledOrigins: backup.disabledOrigins },
+    })
+    expect(parseV3BackupJson(JSON.stringify(backup))).toMatchObject({
+      ok: true,
+      data: { formatVersion: 5, disabledOrigins: backup.disabledOrigins },
+    })
+  })
+
+  it('requires strict V5 disabled-origin data and rejects unknown, noncanonical, invalid, and duplicate entries', () => {
+    const base = {
+      ...structuredClone(validBackup),
+      formatVersion: 5,
+      disabledOrigins: [] as unknown,
+    }
+    const missing = { ...base }
+    delete (missing as { disabledOrigins?: unknown }).disabledOrigins
+    expect(validateV3Backup(missing)).toMatchObject({ ok: false })
+    expect(validateV3Backup({ ...base, extra: true })).toMatchObject({ ok: false })
+
+    for (const disabledOrigins of [
+      null,
+      ['https://example.com/path'],
+      ['https://user:pass@example.com'],
+      ['https://example.com/'],
+      ['ftp://example.com'],
+      ['https://example.com', 'https://example.com'],
+      [42],
+    ]) {
+      expect(validateV3Backup({ ...base, disabledOrigins })).toMatchObject({ ok: false })
+    }
+
+    const legacyWithNewField = { ...structuredClone(validBackup), disabledOrigins: [] }
+    expect(validateV3Backup(legacyWithNewField)).toMatchObject({ ok: false })
+  })
+
+  it('normalizes HTTP(S) URLs to origins and checks disabled origins exactly', () => {
+    expect(normalizeV3Origin('https://Example.com:443/path?q=1')).toBe('https://example.com')
+    expect(normalizeV3Origin('http://localhost:8080/a')).toBe('http://localhost:8080')
+    expect(normalizeV3Origin('file:///tmp/data')).toBeNull()
+    expect(normalizeV3Origin('not a URL')).toBeNull()
+    expect(normalizeV3Origin(null)).toBeNull()
+    expect(isV3OriginDisabled('https://example.com/a', ['https://example.com'])).toBe(true)
+    expect(isV3OriginDisabled('https://sub.example.com', ['https://example.com'])).toBe(false)
+    expect(isV3OriginDisabled('http://example.com', ['https://example.com'])).toBe(false)
   })
 
   it('accepts rules referencing multiple existing tags and older rules without tagIds', () => {
