@@ -260,7 +260,7 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - [x] 为 URL / 正则匹配、V2 规则忽略、method 匹配和规则优先级编写单元测试；V3 规则不包含 V2 ignore 列表。
 - [x] 为 Fetch 拦截与重定向覆盖 Request、init、body、headers、状态码和异常情况。
 - [x] 为 XHR 生命周期、事件、方法匹配、请求头和对象复用编写测试。
-- [ ] 为自定义函数覆盖同步、异步、异常、未回调和超时场景。
+- [x] 为自定义函数覆盖同步、异步、异常、未回调和超时场景。
 - [x] 为 shared-utils Chrome storage 与网页 localStorage 缓存操作（初始化、读取、写入、删除、清空）覆盖成功和失败回归；删除 / 清空失败须拒绝、保留缓存并派发错误事件。
 - [x] 为 V3 XHR 响应完成时序增加回归：`readystatechange` 到 readyState 4 及 `load` 回调 / 监听器读取响应时，替换后的 body 与 status 已就绪。
 - [x] 为 V3 XHR 网络失败增加回归：网络错误下的 `status=0` 不得被响应替换伪装成成功状态，`readystatechange` 与 `error` 处理器读取到原生失败结果。
@@ -343,6 +343,8 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - [x] 为 legacy V2 `redirectFetch` 覆盖 per-rule ignore 命中时继续透传原 Request / init 到 native fetch，不执行该重定向。
 - [x] 为 V3 Fetch 覆盖 `Request` 输入被 `init` 的 method / body 覆盖后，以有效 method 匹配规则并将 body 保留到 redirect Request。
 - [x] 为 V3 XHR 覆盖同 URL 但 method 不匹配时原样发出 native 请求 / 响应且不报告命中。
+- [x] 为 legacy V2 interceptor 函数覆盖 Promise reject 后返回配置 fallback、设置 fail-open 标记并记录拒绝错误。
+- [x] 为 V3 扩展 E2E 覆盖通过 await 完成的异步函数响应，并验证实际 Fetch 替换 status / body。
 - [ ] 完善 Service Worker 消息协议、V3 配置校验及导入 / 导出的边界与错误路径测试。
 - [x] V3 hit / hit notice 只从精确的 own data property 描述符读取字段；拒绝 getter、symbol 和隐藏扩展字段，并验证校验不会触发 getter 或 proxy get trap。
 - [x] 为 V3 response function result validator 覆盖字段 getter 抛错时的安全、稳定错误结果。
@@ -737,4 +739,5 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - 2026-09-26：阶段 6 审核并补齐规则匹配验收：现有 V3 URL / regex / method / priority 与 V2 ignore helper 测试完整；新增 legacy `redirectFetch` 逐规则 ignore 命中后将原 Request / init 透传给 native fetch 的集成回归。明确 V3 规则不承载 V2 ignore 列表。定向测试 5 项、改动文件 ESLint / Prettier 通过。完成 272 / 337 项（80.7%）。
 - 2026-09-26：阶段 6 补 V3 Fetch 的 `Request + init` 覆盖：init method/body 参与匹配，并按 POST redirect 且保留请求 body；补 V3 XHR method mismatch：同 URL 的 GET 不命中 POST 替换规则，原生打开及响应保持不变。Fetch / XHR 定向测试 2 个文件 / 64 项通过，改动文件 ESLint / Prettier 通过。完成 276 / 339 项（81.4%）。
 - 2026-09-26：阶段 6 根据现有 CI 证据完成扩展端到端测试验收：`extension:smoke` 在隔离持久化 Chromium profile 加载生产扩展，覆盖启停、规则编辑、Fetch / XHR 真实请求、面板与站点状态同步和 Service Worker 重启；CI 对该 smoke 已通过。品牌 Chrome / Edge Stable 另由 runtime smoke 验证，Playwright 扩展自动化使用配套 Chromium。完成 277 / 339 项（81.7%）。
+- 2026-09-26：阶段 6 补齐自定义函数异步 / 失败场景：legacy interceptor Promise reject 返回配置 fallback 并标记 fail-open；真实扩展 smoke 使用 V3 sandbox `await Promise.resolve()` 函数，通过 Fetch 验证异步替换响应。定向函数测试 5 项、`pnpm build` 与 `pnpm extension:smoke` 通过，改动文件 ESLint / Prettier 通过。完成 280 / 341 项（82.1%）。
 - GitHub 里程碑：[阶段 0](https://github.com/Nyakooo/ajax-proxy/milestone/1)、[阶段 1](https://github.com/Nyakooo/ajax-proxy/milestone/2)、[阶段 2](https://github.com/Nyakooo/ajax-proxy/milestone/3)、[阶段 3](https://github.com/Nyakooo/ajax-proxy/milestone/4)、[阶段 4](https://github.com/Nyakooo/ajax-proxy/milestone/5)、[阶段 5](https://github.com/Nyakooo/ajax-proxy/milestone/6)、[阶段 6](https://github.com/Nyakooo/ajax-proxy/milestone/7)、[阶段 7](https://github.com/Nyakooo/ajax-proxy/milestone/8)；已复现缺陷：[issue #56](https://github.com/Nyakooo/ajax-proxy/issues/56)。

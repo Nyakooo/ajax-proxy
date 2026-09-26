@@ -67,4 +67,23 @@ describe('custom function completion', () => {
     expect(Reflect.get(fallback, Symbol.for('ajax-proxy.custom-function-fail-open'))).toBe(true)
     expect(errorSpy).toHaveBeenCalledOnce()
   })
+
+  it('returns the configured interceptor fallback after an asynchronous rejection', async () => {
+    setupWindow()
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const { execSetup } = await import('../src/overrideFunc')
+
+    const fallback = await execSetup(
+      context,
+      'async function(req, res) { return Promise.reject(new Error("failed")) }'
+    )
+
+    expect(fallback).toEqual({ override: '', status: '201' })
+    expect(Reflect.get(fallback, Symbol.for('ajax-proxy.custom-function-fail-open'))).toBe(true)
+    expect(errorSpy).toHaveBeenCalledOnce()
+    expect(errorSpy).toHaveBeenCalledWith(
+      '[AjaxProxy][error] interceptor function rejected',
+      expect.any(Error)
+    )
+  })
 })

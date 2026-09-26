@@ -469,12 +469,22 @@ async function main() {
       match: { url: '/api/function', method: 'POST' },
       response: { enabled: true, replace: { code: runtimeFunctionCode } },
     }
+    const asyncFunctionCode =
+      'return (async () => { await Promise.resolve(); return { status: 210, body: { source: "v3-async-function", requestBody: request.body, response: JSON.parse(response.body) } } })()'
+    const asyncFunctionRule = {
+      id: 'v3-async-function-extension-smoke',
+      enabled: true,
+      match: { url: '/api/async-function', method: 'POST' },
+      response: { enabled: true, replace: { code: asyncFunctionCode } },
+    }
     await serviceWorker.evaluate(
-      async ({ key, rule }) => {
+      async ({ key, rule, asyncFunctionRule }) => {
         const config = (await chrome.storage.local.get(key))[key]
-        await chrome.storage.local.set({ [key]: { ...config, rules: [...config.rules, rule] } })
+        await chrome.storage.local.set({
+          [key]: { ...config, rules: [...config.rules, rule, asyncFunctionRule] },
+        })
       },
-      { key: 'ajax-proxy:storage:v3-config', rule: functionRule }
+      { key: 'ajax-proxy:storage:v3-config', rule: functionRule, asyncFunctionRule }
     )
     await page.reload()
     await page.waitForFunction(() =>
@@ -490,6 +500,21 @@ async function main() {
         source: 'v3-function',
         requestBody: 'function request',
         response: { source: 'server', method: 'POST', body: 'function request' },
+      },
+    })
+    const asyncFunctionFetchResult = await page.evaluate(async () => {
+      const response = await fetch('/api/async-function', {
+        method: 'POST',
+        body: 'async function request',
+      })
+      return { status: response.status, body: await response.json() }
+    })
+    assert.deepEqual(asyncFunctionFetchResult, {
+      status: 210,
+      body: {
+        source: 'v3-async-function',
+        requestBody: 'async function request',
+        response: { source: 'server', method: 'POST', body: 'async function request' },
       },
     })
     const functionXhrResult = await page.evaluate(
