@@ -393,6 +393,26 @@ describe('createV3XHR', () => {
     expect(xhr.responseText).toBe('native response')
   })
 
+  it('fails open when a response action requests unsupported function code', () => {
+    const outcome = vi.fn()
+    const selectedRule = rule('function-code', {
+      response: {
+        enabled: true,
+        replace: { code: 'return { body: "replacement" }', body: 'ignored' },
+      },
+    })
+    const xhr = makeXHR([selectedRule], undefined, undefined, outcome, true)
+    xhr.open('POST', 'https://example.test/api', true)
+    xhr.send()
+    xhr.complete('native response')
+
+    expect(xhr.status).toBe(200)
+    expect(xhr.responseText).toBe('native response')
+    expect(outcome.mock.calls.map((call) => call.slice(2))).toEqual([
+      ['response', 'unsupported', 'response-replacement-unsupported'],
+    ])
+  })
+
   it('fails open for non-HTTP redirect targets and resets selection on repeated open', () => {
     const selectedRule = rule('unsafe', {
       request: { enabled: true, redirect: { url: 'javascript:alert(1)' } },
