@@ -126,6 +126,27 @@ describe('createV3Fetch', () => {
     expect(fetcher).toHaveBeenCalledOnce()
   })
 
+  it('fails open when a runtime response replacement cannot construct a Response', async () => {
+    const selectedRule = rule('invalid-runtime-response', {
+      response: { enabled: true, replace: { status: 700, body: 'replacement' } },
+    })
+    const response = new Response('native')
+    const onFetchOutcome = vi.fn()
+    const fetch = createV3Fetch(async () => response, {
+      getRules: () => [selectedRule],
+      isFetchOutcomeDiagnosticsArmed: () => true,
+      onFetchOutcome,
+    })
+
+    const result = await fetch('https://example.test/api', { method: 'POST' })
+
+    expect(result).toBe(response)
+    expect(await result.text()).toBe('native')
+    expect(onFetchOutcome.mock.calls.map((call) => call.slice(2))).toEqual([
+      ['response', 'fallback', 'response-replacement-failed'],
+    ])
+  })
+
   it('reports request fallback and response success with one temporary correlation ID', async () => {
     const selectedRule = rule('redirect', {
       request: { enabled: true, redirect: { url: 'javascript:alert(1)' } },
