@@ -658,6 +658,34 @@ async function main() {
       body: { source: 'server', method: 'POST', body: 'function request' },
     })
 
+    const disabledFilterRule = {
+      id: 'v3-disabled-filter-smoke',
+      enabled: false,
+      match: { url: '/api/disabled-filter', method: 'GET' },
+      response: { enabled: true, replace: { body: { source: 'disabled-filter' } } },
+    }
+    const dualActionRule = {
+      id: 'v3-disabled-response-with-redirect-smoke',
+      enabled: true,
+      match: { url: '/api/dual-action', method: 'GET' },
+      request: { enabled: true, redirect: { url: '/mock/echo' } },
+      response: {
+        enabled: true,
+        replace: { code: "return { body: { source: 'disabled' } }" },
+      },
+    }
+    await restartedWorker.evaluate(
+      async ({ key, rules }) => {
+        const config = (await chrome.storage.local.get(key))[key]
+        await chrome.storage.local.set({
+          [key]: { ...config, rules: [...config.rules, ...rules] },
+        })
+      },
+      { key: 'ajax-proxy:storage:v3-config', rules: [disabledFilterRule, dualActionRule] }
+    )
+    await v3Panel.reload()
+    await v3Panel.getByText('/api/disabled-filter', { exact: true }).waitFor()
+
     const backupConfigBefore = await restartedWorker.evaluate(
       async (key) => (await chrome.storage.local.get(key))[key],
       'ajax-proxy:storage:v3-config'
@@ -718,6 +746,82 @@ async function main() {
         .every((rule) => rule.response.enabled === false),
       'imported function response rules must remain disabled'
     )
+    const dualActionRow = v3Panel.locator('.rule-row').filter({ hasText: '/api/dual-action' })
+    await dualActionRow.waitFor()
+    await dualActionRow.getByRole('button', { name: 'Delete' }).click()
+    let configAfterDelete
+    for (let attempt = 0; attempt < 40; attempt += 1) {
+      configAfterDelete = await restartedWorker.evaluate(
+        async (key) => (await chrome.storage.local.get(key))[key],
+        'ajax-proxy:storage:v3-config'
+      )
+      const dualRule = configAfterDelete.rules.find((rule) => rule.id === dualActionRule.id)
+      if (dualRule && !dualRule.response) break
+      await new Promise((resolve) => setTimeout(resolve, 50))
+    }
+    const preservedRedirectRule = configAfterDelete.rules.find(
+      (rule) => rule.id === dualActionRule.id
+    )
+    assert.ok(preservedRedirectRule.request, 'deleting the disabled response keeps the redirect')
+    assert.equal(preservedRedirectRule.response, undefined)
+
+    const importedFunctionRows = v3Panel.locator('.rule-row').filter({ hasText: '/api/function' })
+    await importedFunctionRows.first().waitFor()
+    assert.equal(
+      await importedFunctionRows.count(),
+      backupConfigBefore.rules.filter((rule) => rule.match.url === '/api/function').length
+    )
+    await importedFunctionRows.first().locator('.action-disabled').getByText('Disabled').waitFor()
+    await importedFunctionRows.first().getByRole('button', { name: 'Edit' }).click()
+    const importedFunctionEditor = v3Panel.locator('.response-rule-editor[role="dialog"]')
+    await importedFunctionEditor.locator('.response-function-input .cm-content').waitFor()
+    assert.equal(
+      await importedFunctionEditor
+        .locator('.function-enabled input')
+        .evaluate((input) => input.checked),
+      false,
+      'the imported function must remain disabled when opened for review'
+    )
+    await importedFunctionEditor.getByRole('button', { name: 'Cancel' }).click()
+
+    const v3RuleSearch = v3Panel.getByPlaceholder('Search URL, method, or note')
+    await v3RuleSearch.fill('/api/function')
+    assert.equal(
+      await v3Panel.locator('.rule-row').count(),
+      backupConfigBefore.rules.filter((rule) => rule.match.url === '/api/function').length
+    )
+    await v3RuleSearch.fill('')
+
+    await v3Panel.getByRole('button', { name: 'Filter', exact: true }).click()
+    const ruleFilterPopover = v3Panel.locator('.rule-filter-popover')
+    await ruleFilterPopover.waitFor()
+    await ruleFilterPopover.locator('input[name="rule-status-filter"][value="enabled"]').check()
+    assert.equal(
+      await v3Panel.locator('.rule-row').count(),
+      configAfterDelete.rules.filter((rule) => rule.response && rule.enabled).length
+    )
+    assert.equal(
+      await v3Panel
+        .locator('.rule-row')
+        .nth(1)
+        .getByRole('button', { name: /Raise the priority/ })
+        .isEnabled(),
+      false,
+      'priority changes stay disabled while a filter is active'
+    )
+    await ruleFilterPopover.locator('input[name="rule-status-filter"][value="disabled"]').check()
+    assert.equal(await v3Panel.locator('.rule-row').count(), 1)
+    await v3Panel.getByText('/api/disabled-filter', { exact: true }).waitFor()
+    await ruleFilterPopover.locator('input[name="rule-match-type-filter"][value="regex"]').check()
+    await v3Panel.getByText('No matching rules', { exact: true }).waitFor()
+    assert.equal(await v3Panel.locator('.rule-row').count(), 0)
+    await ruleFilterPopover.getByRole('button', { name: 'Clear filters' }).click()
+    assert.equal(
+      await v3Panel.locator('.rule-row').count(),
+      configAfterDelete.rules.filter((rule) => rule.response).length
+    )
+    await ruleFilterPopover.getByRole('button', { name: 'Close filters' }).click()
+
     await restartedPage.reload()
     await restartedPage.waitForFunction(
       () => !document.getElementById('ajax-proxy-v3-function-sandbox')

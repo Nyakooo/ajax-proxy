@@ -410,6 +410,11 @@ input {
   border-bottom: 1px solid var(--ap-border);
 }
 
+.filter-control {
+  position: relative;
+  flex: 0 0 auto;
+}
+
 .search-box {
   display: flex;
   width: min(330px, 40vw);
@@ -629,6 +634,14 @@ input {
   gap: 5px;
 }
 
+.action-label.inactive {
+  color: var(--ap-muted-2);
+}
+
+.action-disabled {
+  font-size: 9px;
+}
+
 .rule-target {
   overflow: hidden;
   text-overflow: ellipsis;
@@ -642,6 +655,10 @@ input {
 
 .action-dot.coral {
   background: var(--ap-coral);
+}
+
+.action-dot.inactive {
+  background: var(--ap-muted-2);
 }
 
 .meta-separator {

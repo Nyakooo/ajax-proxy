@@ -4,6 +4,7 @@ import { useI18n } from 'vue-i18n'
 import { isV3FunctionError, isV3HitNotice, NoticeFrom, NoticeKey, NoticeTo } from '@proxy/protocol'
 import RedirectRuleEditor from './components/RedirectRuleEditor.vue'
 import ResponseRuleEditor from './components/ResponseRuleEditor.vue'
+import RuleFilterPopover from './components/RuleFilterPopover.vue'
 import { buildV3ResponseRule } from './services/v3ResponseDraft.js'
 import { validateFunctionResponseDraft } from './services/v3FunctionResponseDraft.js'
 import lightMark from '../../shell-chrome/icons/128.png'
@@ -32,6 +33,9 @@ const responseEditorOpen = ref(false)
 const editingResponseRule = ref(null)
 const responseEditorIssue = ref('')
 const backupDialogOpen = ref(false)
+const ruleFiltersOpen = ref(false)
+const ruleStatusFilter = ref('all')
+const ruleMatchTypeFilter = ref('all')
 const config = ref(createEmptyConfig())
 const hitCounters = ref({})
 const recentMatch = ref(null)
@@ -88,16 +92,20 @@ function createPreviewConfig() {
 const activeMark = computed(() => (darkMode.value ? darkMark : lightMark))
 const rules = computed(() => config.value.rules)
 const enabled = computed(() => config.value.settings.globalEnabled)
-const redirectRuleCount = computed(() => rules.value.filter((rule) => rule.request?.enabled).length)
-const interceptRuleCount = computed(
-  () => rules.value.filter((rule) => rule.response?.enabled).length
+const redirectRuleCount = computed(() => rules.value.filter((rule) => rule.request).length)
+const interceptRuleCount = computed(() => rules.value.filter((rule) => rule.response).length)
+const ruleFiltersActive = computed(
+  () => ruleStatusFilter.value !== 'all' || ruleMatchTypeFilter.value !== 'all'
 )
 
 function ruleActions(rule) {
   const actions = []
-  if (rule.request?.enabled) actions.push('redirect')
-  if (rule.response?.enabled) {
-    actions.push(rule.response.replace?.code ? 'responseFunction' : 'responseJson')
+  if (rule.request) actions.push({ key: 'redirect', enabled: rule.request.enabled })
+  if (rule.response) {
+    actions.push({
+      key: rule.response.replace?.code ? 'responseFunction' : 'responseJson',
+      enabled: rule.response.enabled,
+    })
   }
   return actions
 }
@@ -119,14 +127,24 @@ const visibleRules = computed(() => {
       rule.match.url,
       rule.match.method ?? 'ANY',
       rule.request?.redirect.url ?? '',
-      ...actions.map((action) => t(`action.${action}`)),
+      ...actions.map((action) => t(`action.${action.key}`)),
     ]
     const matchesSearch = !query || searchable.join(' ').toLowerCase().includes(query)
-    const matchesSection =
-      section.value === 'redirect' ? rule.request?.enabled : rule.response?.enabled
-    return matchesSearch && matchesSection
+    const matchesSection = section.value === 'redirect' ? rule.request : rule.response
+    const matchesStatus =
+      ruleStatusFilter.value === 'all' ||
+      (ruleStatusFilter.value === 'enabled' ? rule.enabled : !rule.enabled)
+    const matchType = rule.match.type ?? 'normal'
+    const matchesType =
+      ruleMatchTypeFilter.value === 'all' || ruleMatchTypeFilter.value === matchType
+    return matchesSearch && matchesSection && matchesStatus && matchesType
   })
 })
+
+function clearRuleFilters() {
+  ruleStatusFilter.value = 'all'
+  ruleMatchTypeFilter.value = 'all'
+}
 const resultCount = computed(() => {
   if (locale.value === 'zh-CN') return t('rules.count', { count: visibleRules.value.length })
   const key = visibleRules.value.length === 1 ? 'rules.countOne' : 'rules.countOther'
@@ -401,11 +419,9 @@ async function setRuleEnabled(id, value) {
 
 async function deleteRule(rule) {
   const isRedirect = section.value === 'redirect'
-  const actionExists = isRedirect ? rule.request?.enabled : rule.response?.enabled
+  const actionExists = isRedirect ? Boolean(rule.request) : Boolean(rule.response)
   if (!actionExists) return
-  const keepOtherAction = isRedirect
-    ? Boolean(rule.response?.enabled)
-    : Boolean(rule.request?.enabled)
+  const keepOtherAction = isRedirect ? Boolean(rule.response) : Boolean(rule.request)
   const confirmationKey = keepOtherAction
     ? isRedirect
       ? 'editor.confirmDeleteRedirect'
@@ -435,7 +451,7 @@ function withoutResponseAction(rule) {
 }
 
 async function moveRule(rule, targetRule) {
-  if (search.value.trim()) return
+  if (search.value.trim() || ruleFiltersActive.value) return
   const targetIndex = config.value.rules.findIndex((item) => item.id === targetRule.id)
   const nextRules = ruleOperations.moveV3Rule(config.value.rules, rule.id, targetIndex)
   if (nextRules !== config.value.rules) {
@@ -446,7 +462,7 @@ async function moveRule(rule, targetRule) {
 
 <template>
   <!-- Keep Vue-specific formatting warnings disabled here; Prettier is the template formatter. -->
-  <!-- eslint-disable vue/max-attributes-per-line, vue/html-self-closing, vue/singleline-html-element-content-newline -->
+  <!-- eslint-disable vue/max-attributes-per-line, vue/html-indent, vue/html-self-closing, vue/singleline-html-element-content-newline -->
   <div class="panel-root">
     <main class="shell" :class="{ 'shell-dark': darkMode }">
       <header class="topbar">
@@ -566,7 +582,24 @@ async function moveRule(rule, targetRule) {
               <kbd>⌘ K</kbd>
             </label>
             <AppButton :label="t('rules.tags')" severity="secondary" outlined />
-            <AppButton :label="t('rules.filter')" severity="secondary" outlined />
+            <div class="filter-control">
+              <AppButton
+                :label="t('rules.filter')"
+                severity="secondary"
+                outlined
+                :aria-expanded="ruleFiltersOpen"
+                @click="ruleFiltersOpen = !ruleFiltersOpen"
+              />
+              <RuleFilterPopover
+                :open="ruleFiltersOpen"
+                :status="ruleStatusFilter"
+                :match-type="ruleMatchTypeFilter"
+                @close="ruleFiltersOpen = false"
+                @update:status="ruleStatusFilter = $event"
+                @update:match-type="ruleMatchTypeFilter = $event"
+                @clear="clearRuleFilters"
+              />
+            </div>
             <div class="toolbar-spacer" />
             <span class="result-count">{{ loading ? t('editor.loading') : resultCount }}</span>
             <AppButton
@@ -644,9 +677,20 @@ async function moveRule(rule, targetRule) {
                   }}</span>
                 </div>
                 <div class="rule-meta">
-                  <span v-for="action in ruleActions(rule)" :key="action" class="action-label">
-                    <span class="action-dot" :class="{ coral: action === 'responseJson' }" />
-                    {{ t(`action.${action}`) }}
+                  <span
+                    v-for="action in ruleActions(rule)"
+                    :key="action.key"
+                    class="action-label"
+                    :class="{ inactive: !action.enabled }"
+                  >
+                    <span
+                      class="action-dot"
+                      :class="{ coral: action.key === 'responseJson', inactive: !action.enabled }"
+                    />
+                    {{ t(`action.${action.key}`) }}
+                    <small v-if="!action.enabled" class="action-disabled">
+                      {{ t('rules.actionDisabled') }}
+                    </small>
                   </span>
                   <span class="meta-separator" />
                   <span>{{ t('rules.ruleId', { id: rule.id }) }}</span>
@@ -666,8 +710,10 @@ async function moveRule(rule, targetRule) {
                 <button
                   type="button"
                   :aria-label="t('editor.moveUp', { url: rule.match.url })"
-                  :disabled="index === 0 || saving || Boolean(search.trim())"
-                  :title="search.trim() ? t('rules.clearSearchToReorder') : undefined"
+                  :disabled="index === 0 || saving || Boolean(search.trim()) || ruleFiltersActive"
+                  :title="
+                    search.trim() || ruleFiltersActive ? t('rules.clearSearchToReorder') : undefined
+                  "
                   @click="moveRule(rule, visibleRules[index - 1])"
                 >
                   ↑
@@ -675,8 +721,15 @@ async function moveRule(rule, targetRule) {
                 <button
                   type="button"
                   :aria-label="t('editor.moveDown', { url: rule.match.url })"
-                  :disabled="index === visibleRules.length - 1 || saving || Boolean(search.trim())"
-                  :title="search.trim() ? t('rules.clearSearchToReorder') : undefined"
+                  :disabled="
+                    index === visibleRules.length - 1 ||
+                    saving ||
+                    Boolean(search.trim()) ||
+                    ruleFiltersActive
+                  "
+                  :title="
+                    search.trim() || ruleFiltersActive ? t('rules.clearSearchToReorder') : undefined
+                  "
                   @click="moveRule(rule, visibleRules[index + 1])"
                 >
                   ↓
@@ -703,22 +756,31 @@ async function moveRule(rule, targetRule) {
 
           <div v-else class="empty-state">
             <div class="empty-illustration">⌕</div>
-            <h2>{{ search ? t('rules.noSearchResults') : t('rules.noRules') }}</h2>
+            <h2>
+              {{ search || ruleFiltersActive ? t('rules.noSearchResults') : t('rules.noRules') }}
+            </h2>
             <p>
-              {{ search ? t('rules.searchHint') : t('rules.createHint') }}
+              {{ search || ruleFiltersActive ? t('rules.searchHint') : t('rules.createHint') }}
             </p>
             <AppButton
-              v-if="!search"
+              v-if="!search && !ruleFiltersActive"
               :label="t('rules.createFirst')"
               :disabled="loading || saving"
               @click="createRule"
             />
             <AppButton
-              v-else
+              v-if="search"
               :label="t('rules.clearSearch')"
               severity="secondary"
               outlined
               @click="search = ''"
+            />
+            <AppButton
+              v-if="ruleFiltersActive"
+              :label="t('rules.clearRuleFilters')"
+              severity="secondary"
+              outlined
+              @click="clearRuleFilters"
             />
           </div>
 
