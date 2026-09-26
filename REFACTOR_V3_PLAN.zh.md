@@ -267,6 +267,7 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - [x] 将 V3 XHR 原生失败保留断言扩展至 `abort` 与 `timeout` 终态。
 - [x] 为 service worker 启动期 V3 面板消息入口覆盖发送方与 envelope 拒绝路径；错误扩展 ID、非 V3 面板 URL 和畸形消息均不得访问 storage 或调用响应回调。
 - [x] 为旧面板消息入口覆盖扩展 ID 与 sender URL 校验；仅本扩展页面可触发图标和徽章操作。
+- [x] 在存储初始化 Promise 完成前同步注册工具栏点击和快捷键监听，避免 MV3 Service Worker 冷启动漏掉首个事件。
 - [x] 为 Service Worker 的 storage change 入口覆盖 local 区域 V3 config / hit counter 刷新 badge，并确认 sync 区域与无关 key 不触发刷新。
 - [x] 为 V3 XHR `on*` 属性处理器覆盖重复赋值及设为 `null` 的移除语义，避免旧回调跨事件 / 请求残留。
 - [x] 为 V3 面板启动期 GET 快照覆盖 storage 初始化失败分支；返回稳定 `storage-read-failed`，且初始化失败时不访问 storage。
@@ -753,4 +754,5 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - 2026-09-26：阶段 7 在干净 clone `9c88d81` 执行 `pnpm install --frozen-lockfile`、`pnpm clean:build` 和 `pnpm build`；产物含 `packages/shell-chrome/build/manifest.json` 与 `panels-v3/index.html`。随后 `pnpm typecheck`、覆盖率测试（34 个文件 / 323 项）、Vue 3 UI 测试（7 个文件 / 32 项）、包边界、生成声明、lint 与格式检查均通过；Chrome Stable 真实 Fetch / XHR 实载结果见测试记录。完成 296 / 348 项（85.1%）。
 - 2026-09-26：阶段 6 补充响应函数请求体快照超过 512 KiB 时不调用 sandbox、保留网络响应并报告 `snapshot-too-large`；另覆盖 Service Worker 仅因 local 区域 V3 配置 / 命中计数变化刷新徽章。两份定向测试通过；全量覆盖测试 34 个文件 / 324 项通过，整体语句 / 分支 / 函数 / 行覆盖为 80.70% / 78.94% / 79.85% / 82.25%，`responseAction.ts` 分支覆盖 95.12%。typecheck、改动文件 ESLint / Prettier 与 `git diff --check` 通过。本次不测试由每部分硬上限推导为不可达的 1 MiB 合计超限分支。完成 298 / 350 项（85.1%）。
 - 2026-09-26：进一步覆盖旧 Service Worker 面板消息 sender 校验：错误扩展 ID 或网页 URL 不触发图标 / 徽章副作用，本扩展页面仍可更新全局开关图标和徽章。复跑全量覆盖测试后，34 个文件 / 324 项通过，整体语句 / 分支 / 函数 / 行覆盖为 80.90% / 79.40% / 79.85% / 82.48%；`service-worker/index.ts` 分支覆盖升至 63.63%。定向测试、改动文件 ESLint / Prettier 与 `git diff --check` 通过。完成 299 / 351 项（85.2%）。
+- 2026-09-26：将工具栏点击与快捷键监听从 storage 初始化 Promise 回调移至 Service Worker 初始执行路径；在 storage Promise 仍未完成时，回归测试已确认两个监听器均完成注册，首个工具栏点击和 `open_panel` 命令都能调用面板创建。依据 [Chrome Service Worker 事件注册要求](https://developer.chrome.com/docs/extensions/develop/concepts/service-workers/events)。34 个文件 / 324 项覆盖测试通过，整体语句 / 分支 / 函数 / 行覆盖为 81.38% / 79.49% / 81.57% / 83.02%；`pnpm typecheck`、`pnpm check:boundaries`、`pnpm check:generated-types` 及完整 clean build 通过，改动文件 ESLint / Prettier 通过。完成 300 / 352 项（85.2%）。
 - GitHub 里程碑：[阶段 0](https://github.com/Nyakooo/ajax-proxy/milestone/1)、[阶段 1](https://github.com/Nyakooo/ajax-proxy/milestone/2)、[阶段 2](https://github.com/Nyakooo/ajax-proxy/milestone/3)、[阶段 3](https://github.com/Nyakooo/ajax-proxy/milestone/4)、[阶段 4](https://github.com/Nyakooo/ajax-proxy/milestone/5)、[阶段 5](https://github.com/Nyakooo/ajax-proxy/milestone/6)、[阶段 6](https://github.com/Nyakooo/ajax-proxy/milestone/7)、[阶段 7](https://github.com/Nyakooo/ajax-proxy/milestone/8)；已复现缺陷：[issue #56](https://github.com/Nyakooo/ajax-proxy/issues/56)。

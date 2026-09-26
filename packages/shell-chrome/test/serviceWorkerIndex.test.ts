@@ -3,6 +3,8 @@ import { NoticeFrom, NoticeKey, NoticeTo, StorageKey } from '@proxy/shared-utils
 import { INIT_CURRENT_TITLE } from '../src/consts'
 
 type MessageListener = (message: unknown, sender: chrome.runtime.MessageSender) => unknown
+type ActionClickListener = (tab: chrome.tabs.Tab) => void
+type CommandListener = (command: string) => void
 type StorageChangeListener = (
   changes: Record<string, { newValue?: unknown; oldValue?: unknown }>,
   areaName: string
@@ -42,6 +44,8 @@ describe('service worker message entry', () => {
     const notifyV3FetchOutcome = vi.fn().mockResolvedValue(undefined)
     const notifyV3XHROutcome = vi.fn().mockResolvedValue(undefined)
     const chromeBadge = vi.fn()
+    const actionClickListeners: ActionClickListener[] = []
+    const commandListeners: CommandListener[] = []
     const storageChangeListeners: StorageChangeListener[] = []
     const chromeMock = {
       runtime: {
@@ -58,7 +62,20 @@ describe('service worker message entry', () => {
           ),
         },
       },
-      action: { setIcon: vi.fn() },
+      action: {
+        onClicked: {
+          addListener: vi.fn((listener: ActionClickListener) =>
+            actionClickListeners.push(listener)
+          ),
+        },
+        setIcon: vi.fn(),
+      },
+      commands: {
+        onCommand: {
+          addListener: vi.fn((listener: CommandListener) => commandListeners.push(listener)),
+        },
+      },
+      windows: { create: vi.fn() },
     }
     vi.stubGlobal('chrome', chromeMock)
 
@@ -72,7 +89,6 @@ describe('service worker message entry', () => {
     })
     vi.doMock('../src/service-worker/notice', () => ({ useCurrentTitle: vi.fn(() => '') }))
     vi.doMock('../src/service-worker/init', () => ({ initDefaultSth: vi.fn() }))
-    vi.doMock('../src/service-worker/event', () => ({ injectEventListener: vi.fn() }))
     vi.doMock('../src/service-worker/badge', () => ({ chromeBadge }))
     vi.doMock('../src/service-worker/v3Hit', () => ({ chromeBadgeV3: vi.fn() }))
     vi.doMock('../src/service-worker/v3FunctionError', () => ({ notifyV3FunctionError }))
@@ -84,6 +100,14 @@ describe('service worker message entry', () => {
     }))
 
     await import('../src/service-worker/index')
+    expect(actionClickListeners).toHaveLength(1)
+    expect(commandListeners).toHaveLength(1)
+    actionClickListeners[0]({} as chrome.tabs.Tab)
+    expect(chromeMock.windows.create).toHaveBeenCalledOnce()
+    chromeMock.windows.create.mockClear()
+    commandListeners[0]('open_panel')
+    expect(chromeMock.windows.create).toHaveBeenCalledOnce()
+
     storageReady.resolve()
     await vi.waitFor(() => expect(runtimeListeners).toHaveLength(2))
     await vi.waitFor(() => expect(storageChangeListeners).toHaveLength(1))

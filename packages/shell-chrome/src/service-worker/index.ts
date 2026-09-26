@@ -43,6 +43,9 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   return handleV3PanelStartupMessage(msg, sender, sendResponse)
 })
 
+// Manifest V3 service worker events must be registered during initial script evaluation.
+injectEventListener()
+
 storageReady
   .then(() => {
     chrome.storage.onChanged.addListener((changes, areaName) => {
@@ -108,9 +111,6 @@ storageReady
 
     // 设置默认项
     initDefaultSth()
-
-    // 注册其他监听列表
-    injectEventListener()
   })
   .catch((error) => {
     console.error('[AjaxProxy] Service worker storage initialization failed', error)
