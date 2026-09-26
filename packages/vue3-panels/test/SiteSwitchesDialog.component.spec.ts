@@ -26,6 +26,28 @@ describe('SiteSwitchesDialog', () => {
     await wrapper.get('[aria-label="启用站点 https://example.com:8443"]').trigger('click')
     expect(wrapper.emitted('enable')).toEqual([['https://example.com:8443']])
   })
+
+  it('rejects non-HTTP URLs and origins that are already disabled', async () => {
+    const wrapper = mount(SiteSwitchesDialog, {
+      attachTo: document.body,
+      props: { open: false, disabledOrigins: ['https://blocked.example'] },
+      global: { plugins: [i18n] },
+    })
+    await wrapper.setProps({ open: true })
+    const input = wrapper.get<HTMLInputElement>('#site-switch-origin')
+    const form = wrapper.get('form')
+
+    await input.setValue('ftp://example.com/resource')
+    await form.trigger('submit')
+    expect(wrapper.get('[role="alert"]').text()).toBe(
+      '请输入有效的 HTTP(S) URL，不要包含用户名或密码。'
+    )
+
+    await input.setValue('https://blocked.example/path')
+    await form.trigger('submit')
+    expect(wrapper.get('[role="alert"]').text()).toBe('此 origin 已经停用。')
+    expect(wrapper.emitted('disable')).toBeUndefined()
+  })
 })
 
 afterEach(() => {
