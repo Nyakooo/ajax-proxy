@@ -937,7 +937,7 @@ async function main() {
       async (key) => (await chrome.storage.local.get(key))[key],
       'ajax-proxy:storage:v3-config'
     )
-    assert.equal(disabledSiteConfig.formatVersion, 6)
+    assert.equal(disabledSiteConfig.formatVersion, 7)
     assert.deepEqual(disabledSiteConfig.disabledOrigins, [siteSwitchOrigin])
     await staleGlobalSwitch.click()
     await staleV3Panel
@@ -1477,7 +1477,7 @@ async function main() {
     ])
     const exportedBackup = JSON.parse(fs.readFileSync(await backupDownload.path(), 'utf8'))
     assert.equal(exportedBackup.format, 'ajax-proxy-backup')
-    assert.equal(exportedBackup.formatVersion, 6)
+    assert.equal(exportedBackup.formatVersion, 7)
     assert.deepEqual(exportedBackup.disabledOrigins, [])
     assert.deepEqual(exportedBackup.rules, backupConfigBefore.rules)
     assert.equal('hitCounters' in exportedBackup, false)
@@ -1498,10 +1498,12 @@ async function main() {
     await backupInput.fill(JSON.stringify(exportedBackup))
     await backupDialog.getByRole('button', { name: 'Validate backup' }).click()
     const functionRuleCount = exportedBackup.rules.filter(
-      (rule) => typeof rule.response?.replace?.code === 'string'
+      (rule) =>
+        typeof rule.response?.replace?.code === 'string' ||
+        rule.request?.redirect?.type === 'function'
     ).length
     await backupDialog
-      .getByText(`Found ${functionRuleCount} function response rules`, { exact: true })
+      .getByText(`Found ${functionRuleCount} function actions`, { exact: true })
       .waitFor()
     await backupDialog.getByRole('button', { name: 'Confirm restore' }).click()
     await backupDialog.waitFor({ state: 'hidden' })
@@ -1996,7 +1998,7 @@ async function main() {
       async (key) => (await chrome.storage.local.get(key))[key].formatVersion,
       'ajax-proxy:storage:v3-config'
     )
-    assert.equal(exactBackupVersion, 6, 'saving an exact matcher keeps the latest backup format')
+    assert.equal(exactBackupVersion, 7, 'saving an exact matcher keeps the latest backup format')
     assert.deepEqual(quickCreatedRule.response, {
       enabled: true,
       replace: { status: 200, body: {} },
@@ -2144,6 +2146,18 @@ async function main() {
         const match = { url: '/api/v3-exclusion', method: 'POST', type: 'normal' }
         const rules = [
           {
+            id: 'v3-function-redirect-extension-smoke',
+            enabled: true,
+            match: { url: '/api/v3-function-redirect', method: 'POST', type: 'normal' },
+            request: {
+              enabled: true,
+              redirect: {
+                type: 'function',
+                code: "if (request.method !== 'POST') throw new Error('expected POST'); return new URL('/mock/echo', request.url).href",
+              },
+            },
+          },
+          {
             id: 'v3-redirect-exclusion-extension-smoke',
             enabled: true,
             match,
@@ -2180,7 +2194,7 @@ async function main() {
         await chrome.storage.local.set({
           [key]: {
             ...config,
-            formatVersion: 6,
+            formatVersion: 7,
             disabledOrigins: [],
             rules: [...rules, ...config.rules],
           },
@@ -2189,6 +2203,41 @@ async function main() {
       { key: 'ajax-proxy:storage:v3-config', port }
     )
     await restartedPage.reload()
+    await restartedPage.waitForFunction(() =>
+      document.getElementById('ajax-proxy-v3-function-sandbox')
+    )
+    const functionRedirectFetch = await restartedPage.evaluate(async () => {
+      const response = await fetch('/api/v3-function-redirect', {
+        method: 'POST',
+        body: 'dynamic redirect Fetch',
+      })
+      return { url: response.url, body: await response.json() }
+    })
+    assert.equal(
+      functionRedirectFetch.url,
+      `http://127.0.0.1:${port}/mock/echo`,
+      'Fetch should use the HTTP(S) URL returned by the redirect function'
+    )
+    assert.equal(functionRedirectFetch.body.method, 'POST')
+    assert.equal(functionRedirectFetch.body.body, 'dynamic redirect Fetch')
+    const functionRedirectXhr = await restartedPage.evaluate(
+      () =>
+        new Promise((resolve, reject) => {
+          const request = new XMLHttpRequest()
+          request.onload = () =>
+            resolve({ url: request.responseURL, body: JSON.parse(request.responseText) })
+          request.onerror = () => reject(new Error('function redirect XHR failed'))
+          request.open('POST', '/api/v3-function-redirect')
+          request.send('dynamic redirect XHR')
+        })
+    )
+    assert.equal(
+      functionRedirectXhr.url,
+      `http://127.0.0.1:${port}/api/v3-function-redirect`,
+      'XHR should preserve its original URL because open() is synchronous'
+    )
+    assert.equal(functionRedirectXhr.body.method, 'POST')
+    assert.equal(functionRedirectXhr.body.body, 'dynamic redirect XHR')
     const excludedFetchResult = await restartedPage.evaluate(async () => {
       const response = await fetch('/api/v3-exclusion?skip=1', {
         method: 'POST',
