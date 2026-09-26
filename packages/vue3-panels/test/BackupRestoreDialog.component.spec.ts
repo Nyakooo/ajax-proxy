@@ -87,4 +87,55 @@ describe('BackupRestoreDialog', () => {
     ).toBeDefined()
     expect(wrapper.find('.backup-valid').exists()).toBe(false)
   })
+
+  it('blocks rule import when a referenced tag ID has a different name', async () => {
+    const importedTag = { id: 'tag-1', name: 'Imported label', used: true }
+    const backupWithTaggedRule = {
+      ...backupWithFunctionRule,
+      tags: [importedTag],
+      rules: [
+        {
+          ...backupWithFunctionRule.rules[0],
+          id: 'tagged-rule',
+          tagIds: ['tag-1'],
+          response: { enabled: true, replace: { body: 'mock' } },
+        },
+      ],
+    }
+    const wrapper = mount(BackupRestoreDialog, {
+      props: {
+        open: true,
+        backup: {
+          rules: [],
+          tags: [{ id: 'tag-1', name: 'Current label', used: true }],
+        },
+      },
+      global: { plugins: [i18n] },
+    })
+    await wrapper
+      .get('[data-testid="backup-json-input"]')
+      .setValue(JSON.stringify(backupWithTaggedRule))
+    await wrapper.get('.backup-actions button:nth-child(2)').trigger('click')
+
+    const importButton = wrapper.get('[data-testid="backup-import-rules-button"]')
+    expect(wrapper.get('[role="alert"]').text()).toContain('tag-1')
+    expect(importButton.attributes('disabled')).toBeDefined()
+    await importButton.trigger('click')
+    expect(wrapper.emitted('import-rules')).toBeUndefined()
+
+    await wrapper.setProps({
+      backup: {
+        rules: [],
+        tags: [{ id: 'tag-1', name: 'Imported label', used: true }],
+      },
+    })
+    expect(importButton.attributes('disabled')).toBeUndefined()
+    await importButton.trigger('click')
+    expect(wrapper.emitted('import-rules')).toHaveLength(1)
+    expect(wrapper.emitted('import-rules')?.[0]?.[0]).toMatchObject({
+      formatVersion: 5,
+      disabledOrigins: [],
+      rules: [{ id: 'tagged-rule', tagIds: ['tag-1'] }],
+    })
+  })
 })
