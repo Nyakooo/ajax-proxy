@@ -241,6 +241,27 @@ describe('createV3XHR', () => {
     ])
   })
 
+  it('keeps event currentTarget native after dispatch and ignores null listeners', () => {
+    const nativeAdd = vi.spyOn(FakeXHR.prototype, 'addEventListener')
+    const nativeRemove = vi.spyOn(FakeXHR.prototype, 'removeEventListener')
+    const xhr = makeXHR([rule('event-lifetime')])
+    let capturedEvent: Event | undefined
+    const listener: EventListener = (event) => {
+      capturedEvent = event
+    }
+
+    xhr.addEventListener('loadend', listener)
+    xhr.addEventListener('loadend', null)
+    xhr.removeEventListener('loadend', null)
+    xhr.open('POST', 'https://example.test/api', true)
+    xhr.complete('network response')
+
+    expect(capturedEvent?.target).toBe(xhr)
+    expect(capturedEvent?.currentTarget).toBeNull()
+    expect(nativeAdd.mock.calls.filter(([type]) => type === 'loadend')).toHaveLength(1)
+    expect(nativeRemove.mock.calls.filter(([type]) => type === 'loadend')).toHaveLength(0)
+  })
+
   it('maps boolean and object capture options to distinct native listener wrappers', () => {
     const nativeAdd = vi.spyOn(FakeXHR.prototype, 'addEventListener')
     const nativeRemove = vi.spyOn(FakeXHR.prototype, 'removeEventListener')
