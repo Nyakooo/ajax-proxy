@@ -10,7 +10,15 @@ import {
   watch,
 } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { isV3FunctionError, isV3HitNotice, NoticeFrom, NoticeKey, NoticeTo } from '@proxy/protocol'
+import {
+  isV3FunctionError,
+  isV3HitNotice,
+  isV3NoMatch,
+  NoticeFrom,
+  NoticeKey,
+  NoticeTo,
+  StorageKey,
+} from '@proxy/protocol'
 import RedirectRuleEditor from './components/RedirectRuleEditor.vue'
 import ResponseRuleEditor from './components/ResponseRuleEditor.vue'
 import RuleFilterPopover from './components/RuleFilterPopover.vue'
@@ -61,6 +69,8 @@ const config = ref(createEmptyConfig())
 const hitCounters = ref({})
 const recentMatches = ref([])
 const recentFunctionErrors = ref([])
+const noMatchCaptureArmed = ref(false)
+const recentNoMatches = ref([])
 const languages = [
   { code: 'zh-CN', label: '简体中文', shortLabel: '中' },
   { code: 'en', label: 'English', shortLabel: 'EN' },
@@ -257,6 +267,21 @@ function receiveExtensionMessage(message) {
     return
   }
 
+  if (message.key === NoticeKey.V3_NO_MATCH && isV3NoMatch(message.value)) {
+    const knownRuleIds = new Set(config.value.rules.map((rule) => rule.id))
+    const event = {
+      method: message.value.method,
+      rules: message.value.rules.filter((rule) => knownRuleIds.has(rule.rule_id)),
+      truncated: message.value.truncated,
+      receivedAt: Date.now(),
+    }
+    // Reject payloads referring only to unknown/stale rules. Empty rules is valid
+    // when the active configuration genuinely has no rules.
+    if (message.value.rules.length && !event.rules.length) return
+    recentNoMatches.value = [event, ...recentNoMatches.value].slice(0, 10)
+    return
+  }
+
   if (message.key !== NoticeKey.V3_HIT || !isV3HitNotice(message.value)) return
 
   const { rule_id: ruleId, count } = message.value
@@ -292,6 +317,28 @@ function runRuleDiagnostics() {
 }
 
 let removeExtensionMessageListener
+let removeDiagnosticsStorageListener
+
+async function setNoMatchCapture(armed) {
+  if (memoryOnly.value || !globalThis.chrome?.storage?.local) return
+  const storageKey = StorageKey.V3_DIAGNOSTICS_ARMED
+  try {
+    if (armed) await chrome.storage.local.set({ [storageKey]: true })
+    else await chrome.storage.local.remove(storageKey)
+    noMatchCaptureArmed.value = armed
+  } catch {
+    operationError.value = t('editor.saveFailed', { error: 'storage-unavailable' })
+  }
+}
+
+function handleDiagnosticsStorageChange(changes, areaName) {
+  if (areaName !== 'local' || !Object.hasOwn(changes, StorageKey.V3_DIAGNOSTICS_ARMED)) return
+  noMatchCaptureArmed.value = changes[StorageKey.V3_DIAGNOSTICS_ARMED].newValue === true
+}
+
+function cancelNoMatchCapture() {
+  if (noMatchCaptureArmed.value) void setNoMatchCapture(false)
+}
 
 watch(darkMode, (dark) => {
   document.documentElement.classList.toggle('app-dark', dark)
@@ -358,6 +405,15 @@ onMounted(async () => {
       extensionRuntime.onMessage?.addListener(receiveExtensionMessage)
       removeExtensionMessageListener = () =>
         extensionRuntime.onMessage?.removeListener(receiveExtensionMessage)
+      const storage = globalThis.chrome?.storage
+      if (storage?.local && storage?.onChanged) {
+        const state = await storage.local.get(StorageKey.V3_DIAGNOSTICS_ARMED)
+        noMatchCaptureArmed.value = state[StorageKey.V3_DIAGNOSTICS_ARMED] === true
+        storage.onChanged.addListener(handleDiagnosticsStorageChange)
+        removeDiagnosticsStorageListener = () =>
+          storage.onChanged.removeListener(handleDiagnosticsStorageChange)
+      }
+      window.addEventListener('pagehide', cancelNoMatchCapture)
     } else {
       operationError.value = t('editor.loadFailed', { error: result.error ?? 'invalid-data' })
     }
@@ -368,7 +424,12 @@ onMounted(async () => {
   }
 })
 
-onBeforeUnmount(() => removeExtensionMessageListener?.())
+onBeforeUnmount(() => {
+  cancelNoMatchCapture()
+  removeExtensionMessageListener?.()
+  removeDiagnosticsStorageListener?.()
+  window.removeEventListener('pagehide', cancelNoMatchCapture)
+})
 
 async function persistConfig(nextConfig) {
   operationError.value = ''
@@ -1102,6 +1163,64 @@ async function moveRule(rule, targetRule) {
               </ol>
               <p v-else class="diagnostic-summary">{{ t('diagnostics.noRules') }}</p>
             </template>
+          </section>
+
+          <section class="recent-matches no-match-diagnostics" aria-live="polite">
+            <header class="recent-matches-heading">
+              <strong>{{ locale === 'zh-CN' ? '未命中诊断' : 'No-match diagnostics' }}</strong>
+              <small>{{
+                locale === 'zh-CN'
+                  ? '仅捕获任一 V3 运行标签页的下一条真正未命中请求；临时保存在此面板内存中。'
+                  : 'Capture the next actual unmatched request from any V3-enabled tab. Kept temporarily in this panel.'
+              }}</small>
+            </header>
+            <button
+              type="button"
+              :aria-pressed="noMatchCaptureArmed"
+              :disabled="memoryOnly || loading"
+              @click="setNoMatchCapture(!noMatchCaptureArmed)"
+            >
+              {{
+                noMatchCaptureArmed
+                  ? locale === 'zh-CN'
+                    ? '正在等待未命中请求 · 点击取消'
+                    : 'Waiting for an unmatched request · Cancel'
+                  : locale === 'zh-CN'
+                    ? '捕获下一条未匹配请求'
+                    : 'Capture the next unmatched request'
+              }}
+            </button>
+            <p v-if="!recentNoMatches.length" class="diagnostic-summary">
+              {{ locale === 'zh-CN' ? '尚无临时诊断记录。' : 'No temporary diagnostics yet.' }}
+            </p>
+            <ol v-else class="recent-matches-list">
+              <li v-for="(event, index) in recentNoMatches" :key="`${event.receivedAt}-${index}`">
+                <div class="recent-match-copy">
+                  <code>{{ event.method }}</code>
+                  <small v-if="event.rules.length">
+                    <span
+                      v-for="(rule, ruleIndex) in event.rules"
+                      :key="`${rule.rule_id}-${ruleIndex}`"
+                    >
+                      <code>{{ rule.rule_id }}</code>: {{ rule.reason }}<span v-if="ruleIndex < event.rules.length - 1"> · </span>
+                    </span>
+                  </small>
+                  <small v-else>{{
+                    locale === 'zh-CN' ? '当前没有配置规则。' : 'No rules are configured.'
+                  }}</small>
+                  <small v-if="event.truncated">
+                    {{
+                      locale === 'zh-CN'
+                        ? '规则过多，诊断结果已截断。'
+                        : 'Results were truncated because there are too many rules.'
+                    }}
+                  </small>
+                </div>
+                <time :datetime="new Date(event.receivedAt).toISOString()">{{
+                  formatMatchTime(event.receivedAt)
+                }}</time>
+              </li>
+            </ol>
           </section>
 
           <section
