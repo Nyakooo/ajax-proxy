@@ -117,6 +117,12 @@ export function getStorage(key: string, defaultValue: any = null) {
   return getDefaultValue(storageData[key], defaultValue)
 }
 
+/**读取初始化后本地缓存的完整快照，不再访问 Chrome storage。*/
+export function getStorageSnapshot(): Record<string, unknown> {
+  checkStorage()
+  return structuredClone(storageData)
+}
+
 /**不走缓存获取数据 */
 export function getRealStorage(key: StorageKey, defaultValue: any = null) {
   if (useStorage) {

@@ -8,7 +8,7 @@ import {
     noticeDocumentByContent,
     noticeServiceWorkerByContent,
     getStorage,
-    getStorageAll,
+    getStorageSnapshot,
     setStorage,
     removeStorage,
 } from "@proxy/shared-utils";
@@ -86,7 +86,7 @@ function updateV3FunctionSandbox(value: unknown): void {
     })
 }
 
-initStorage().then(async () => {
+initStorage().then(() => {
     const { GLOBAL_SWITCH, MODE, INTERCEPT_LIST, REDIRECT_LIST, V3_CONFIG } = StorageKey
     const legacyConfigKeys = [GLOBAL_SWITCH, MODE, INTERCEPT_LIST, REDIRECT_LIST]
     chrome.storage.onChanged.addListener((changes, areaName) => {
@@ -125,7 +125,7 @@ initStorage().then(async () => {
 
     // document.js 由 manifest 在主世界、document_start 阶段静态注入。
     // 主世界需要看到规则才能代理页面请求，因此同步内容仍按不可信页面输入处理。
-    const data = await getStorageAll();
+    const data = getStorageSnapshot();
     // 新老数据转换
     const { changed, data: getData, changeKeywords } = onLoadForDataConversion(data)
     // 如果有老数据变更新数据，则需要在这里 setStorage

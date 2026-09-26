@@ -44,7 +44,7 @@ describe('shared storage cache', () => {
         },
       },
     })
-    const { getStorage, initStorage } = await import('../src/storage')
+    const { getStorage, getStorageSnapshot, initStorage } = await import('../src/storage')
     const initialized = initStorage()
 
     listeners[0]({ mode: { newValue: 'redirector' } }, 'local')
@@ -52,6 +52,30 @@ describe('shared storage cache', () => {
     await initialized
 
     expect(getStorage('mode')).toBe('redirector')
+    expect(getStorageSnapshot()).toEqual({ mode: 'redirector' })
+  })
+
+  it('returns a cloned cached snapshot without issuing another storage read', async () => {
+    const initialData = { mode: 'interceptor', rules: [1, 2] }
+    const read = vi.fn((_key: unknown, callback: (data: typeof initialData) => void) =>
+      callback(initialData)
+    )
+    vi.stubGlobal('chrome', {
+      storage: {
+        onChanged: { addListener: vi.fn() },
+        local: { get: read },
+      },
+    })
+    const { getStorageSnapshot, initStorage } = await import('../src/storage')
+    await initStorage()
+
+    const snapshot = getStorageSnapshot()
+    const rules = snapshot.rules as number[]
+    rules.push(3)
+
+    expect(read).toHaveBeenCalledOnce()
+    expect({ ...snapshot, rules }).toEqual({ mode: 'interceptor', rules: [1, 2, 3] })
+    expect(getStorageSnapshot()).toEqual({ mode: 'interceptor', rules: [1, 2] })
   })
 
   it('rejects and reports storage initialization failures', async () => {

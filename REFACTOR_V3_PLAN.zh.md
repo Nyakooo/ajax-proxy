@@ -263,6 +263,7 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - [x] 为 V2 XHR 覆盖 `responseType=json` 的 JSON 对象替换结果与 `responseText` `InvalidStateError` 语义。
 - [x] 为自定义函数覆盖同步、异步、异常、未回调和超时场景。
 - [x] 为 shared-utils Chrome storage 与网页 localStorage 缓存操作（初始化、读取、写入、删除、清空）覆盖成功和失败回归；删除 / 清空失败须拒绝、保留缓存并派发错误事件。
+- [x] 为页面启动配置快照复用覆盖初始化期间 storage 变更合并与快照隔离；content script 复用 `initStorage()` 已填充的深拷贝缓存，避免重复发起 Chrome storage 全量读取。
 - [x] 为 V2 旧全局状态和上传备份转换器覆盖字段映射、默认值、旧 key 清理列表及新格式原样保留。
 - [x] 为 V3 XHR 响应完成时序增加回归：`readystatechange` 到 readyState 4 及 `load` 回调 / 监听器读取响应时，替换后的 body 与 status 已就绪。
 - [x] 为 V3 XHR 网络失败增加回归：网络错误下的 `status=0` 不得被响应替换伪装成成功状态，`readystatechange` 与 `error` 处理器读取到原生失败结果。
@@ -468,7 +469,7 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - [ ] XHR 重定向包装可能改变 `open()` 的原生语义。
 - [ ] 扩展上下文间的存储缓存可能不同步。
 - [ ] 空规则导入和清空行为可能无法覆盖旧数据。
-- [ ] 页面脚本注入及初始化状态同步依赖加载时序。2026-09-26 审查确认：MAIN world 在 `document_start` 先记录原生 Fetch / XHR，隔离世界随后异步读取 Chrome storage 并下发配置，因此配置到达前页面发出的首个请求可能直接走原生 API。Chrome storage 没有同步读取接口；Fetch / 异步 XHR 启动门控会改变请求发送与事件时序，同步 XHR 无法安全等待。是否为减少漏匹配而接受异步请求延迟，待确定产品行为后再实现。
+- [ ] 页面脚本注入及初始化状态同步依赖加载时序。2026-09-26 审查确认：MAIN world 在 `document_start` 先记录原生 Fetch / XHR，隔离世界随后异步读取 Chrome storage 并下发配置，因此配置到达前页面发出的首个请求可能直接走原生 API。已复用 `initStorage()` 读入的缓存快照，避免第二次 Chrome storage 全量读取，缩短启动窗口。Fetch / 异步 XHR 启动门控会改变请求发送与事件时序，同步 XHR 无法安全等待；为保留原生请求时序，本阶段不加门控，并记录剩余启动窗口为已知限制。
 - [ ] `eval` 执行用户函数的能力、边界和提示需要审查。
 - [ ] 启停时恢复原始 Fetch / XHR 可能覆盖页面其他脚本的包装。
 - [ ] 自动化测试和 CI 保障不足；部分开发依赖较旧。
@@ -759,4 +760,5 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - 2026-09-26：将工具栏点击与快捷键监听从 storage 初始化 Promise 回调移至 Service Worker 初始执行路径；在 storage Promise 仍未完成时，回归测试已确认两个监听器均完成注册，首个工具栏点击和 `open_panel` 命令都能调用面板创建。依据 [Chrome Service Worker 事件注册要求](https://developer.chrome.com/docs/extensions/develop/concepts/service-workers/events)。34 个文件 / 324 项覆盖测试通过，整体语句 / 分支 / 函数 / 行覆盖为 81.38% / 79.49% / 81.57% / 83.02%；`pnpm typecheck`、`pnpm check:boundaries`、`pnpm check:generated-types` 及完整 clean build 通过，改动文件 ESLint / Prettier 通过。完成 300 / 352 项（85.2%）。
 - 2026-09-26：为仍在用的 V2 兼容包补直接转换回归，覆盖拦截 / 跳转规则字段、标签与忽略名单、导入默认值、旧 key 清理列表，以及新数据格式不变更；与 V2→V3 不兼容策略区分。全量覆盖测试 35 个文件 / 326 项通过，整体语句 / 分支 / 函数 / 行覆盖为 83.01% / 81.42% / 84.02% / 84.78%，V2 转换器对应数值为 83.67% / 84.00% / 100% / 95.12%；定向测试、改动文件 ESLint / Prettier 与 `git diff --check` 通过。完成 301 / 353 项（85.3%）。
 - 2026-09-26：修复 V2 XHR 在规则响应替换时忽略 `responseType=json` 的行为：合法 JSON 替换为对象，非法 JSON 返回 null，非文本 responseType 读取 `responseText` 抛出 `InvalidStateError`。35 个文件 / 327 项全量覆盖测试通过（语句 / 分支 / 函数 / 行覆盖 83.13% / 81.48% / 84.31% / 84.91%），`pnpm typecheck`、完整 clean build、定向回归、改动文件 ESLint / Prettier 与 `git diff --check` 通过。构建同步更新 `packages/proxy-lib/types/createXHR.d.ts`；生成声明一致性检查将在提交后对干净工作区复核。完成 302 / 354 项（85.3%）。
+- 2026-09-26：优化页面启动配置加载：`content.ts` 复用 `initStorage()` 后的完整缓存快照，去掉第二次 `chrome.storage.local.get(null)`；新增回归验证初始化期间的 storage change 被合并、快照深拷贝隔离且只读 storage 一次。35 个文件 / 328 项全量覆盖测试通过，语句 / 分支 / 函数 / 行覆盖为 83.14% / 81.48% / 84.35% / 84.93%；typecheck、包边界检查、完整 clean build、格式检查与 diff 检查通过，ESLint 无新增告警。首请求仍有异步初始化窗口，为保持浏览器原生请求时序暂不延迟页面请求，限制已写入问题清单。完成 303 / 355 项（85.4%）。
 - GitHub 里程碑：[阶段 0](https://github.com/Nyakooo/ajax-proxy/milestone/1)、[阶段 1](https://github.com/Nyakooo/ajax-proxy/milestone/2)、[阶段 2](https://github.com/Nyakooo/ajax-proxy/milestone/3)、[阶段 3](https://github.com/Nyakooo/ajax-proxy/milestone/4)、[阶段 4](https://github.com/Nyakooo/ajax-proxy/milestone/5)、[阶段 5](https://github.com/Nyakooo/ajax-proxy/milestone/6)、[阶段 6](https://github.com/Nyakooo/ajax-proxy/milestone/7)、[阶段 7](https://github.com/Nyakooo/ajax-proxy/milestone/8)；已复现缺陷：[issue #56](https://github.com/Nyakooo/ajax-proxy/issues/56)。
