@@ -68,6 +68,13 @@ describe('createV3ResponseFunctionExecutor', () => {
     sendMessage('null', frame.contentWindow, {
       channel: 'ajax-proxy-v3-function-sandbox',
       type: 'result',
+      id: 'stale-execution-id',
+      ok: true,
+      result: { body: 'stale' },
+    })
+    sendMessage('null', frame.contentWindow, {
+      channel: 'ajax-proxy-v3-function-sandbox',
+      type: 'result',
       id: 'test-execution-id',
       ok: true,
       result: { body: 'mock' },
