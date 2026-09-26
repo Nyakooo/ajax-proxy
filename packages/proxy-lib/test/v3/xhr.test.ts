@@ -241,6 +241,29 @@ describe('createV3XHR', () => {
     ])
   })
 
+  it('replaces and clears event handler properties without retaining stale callbacks', () => {
+    const xhr = makeXHR([])
+    const firstHandler = vi.fn()
+    const replacementHandler = vi.fn()
+    xhr.onload = firstHandler
+    xhr.onload = replacementHandler
+    expect(xhr.onload).toBe(replacementHandler)
+
+    xhr.open('GET', 'https://example.test/api', true)
+    xhr.complete('first response')
+
+    expect(firstHandler).not.toHaveBeenCalled()
+    expect(replacementHandler).toHaveBeenCalledOnce()
+
+    xhr.onload = null
+    expect(xhr.onload).toBeNull()
+    xhr.open('GET', 'https://example.test/api', true)
+    xhr.complete('second response')
+
+    expect(firstHandler).not.toHaveBeenCalled()
+    expect(replacementHandler).toHaveBeenCalledOnce()
+  })
+
   it('preserves native failure status and response when an XHR request errors', () => {
     const xhr = makeXHR([
       rule('failure', {

@@ -265,6 +265,7 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - [x] 为 V3 XHR 响应完成时序增加回归：`readystatechange` 到 readyState 4 及 `load` 回调 / 监听器读取响应时，替换后的 body 与 status 已就绪。
 - [x] 为 V3 XHR 网络失败增加回归：网络错误下的 `status=0` 不得被响应替换伪装成成功状态，`readystatechange` 与 `error` 处理器读取到原生失败结果。
 - [x] 为 service worker 启动期 V3 面板消息入口覆盖发送方与 envelope 拒绝路径；错误扩展 ID、非 V3 面板 URL 和畸形消息均不得访问 storage 或调用响应回调。
+- [x] 为 V3 XHR `on*` 属性处理器覆盖重复赋值及设为 `null` 的移除语义，避免旧回调跨事件 / 请求残留。
 - [ ] 完善 Service Worker 消息协议、V3 配置校验及导入 / 导出的边界与错误路径测试。
 - [ ] 为 Vue 组件和关键用户流程编写组件 / 集成测试。
 - [ ] 建立扩展端到端测试，覆盖安装、启停、规则编辑和真实页面请求行为。
@@ -534,4 +535,5 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - 2026-09-26：阶段 6 补齐 V3 XHR 完成时序回归：模拟 readyState 2 / 3 / 4 与 progress、load、loadend，断言 `readystatechange`（属性处理器和监听器）及 `load`（属性处理器和监听器）观察到的均为已替换响应 body 与 status。XHR 定向 13 项、全量 224 项 Vitest、workspace typecheck、受影响文件零告警 ESLint、Prettier 通过。完成 151 / 217 项（69.6%）。
 - 2026-09-26：阶段 6 的 XHR 失败路径回归先复现问题：网络 `error` 时 readyState 4、status 0 仍会被 configured response 替换为成功 status / body。V3 XHR 现将 status 0 视为没有可替换的 HTTP response；`readystatechange` 与 `error` 均保留原生失败结果。XHR 定向 14 项、全量 225 项 Vitest、workspace typecheck、受影响文件零告警 ESLint、Prettier 通过。完成 152 / 218 项（69.7%）。
 - 2026-09-26：阶段 6 为 MV3 启动期 V3 面板消息入口添加信任边界回归：不匹配的扩展 ID、V2 面板 URL、畸形 envelope 均同步拒绝，且不触发 storage 读写或 sendResponse。定向 15 项测试和改动文件 ESLint / Prettier 通过。完成 153 / 219 项（69.9%）。
+- 2026-09-26：阶段 6 补齐 V3 XHR `onload` 属性处理器生命周期：重复赋值时只触发最新回调，设为 `null` 后后续请求不会调用已移除回调。XHR 定向 15 项、全量 229 项 Vitest、workspace typecheck、受影响文件零告警 ESLint 和 Prettier 通过。完成 154 / 220 项（70.0%）。
 - GitHub 里程碑：[阶段 0](https://github.com/Nyakooo/ajax-proxy/milestone/1)、[阶段 1](https://github.com/Nyakooo/ajax-proxy/milestone/2)、[阶段 2](https://github.com/Nyakooo/ajax-proxy/milestone/3)、[阶段 3](https://github.com/Nyakooo/ajax-proxy/milestone/4)、[阶段 4](https://github.com/Nyakooo/ajax-proxy/milestone/5)、[阶段 5](https://github.com/Nyakooo/ajax-proxy/milestone/6)、[阶段 6](https://github.com/Nyakooo/ajax-proxy/milestone/7)、[阶段 7](https://github.com/Nyakooo/ajax-proxy/milestone/8)；已复现缺陷：[issue #56](https://github.com/Nyakooo/ajax-proxy/issues/56)。
