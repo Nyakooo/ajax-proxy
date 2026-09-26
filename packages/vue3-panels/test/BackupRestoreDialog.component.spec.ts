@@ -88,6 +88,40 @@ describe('BackupRestoreDialog', () => {
     expect(wrapper.find('.backup-valid').exists()).toBe(false)
   })
 
+  it('shows a localized error and clears pending actions when the selected file cannot be read', async () => {
+    const wrapper = mount(BackupRestoreDialog, {
+      props: { open: true, backup: { rules: [], tags: [] } },
+      global: { plugins: [i18n] },
+    })
+    await wrapper
+      .get('[data-testid="backup-json-input"]')
+      .setValue(JSON.stringify(backupWithFunctionRule))
+    await wrapper.get('.backup-actions button:nth-child(2)').trigger('click')
+    expect(
+      wrapper.get('[data-testid="backup-restore-button"]').attributes('disabled')
+    ).toBeUndefined()
+
+    const input = wrapper.get('[data-testid="backup-file-input"]')
+    Object.defineProperty(input.element, 'files', {
+      configurable: true,
+      value: [{ text: () => Promise.reject(new Error('read failed')) }],
+    })
+    await input.trigger('change')
+
+    expect(wrapper.get('[role="alert"]').text()).toContain('无法读取所选文件')
+    expect(
+      wrapper.get('[data-testid="backup-restore-button"]').attributes('disabled')
+    ).toBeDefined()
+    expect(
+      wrapper.get('[data-testid="backup-import-rules-button"]').attributes('disabled')
+    ).toBeDefined()
+    expect(wrapper.get('.backup-actions button:nth-child(2)').attributes('disabled')).toBeDefined()
+    expect(wrapper.find('.backup-valid').exists()).toBe(false)
+
+    await wrapper.get('[data-testid="backup-json-input"]').setValue('{}')
+    expect(wrapper.find('[role="alert"]').exists()).toBe(false)
+  })
+
   it('blocks rule import when a referenced tag ID has a different name', async () => {
     const importedTag = { id: 'tag-1', name: 'Imported label', used: true }
     const backupWithTaggedRule = {

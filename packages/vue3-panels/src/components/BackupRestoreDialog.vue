@@ -14,6 +14,7 @@ const { t } = useI18n({ useScope: 'global' })
 const source = ref('')
 const candidate = ref(null)
 const parseIssue = ref('')
+const fileIssue = ref('')
 const functionRuleCount = computed(() => candidate.value?.warnings.length ?? 0)
 const existingRuleIds = computed(() => new Set(props.backup.rules.map((rule) => rule.id)))
 const rulesToAdd = computed(
@@ -40,12 +41,14 @@ watch(
     source.value = ''
     candidate.value = null
     parseIssue.value = ''
+    fileIssue.value = ''
   }
 )
 
 function clearCandidate() {
   candidate.value = null
   parseIssue.value = ''
+  fileIssue.value = ''
 }
 
 function previewImport() {
@@ -63,8 +66,13 @@ async function loadFile(event) {
   const [file] = event.target.files ?? []
   event.target.value = ''
   if (!file) return
-  source.value = await file.text()
   clearCandidate()
+  source.value = ''
+  try {
+    source.value = await file.text()
+  } catch {
+    fileIssue.value = t('backup.fileReadError')
+  }
 }
 
 function exportBackup() {
@@ -170,6 +178,9 @@ function trapFocus(event) {
 
         <p v-if="parseIssue" class="editor-error backup-message" role="alert">
           {{ parseIssue }}
+        </p>
+        <p v-if="fileIssue" class="editor-error backup-message" role="alert">
+          {{ fileIssue }}
         </p>
         <p v-if="issue" class="editor-error backup-message" role="alert">{{ issue }}</p>
         <p v-if="candidate" class="backup-valid" role="status">
