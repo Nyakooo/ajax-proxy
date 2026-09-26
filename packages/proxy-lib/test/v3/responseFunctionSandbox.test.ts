@@ -98,6 +98,12 @@ describe('createV3ResponseFunctionExecutor', () => {
     await Promise.resolve()
     expect(frame.contentWindow.postMessage).not.toHaveBeenCalled()
 
+    // Arrays are valid structured-clone payloads, so this models a real
+    // postMessage event while ensuring malformed data cannot mark the frame ready.
+    sendMessage('null', frame.contentWindow, ['ajax-proxy-v3-function-sandbox', 'ready'])
+    await Promise.resolve()
+    expect(frame.contentWindow.postMessage).not.toHaveBeenCalled()
+
     sendMessage('null', frame.contentWindow, {
       channel: 'ajax-proxy-v3-function-sandbox',
       type: 'ready',
