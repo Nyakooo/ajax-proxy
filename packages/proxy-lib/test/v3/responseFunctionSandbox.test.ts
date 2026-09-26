@@ -230,4 +230,35 @@ describe('createV3ResponseFunctionExecutor', () => {
 
     await expect(Promise.all(accepted)).resolves.toEqual(Array(4).fill('mock response'))
   })
+
+  it.each([
+    'https://example.test/v3-sandbox/sandbox.html',
+    'chrome-extension://test-extension/other.html',
+  ])(
+    'rejects non-extension URLs or extension resources outside the sandbox path: %s',
+    async (src) => {
+      vi.stubGlobal('HTMLIFrameElement', FakeIFrameElement)
+      const frame = new FakeIFrameElement()
+      frame.src = src
+      const host = {
+        document: { getElementById: vi.fn(() => frame) },
+        addEventListener: vi.fn(),
+      } as unknown as Window
+      const execute = createV3ResponseFunctionExecutor(host)
+
+      await expect(
+        execute(
+          'return response.body',
+          { url: '/api', method: 'GET' },
+          {
+            status: 200,
+            statusText: 'OK',
+            headers: {},
+            body: 'native',
+          }
+        )
+      ).rejects.toThrow('Function sandbox is unavailable on this page.')
+      expect(frame.contentWindow.postMessage).not.toHaveBeenCalled()
+    }
+  )
 })
