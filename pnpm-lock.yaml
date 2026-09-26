@@ -184,6 +184,7 @@ overrides:
   '@vue/component-compiler-utils@3.3.0>postcss': 8.5.28
   normalize-package-data@2.3.2>hosted-git-info: 2.8.9
   normalize-package-data@2.5.0>hosted-git-info: 2.8.9
+  sockjs@0.3.24>uuid: 11.1.1
 
 packageExtensionsChecksum: sha256-MXCTF/AzFRZXAH858pncKOw7jlGhB/SkcoFklhSykEI=
 
@@ -6235,8 +6236,8 @@ packages:
     resolution: {integrity: sha512-pMZTvIkT1d+TFGvDOqodOclx0QWkkgi6Tdoa8gC8ffGAAqz9pzPTZWAybbsHHoED/ztMtkv/VoYTYyShUn81hA==}
     engines: {node: '>= 0.4.0'}
 
-  uuid@8.3.2:
-    resolution: {integrity: sha512-+NYs2QeMWy+GWFOEm9xnn6HCDp0l7QBD7ml8zLUmJ+93Q5NF0NocErnwkTkXVFNiX3/fpC6afS8Dhb/gz7R7eg==}
+  uuid@11.1.1:
+    resolution: {integrity: sha512-vIYxrBCC/N/K+Js3qSN88go7kIfNPssr/hHCesKCQNAjmgvYS2oqr69kIufEG+O4+PfezOH4EbIeHCfFov8ZgQ==}
     hasBin: true
 
   v8-compile-cache@2.4.0:
@@ -12771,7 +12772,7 @@ snapshots:
   sockjs@0.3.24:
     dependencies:
       faye-websocket: 0.11.4
-      uuid: 8.3.2
+      uuid: 11.1.1
       websocket-driver: 0.7.5
 
   source-map-js@1.2.1: {}
@@ -13228,7 +13229,7 @@ snapshots:
 
   utils-merge@1.0.1: {}
 
-  uuid@8.3.2: {}
+  uuid@11.1.1: {}
 
   v8-compile-cache@2.4.0: {}
 

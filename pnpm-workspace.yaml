@@ -47,3 +47,5 @@ overrides:
   # GHSA-43f8-2h32-f4cj: patch hosted-git-info within both parent semver ranges.
   'normalize-package-data@2.3.2>hosted-git-info': 2.8.9
   'normalize-package-data@2.5.0>hosted-git-info': 2.8.9
+  # GHSA-w5hq-g745-h8pq: SockJS only uses uuid.v4; verify its live connection path.
+  'sockjs@0.3.24>uuid': 11.1.1
