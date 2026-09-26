@@ -1656,6 +1656,30 @@ async function main() {
       body: { source: 'v3-intercepted', ok: true },
     })
 
+    await quickCreatedRuleRow.getByRole('switch').click()
+    let disabledQuickCreatedRule
+    for (let attempt = 0; attempt < 40; attempt += 1) {
+      const currentConfig = await restartedWorker.evaluate(
+        async (key) => (await chrome.storage.local.get(key))[key],
+        'ajax-proxy:storage:v3-config'
+      )
+      disabledQuickCreatedRule = currentConfig.rules.find((rule) => rule.id === quickCreatedRule.id)
+      if (disabledQuickCreatedRule?.enabled === false) break
+      await new Promise((resolve) => setTimeout(resolve, 50))
+    }
+    assert.ok(disabledQuickCreatedRule)
+    assert.equal(disabledQuickCreatedRule.enabled, false)
+    await restartedPage.reload()
+    await restartedPage.locator('#fetch').waitFor()
+    const disabledExactResponse = await restartedPage.evaluate(async () => {
+      const response = await fetch('/api/echo?quick-create=smoke', {
+        method: 'POST',
+        body: 'disabled exact request',
+      })
+      return { status: response.status, body: await response.json() }
+    })
+    assert.deepEqual(disabledExactResponse, { status: 202, body: v3ResponseBody })
+
     await restartedPage.reload()
     await restartedPage.waitForFunction(
       () => !document.getElementById('ajax-proxy-v3-function-sandbox')
