@@ -105,6 +105,27 @@ describe('RedirectFetch Request input', () => {
     expect(getForwardedRequest()?.url).toBe('https://target.test/second/users')
   })
 
+  it('passes an ignored request to native fetch without redirecting it', async () => {
+    const rules = [
+      {
+        switch_on: true,
+        domain: 'https://example.test/api',
+        redirect_url: 'https://target.test/mock',
+        method: 'POST',
+        ignores: ['/internal'],
+      },
+    ]
+    const { customFetch, originFetch, getForwardedRequest } = await createRedirectHarness(rules)
+    const input = new Request('https://example.test/api/internal/users', { method: 'POST' })
+    const init = { headers: { 'x-original': 'preserved' } }
+
+    await customFetch(input, init)
+
+    expect(originFetch).toHaveBeenCalledTimes(1)
+    expect(originFetch).toHaveBeenCalledWith(input, init)
+    expect(getForwardedRequest()?.url).toBe('https://example.test/api/internal/users')
+  })
+
   it('sends the original request when a redirect function throws', async () => {
     const { customFetch, originFetch } = await createRedirectHarness([
       {
