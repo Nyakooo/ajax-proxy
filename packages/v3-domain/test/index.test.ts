@@ -525,6 +525,21 @@ describe('V3 response function result validation', () => {
     expect(validateV3ResponseFunctionResult({ body: cyclic })).toMatchObject({ ok: false })
     expect(validateV3ResponseFunctionResult({ body: new Date() })).toMatchObject({ ok: false })
   })
+
+  it('returns a safe issue when accessing result fields throws', () => {
+    const result: Record<string, unknown> = {}
+    Object.defineProperty(result, 'body', {
+      enumerable: true,
+      get() {
+        throw new Error('unavailable')
+      },
+    })
+
+    expect(validateV3ResponseFunctionResult(result)).toEqual({
+      ok: false,
+      issue: 'Result must be safely JSON-serializable.',
+    })
+  })
 })
 
 describe('V3 rule selection', () => {
