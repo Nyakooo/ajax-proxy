@@ -100,6 +100,16 @@ const { t } = useI18n({ useScope: 'global' })
           />
           <span>{{ t('ruleFilters.regex') }}</span>
         </label>
+        <label>
+          <input
+            type="radio"
+            name="rule-match-type-filter"
+            value="exact"
+            :checked="matchType === 'exact'"
+            @change="emit('update:matchType', 'exact')"
+          />
+          <span>{{ t('ruleFilters.exact') }}</span>
+        </label>
       </fieldset>
     </div>
 

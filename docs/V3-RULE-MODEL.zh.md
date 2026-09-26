@@ -24,8 +24,8 @@ interface Rule {
 }
 ```
 
-- `match` 只匹配原始请求。本阶段仅定义 URL 与 method：`normal` 是原始 URL 的区分大小写子串匹配，`regex` 使用不区分大小写的 RE2；method 按大写后的 HTTP token 精确匹配，未填写或填写 `ANY` 表示任意 method。headers 等条件不属于当前 schema。
-- 下一 matcher 切片计划加入 `exact`：将原始请求 URL 字符串与规则 URL 区分大小写地完整比较，不额外规范化、拆分或忽略 query 参数；method 语义不变。现有 `normal` 子串和 `regex` 语义保持不变，缺省 `type` 仍表示 `normal`。请求 header 条件和忽略列表不属于该切片。
+- `match` 只匹配原始请求。本阶段定义 URL 与 method：`normal` 是原始 URL 的区分大小写子串匹配；`regex` 使用不区分大小写的 RE2；`exact` 将完整原始 URL 字符串区分大小写比较，不额外规范化、拆分或忽略 query 参数。method 按大写后的 HTTP token 精确匹配，未填写或填写 `ANY` 表示任意 method。headers 等条件不属于当前 schema。
+- 缺省 `type` 仍表示 `normal`。格式版本 3 仅允许 `normal` / `regex`；版本 4 新增 `exact`，旧版本 3 备份仍可导入且保留原有匹配语义。请求 header 条件和忽略列表不属于本次 matcher 切片。
 - `request` 和 `response` 是独立能力；至少开启一项的规则才参与匹配。
 - 列表顺序就是规则优先级，界面允许调整顺序。第一条满足规则级 `enabled`、至少一个 action 的 `enabled`，且 URL / method 全部匹配的规则负责请求。两种 action 均关闭的规则仍可保存（例如函数代码导入时自动停用 response action），但运行时将其视为不参与匹配。选中后锁定稳定的规则 ID；action 失败也不会把请求交给后续规则。
 - schema 需要格式版本、严格校验和可读错误；不读取或转换 V2 字段。
@@ -51,7 +51,7 @@ V3 备份使用独立标识，不通过字段猜测把旧文件转换成新格�
 ```json
 {
   "format": "ajax-proxy-backup",
-  "formatVersion": 3,
+  "formatVersion": 4,
   "settings": {
     "globalEnabled": true,
     "mode": "interceptor",
@@ -62,14 +62,14 @@ V3 备份使用独立标识，不通过字段猜测把旧文件转换成新格�
 }
 ```
 
-- 顶层必须且只能包含 `format`、`formatVersion`、`settings`、`tags`、`rules`。格式标识固定为 `ajax-proxy-backup`，版本固定为整数 `3`；未知格式 / 版本拒绝，检测到 V2 字段时返回明确的不兼容提示。
+- 顶层必须且只能包含 `format`、`formatVersion`、`settings`、`tags`、`rules`。格式标识固定为 `ajax-proxy-backup`；当前导出版本为整数 `4`，同时接受只含 `normal` / `regex` 的版本 `3` 备份。其它未知格式 / 版本拒绝，检测到 V2 字段时返回明确的不兼容提示。
 - `settings` 必须包含布尔值 `globalEnabled`、`interceptor` / `redirector` 模式和 `zh-CN` / `en` 语言。未知字段拒绝，避免输入拼错后被静默忽略。
 - `tags` 必须是数组；每个 tag 包含唯一非空字符串 `id`、非空 `name` 和布尔 `used`，不允许未知字段。空数组合法。
 - `rules` 必须是数组；每条规则包含唯一非空 `id`、布尔 `enabled`、非空 URL `match`，可选 `tagIds`、`request` 重定向 action 和 `response` 替换 action。`tagIds` 缺省表示无标签；提供时必须是唯一标签 ID 数组，且每个 ID 都必须指向顶层 `tags`。未知规则和 matcher 字段拒绝。
 - URL matcher 的 `method` 是可选字符串，`type` 可选 `normal` 或 `regex`。正则采用 RE2 语法，以避免灾难性回溯；lookahead、backreference 等 RE2 不支持的语法在保存 / 导入时拒绝，具体输入上限见 `docs/V3-INPUT-VALIDATION.zh.md`。重定向 payload 必须含非空目标 `url`；响应替换可选 `status`（200–599 整数）、字符串 header map、JSON `body` 和字符串 `code`。未知 action / payload 字段拒绝。
 - 校验结果携带字段路径和可读原因，不通过部分修复或丢弃字段来“尽量导入”。整个备份校验成功后才允许替换当前配置。
 
-上述基础 envelope 已落为独立的 `@proxy/v3-domain` 校验实现。计划新增 URL 精确模式仍须遵循严格的 `formatVersion` 策略；静态响应 header 配置入口则需先单独审查 Fetch / XHR 差异并决定是否提供能力降级。任何格式变化都必须递增 `formatVersion`。
+上述基础 envelope 已落为独立的 `@proxy/v3-domain` 校验实现。扩展 matcher 格式时递增 `formatVersion`，并保留对旧版本的有针对性读取；静态响应 header 配置入口则需先单独审查 Fetch / XHR 差异并决定是否提供能力降级。
 
 导入入口使用 `parseV3BackupJson(text)` 完成 JSON 解析和 schema 校验，UTF-8 BOM 会在解析前移除。返回的 `issues` 带有 `$` 根路径或 `rules[0].match.url` 这类字段路径；`formatV3ValidationIssues()` 可将其转换成可直接呈现的文本。语法错误、V2 不兼容、版本不支持和字段校验错误都通过同一结果结构返回，调用方应展示这些原因并在校验失败时保持当前配置不变。合法结果另含 `warnings`；含 response `code` 的规则会列出代码字段路径，并在返回数据中停用对应 response action，导入前不会执行代码。
 

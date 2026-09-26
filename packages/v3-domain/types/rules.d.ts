@@ -19,7 +19,7 @@ export interface V3Rule {
     match: {
         url: string;
         method?: string;
-        type?: 'normal' | 'regex';
+        type?: 'normal' | 'regex' | 'exact';
     };
     request?: {
         enabled: boolean;

@@ -1,8 +1,9 @@
 import { isValidRegexPattern } from '@proxy/protocol'
+import { V3_BACKUP_LEGACY_VERSION, V3_BACKUP_VERSION } from './backupVersion'
 import type { JsonValue, V3ResponseFunctionResult, V3Rule, V3Tag } from './rules'
 
 export const V3_BACKUP_FORMAT = 'ajax-proxy-backup' as const
-export const V3_BACKUP_VERSION = 3 as const
+export { V3_BACKUP_LEGACY_VERSION, V3_BACKUP_VERSION }
 export const V3_BACKUP_MAX_BYTES = 5 * 1024 * 1024
 
 const MAX_RULES = 1000
@@ -27,7 +28,7 @@ export type V3Language = 'zh-CN' | 'en'
 
 export interface V3Backup {
   format: typeof V3_BACKUP_FORMAT
-  formatVersion: typeof V3_BACKUP_VERSION
+  formatVersion: typeof V3_BACKUP_VERSION | typeof V3_BACKUP_LEGACY_VERSION
   settings: {
     globalEnabled: boolean
     mode: V3Mode
@@ -145,6 +146,7 @@ function validateRule(
   value: unknown,
   index: number,
   availableTagIds: Set<string>,
+  formatVersion: number,
   issues: V3ValidationIssue[]
 ) {
   const path = `rules[${index}]`
@@ -213,9 +215,16 @@ function validateRule(
     if (
       value.match.type !== undefined &&
       value.match.type !== 'normal' &&
-      value.match.type !== 'regex'
+      value.match.type !== 'regex' &&
+      (value.match.type !== 'exact' || formatVersion < V3_BACKUP_VERSION)
     ) {
-      addIssue(issues, `${path}.match.type`, 'Expected "normal" or "regex".')
+      addIssue(
+        issues,
+        `${path}.match.type`,
+        formatVersion < V3_BACKUP_VERSION
+          ? 'Expected "normal" or "regex" for backup version 3.'
+          : 'Expected "normal", "regex", or "exact".'
+      )
     }
     if (
       value.match.type === 'regex' &&
@@ -322,8 +331,15 @@ export function validateV3Backup(value: unknown): V3BackupValidation {
   if (!hasOnlyKeys(value, ['format', 'formatVersion', 'settings', 'tags', 'rules'])) {
     addIssue(issues, '$', 'Backup contains an unsupported field.')
   }
-  if (value.formatVersion !== V3_BACKUP_VERSION) {
-    addIssue(issues, 'formatVersion', `Expected version ${V3_BACKUP_VERSION}.`)
+  if (
+    value.formatVersion !== V3_BACKUP_VERSION &&
+    value.formatVersion !== V3_BACKUP_LEGACY_VERSION
+  ) {
+    addIssue(
+      issues,
+      'formatVersion',
+      `Expected version ${V3_BACKUP_LEGACY_VERSION} or ${V3_BACKUP_VERSION}.`
+    )
   }
   if (
     !isObject(value.settings) ||
@@ -394,7 +410,7 @@ export function validateV3Backup(value: unknown): V3BackupValidation {
     }
     const ids = new Set<string>()
     value.rules.forEach((rule, index) => {
-      validateRule(rule, index, availableTagIds, issues)
+      validateRule(rule, index, availableTagIds, value.formatVersion as number, issues)
       if (isObject(rule) && typeof rule.id === 'string') {
         if (ids.has(rule.id)) addIssue(issues, `rules[${index}].id`, 'Rule IDs must be unique.')
         ids.add(rule.id)

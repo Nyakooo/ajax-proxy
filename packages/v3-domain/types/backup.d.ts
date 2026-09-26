@@ -1,13 +1,14 @@
+import { V3_BACKUP_LEGACY_VERSION, V3_BACKUP_VERSION } from './backupVersion';
 import type { V3ResponseFunctionResult, V3Rule, V3Tag } from './rules';
 export declare const V3_BACKUP_FORMAT: "ajax-proxy-backup";
-export declare const V3_BACKUP_VERSION: 3;
+export { V3_BACKUP_LEGACY_VERSION, V3_BACKUP_VERSION };
 export declare const V3_BACKUP_MAX_BYTES: number;
 export declare const V3_FUNCTION_RESULT_MAX_BYTES: number;
 export type V3Mode = 'interceptor' | 'redirector';
 export type V3Language = 'zh-CN' | 'en';
 export interface V3Backup {
     format: typeof V3_BACKUP_FORMAT;
-    formatVersion: typeof V3_BACKUP_VERSION;
+    formatVersion: typeof V3_BACKUP_VERSION | typeof V3_BACKUP_LEGACY_VERSION;
     settings: {
         globalEnabled: boolean;
         mode: V3Mode;

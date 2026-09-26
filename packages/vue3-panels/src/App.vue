@@ -33,6 +33,7 @@ const extensionRuntime = globalThis.chrome?.runtime
 let configService
 let ruleOperations
 let quickCreateReturnSection = null
+let v3BackupVersion = 4
 const memoryOnly = ref(!extensionRuntime?.sendMessage)
 const loading = ref(true)
 const configReady = ref(false)
@@ -75,7 +76,7 @@ const passThroughCreateButton = {
 function createEmptyConfig() {
   return {
     format: 'ajax-proxy-backup',
-    formatVersion: 3,
+    formatVersion: v3BackupVersion,
     settings: { globalEnabled: true, mode: 'interceptor', language: locale.value },
     tags: [],
     rules: [],
@@ -328,7 +329,9 @@ onMounted(async () => {
       moveV3Rule,
       replaceV3Rule,
       setV3RuleEnabled,
+      V3_BACKUP_VERSION,
     } = await import('@proxy/v3-domain')
+    v3BackupVersion = V3_BACKUP_VERSION
     ruleOperations = {
       analyzeV3RuleMatches,
       deleteV3Rule,
@@ -369,6 +372,9 @@ onBeforeUnmount(() => removeExtensionMessageListener?.())
 
 async function persistConfig(nextConfig) {
   operationError.value = ''
+  if (nextConfig.rules.some((rule) => rule.match.type === 'exact')) {
+    nextConfig = { ...nextConfig, formatVersion: v3BackupVersion }
+  }
   if (memoryOnly.value) {
     config.value = nextConfig
     return true
@@ -1194,7 +1200,13 @@ async function moveRule(rule, targetRule) {
                   <code>{{ rule.match.url }}</code>
                   <AppTag :value="rule.match.method ?? 'ANY'" severity="secondary" />
                   <AppTag
-                    :value="rule.match.type === 'regex' ? t('rules.regex') : t('rules.contains')"
+                    :value="
+                      rule.match.type === 'regex'
+                        ? t('rules.regex')
+                        : rule.match.type === 'exact'
+                          ? t('rules.exact')
+                          : t('rules.contains')
+                    "
                     severity="secondary"
                   />
                   <span v-if="isFirstActiveRule(rule)" class="priority-pill">{{

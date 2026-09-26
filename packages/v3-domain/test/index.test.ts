@@ -29,6 +29,26 @@ describe('V3 backup schema', () => {
     expect(validateV3Backup({ ...validBackup, rules: [] })).toMatchObject({ ok: true })
   })
 
+  it('reads legacy V3 backups while reserving exact URL matching for format version 4', () => {
+    expect(validateV3Backup(validBackup)).toMatchObject({ ok: true })
+
+    const exactBackup = structuredClone(validBackup)
+    exactBackup.formatVersion = 4
+    exactBackup.rules[0].match.type = 'exact'
+    expect(validateV3Backup(exactBackup)).toMatchObject({ ok: true })
+    expect(parseV3BackupJson(JSON.stringify(exactBackup))).toMatchObject({
+      ok: true,
+      data: { formatVersion: 4, rules: [{ match: { type: 'exact' } }] },
+    })
+
+    const unsupportedLegacyExactBackup = structuredClone(validBackup)
+    unsupportedLegacyExactBackup.rules[0].match.type = 'exact'
+    expect(validateV3Backup(unsupportedLegacyExactBackup)).toMatchObject({
+      ok: false,
+      issues: expect.arrayContaining([expect.objectContaining({ path: 'rules[0].match.type' })]),
+    })
+  })
+
   it('accepts rules referencing multiple existing tags and older rules without tagIds', () => {
     const backup = structuredClone(validBackup)
     backup.tags = [
@@ -356,6 +376,36 @@ describe('V3 rule selection', () => {
 
     expect(selectV3Rule([normalRule], { url: '/api/1', method: 'GET' })).toBeUndefined()
     expect(selectV3Rule([regexRule], { url: '/API/123', method: 'GET' })?.rule).toBe(regexRule)
+  })
+
+  it('matches exact URLs by case-sensitive full-string equality in runtime and preview', () => {
+    const exactRule = {
+      ...requestRule('exact', 'https://example.test/api?tenant=one'),
+      match: {
+        url: 'https://example.test/api?tenant=one',
+        method: 'GET',
+        type: 'exact' as const,
+      },
+    }
+    const matchingRequest = { url: 'https://example.test/api?tenant=one', method: 'GET' }
+    const nonMatchingRequests = [
+      'https://example.test/prefix/api?tenant=one',
+      'https://example.test/api/child?tenant=one',
+      'https://example.test/api?tenant=two',
+      'https://example.test/API?tenant=one',
+    ]
+
+    expect(selectV3Rule([exactRule], matchingRequest)?.rule).toBe(exactRule)
+    for (const url of nonMatchingRequests) {
+      expect(selectV3Rule([exactRule], { ...matchingRequest, url })).toBeUndefined()
+    }
+    expect(analyzeV3RuleMatches([exactRule], matchingRequest).results[0].reason).toBe('matched')
+    expect(
+      analyzeV3RuleMatches([exactRule], {
+        ...matchingRequest,
+        url: 'https://example.test/api?tenant=two',
+      }).results[0].reason
+    ).toBe('url-mismatch')
   })
 
   it('skips matcher failures and overlong inputs safely', () => {

@@ -1301,6 +1301,7 @@ async function main() {
       false,
       'a quick-created rule starts disabled'
     )
+    await savedQuickResponseEditor.locator('.editor-field-row select').first().selectOption('exact')
     await savedQuickResponseEditor.getByRole('button', { name: 'Save rule', exact: true }).click()
     await v3Panel.waitForTimeout(500)
     if (await savedQuickResponseEditor.isVisible()) {
@@ -1324,17 +1325,69 @@ async function main() {
     }
     assert.ok(quickCreatedRule)
     assert.equal(quickCreatedRule.enabled, false)
+    assert.equal(quickCreatedRule.match.type, 'exact')
     assert.deepEqual(quickCreatedRule.match, {
       url: `http://127.0.0.1:${port}/api/echo?quick-create=smoke`,
       method: 'POST',
-      type: 'normal',
+      type: 'exact',
     })
+    const exactBackupVersion = await restartedWorker.evaluate(
+      async (key) => (await chrome.storage.local.get(key))[key].formatVersion,
+      'ajax-proxy:storage:v3-config'
+    )
+    assert.equal(exactBackupVersion, 4, 'saving an exact matcher upgrades to backup format 4')
     assert.deepEqual(quickCreatedRule.response, {
       enabled: true,
       replace: { status: 200, body: {} },
     })
     assert.equal(quickCreatedRule.request, undefined)
     assert.equal(quickCreatedRule.tagIds.length, 0)
+
+    await v3Panel.getByRole('button', { name: 'Filter', exact: true }).click()
+    const exactRuleFilter = v3Panel.locator('.rule-filter-popover')
+    await exactRuleFilter.locator('input[name="rule-match-type-filter"][value="exact"]').check()
+    assert.equal(await v3Panel.locator('.rule-row').count(), 1)
+    await exactRuleFilter.getByRole('button', { name: 'Clear filters' }).click()
+    await exactRuleFilter.getByRole('button', { name: 'Close filters' }).click()
+
+    const quickCreatedRuleRow = v3Panel
+      .locator('.rule-row')
+      .filter({ hasText: '/api/echo?quick-create=smoke' })
+    await quickCreatedRuleRow.getByRole('switch').click()
+    let quickCreatedRuleEnabled = false
+    for (let attempt = 0; attempt < 40; attempt += 1) {
+      const currentConfig = await restartedWorker.evaluate(
+        async (key) => (await chrome.storage.local.get(key))[key],
+        'ajax-proxy:storage:v3-config'
+      )
+      quickCreatedRuleEnabled = currentConfig.rules.find(
+        (rule) => rule.match.type === 'exact'
+      )?.enabled
+      if (quickCreatedRuleEnabled) break
+      await new Promise((resolve) => setTimeout(resolve, 50))
+    }
+    assert.equal(quickCreatedRuleEnabled, true)
+    await restartedPage.reload()
+    await restartedPage.locator('#fetch').waitFor()
+    const exactMatchResponse = await restartedPage.evaluate(async () => {
+      const response = await fetch('/api/echo?quick-create=smoke', {
+        method: 'POST',
+        body: 'exact request',
+      })
+      return { status: response.status, body: await response.json() }
+    })
+    assert.deepEqual(exactMatchResponse, { status: 200, body: {} })
+    const nearMatchResponse = await restartedPage.evaluate(async () => {
+      const response = await fetch('/api/echo?quick-create=smoke&extra=1', {
+        method: 'POST',
+        body: 'near match request',
+      })
+      return { status: response.status, body: await response.json() }
+    })
+    assert.deepEqual(nearMatchResponse, {
+      status: 202,
+      body: { source: 'v3-intercepted', ok: true },
+    })
 
     await restartedPage.reload()
     await restartedPage.waitForFunction(

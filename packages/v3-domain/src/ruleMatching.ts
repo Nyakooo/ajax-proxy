@@ -70,6 +70,9 @@ function getRuleMatchReason(rule: V3Rule, request: V3RequestMatchInput): V3RuleM
       if (!regex) return 'invalid-regex'
       return regex.test(request.url) ? 'matched' : 'url-mismatch'
     }
+    if (matcherType === 'exact') {
+      return request.url === rule.match.url ? 'matched' : 'url-mismatch'
+    }
     if (matcherType !== 'normal') return 'invalid-match-type'
     return request.url.includes(rule.match.url) ? 'matched' : 'url-mismatch'
   } catch {

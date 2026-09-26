@@ -123,6 +123,7 @@ function trapFocus(event) {
             <select v-model="form.matchType">
               <option value="normal">{{ t('editor.contains') }}</option>
               <option value="regex">{{ t('editor.regularExpression') }}</option>
+              <option value="exact">{{ t('editor.exactMatch') }}</option>
             </select>
           </label>
           <label class="editor-field">
