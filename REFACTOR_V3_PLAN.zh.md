@@ -214,7 +214,8 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - [x] 规则搜索按 URL、method、ID、跳转目标和动作文本查找；配置了但停用的 action 仍可搜索、查看和编辑。
 - [x] 按规则启用状态和普通 / 正则匹配类型筛选列表；可清除筛选，应用筛选时禁用调序按钮以避免改变隐藏规则的相对位置。
 - [x] 使用列表上移 / 下移调整首条匹配优先级；搜索或筛选期间暂禁调序。
-- [ ] 为规则建立标签关联、标签筛选和标签组织交互。
+- [x] V3 规则支持可选多标签关联；备份 / 保存校验关联必须引用现有唯一标签，缺省关联兼容既有 V3 规则。
+- [ ] 面板提供标签管理、规则关联、列表标签显示和组合筛选。
 - [ ] 规则复制、批量启停、批量导入导出。
 - [ ] 命中历史或诊断视图，解释规则未命中的原因。
 - [ ] 评估从实际请求或命中记录快捷创建规则的能力。
@@ -473,4 +474,6 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - 2026-09-26：V3 面板接入 JSON 备份导出、文件 / 文本导入预览、schema 错误显示和确认恢复；导入函数代码时显示规则数量及不可信提示，领域解析器确保对应响应行为保持停用。恢复成功后同步面板语言、清除过期诊断，不导入备份中不存在的命中计数。扩展 smoke 验证导出 envelope、无效 JSON 不写入配置、函数规则计数与禁用恢复后 Fetch 原始响应；Edge Stable 153.0.4234.48 与 Playwright Chromium 扩展 smoke、165 项 Vitest、Vue 3 面板 / Chrome 扩展构建、typecheck、package boundary、生成声明、改动文件 ESLint 与 Prettier 通过。Chrome Stable 154.0.8037.58 在独立 Playwright profile 下未观察到扩展 service worker；改用现有 Chrome 用户 profile 重载本地扩展后，真实 `panels-v3/` 页面可打开，函数代码备份预览和无效 JSON 错误态通过，配置保持 0 条规则。完成 111 / 199 项（55.8%）。
 - 2026-09-26：新增 `docs/V3-BACKUP-RESTORE.zh.md`，说明 staging 面板加载、完整快照导出 / 恢复、校验失败不写入、V2 不兼容和函数代码默认停用；同步修正 baseline、issues、panel migration 和 functions 文档中的过时实现状态并加入交叉链接。核对 UI 文案、domain importer 与真实扩展 smoke 的配置语义，`git diff --check` 和 Prettier 检查通过。完成 112 / 199 项（56.3%）。
 - 2026-09-26：完成 V3 规则列表基础筛选切片：按规则启用状态及普通 / 正则匹配类型过滤；搜索仍覆盖 ID、URL、method、跳转目标和 action，并让导入后停用的函数 response action 可见、可编辑。分类按 action 配置存在性统计；移除一个 action 时保留同规则中的另一个（即使其停用），搜索 / 筛选时禁用调序。Playwright 扩展 smoke 验证导入函数规则仍显示、打开编辑器后函数响应保持未启用、删除 action 保留同规则的请求 action、状态筛选、匹配类型空态、清除筛选、搜索和调序限制；Playwright Chromium 与 Edge Stable 153.0.4234.48 扩展 smoke、165 项 Vitest、Vue 3 面板构建 / staging 打包、typecheck、包边界、改动文件 ESLint / Prettier 通过。Chrome Stable 154.0.8037.58 真实本地扩展面板验证筛选弹层、无结果态和清除筛选；当前 profile 规则仍为空。将原“搜索、筛选、排序、标签”综合项拆为独立进度项。完成 115 / 202 项（56.9%）。
+- 2026-09-26：完成 V3 规则列表基础筛选切片：按规则启用状态及普通 / 正则匹配类型过滤；搜索仍覆盖 ID、URL、method、跳转目标和 action，并让导入后停用的函数 response action 可见、可编辑。分类按 action 配置存在性统计；移除一个 action 时保留同规则中的另一个（即使其停用），搜索 / 筛选时禁用调序。Playwright 扩展 smoke 验证导入函数规则仍显示、打开编辑器后函数响应保持未启用、删除 action 保留同规则的请求 action、状态筛选、匹配类型空态、清除筛选、搜索和调序限制；Playwright Chromium 与 Edge Stable 153.0.4234.48 扩展 smoke、165 项 Vitest、Vue 3 面板构建 / staging 打包、typecheck、包边界、改动文件 ESLint / Prettier 通过。Chrome Stable 154.0.8037.58 真实本地扩展面板验证筛选弹层、无结果态和清除筛选；当前 profile 规则仍为空。将原“搜索、筛选、排序、标签”综合项拆为独立进度项。完成 115 / 202 项（56.9%）。
+- 2026-09-26：V3 标签数据契约支持可选多标签 `rule.tagIds`；严格校验非空、唯一 ID 且每个引用必须对应备份内已定义标签，缺省字段继续接受既有 V3 配置。新增 domain 校验回归用例，定向 18 项测试、domain 构建、ESLint、Prettier 通过。面板标签管理、关联与筛选交互仍待完成。完成 116 / 203 项（57.1%）。
 - GitHub 里程碑：[阶段 0](https://github.com/Nyakooo/ajax-proxy/milestone/1)、[阶段 1](https://github.com/Nyakooo/ajax-proxy/milestone/2)、[阶段 2](https://github.com/Nyakooo/ajax-proxy/milestone/3)、[阶段 3](https://github.com/Nyakooo/ajax-proxy/milestone/4)、[阶段 4](https://github.com/Nyakooo/ajax-proxy/milestone/5)、[阶段 5](https://github.com/Nyakooo/ajax-proxy/milestone/6)、[阶段 6](https://github.com/Nyakooo/ajax-proxy/milestone/7)、[阶段 7](https://github.com/Nyakooo/ajax-proxy/milestone/8)；已复现缺陷：[issue #56](https://github.com/Nyakooo/ajax-proxy/issues/56)。

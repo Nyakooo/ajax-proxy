@@ -28,6 +28,34 @@ describe('V3 backup schema', () => {
     expect(validateV3Backup({ ...validBackup, rules: [] })).toMatchObject({ ok: true })
   })
 
+  it('accepts rules referencing multiple existing tags and older rules without tagIds', () => {
+    const backup = structuredClone(validBackup)
+    backup.tags = [
+      { id: 'tag-a', name: 'A', used: true },
+      { id: 'tag-b', name: 'B', used: true },
+    ]
+    ;(backup.rules[0] as (typeof backup.rules)[number] & { tagIds?: string[] }).tagIds = [
+      'tag-a',
+      'tag-b',
+    ]
+
+    expect(validateV3Backup(backup)).toMatchObject({ ok: true })
+    const olderV3Backup = structuredClone(validBackup)
+    expect(validateV3Backup(olderV3Backup)).toMatchObject({ ok: true })
+  })
+
+  it('rejects malformed, empty, duplicate, and unknown tag references', () => {
+    const base = structuredClone(validBackup)
+    base.tags = [{ id: 'tag-a', name: 'A', used: true }]
+    const invalidTagIds: unknown[] = [null, 'tag-a', [''], ['tag-a', 'tag-a'], ['missing'], [42]]
+
+    for (const tagIds of invalidTagIds) {
+      const backup = structuredClone(base)
+      ;(backup.rules[0] as unknown as Record<string, unknown>).tagIds = tagIds
+      expect(validateV3Backup(backup)).toMatchObject({ ok: false })
+    }
+  })
+
   it('rejects a missing, null, or invalid rule collection instead of treating it as empty', () => {
     for (const rules of [undefined, null, {}]) {
       const backup = { ...validBackup, rules }

@@ -14,6 +14,8 @@ export interface V3Tag {
 export interface V3Rule {
     id: string;
     enabled: boolean;
+    /** Optional IDs from the backup's tag collection; omitted means untagged. */
+    tagIds?: string[];
     match: {
         url: string;
         method?: string;

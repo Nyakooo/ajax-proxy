@@ -141,14 +141,45 @@ function addIssue(issues: V3ValidationIssue[], path: string, message: string) {
   issues.push({ path, message })
 }
 
-function validateRule(value: unknown, index: number, issues: V3ValidationIssue[]) {
+function validateRule(
+  value: unknown,
+  index: number,
+  availableTagIds: Set<string>,
+  issues: V3ValidationIssue[]
+) {
   const path = `rules[${index}]`
   if (!isObject(value)) {
     addIssue(issues, path, 'Expected a rule object.')
     return
   }
-  if (!hasOnlyKeys(value, ['id', 'enabled', 'match', 'request', 'response'])) {
+  if (!hasOnlyKeys(value, ['id', 'enabled', 'tagIds', 'match', 'request', 'response'])) {
     addIssue(issues, path, 'Rule contains an unsupported field.')
+  }
+  if (value.tagIds !== undefined) {
+    if (!Array.isArray(value.tagIds)) {
+      addIssue(issues, `${path}.tagIds`, 'Expected an array of tag IDs.')
+    } else {
+      const referencedTagIds = new Set<string>()
+      value.tagIds.forEach((tagId, tagIndex) => {
+        const tagPath = `${path}.tagIds[${tagIndex}]`
+        if (typeof tagId !== 'string' || tagId.trim() === '' || tagId.length > MAX_ID_LENGTH) {
+          addIssue(
+            issues,
+            tagPath,
+            `Expected a non-empty tag ID up to ${MAX_ID_LENGTH} characters.`
+          )
+          return
+        }
+        if (referencedTagIds.has(tagId)) {
+          addIssue(issues, tagPath, 'Tag references must be unique.')
+        } else {
+          referencedTagIds.add(tagId)
+        }
+        if (!availableTagIds.has(tagId)) {
+          addIssue(issues, tagPath, 'Referenced tag ID does not exist in tags.')
+        }
+      })
+    }
   }
   if (typeof value.id !== 'string' || value.id.trim() === '' || value.id.length > MAX_ID_LENGTH)
     addIssue(issues, `${path}.id`, `Expected a non-empty string up to ${MAX_ID_LENGTH} characters.`)
@@ -271,6 +302,7 @@ function validateRule(value: unknown, index: number, issues: V3ValidationIssue[]
 
 export function validateV3Backup(value: unknown): V3BackupValidation {
   const issues: V3ValidationIssue[] = []
+  const availableTagIds = new Set<string>()
   if (!isObject(value))
     return { ok: false, issues: [{ path: '$', message: 'Expected a backup object.' }] }
   if (value.format !== V3_BACKUP_FORMAT) {
@@ -328,7 +360,10 @@ export function validateV3Backup(value: unknown): V3BackupValidation {
           `Expected a non-empty string up to ${MAX_ID_LENGTH} characters.`
         )
       else if (ids.has(tag.id)) addIssue(issues, `${path}.id`, 'Tag IDs must be unique.')
-      else ids.add(tag.id)
+      else {
+        ids.add(tag.id)
+        availableTagIds.add(tag.id)
+      }
       if (
         typeof tag.name !== 'string' ||
         tag.name.trim() === '' ||
@@ -359,7 +394,7 @@ export function validateV3Backup(value: unknown): V3BackupValidation {
     }
     const ids = new Set<string>()
     value.rules.forEach((rule, index) => {
-      validateRule(rule, index, issues)
+      validateRule(rule, index, availableTagIds, issues)
       if (isObject(rule) && typeof rule.id === 'string') {
         if (ids.has(rule.id)) addIssue(issues, `rules[${index}].id`, 'Rule IDs must be unique.')
         ids.add(rule.id)
