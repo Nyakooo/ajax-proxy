@@ -5,6 +5,7 @@ import {
   V3_BACKUP_LEGACY_VERSION,
   V3_BACKUP_PREVIOUS_VERSION,
   V3_BACKUP_REDIRECT_EXCLUSIONS_VERSION,
+  V3_BACKUP_REDIRECT_FUNCTION_VERSION,
   V3_BACKUP_VERSION,
 } from './backupVersion'
 import type { JsonValue, V3ResponseFunctionResult, V3Rule, V3Tag } from './rules'
@@ -16,6 +17,7 @@ export {
   V3_BACKUP_LEGACY_VERSION,
   V3_BACKUP_PREVIOUS_VERSION,
   V3_BACKUP_REDIRECT_EXCLUSIONS_VERSION,
+  V3_BACKUP_REDIRECT_FUNCTION_VERSION,
   V3_BACKUP_VERSION,
 }
 export const V3_BACKUP_MAX_BYTES = 5 * 1024 * 1024
@@ -31,6 +33,7 @@ const MAX_REDIRECT_URL_LENGTH = 4096
 const MAX_REDIRECT_EXCLUSIONS = 100
 const MAX_REDIRECT_EXCLUSION_LENGTH = 4096
 const MAX_REDIRECT_EXCLUSION_BYTES = 1024 * 1024
+const MAX_REDIRECT_FUNCTION_CODE_LENGTH = 65536
 const MAX_METHOD_LENGTH = 32
 const MAX_HEADERS = 100
 const MAX_HEADER_NAME_LENGTH = 256
@@ -46,7 +49,7 @@ export type V3Language = 'zh-CN' | 'en'
 
 export interface V3Backup {
   format: typeof V3_BACKUP_FORMAT
-  formatVersion: 3 | 4 | 5 | 6
+  formatVersion: 3 | 4 | 5 | 6 | 7
   settings: {
     globalEnabled: boolean
     mode: V3Mode
@@ -292,24 +295,46 @@ function validateRule(
     const payloadPath = `${actionPath}.${payloadName}`
     const allowedPayloadKeys =
       actionName === 'request'
-        ? formatVersion >= V3_BACKUP_REDIRECT_EXCLUSIONS_VERSION
-          ? ['url', 'exclusions']
-          : ['url']
+        ? formatVersion >= V3_BACKUP_REDIRECT_FUNCTION_VERSION
+          ? ['url', 'exclusions', 'type', 'code']
+          : formatVersion >= V3_BACKUP_REDIRECT_EXCLUSIONS_VERSION
+            ? ['url', 'exclusions']
+            : ['url']
         : ['status', 'headers', 'body', 'code']
     if (!isObject(payload) || !hasOnlyKeys(payload, allowedPayloadKeys)) {
       addIssue(issues, payloadPath, 'Expected an action payload with supported fields only.')
       continue
     }
     if (actionName === 'request') {
-      if (
+      const isFunctionRedirect = payload.type === 'function'
+      if (formatVersion >= V3_BACKUP_REDIRECT_FUNCTION_VERSION && isFunctionRedirect) {
+        if ('url' in payload || typeof payload.code !== 'string' || !payload.code.trim()) {
+          addIssue(
+            issues,
+            payloadPath,
+            'Function redirects require non-empty code and cannot include a URL.'
+          )
+        } else if (payload.code.length > MAX_REDIRECT_FUNCTION_CODE_LENGTH) {
+          addIssue(
+            issues,
+            `${payloadPath}.code`,
+            `Function code must not exceed ${MAX_REDIRECT_FUNCTION_CODE_LENGTH} characters.`
+          )
+        }
+      } else if (
+        payload.type !== undefined ||
+        payload.code !== undefined ||
         typeof payload.url !== 'string' ||
         payload.url.trim() === '' ||
         payload.url.length > MAX_REDIRECT_URL_LENGTH
       ) {
         addIssue(
           issues,
-          `${payloadPath}.url`,
-          `Expected a non-empty URL up to ${MAX_REDIRECT_URL_LENGTH} characters.`
+          payloadPath,
+          formatVersion < V3_BACKUP_REDIRECT_FUNCTION_VERSION &&
+            (payload.type !== undefined || payload.code !== undefined)
+            ? 'Function redirects are not supported before backup version 7.'
+            : `Expected a non-empty URL up to ${MAX_REDIRECT_URL_LENGTH} characters.`
         )
       } else {
         try {
@@ -427,17 +452,18 @@ function validateV3BackupUnchecked(value: unknown): V3BackupValidation {
     value.formatVersion !== V3_BACKUP_VERSION &&
     value.formatVersion !== V3_BACKUP_PREVIOUS_VERSION &&
     value.formatVersion !== V3_BACKUP_EXACT_MATCH_VERSION &&
+    value.formatVersion !== V3_BACKUP_DISABLED_ORIGINS_VERSION &&
     value.formatVersion !== V3_BACKUP_LEGACY_VERSION
   ) {
     addIssue(
       issues,
       'formatVersion',
-      `Expected version ${V3_BACKUP_LEGACY_VERSION}, ${V3_BACKUP_EXACT_MATCH_VERSION}, ${V3_BACKUP_PREVIOUS_VERSION}, or ${V3_BACKUP_VERSION}.`
+      `Expected version ${V3_BACKUP_LEGACY_VERSION}, ${V3_BACKUP_EXACT_MATCH_VERSION}, ${V3_BACKUP_DISABLED_ORIGINS_VERSION}, ${V3_BACKUP_REDIRECT_EXCLUSIONS_VERSION}, or ${V3_BACKUP_VERSION}.`
     )
   }
   if (
-    value.formatVersion === V3_BACKUP_DISABLED_ORIGINS_VERSION ||
-    value.formatVersion === V3_BACKUP_VERSION
+    typeof value.formatVersion === 'number' &&
+    value.formatVersion >= V3_BACKUP_DISABLED_ORIGINS_VERSION
   ) {
     if (!Array.isArray(value.disabledOrigins)) {
       addIssue(issues, 'disabledOrigins', 'Expected an array of canonical HTTP(S) origins.')
@@ -611,6 +637,16 @@ export function parseV3BackupJson(text: string): V3BackupParseResult {
   const data = JSON.parse(JSON.stringify(validation.data)) as V3Backup
   const warnings: V3ValidationIssue[] = []
   data.rules.forEach((rule, index) => {
+    const redirect = rule.request?.redirect
+    const redirectCode = redirect && 'code' in redirect ? redirect.code : undefined
+    if (typeof redirectCode === 'string' && redirectCode.trim() !== '') {
+      warnings.push({
+        path: `rules[${index}].request.redirect.code`,
+        message:
+          'Imported redirect function code is untrusted and will not run until explicitly enabled.',
+      })
+      if (rule.request) rule.request.enabled = false
+    }
     const code = rule.response?.replace.code
     if (typeof code !== 'string' || code.trim() === '') return
     warnings.push({

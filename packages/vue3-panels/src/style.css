@@ -948,6 +948,10 @@ input {
   width: min(620px, 100%);
 }
 
+.redirect-rule-editor {
+  width: min(620px, 100%);
+}
+
 .response-mode-picker {
   display: flex;
   flex-wrap: wrap;

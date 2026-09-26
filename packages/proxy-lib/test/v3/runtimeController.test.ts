@@ -57,7 +57,7 @@ describe('createV3RuntimeController', () => {
     expect(controller.backup).toBeNull()
     expect(controller.update(backup)).toEqual({ ok: true, status: 'updated' })
     const active = controller.backup
-    expect(active).toEqual({ ...backup, formatVersion: 6, disabledOrigins: [] })
+    expect(active).toEqual({ ...backup, formatVersion: 7, disabledOrigins: [] })
 
     const invalidUpdate = controller.update({ ...backup, formatVersion: 2 })
     expect(invalidUpdate).toMatchObject({
@@ -296,6 +296,7 @@ describe('createV3RuntimeController', () => {
       rule_id: 'function-rule',
       match_url: '/api',
       method: 'POST',
+      action: 'response',
       code: 'invalid-result',
     })
     expect(isV3FunctionError(functionErrorEvent?.detail)).toBe(true)

@@ -152,6 +152,7 @@ describe('service worker message entry', () => {
       rule_id: 'rule-a',
       match_url: '/api/items',
       method: 'POST',
+      action: 'response',
       code: 'execution-failed',
     }
 

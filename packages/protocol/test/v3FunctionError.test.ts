@@ -5,6 +5,7 @@ const validError = {
   rule_id: 'rule-1',
   match_url: 'https://example.test/api/*',
   method: 'POST',
+  action: 'response' as const,
   code: V3FunctionErrorCode.EXECUTION_FAILED,
 }
 
@@ -16,6 +17,9 @@ describe('V3 function error guard', () => {
   })
 
   it('rejects missing, additional, and sensitive fields', () => {
+    const missingAction: Record<string, unknown> = { ...validError }
+    delete missingAction.action
+    expect(isV3FunctionError(missingAction)).toBe(false)
     expect(isV3FunctionError({ ...validError, url: 'https://example.test/?secret=1' })).toBe(false)
     expect(isV3FunctionError({ ...validError, error: 'private exception text' })).toBe(false)
     expect(isV3FunctionError({ ...validError, body: { secret: true } })).toBe(false)
@@ -29,6 +33,8 @@ describe('V3 function error guard', () => {
     expect(isV3FunctionError({ ...validError, match_url: 'x'.repeat(4097) })).toBe(false)
     expect(isV3FunctionError({ ...validError, method: 'post' })).toBe(false)
     expect(isV3FunctionError({ ...validError, method: 'A'.repeat(17) })).toBe(false)
+    expect(isV3FunctionError({ ...validError, action: 'request' })).toBe(false)
+    expect(isV3FunctionError({ ...validError, action: '' })).toBe(false)
     expect(isV3FunctionError({ ...validError, code: 'unknown' })).toBe(false)
   })
 

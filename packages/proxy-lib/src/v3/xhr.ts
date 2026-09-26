@@ -1,5 +1,5 @@
 import { isV3RedirectExcluded, selectV3Rule } from '@proxy/v3-domain'
-import type { V3Rule } from '@proxy/v3-domain'
+import type { V3RedirectConfig, V3Rule } from '@proxy/v3-domain'
 import type { V3RuntimeHostOptions } from './runtimeOptions'
 import type { V3FetchOutcomeStage, V3FetchOutcomeStatus, V3XHROutcomeReason } from '@proxy/protocol'
 
@@ -31,6 +31,12 @@ function createCorrelationId(): string {
 function absoluteUrl(value: string | URL): string {
   const base = typeof location === 'undefined' ? 'http://localhost/' : location.href
   return new URL(String(value), base).href
+}
+
+function isFunctionRedirect(
+  config: V3RedirectConfig
+): config is Extract<V3RedirectConfig, { type: 'function' }> {
+  return 'type' in config && config.type === 'function'
 }
 
 function resolveRedirect(value: string, originalUrl: string): string | undefined {
@@ -214,12 +220,16 @@ export function createV3XHR(NativeXHR: V3XHRConstructor, options: V3XHROptions):
               const redirectExcluded = selected
                 ? isV3RedirectExcluded(selected, originalUrl)
                 : false
-              const redirectValue: unknown = redirect?.redirect?.url
+              const redirectConfig = redirect?.redirect
+              const redirectValue =
+                redirectConfig && !isFunctionRedirect(redirectConfig)
+                  ? redirectConfig.url
+                  : undefined
               const targetUrl =
                 redirect?.enabled && !redirectExcluded && typeof redirectValue === 'string'
                   ? resolveRedirect(redirectValue, originalUrl)
                   : undefined
-              // Only static targets are supported. Function source is intentionally ignored.
+              // XHR open() is synchronous, so dynamic redirect functions are unsupported.
               if (!targetUrl) {
                 if (redirect?.enabled && selected && !redirectExcluded) {
                   requestOutcome = {

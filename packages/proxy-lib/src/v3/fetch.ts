@@ -1,9 +1,10 @@
 import { isV3RedirectExcluded, selectV3Rule } from '@proxy/v3-domain'
-import type { V3Rule } from '@proxy/v3-domain'
+import type { V3RedirectConfig, V3Rule } from '@proxy/v3-domain'
 import type {
   V3FetchOutcomeReason,
   V3FetchOutcomeStage,
   V3FetchOutcomeStatus,
+  V3FunctionErrorCode,
 } from '@proxy/protocol'
 import type { V3RuntimeHostOptions } from './runtimeOptions'
 import { replaceFetchResponse } from './responseAction'
@@ -12,6 +13,12 @@ export type V3Fetch = (input: RequestInfo | URL, init?: RequestInit) => Promise<
 export type V3FetchOptions = V3RuntimeHostOptions
 const correlationNonce = Math.random().toString(36).slice(2, 10)
 let correlationSequence = 0
+
+function isFunctionRedirect(
+  config: V3RedirectConfig
+): config is Extract<V3RedirectConfig, { type: 'function' }> {
+  return 'type' in config && config.type === 'function'
+}
 
 function createCorrelationId(): string {
   return `v3-fetch-${Date.now().toString(36)}-${correlationNonce}-${++correlationSequence}`
@@ -55,6 +62,37 @@ function needsRequestSnapshot(rule: V3Rule): boolean {
   return Boolean(
     rule.response?.enabled && typeof replace?.code === 'string' && replace.code.trim() !== ''
   )
+}
+
+function redirectFunctionFailureCode(error: unknown): V3FunctionErrorCode {
+  const message = error instanceof Error ? error.message.toLowerCase() : ''
+  if (message.includes('timed out')) return 'timeout'
+  if (message.includes('sandbox') && message.includes('unavailable')) return 'sandbox-unavailable'
+  return 'execution-failed'
+}
+
+function resolveRedirectFunctionTarget(value: unknown, originalUrl: string): string | undefined {
+  if (
+    typeof value !== 'string' ||
+    value.trim() === '' ||
+    value !== value.trim() ||
+    value.length > 4096
+  ) {
+    return undefined
+  }
+  try {
+    const target = new URL(value, originalUrl)
+    if (
+      (target.protocol !== 'http:' && target.protocol !== 'https:') ||
+      target.username !== '' ||
+      target.password !== ''
+    ) {
+      return undefined
+    }
+    return target.href
+  } catch {
+    return undefined
+  }
 }
 
 async function redirectRequest(
@@ -129,17 +167,44 @@ export function createV3Fetch(fetcher: V3Fetch, options: V3FetchOptions): V3Fetc
       options.onFetchOutcome !== undefined && (options.isFetchOutcomeDiagnosticsArmed?.() ?? true)
     const correlationId = outcomeArmed ? createCorrelationId() : undefined
     const redirect = selection.rule.request
+    let redirectAttempted = false
+    let redirectFailedBeforeNetwork = false
+    let redirectTarget: string | undefined
     if (redirect?.enabled && !isV3RedirectExcluded(selection.rule, originalRequest.url)) {
-      try {
-        requestForResponse = await redirectRequest(
-          originalRequest,
-          redirect.redirect.url,
-          isReadableStreamBody(init?.body)
-        )
-      } catch {
-        // A construction/body replay failure can safely fall back before network dispatch.
-        requestForResponse = originalRequest
-        if (snapshotRequestBody) requestSnapshot = originalRequest.clone()
+      redirectAttempted = true
+      if (isFunctionRedirect(redirect.redirect)) {
+        let failureCode: V3FunctionErrorCode | undefined
+        if (!options.executeRedirectFunction) {
+          failureCode = 'sandbox-unavailable'
+        } else {
+          try {
+            const result = await options.executeRedirectFunction(redirect.redirect.code, {
+              url: originalRequest.url,
+              method: originalRequest.method,
+            })
+            redirectTarget = resolveRedirectFunctionTarget(result, originalRequest.url)
+            if (!redirectTarget) failureCode = 'redirect-target-invalid'
+          } catch (error) {
+            failureCode = redirectFunctionFailureCode(error)
+          }
+        }
+        if (failureCode) {
+          redirectFailedBeforeNetwork = true
+          try {
+            options.onFunctionError?.(
+              selection.rule,
+              selection.originalRequest,
+              failureCode,
+              'redirect'
+            )
+          } catch {
+            // Function diagnostics must not change the native request.
+          }
+        }
+      } else {
+        redirectTarget = redirect.redirect.url
+      }
+      if (redirectFailedBeforeNetwork) {
         reportOutcome(
           options,
           selection.rule,
@@ -148,52 +213,56 @@ export function createV3Fetch(fetcher: V3Fetch, options: V3FetchOptions): V3Fetc
           'fallback',
           'redirect-construction-failed'
         )
-        try {
-          const useNormalizedRequest = isRequestInput(input) || isReadableStreamBody(init?.body)
-          networkResponse = useNormalizedRequest
-            ? await fetcher(originalRequest)
-            : await fetcher(input, init)
-        } catch (networkError) {
-          reportOutcome(
-            options,
-            selection.rule,
-            correlationId,
-            'request',
-            'failed',
-            'network-failed'
-          )
-          throw networkError
-        }
       }
-      if (requestForResponse !== originalRequest) {
-        if (snapshotRequestBody) requestSnapshot = requestForResponse.clone()
-        try {
-          networkResponse = await fetcher(requestForResponse)
-        } catch (networkError) {
-          // Once the redirected request is dispatched, preserve its native network error.
-          reportOutcome(
-            options,
-            selection.rule,
-            correlationId,
-            'request',
-            'failed',
-            'network-failed'
-          )
-          throw networkError
-        }
+    }
+    if (redirectTarget) {
+      try {
+        requestForResponse = await redirectRequest(
+          originalRequest,
+          redirectTarget,
+          isReadableStreamBody(init?.body)
+        )
+      } catch {
+        // A construction/body replay failure can safely fall back before network dispatch.
+        requestForResponse = originalRequest
+        redirectFailedBeforeNetwork = true
         reportOutcome(
           options,
           selection.rule,
           correlationId,
           'request',
-          'applied',
-          'redirect-applied'
+          'fallback',
+          'redirect-construction-failed'
         )
       }
+    }
+    if (requestForResponse !== originalRequest) {
+      if (snapshotRequestBody) requestSnapshot = requestForResponse.clone()
+      try {
+        networkResponse = await fetcher(requestForResponse)
+      } catch (networkError) {
+        // Once the redirected request is dispatched, preserve its native network error.
+        reportOutcome(options, selection.rule, correlationId, 'request', 'failed', 'network-failed')
+        throw networkError
+      }
+      reportOutcome(
+        options,
+        selection.rule,
+        correlationId,
+        'request',
+        'applied',
+        'redirect-applied'
+      )
     } else {
       if (snapshotRequestBody) requestSnapshot = originalRequest.clone()
       try {
-        networkResponse = await fetcher(input, init)
+        const useNormalizedRequest =
+          redirectAttempted &&
+          redirectFailedBeforeNetwork &&
+          (isRequestInput(input) || isReadableStreamBody(init?.body))
+        networkResponse = useNormalizedRequest
+          ? await fetcher(originalRequest)
+          : await fetcher(input, init)
       } catch (networkError) {
         reportOutcome(options, selection.rule, correlationId, 'request', 'failed', 'network-failed')
         throw networkError
@@ -205,7 +274,8 @@ export function createV3Fetch(fetcher: V3Fetch, options: V3FetchOptions): V3Fetc
       selection.rule,
       options.executeResponseFunction,
       requestSnapshot ?? requestForResponse,
-      (code) => options.onFunctionError?.(selection.rule, selection.originalRequest, code),
+      (code) =>
+        options.onFunctionError?.(selection.rule, selection.originalRequest, code, 'response'),
       (outcome, reason) =>
         reportOutcome(options, selection.rule, correlationId, 'response', outcome, reason)
     )

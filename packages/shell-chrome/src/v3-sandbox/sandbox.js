@@ -63,19 +63,24 @@ function stopWorker(id) {
 }
 
 function handleRun(message) {
-  const { id, code, request, response } = message
+  const { id, operation, code, request, response } = message
+  const isResponse = operation === 'response'
+  const isRedirect = operation === 'redirect'
   if (typeof id !== 'string' || id.length < 1 || id.length > 128) return
   if (activeWorkers.has(id)) {
     reject(id, 'Duplicate active request id')
     return
   }
   if (
+    (!isResponse && !isRedirect) ||
+    Object.keys(message).length !== (isResponse ? 7 : 6) ||
     typeof code !== 'string' ||
     code.length === 0 ||
     code.length > MAX_CODE_LENGTH ||
     !isJsonValue(request) ||
-    !isJsonValue(response) ||
-    !fitsJsonByteLimit({ request, response })
+    (isResponse && !isJsonValue(response)) ||
+    (isRedirect && Object.hasOwn(message, 'response')) ||
+    !fitsJsonByteLimit(isResponse ? { request, response } : { request })
   ) {
     reject(id, 'Invalid sandbox request')
     return
@@ -130,11 +135,17 @@ function handleRun(message) {
         const { id, code, request, response } = message;
       let reply;
       try {
-        if (Object.keys(message).length !== 6 || typeof id !== 'string' || typeof code !== 'string' || code.length === 0 || code.length > 64 * 1024 || !isJsonValue(request) || !isJsonValue(response) || !fitsJsonByteLimit({ request, response })) {
+        const isResponse = message.operation === 'response';
+        const isRedirect = message.operation === 'redirect';
+        if ((!isResponse && !isRedirect) || Object.keys(message).length !== (isResponse ? 7 : 6) || typeof id !== 'string' || typeof code !== 'string' || code.length === 0 || code.length > 64 * 1024 || !isJsonValue(request) || (isResponse && !isJsonValue(response)) || (isRedirect && Object.hasOwn(message, 'response')) || !fitsJsonByteLimit(isResponse ? { request, response } : { request })) {
           throw new Error('Invalid worker request');
         }
-        const operation = new Function('request', 'response', code);
-        const result = await operation(request, response);
+        const userFunction = isResponse
+          ? new Function('request', 'response', code)
+          : new Function('request', code);
+        const result = isResponse
+          ? await userFunction(request, response)
+          : await userFunction(request);
         if (result === undefined) throw new Error('Function must return a JSON value.');
         if (!isJsonValue(result) || !fitsJsonByteLimit(result)) throw new Error('Worker result is not JSON serializable or exceeds 1 MiB');
         reply = { channel: CHANNEL, type: 'result', id, ok: true, result };
@@ -184,14 +195,19 @@ function handleRun(message) {
     stopWorker(id)
     reject(id, String(event.message || 'Sandbox worker failed').slice(0, 1000))
   })
-  worker.postMessage({ channel: CHANNEL, type: 'run', id, code, request, response })
+  const workerMessage = isResponse
+    ? { channel: CHANNEL, type: 'run', id, operation, code, request, response }
+    : { channel: CHANNEL, type: 'run', id, operation, code, request }
+  worker.postMessage(workerMessage)
 }
 
 window.addEventListener('message', (event) => {
   if (event.source !== parent || !isRecord(event.data) || event.data.channel !== CHANNEL) return
   const message = event.data
   if (message.type === 'run') {
-    if (Object.keys(message).length !== 6) return
+    const isResponse = message.operation === 'response'
+    const isRedirect = message.operation === 'redirect'
+    if ((!isResponse && !isRedirect) || Object.keys(message).length !== (isResponse ? 7 : 6)) return
     handleRun(message)
     return
   }

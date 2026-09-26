@@ -143,6 +143,150 @@ describe('createV3Fetch', () => {
     expect(await result.json()).toEqual({ ok: true })
   })
 
+  it('resolves dynamic redirect functions before Fetch and passes only URL and method', async () => {
+    const selectedRule = rule('dynamic-redirect', {
+      request: {
+        enabled: true,
+        redirect: { type: 'function', code: 'return new URL(request.url).origin' },
+      },
+    })
+    const executeRedirectFunction = vi.fn(async () => 'https://target.test/dynamic')
+    const fetcher = vi.fn(async (request: Request) => {
+      expect(request.url).toBe('https://target.test/dynamic')
+      expect(request.method).toBe('POST')
+      expect(request.headers.has('authorization')).toBe(false)
+      return new Response(request.url)
+    })
+    const fetch = createV3Fetch(fetcher, {
+      getRules: () => [selectedRule],
+      executeRedirectFunction,
+    })
+
+    const result = await fetch('https://example.test/api', {
+      method: 'POST',
+      headers: { authorization: 'private-token' },
+      body: 'request body',
+    })
+
+    expect(executeRedirectFunction).toHaveBeenCalledExactlyOnceWith(
+      'return new URL(request.url).origin',
+      { url: 'https://example.test/api', method: 'POST' }
+    )
+    expect(fetcher).toHaveBeenCalledOnce()
+    await expect(result.text()).resolves.toBe('https://target.test/dynamic')
+  })
+
+  it('fails open for invalid function redirect targets without trying a later rule', async () => {
+    const invalidTargets: unknown[] = [
+      '',
+      ' https://target.test/',
+      'javascript:alert(1)',
+      'data:text/plain,blocked',
+      'https://user:password@target.test/',
+      'https://target.test/' + 'x'.repeat(4096),
+      { url: 'https://target.test/' },
+    ]
+    for (const target of invalidTargets) {
+      const selectedRule = rule('invalid-function-redirect', {
+        request: {
+          enabled: true,
+          redirect: { type: 'function', code: 'return target' },
+        },
+        response: { enabled: true, replace: { body: { fallback: true } } },
+      })
+      const laterRule = rule('later-static-redirect', {
+        request: { enabled: true, redirect: { url: 'https://later.test/' } },
+      })
+      const input = 'https://example.test/api'
+      const init = { method: 'POST' }
+      const executeRedirectFunction = vi.fn(async () => target)
+      const fetcher = vi.fn(async () => new Response('native'))
+      const onFunctionError = vi.fn()
+      const onFetchOutcome = vi.fn()
+      const fetch = createV3Fetch(fetcher, {
+        getRules: () => [selectedRule, laterRule],
+        executeRedirectFunction,
+        onFunctionError,
+        onFetchOutcome,
+        isFetchOutcomeDiagnosticsArmed: () => true,
+      })
+
+      const result = await fetch(input, init)
+
+      expect(fetcher).toHaveBeenCalledExactlyOnceWith(input, init)
+      expect(executeRedirectFunction).toHaveBeenCalledOnce()
+      expect(onFunctionError).toHaveBeenCalledExactlyOnceWith(
+        selectedRule,
+        { url: input, method: 'POST' },
+        'redirect-target-invalid',
+        'redirect'
+      )
+      expect(onFetchOutcome.mock.calls.map((call) => call.slice(2))).toEqual([
+        ['request', 'fallback', 'redirect-construction-failed'],
+        ['response', 'applied', 'response-replacement-applied'],
+      ])
+      await expect(result.json()).resolves.toEqual({ fallback: true })
+    }
+  })
+
+  it('falls back to the original request and reports timeout or sandbox failures', async () => {
+    for (const [error, expectedCode] of [
+      [new Error('Function response timed out after 5 seconds.'), 'timeout'],
+      [new Error('Function sandbox is unavailable on this page.'), 'sandbox-unavailable'],
+      [new Error('function threw'), 'execution-failed'],
+    ] as const) {
+      const selectedRule = rule('failed-function-redirect', {
+        request: {
+          enabled: true,
+          redirect: { type: 'function', code: 'throw new Error("no")' },
+        },
+      })
+      const input = 'https://example.test/api'
+      const init = { method: 'POST' }
+      const fetcher = vi.fn(async () => new Response('native'))
+      const onFunctionError = vi.fn()
+      const fetch = createV3Fetch(fetcher, {
+        getRules: () => [selectedRule],
+        executeRedirectFunction: vi.fn(async () => Promise.reject(error)),
+        onFunctionError,
+      })
+
+      await fetch(input, init)
+
+      expect(fetcher).toHaveBeenCalledExactlyOnceWith(input, init)
+      expect(onFunctionError).toHaveBeenCalledExactlyOnceWith(
+        selectedRule,
+        { url: input, method: 'POST' },
+        expectedCode,
+        'redirect'
+      )
+    }
+  })
+
+  it('reports an unavailable redirect executor and sends the original request', async () => {
+    const selectedRule = rule('unavailable-function-redirect', {
+      request: {
+        enabled: true,
+        redirect: { type: 'function', code: 'return "/redirected"' },
+      },
+    })
+    const input = 'https://example.test/api'
+    const init = { method: 'POST' }
+    const fetcher = vi.fn(async () => new Response('native'))
+    const onFunctionError = vi.fn()
+    const fetch = createV3Fetch(fetcher, { getRules: () => [selectedRule], onFunctionError })
+
+    await fetch(input, init)
+
+    expect(fetcher).toHaveBeenCalledExactlyOnceWith(input, init)
+    expect(onFunctionError).toHaveBeenCalledExactlyOnceWith(
+      selectedRule,
+      { url: input, method: 'POST' },
+      'sandbox-unavailable',
+      'redirect'
+    )
+  })
+
   it('skips an excluded redirect and applies the next eligible rule', async () => {
     const excludedRule = rule('excluded', {
       request: {
@@ -190,6 +334,34 @@ describe('createV3Fetch', () => {
     expect(fetcher).toHaveBeenCalledExactlyOnceWith(input, init)
     expect(result.status).toBe(202)
     expect(await result.json()).toEqual({ source: 'response' })
+  })
+
+  it('skips an excluded function redirect before execution and preserves the response action', async () => {
+    const selectedRule = rule('excluded-function-composite', {
+      request: {
+        enabled: true,
+        redirect: {
+          type: 'function',
+          code: 'return "/redirected"',
+          exclusions: ['/health'],
+        },
+      },
+      response: { enabled: true, replace: { body: { source: 'response' } } },
+    })
+    const executeRedirectFunction = vi.fn(async () => '/redirected')
+    const input = 'https://example.test/api/health'
+    const init = { method: 'POST' }
+    const fetcher = vi.fn(async () => new Response('native'))
+    const fetch = createV3Fetch(fetcher, {
+      getRules: () => [selectedRule],
+      executeRedirectFunction,
+    })
+
+    const result = await fetch(input, init)
+
+    expect(executeRedirectFunction).not.toHaveBeenCalled()
+    expect(fetcher).toHaveBeenCalledExactlyOnceWith(input, init)
+    await expect(result.json()).resolves.toEqual({ source: 'response' })
   })
 
   it('uses the original Fetch call unchanged when every matching redirect is excluded', async () => {
@@ -533,19 +705,24 @@ describe('createV3Fetch', () => {
     ])
   })
 
-  it('snapshots a redirected request for response functions and defaults outcome diagnostics to armed', async () => {
+  it('snapshots a function-redirected request for response functions and arms outcome diagnostics', async () => {
     const selectedRule = rule('redirect-function-snapshot', {
-      request: { enabled: true, redirect: { url: 'https://target.test/function' } },
+      request: {
+        enabled: true,
+        redirect: { type: 'function', code: 'return "/function-target"' },
+      },
       response: { enabled: true, replace: { code: 'return { body: request }' } },
     })
     const fetcher = vi.fn(async (request: Request) => {
-      expect(request.url).toBe('https://target.test/function')
+      expect(request.url).toBe('https://example.test/function-target')
       return new Response('native', { headers: { 'content-type': 'text/plain' } })
     })
+    const executeRedirectFunction = vi.fn(async () => '/function-target')
     const executeResponseFunction = vi.fn(async (_code, request) => ({ body: request }))
     const onFetchOutcome = vi.fn()
     const fetch = createV3Fetch(fetcher, {
       getRules: () => [selectedRule],
+      executeRedirectFunction,
       executeResponseFunction,
       onFetchOutcome,
     })
@@ -558,7 +735,7 @@ describe('createV3Fetch', () => {
     expect(executeResponseFunction).toHaveBeenCalledExactlyOnceWith(
       'return { body: request }',
       {
-        url: 'https://target.test/function',
+        url: 'https://example.test/function-target',
         method: 'POST',
         body: 'redirected snapshot body',
       },
@@ -569,7 +746,7 @@ describe('createV3Fetch', () => {
       ['response', 'applied', 'response-replacement-applied'],
     ])
     await expect(result.json()).resolves.toEqual({
-      url: 'https://target.test/function',
+      url: 'https://example.test/function-target',
       method: 'POST',
       body: 'redirected snapshot body',
     })

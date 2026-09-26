@@ -13,6 +13,9 @@ export interface V3Tag {
   used: boolean
 }
 
+export type V3RedirectConfig =
+  { url: string; exclusions?: string[] } | { type: 'function'; code: string; exclusions?: string[] }
+
 export interface V3Rule {
   id: string
   enabled: boolean
@@ -25,7 +28,7 @@ export interface V3Rule {
   }
   request?: {
     enabled: boolean
-    redirect: { url: string; exclusions?: string[] }
+    redirect: V3RedirectConfig
   }
   response?: {
     enabled: boolean

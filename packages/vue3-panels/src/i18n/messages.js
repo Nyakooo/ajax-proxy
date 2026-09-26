@@ -88,6 +88,7 @@ export const messages = {
       regex: '正则',
       exact: '精确匹配',
       redirectTarget: '跳转到 {url}',
+      redirectFunctionTarget: '动态重定向函数（Fetch）',
       clearSearchToReorder: '清除搜索和筛选后可调整规则顺序。',
       sampleNote: '固定用户信息响应',
       catalogNote: '本地 catalog fixture',
@@ -168,12 +169,12 @@ export const messages = {
       importRules: '追加 {count} 条规则',
       tagIdConflict: '标签“{name}”与现有标签使用相同 ID（{id}）但名称不同，不能追加导入。',
       noFunctions: '未发现函数代码。预览不会更改当前配置。',
-      functionWarningTitle: '发现 {count} 条函数响应规则',
+      functionWarningTitle: '发现 {count} 个函数 action',
       functionWarning:
-        '导入的函数代码不可信。恢复后这些响应行为会保持停用，不会自动执行；请检查代码后逐条启用。',
-      confirmFunctions: '确认恢复吗？其中 {count} 条函数响应规则将保持停用。导入代码不会自动执行。',
+        '导入的函数代码不可信。恢复后这些函数 action 会保持停用，不会自动执行；请检查代码后逐条启用。',
+      confirmFunctions: '确认恢复吗？其中 {count} 个函数 action 将保持停用。导入代码不会自动执行。',
       confirmImportFunctions:
-        '确认追加规则吗？其中 {count} 条函数响应规则将保持停用。导入代码不会自动执行。',
+        '确认追加规则吗？其中 {count} 个函数 action 将保持停用。导入代码不会自动执行。',
     },
     diagnostics: {
       open: '诊断规则匹配',
@@ -203,14 +204,20 @@ export const messages = {
         'request-too-long': 'URL 超出匹配长度限制',
       },
     },
-    action: { responseJson: '响应 JSON', redirect: '重定向', responseFunction: '响应函数' },
+    action: {
+      responseJson: '响应 JSON',
+      redirect: '重定向',
+      redirectFunction: '函数重定向',
+      responseFunction: '响应函数',
+    },
     functionFailure: {
-      'sandbox-unavailable': '隔离执行环境不可用，已使用原始响应。',
-      timeout: '函数运行超过 5 秒，已终止并使用原始响应。',
-      'snapshot-unsupported': '请求或响应无法安全读取，已使用原始响应。',
-      'snapshot-too-large': '请求或响应快照超过大小限制，已使用原始响应。',
-      'execution-failed': '函数执行失败，已使用原始响应。',
-      'invalid-result': '函数返回值无效，已使用原始响应。',
+      'sandbox-unavailable': '隔离执行环境不可用，已保留浏览器原生请求或响应。',
+      timeout: '函数运行超过 5 秒，已终止并保留浏览器原生请求或响应。',
+      'snapshot-unsupported': '请求或响应无法安全读取，已保留浏览器原生请求或响应。',
+      'snapshot-too-large': '请求或响应快照超过大小限制，已保留浏览器原生请求或响应。',
+      'execution-failed': '函数执行失败，已保留浏览器原生请求或响应。',
+      'invalid-result': '函数返回值无效，已保留浏览器原生请求或响应。',
+      'redirect-target-invalid': '函数必须返回有效的 HTTP(S) URL，已保留原始请求。',
       'response-construction-failed': '替换响应无法构造，已使用原始响应。',
     },
     editor: {
@@ -223,9 +230,24 @@ export const messages = {
       contains: '包含',
       regularExpression: '正则表达式',
       exactMatch: '精确匹配',
+      redirectType: '重定向类型',
+      staticRedirect: '静态 URL',
+      functionRedirect: '函数（仅 Fetch）',
       method: '请求方法',
       targetUrl: '跳转目标 URL',
       targetUrlHelp: '可填写 HTTP(S) 完整地址或相对地址；匹配规则只把请求直接跳转到此目标。',
+      functionCode: '函数体代码',
+      functionCodeHelp:
+        '输入函数体，参数 request 只包含 url 和 method；返回 HTTP(S) URL 字符串，可返回相对 URL。代码最多 65,536 个字符。',
+      functionSafetyWarning:
+        '代码在隔离 sandbox 中最多运行 5 秒；不能读取请求体、headers、响应或 cookies。只支持 Fetch；XHR 保留原 URL。编辑器不会执行或编译代码。',
+      enableFunctionRedirect: '启用函数重定向（需要明确确认）',
+      functionEnableConfirm:
+        '启用此函数重定向？代码只能读取 URL 和 method，在隔离 sandbox 中最多运行 5 秒；XHR 请求仍使用原 URL。',
+      functionSaveConfirm:
+        '确认保存此函数重定向代码？代码只能读取 URL 和 method，在隔离 sandbox 中最多运行 5 秒。仅支持 Fetch，XHR 保留原 URL。',
+      functionCodeRequired: '函数体不能为空。',
+      functionCodeTooLong: '函数体不能超过 65,536 个字符。',
       exclusions: '排除 URL（每行一项）',
       exclusionsHelp:
         '请求 URL 包含任一项时跳过此规则的重定向，并继续检查下一条规则；按区分大小写的字面子串匹配。若此规则还启用了响应行为，响应行为仍会执行。最多 100 项，每项不超过 4096 个字符。',
@@ -367,7 +389,7 @@ export const messages = {
       createResponseFromMatchLabel: 'Create a response rule from {method} {url}',
       createRedirectFromMatch: 'Create redirect rule',
       createRedirectFromMatchLabel: 'Create a redirect rule from {method} {url}',
-      functionErrorsTitle: 'Recent function response issues',
+      functionErrorsTitle: 'Recent function execution issues',
       functionErrorRule: 'Rule condition: {method} · {url}',
       matchedRequest: 'Matched request: {method} {url}',
       matchCondition: 'Rule condition: {url}',
@@ -388,6 +410,7 @@ export const messages = {
       regex: 'Regex',
       exact: 'Exact match',
       redirectTarget: 'Redirect to {url}',
+      redirectFunctionTarget: 'Dynamic redirect function (Fetch)',
       clearSearchToReorder: 'Clear search and filters to change rule order.',
       sampleNote: 'Fixed profile response',
       catalogNote: 'Local catalog fixture',
@@ -472,13 +495,13 @@ export const messages = {
       valid:
         'Backup is valid and contains {count} rules. The current configuration changes only after confirmation.',
       noFunctions: 'No function code found. Preview does not change the current configuration.',
-      functionWarningTitle: 'Found {count} function response rules',
+      functionWarningTitle: 'Found {count} function actions',
       functionWarning:
-        'Imported function code is untrusted. These response actions stay disabled after restore and never run automatically; review the code before enabling each rule.',
+        'Imported function code is untrusted. These function actions stay disabled after restore and never run automatically; review the code before enabling them.',
       confirmFunctions:
-        'Restore this backup? Its {count} function response rules will remain disabled. Imported code will not run automatically.',
+        'Restore this backup? Its {count} function actions will remain disabled. Imported code will not run automatically.',
       confirmImportFunctions:
-        'Append these rules? Their {count} function response actions will remain disabled. Imported code will not run automatically.',
+        'Append these rules? Their {count} function actions will remain disabled. Imported code will not run automatically.',
     },
     diagnostics: {
       open: 'Diagnose rule matching',
@@ -512,17 +535,23 @@ export const messages = {
     action: {
       responseJson: 'JSON response',
       redirect: 'Redirect',
+      redirectFunction: 'Function redirect',
       responseFunction: 'Function response',
     },
     functionFailure: {
-      'sandbox-unavailable': 'The isolated runtime is unavailable; the original response was used.',
-      timeout: 'The function exceeded 5 seconds and was stopped; the original response was used.',
+      'sandbox-unavailable':
+        'The isolated runtime is unavailable; the browser-native request or response was kept.',
+      timeout:
+        'The function exceeded 5 seconds and was stopped; the browser-native request or response was kept.',
       'snapshot-unsupported':
-        'The request or response could not be read safely; the original response was used.',
+        'The request or response could not be read safely; the browser-native request or response was kept.',
       'snapshot-too-large':
-        'The request or response snapshot exceeded its size limit; the original response was used.',
-      'execution-failed': 'The function failed; the original response was used.',
-      'invalid-result': 'The function returned an invalid result; the original response was used.',
+        'The request or response snapshot exceeded its size limit; the browser-native request or response was kept.',
+      'execution-failed': 'The function failed; the browser-native request or response was kept.',
+      'invalid-result':
+        'The function returned an invalid result; the browser-native request or response was kept.',
+      'redirect-target-invalid':
+        'The function must return a valid HTTP(S) URL; the original request was kept.',
       'response-construction-failed':
         'The replacement response could not be created; the original response was used.',
     },
@@ -537,10 +566,25 @@ export const messages = {
       contains: 'Contains',
       regularExpression: 'Regular expression',
       exactMatch: 'Exact match',
+      redirectType: 'Redirect type',
+      staticRedirect: 'Static URL',
+      functionRedirect: 'Function (Fetch only)',
       method: 'Request method',
       targetUrl: 'Redirect target URL',
       targetUrlHelp:
         'Use an absolute HTTP(S) URL or a relative URL. A match redirects directly to this target.',
+      functionCode: 'Function body code',
+      functionCodeHelp:
+        'Enter a function body. Its request parameter contains only url and method. Return an HTTP(S) URL string; relative URLs are allowed. Maximum 65,536 characters.',
+      functionSafetyWarning:
+        'Code runs in an isolated sandbox for at most 5 seconds. It cannot read the body, headers, response, or cookies. Fetch only; XHR keeps the original URL. This editor never executes or compiles code.',
+      enableFunctionRedirect: 'Enable function redirect (explicit confirmation required)',
+      functionEnableConfirm:
+        'Enable this function redirect? It can read only the URL and method and runs in an isolated sandbox for at most 5 seconds. XHR requests keep the original URL.',
+      functionSaveConfirm:
+        'Confirm saving this function redirect? It can read only the URL and method and runs in an isolated sandbox for at most 5 seconds. Fetch only; XHR keeps the original URL.',
+      functionCodeRequired: 'Function body cannot be empty.',
+      functionCodeTooLong: 'Function body cannot exceed 65,536 characters.',
       exclusions: 'Excluded URLs (one per line)',
       exclusionsHelp:
         'If the request URL contains any entry, skip this rule’s redirect and check the next rule. Matching is a case-sensitive literal substring. If this rule also has a response action, that action still runs. Up to 100 entries, 4096 characters each.',

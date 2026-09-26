@@ -25,6 +25,16 @@ export type V3ResponseFunctionExecutor = (
   response: V3FunctionResponseSnapshot
 ) => Promise<unknown>
 
+export type V3RequestRedirectFunctionExecutor = (
+  code: string,
+  request: Pick<V3FunctionRequestSnapshot, 'url' | 'method'>
+) => Promise<unknown>
+
+type V3FunctionExecutors = {
+  response: V3ResponseFunctionExecutor
+  redirect: V3RequestRedirectFunctionExecutor
+}
+
 type PendingExecution = {
   frame: HTMLIFrameElement
   frameWindow: Window
@@ -56,7 +66,7 @@ function isSandboxFrame(value: Element | null): value is HTMLIFrameElement {
   }
 }
 
-export function createV3ResponseFunctionExecutor(host: Window): V3ResponseFunctionExecutor {
+function createV3FunctionExecutors(host: Window): V3FunctionExecutors {
   const pending = new Map<string, PendingExecution>()
   const readyFrames = new WeakSet<Window>()
   const readyWaiters = new Map<Window, Set<() => void>>()
@@ -183,12 +193,17 @@ export function createV3ResponseFunctionExecutor(host: Window): V3ResponseFuncti
   }
 
   let activeCalls = 0
-  return async (code, request, response) => {
+  const execute = async (
+    operation: 'response' | 'redirect',
+    code: string,
+    request: V3FunctionRequestSnapshot | Pick<V3FunctionRequestSnapshot, 'url' | 'method'>,
+    response?: V3FunctionResponseSnapshot
+  ) => {
     if (typeof code !== 'string' || code.trim() === '' || code.length > MAX_CODE_LENGTH) {
       throw new Error('Function source is empty or exceeds 65,536 characters.')
     }
     if (activeCalls >= MAX_CONCURRENT_FUNCTIONS) {
-      throw new Error('Too many V3 response functions are running concurrently.')
+      throw new Error('Too many V3 functions are running concurrently.')
     }
     activeCalls += 1
 
@@ -221,10 +236,18 @@ export function createV3ResponseFunctionExecutor(host: Window): V3ResponseFuncti
         pending.set(id, execution)
 
         try {
-          frameWindow.postMessage(
-            { channel: CHANNEL, type: 'run', id, code, request, response },
-            '*'
-          )
+          const message =
+            operation === 'response'
+              ? { channel: CHANNEL, type: 'run', id, operation, code, request, response }
+              : {
+                  channel: CHANNEL,
+                  type: 'run',
+                  id,
+                  operation,
+                  code,
+                  request: { url: request.url, method: request.method },
+                }
+          frameWindow.postMessage(message, '*')
           execution.sent = true
         } catch (error) {
           clearTimeout(execution.timer)
@@ -236,4 +259,30 @@ export function createV3ResponseFunctionExecutor(host: Window): V3ResponseFuncti
       activeCalls -= 1
     }
   }
+
+  return {
+    response: (code, request, response) => execute('response', code, request, response),
+    redirect: (code, request) => execute('redirect', code, request),
+  }
+}
+
+const executorCache = new WeakMap<Window, V3FunctionExecutors>()
+
+function getV3FunctionExecutors(host: Window): V3FunctionExecutors {
+  let executors = executorCache.get(host)
+  if (!executors) {
+    executors = createV3FunctionExecutors(host)
+    executorCache.set(host, executors)
+  }
+  return executors
+}
+
+export function createV3ResponseFunctionExecutor(host: Window): V3ResponseFunctionExecutor {
+  return getV3FunctionExecutors(host).response
+}
+
+export function createV3RequestRedirectFunctionExecutor(
+  host: Window
+): V3RequestRedirectFunctionExecutor {
+  return getV3FunctionExecutors(host).redirect
 }

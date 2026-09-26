@@ -1,4 +1,4 @@
-/** Stable, non-sensitive failure categories for V3 response functions. */
+/** Stable, non-sensitive failure categories for V3 request and response functions. */
 export const V3FunctionErrorCode = {
   SANDBOX_UNAVAILABLE: 'sandbox-unavailable',
   TIMEOUT: 'timeout',
@@ -6,6 +6,7 @@ export const V3FunctionErrorCode = {
   SNAPSHOT_TOO_LARGE: 'snapshot-too-large',
   EXECUTION_FAILED: 'execution-failed',
   INVALID_RESULT: 'invalid-result',
+  REDIRECT_TARGET_INVALID: 'redirect-target-invalid',
   RESPONSE_CONSTRUCTION_FAILED: 'response-construction-failed',
 } as const
 
@@ -16,11 +17,13 @@ export type V3FunctionError = {
   rule_id: string
   match_url: string
   method: string
+  action: 'redirect' | 'response'
   code: V3FunctionErrorCode
 }
 
-const ERROR_KEYS = ['rule_id', 'match_url', 'method', 'code'] as const
+const ERROR_KEYS = ['rule_id', 'match_url', 'method', 'action', 'code'] as const
 const ERROR_CODES = new Set<string>(Object.values(V3FunctionErrorCode))
+const ERROR_ACTIONS = new Set<string>(['redirect', 'response'])
 
 function isPlainRecord(value: unknown): value is Record<string, unknown> {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) return false
@@ -49,6 +52,8 @@ export function isV3FunctionError(value: unknown): value is V3FunctionError {
       value.match_url.length <= 4096 &&
       typeof value.method === 'string' &&
       /^[A-Z]{1,16}$/.test(value.method) &&
+      typeof value.action === 'string' &&
+      ERROR_ACTIONS.has(value.action) &&
       typeof value.code === 'string' &&
       ERROR_CODES.has(value.code)
     )

@@ -1,5 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { createV3ResponseFunctionExecutor } from '../../src/v3/responseFunctionSandbox'
+import {
+  createV3RequestRedirectFunctionExecutor,
+  createV3ResponseFunctionExecutor,
+} from '../../src/v3/responseFunctionSandbox'
 
 class FakeIFrameElement {
   src = 'chrome-extension://test-extension/v3-sandbox/sandbox.html'
@@ -13,6 +16,109 @@ afterEach(() => {
 })
 
 describe('createV3ResponseFunctionExecutor', () => {
+  it('runs redirect functions with only a request snapshot in the shared sandbox', async () => {
+    vi.stubGlobal('HTMLIFrameElement', FakeIFrameElement)
+    const frame = new FakeIFrameElement()
+    let onMessage: ((event: MessageEvent) => void) | undefined
+    const host = {
+      document: { getElementById: vi.fn(() => frame) },
+      addEventListener: vi.fn((_type: string, listener: EventListenerOrEventListenerObject) => {
+        if (typeof listener === 'function') onMessage = listener as (event: MessageEvent) => void
+      }),
+      crypto: { randomUUID: () => 'redirect-execution-id' },
+    } as unknown as Window
+    const execute = createV3RequestRedirectFunctionExecutor(host)
+    const request = {
+      url: 'https://example.test/api',
+      method: 'POST',
+      body: 'sensitive body',
+      headers: { cookie: 'secret' },
+    }
+    const result = execute('return request.url', request)
+    const sendMessage = (data: unknown) =>
+      onMessage?.({ origin: 'null', source: frame.contentWindow, data } as MessageEvent)
+
+    sendMessage({ channel: 'ajax-proxy-v3-function-sandbox', type: 'ready' })
+    await vi.waitFor(() => expect(frame.contentWindow.postMessage).toHaveBeenCalledOnce())
+    const [runMessage] = vi.mocked(frame.contentWindow.postMessage).mock.calls[0] ?? []
+    expect(runMessage).toEqual({
+      channel: 'ajax-proxy-v3-function-sandbox',
+      type: 'run',
+      id: 'redirect-execution-id',
+      operation: 'redirect',
+      code: 'return request.url',
+      request: { url: request.url, method: request.method },
+    })
+    expect(runMessage).not.toHaveProperty('response')
+
+    sendMessage({
+      channel: 'ajax-proxy-v3-function-sandbox',
+      type: 'result',
+      id: 'redirect-execution-id',
+      ok: true,
+      result: '/redirected',
+    })
+    await expect(result).resolves.toBe('/redirected')
+  })
+
+  it('shares the four-call concurrency limit between response and redirect functions', async () => {
+    vi.stubGlobal('HTMLIFrameElement', FakeIFrameElement)
+    const frame = new FakeIFrameElement()
+    let onMessage: ((event: MessageEvent) => void) | undefined
+    let nextId = 0
+    const host = {
+      document: { getElementById: vi.fn(() => frame) },
+      addEventListener: vi.fn((_type: string, listener: EventListenerOrEventListenerObject) => {
+        if (typeof listener === 'function') onMessage = listener as (event: MessageEvent) => void
+      }),
+      crypto: { randomUUID: () => `mixed-execution-${++nextId}` },
+    } as unknown as Window
+    const executeResponse = createV3ResponseFunctionExecutor(host)
+    const executeRedirect = createV3RequestRedirectFunctionExecutor(host)
+    const request = { url: '/api', method: 'GET' }
+    const response = { status: 200, statusText: 'OK', headers: {}, body: 'native' }
+    const accepted = [
+      executeResponse('return response.body', request, response),
+      executeRedirect('return request.url', request),
+      executeResponse('return response.status', request, response),
+      executeRedirect('return request.method', request),
+    ]
+
+    await expect(executeRedirect('return request.url', request)).rejects.toThrow(
+      'Too many V3 functions are running concurrently.'
+    )
+    onMessage?.({
+      origin: 'null',
+      source: frame.contentWindow,
+      data: { channel: 'ajax-proxy-v3-function-sandbox', type: 'ready' },
+    } as MessageEvent)
+    await vi.waitFor(() => expect(frame.contentWindow.postMessage).toHaveBeenCalledTimes(4))
+
+    const runMessages = vi
+      .mocked(frame.contentWindow.postMessage)
+      .mock.calls.map(([message]) => message as { id: string; operation: string })
+    expect(runMessages.map(({ operation }) => operation)).toEqual([
+      'response',
+      'redirect',
+      'response',
+      'redirect',
+    ])
+    for (const { id } of runMessages) {
+      onMessage?.({
+        origin: 'null',
+        source: frame.contentWindow,
+        data: {
+          channel: 'ajax-proxy-v3-function-sandbox',
+          type: 'result',
+          id,
+          ok: true,
+          result: 'mock result',
+        },
+      } as MessageEvent)
+    }
+    await expect(Promise.all(accepted)).resolves.toEqual(Array(4).fill('mock result'))
+  })
+
   it('keeps other ready waiters after one execution times out while loading', async () => {
     vi.useFakeTimers()
     vi.stubGlobal('HTMLIFrameElement', FakeIFrameElement)
@@ -115,6 +221,7 @@ describe('createV3ResponseFunctionExecutor', () => {
       channel: 'ajax-proxy-v3-function-sandbox',
       type: 'run',
       id: 'test-execution-id',
+      operation: 'response',
       code: 'return response.body',
       request,
       response,
@@ -552,7 +659,7 @@ describe('createV3ResponseFunctionExecutor', () => {
     )
 
     await expect(execute('return response.body', request, response)).rejects.toThrow(
-      'Too many V3 response functions are running concurrently.'
+      'Too many V3 functions are running concurrently.'
     )
     onMessage?.({
       origin: 'null',

@@ -31,6 +31,7 @@ const errorNotice = {
   rule_id: 'rule-a',
   match_url: '/api/items',
   method: 'POST',
+  action: 'response',
   code: 'execution-failed',
 }
 
@@ -53,7 +54,7 @@ afterEach(() => {
 })
 
 describe('notifyV3FunctionError', () => {
-  it('forwards only errors for a matching active function response rule', async () => {
+  it('forwards only errors for a matching active function action', async () => {
     const activeConfig = config()
     mocks.getRealStorage.mockResolvedValue(activeConfig)
 
@@ -77,6 +78,26 @@ describe('notifyV3FunctionError', () => {
       mocks.getRealStorage.mockResolvedValueOnce(inactiveConfig)
       expect(await notifyV3FunctionError(errorNotice)).toBe(false)
     }
+    expect(mocks.noticePanelsByServiceWorker).not.toHaveBeenCalled()
+  })
+
+  it('forwards redirect function errors only when that request action is active', async () => {
+    const redirectError = { ...errorNotice, action: 'redirect' }
+    const activeConfig = config({
+      response: { enabled: false, replace: {} },
+      request: { enabled: true, redirect: { type: 'function', code: 'return request.url' } },
+    })
+    mocks.getRealStorage.mockResolvedValue(activeConfig)
+    expect(await notifyV3FunctionError(redirectError)).toBe(true)
+
+    mocks.noticePanelsByServiceWorker.mockClear()
+    mocks.getRealStorage.mockResolvedValueOnce({
+      ...activeConfig,
+      rules: [
+        { ...activeConfig.rules[0], request: { ...activeConfig.rules[0].request, enabled: false } },
+      ],
+    })
+    expect(await notifyV3FunctionError(redirectError)).toBe(false)
     expect(mocks.noticePanelsByServiceWorker).not.toHaveBeenCalled()
   })
 

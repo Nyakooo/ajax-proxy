@@ -183,7 +183,12 @@ function ruleTagNames(rule) {
 
 function ruleActions(rule) {
   const actions = []
-  if (rule.request) actions.push({ key: 'redirect', enabled: rule.request.enabled })
+  if (rule.request) {
+    actions.push({
+      key: rule.request.redirect?.type === 'function' ? 'redirectFunction' : 'redirect',
+      enabled: rule.request.enabled,
+    })
+  }
   if (rule.response) {
     actions.push({
       key: rule.response.replace?.code ? 'responseFunction' : 'responseJson',
@@ -191,6 +196,10 @@ function ruleActions(rule) {
     })
   }
   return actions
+}
+
+function functionErrorActionLabel(failure) {
+  return t(`action.${failure.action === 'redirect' ? 'redirectFunction' : 'responseFunction'}`)
 }
 
 function isFirstActiveRule(rule) {
@@ -209,7 +218,7 @@ const visibleRules = computed(() => {
       rule.id,
       rule.match.url,
       rule.match.method ?? 'ANY',
-      rule.request?.redirect.url ?? '',
+      rule.request?.redirect?.url ?? rule.request?.redirect?.code ?? '',
       ...actions.map((action) => t(`action.${action.key}`)),
       ...ruleTagNames(rule),
     ]
@@ -290,13 +299,11 @@ function receiveExtensionMessage(message) {
 
   if (message.key === NoticeKey.V3_FUNCTION_ERROR && isV3FunctionError(message.value)) {
     const rule = config.value.rules.find((candidate) => candidate.id === message.value.rule_id)
-    if (
-      !rule ||
-      !rule.enabled ||
-      rule.match.url !== message.value.match_url ||
-      !rule.response?.enabled ||
-      typeof rule.response.replace.code !== 'string'
-    ) {
+    const actionEnabled =
+      message.value.action === 'redirect'
+        ? rule?.request?.enabled && rule.request.redirect?.type === 'function'
+        : rule?.response?.enabled && typeof rule.response.replace.code === 'string'
+    if (!rule || !rule.enabled || rule.match.url !== message.value.match_url || !actionEnabled) {
       return
     }
     recentFunctionErrors.value = [
@@ -696,11 +703,18 @@ async function saveRedirectRule(fields) {
     tagIds: [...(fields.tagIds ?? [])],
     match: fields.match,
     request: {
-      enabled: true,
-      redirect: {
-        url: fields.redirectUrl,
-        ...(fields.exclusions?.length ? { exclusions: [...fields.exclusions] } : {}),
-      },
+      enabled: fields.redirectEnabled ?? true,
+      redirect:
+        fields.redirectMode === 'function'
+          ? {
+              type: 'function',
+              code: fields.code,
+              ...(fields.exclusions?.length ? { exclusions: [...fields.exclusions] } : {}),
+            }
+          : {
+              url: fields.redirectUrl,
+              ...(fields.exclusions?.length ? { exclusions: [...fields.exclusions] } : {}),
+            },
     },
   }
   const nextRules = editingRule.value
@@ -1552,7 +1566,10 @@ async function moveRule(rule, targetRule) {
                 v-for="(failure, index) in recentFunctionErrors"
                 :key="`${failure.receivedAt}-${index}`"
               >
-                <strong>{{ t(`functionFailure.${failure.code}`) }}</strong>
+                <strong>
+                  <span>{{ functionErrorActionLabel(failure) }}：</span>
+                  {{ t(`functionFailure.${failure.code}`) }}
+                </strong>
                 <small>{{
                   t('rules.functionErrorRule', { method: failure.method, url: failure.match_url })
                 }}</small>
@@ -1622,7 +1639,9 @@ async function moveRule(rule, targetRule) {
                   <template v-if="rule.request?.enabled">
                     <span class="meta-separator" />
                     <span class="rule-target">{{
-                      t('rules.redirectTarget', { url: rule.request.redirect.url })
+                      rule.request.redirect.type === 'function'
+                        ? t('rules.redirectFunctionTarget')
+                        : t('rules.redirectTarget', { url: rule.request.redirect.url })
                     }}</span>
                   </template>
                 </div>

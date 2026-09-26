@@ -6,7 +6,10 @@ import type {
   V3FunctionErrorCode,
 } from '@proxy/protocol'
 import type { V3XHROutcomeReason } from '@proxy/protocol'
-import type { V3ResponseFunctionExecutor } from './responseFunctionSandbox'
+import type {
+  V3RequestRedirectFunctionExecutor,
+  V3ResponseFunctionExecutor,
+} from './responseFunctionSandbox'
 
 export interface V3RuntimeHostOptions {
   getRules: () => readonly V3Rule[]
@@ -15,7 +18,8 @@ export interface V3RuntimeHostOptions {
   onFunctionError?: (
     rule: V3Rule,
     request: { url: string; method: string },
-    code: V3FunctionErrorCode
+    code: V3FunctionErrorCode,
+    action: 'redirect' | 'response'
   ) => void
   isFetchOutcomeDiagnosticsArmed?: () => boolean
   onFetchOutcome?: (
@@ -32,5 +36,6 @@ export interface V3RuntimeHostOptions {
     outcome: V3FetchOutcomeStatus,
     reason: V3XHROutcomeReason
   ) => void
+  executeRedirectFunction?: V3RequestRedirectFunctionExecutor
   executeResponseFunction?: V3ResponseFunctionExecutor
 }

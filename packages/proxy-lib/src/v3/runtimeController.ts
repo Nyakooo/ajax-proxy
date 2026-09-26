@@ -12,7 +12,10 @@ import type {
 } from '@proxy/protocol'
 import type { V3XHROutcome, V3XHROutcomeReason } from '@proxy/protocol'
 import { createV3Fetch } from './fetch'
-import { createV3ResponseFunctionExecutor } from './responseFunctionSandbox'
+import {
+  createV3RequestRedirectFunctionExecutor,
+  createV3ResponseFunctionExecutor,
+} from './responseFunctionSandbox'
 import { createV3XHR } from './xhr'
 
 export interface V3RuntimeController {
@@ -80,13 +83,15 @@ function notifyV3FunctionError(
   host: Window,
   rule: V3Rule,
   request: { url: string; method: string },
-  code: V3FunctionErrorCode
+  code: V3FunctionErrorCode,
+  action: 'redirect' | 'response'
 ) {
   try {
     const detail: V3FunctionError = {
       rule_id: rule.id,
       match_url: rule.match.url,
       method: request.method,
+      action,
       code,
     }
     host.dispatchEvent(new CustomEvent(NoticeTo.CONTENT, { detail }))
@@ -190,8 +195,10 @@ export function createV3RuntimeController(
     onFunctionError: (
       rule: V3Rule,
       request: { url: string; method: string },
-      code: V3FunctionErrorCode
-    ) => notifyV3FunctionError(host, rule, request, code),
+      code: V3FunctionErrorCode,
+      action: 'redirect' | 'response'
+    ) => notifyV3FunctionError(host, rule, request, code, action),
+    executeRedirectFunction: createV3RequestRedirectFunctionExecutor(host),
     executeResponseFunction: createV3ResponseFunctionExecutor(host),
   }
   const fetch = createV3Fetch(pageFetchAtLoad, options)

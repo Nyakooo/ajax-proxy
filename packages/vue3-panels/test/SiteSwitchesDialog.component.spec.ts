@@ -241,7 +241,7 @@ describe('RedirectRuleEditor', () => {
       global: { plugins: [i18n] },
     })
     await nextTick()
-    const inputs = wrapper.findAll('input:not([type="checkbox"])')
+    const inputs = wrapper.findAll('input:not([type="checkbox"]):not([type="radio"])')
     const matchUrl = inputs[0]
     const targetUrl = inputs[1]
     const selects = wrapper.findAll('select')
@@ -268,7 +268,9 @@ describe('RedirectRuleEditor', () => {
         {
           enabled: true,
           match: { url: '/api', type: 'regex', method: 'POST' },
+          redirectMode: 'static',
           redirectUrl: 'https://target.test/redirect',
+          redirectEnabled: true,
           exclusions: ['/health', '/admin'],
           tagIds: ['tag-a'],
         },
@@ -300,7 +302,7 @@ describe('RedirectRuleEditor', () => {
       },
       global: { plugins: [i18n] },
     })
-    const inputs = wrapper.findAll('input:not([type="checkbox"])')
+    const inputs = wrapper.findAll('input:not([type="checkbox"]):not([type="radio"])')
     await inputs[0].setValue(' /invalid ')
     await wrapper.get('form').trigger('submit')
     expect(wrapper.get('[role="alert"]').exists()).toBe(true)
@@ -322,10 +324,59 @@ describe('RedirectRuleEditor', () => {
     expect(wrapper.emitted('save')?.at(-1)?.[0]).toEqual({
       enabled: true,
       match: { url: '/second', type: 'exact', method: 'POST' },
+      redirectMode: 'static',
       redirectUrl: 'https://second.test/',
+      redirectEnabled: true,
       exclusions: ['/second-skip'],
       tagIds: ['tag-b'],
     })
+  })
+
+  it('saves function redirects only after confirmation and keeps them disabled by default', async () => {
+    const confirm = vi.spyOn(globalThis, 'confirm').mockReturnValue(false)
+    const wrapper = mount(RedirectRuleEditor, {
+      props: { open: true },
+      global: { plugins: [i18n] },
+    })
+    await nextTick()
+    await wrapper.get('input[name="redirect-mode"][value="function"]').setValue(true)
+    await flushPromises()
+    await wrapper.get('input:not([type="checkbox"]):not([type="radio"])').setValue('/api')
+    await wrapper.get('[data-testid="redirect-exclusions"]').setValue('/health')
+    const emittedBeforeSubmit = wrapper.emitted('save')?.length ?? 0
+    await wrapper.get('form').trigger('submit')
+
+    expect(confirm).toHaveBeenCalledTimes(1)
+    expect(confirm.mock.calls[0][0]).toContain('确认保存此函数重定向代码')
+    expect(wrapper.emitted('save')?.length ?? 0).toBe(emittedBeforeSubmit)
+
+    confirm.mockReturnValue(true)
+    await wrapper.get('form').trigger('submit')
+    expect(confirm).toHaveBeenCalledTimes(2)
+    expect(wrapper.emitted('save')?.at(-1)?.[0]).toEqual({
+      enabled: true,
+      match: { url: '/api', type: 'normal', method: 'ANY' },
+      redirectMode: 'function',
+      code: 'return request.url',
+      redirectEnabled: false,
+      exclusions: ['/health'],
+      tagIds: [],
+    })
+  })
+
+  it('requires a second explicit confirmation to enable a function redirect', async () => {
+    const confirm = vi.spyOn(globalThis, 'confirm').mockReturnValue(false)
+    const wrapper = mount(RedirectRuleEditor, {
+      props: { open: true },
+      global: { plugins: [i18n] },
+    })
+    await nextTick()
+    await wrapper.get('input[name="redirect-mode"][value="function"]').setValue(true)
+    await flushPromises()
+    const enable = wrapper.get('.function-enabled input[type="checkbox"]')
+    await enable.setValue(true)
+    expect(confirm).toHaveBeenCalledTimes(1)
+    expect(enable.element.checked).toBe(false)
   })
 })
 

@@ -40,7 +40,7 @@ describe('V3 backup schema', () => {
     expect(validateV3Backup(exactBackup)).toMatchObject({ ok: true })
     expect(parseV3BackupJson(JSON.stringify(exactBackup))).toMatchObject({
       ok: true,
-      data: { formatVersion: 6, disabledOrigins: [], rules: [{ match: { type: 'exact' } }] },
+      data: { formatVersion: 7, disabledOrigins: [], rules: [{ match: { type: 'exact' } }] },
     })
 
     const unsupportedLegacyExactBackup = structuredClone(validBackup)
@@ -57,11 +57,11 @@ describe('V3 backup schema', () => {
       const validation = validateV3Backup(backup)
       expect(validation).toMatchObject({
         ok: true,
-        data: { formatVersion: 6, disabledOrigins: [] },
+        data: { formatVersion: 7, disabledOrigins: [] },
       })
       expect(parseV3BackupJson(JSON.stringify(backup))).toMatchObject({
         ok: true,
-        data: { formatVersion: 6, disabledOrigins: [] },
+        data: { formatVersion: 7, disabledOrigins: [] },
       })
     }
   })
@@ -74,11 +74,11 @@ describe('V3 backup schema', () => {
     }
     expect(validateV3Backup(backup)).toMatchObject({
       ok: true,
-      data: { formatVersion: 6, disabledOrigins: backup.disabledOrigins },
+      data: { formatVersion: 7, disabledOrigins: backup.disabledOrigins },
     })
     expect(parseV3BackupJson(JSON.stringify(backup))).toMatchObject({
       ok: true,
-      data: { formatVersion: 6, disabledOrigins: backup.disabledOrigins },
+      data: { formatVersion: 7, disabledOrigins: backup.disabledOrigins },
     })
   })
 
@@ -126,11 +126,11 @@ describe('V3 backup schema', () => {
     }
     expect(validateV3Backup(backup)).toMatchObject({
       ok: true,
-      data: { formatVersion: 6, rules: [{ request: backup.rules[0].request }] },
+      data: { formatVersion: 7, rules: [{ request: backup.rules[0].request }] },
     })
     expect(parseV3BackupJson(JSON.stringify(backup))).toMatchObject({
       ok: true,
-      data: { formatVersion: 6, rules: [{ request: backup.rules[0].request }] },
+      data: { formatVersion: 7, rules: [{ request: backup.rules[0].request }] },
     })
 
     for (const formatVersion of [3, 4, 5]) {
@@ -177,6 +177,97 @@ describe('V3 backup schema', () => {
         exclusions
       expect(validateV3Backup(candidate)).toMatchObject({ ok: false })
     }
+  })
+
+  it('accepts V7 function redirect payloads and rejects unsupported or mixed V7 fields', () => {
+    const base = {
+      ...structuredClone(validBackup),
+      formatVersion: 7,
+      disabledOrigins: [],
+      rules: [
+        {
+          ...structuredClone(validBackup.rules[0]),
+          request: {
+            enabled: true,
+            redirect: {
+              type: 'function',
+              code: 'return { url: request.url }',
+              exclusions: ['skip'],
+            },
+          },
+        },
+      ],
+    }
+    expect(validateV3Backup(base)).toMatchObject({
+      ok: true,
+      data: { formatVersion: 7, rules: [{ request: base.rules[0].request }] },
+    })
+
+    const maxLengthCode = structuredClone(base)
+    ;(maxLengthCode.rules[0].request.redirect as unknown) = {
+      type: 'function',
+      code: 'x'.repeat(65536),
+    }
+    expect(validateV3Backup(maxLengthCode)).toMatchObject({ ok: true })
+
+    const invalidPayloads = [
+      { type: 'function', code: '   ' },
+      { type: 'function', code: 'x'.repeat(65537) },
+      { type: 'function', code: 'return 1', url: '/mixed' },
+      { type: 'function' },
+      { type: 'url', code: 'return 1' },
+      { type: 'function', code: 'return 1', extra: true },
+    ]
+    for (const redirect of invalidPayloads) {
+      const candidate = structuredClone(base)
+      ;(candidate.rules[0].request.redirect as unknown) = redirect
+      expect(validateV3Backup(candidate)).toMatchObject({ ok: false })
+    }
+
+    const preV7 = structuredClone(base)
+    preV7.formatVersion = 6
+    expect(validateV3Backup(preV7)).toMatchObject({ ok: false })
+  })
+
+  it('disarms imported redirect functions while preserving combined response actions', () => {
+    const backup = {
+      ...structuredClone(validBackup),
+      formatVersion: 7,
+      disabledOrigins: [],
+      rules: [
+        {
+          ...structuredClone(validBackup.rules[0]),
+          request: {
+            enabled: true,
+            redirect: { type: 'function', code: 'return { url: request.url }' },
+          },
+        },
+        {
+          ...structuredClone(validBackup.rules[0]),
+          id: 'rule-2',
+          request: {
+            enabled: true,
+            redirect: { type: 'function', code: 'return { url: request.url }' },
+          },
+          response: { enabled: true, replace: { code: 'return { body: null }' } },
+        },
+      ],
+    }
+    const parsed = parseV3BackupJson(JSON.stringify(backup))
+    expect(parsed).toMatchObject({
+      ok: true,
+      warnings: [
+        { path: 'rules[0].request.redirect.code' },
+        { path: 'rules[1].request.redirect.code' },
+        { path: 'rules[1].response.replace.code' },
+      ],
+      data: {
+        rules: [
+          { enabled: true, request: { enabled: false }, response: { enabled: true } },
+          { enabled: true, request: { enabled: false }, response: { enabled: false } },
+        ],
+      },
+    })
   })
 
   it('normalizes HTTP(S) URLs to origins and checks disabled origins exactly', () => {

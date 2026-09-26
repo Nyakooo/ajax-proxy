@@ -86,7 +86,8 @@ function makeXHR(
   onMatched?: (rule: V3Rule, index: number, request: { url: string; method: string }) => void,
   onNoMatch?: (request: { url: string; method: string }) => void,
   onXHROutcome?: V3RuntimeHostOptions['onXHROutcome'],
-  armed = false
+  armed = false,
+  executeRedirectFunction?: V3RuntimeHostOptions['executeRedirectFunction']
 ) {
   const Constructor = createV3XHR(FakeXHR as unknown as V3XHRConstructor, {
     getRules: () => rules,
@@ -94,6 +95,7 @@ function makeXHR(
     onNoMatch,
     onXHROutcome,
     isFetchOutcomeDiagnosticsArmed: () => armed,
+    executeRedirectFunction,
   })
   return new Constructor() as unknown as XMLHttpRequest & FakeXHR
 }
@@ -115,6 +117,38 @@ describe('createV3XHR', () => {
 
     expect(xhr.openArgs).toEqual(['POST', '/api', false, 'user', 'pass'])
     expect(onNoMatch).not.toHaveBeenCalled()
+  })
+
+  it('keeps dynamic redirects on the original XHR URL and still applies the response action', () => {
+    const onXHROutcome = vi.fn()
+    const executeRedirectFunction = vi.fn(async () => 'https://target.test/dynamic')
+    const selectedRule = rule('dynamic-redirect-xhr', {
+      request: {
+        enabled: true,
+        redirect: { type: 'function', code: 'return request.url' },
+      },
+      response: { enabled: true, replace: { body: { fallback: 'response' } } },
+    })
+    const xhr = makeXHR(
+      [selectedRule],
+      undefined,
+      undefined,
+      onXHROutcome,
+      true,
+      executeRedirectFunction
+    )
+    xhr.open('POST', 'https://example.test/api', true)
+    expect(xhr.openArgs).toEqual(['POST', 'https://example.test/api', true])
+    expect(executeRedirectFunction).not.toHaveBeenCalled()
+
+    xhr.send()
+    xhr.complete('native response')
+
+    expect(xhr.responseText).toBe('{"fallback":"response"}')
+    expect(onXHROutcome.mock.calls.map((call) => call.slice(2))).toEqual([
+      ['request', 'fallback', 'redirect-target-unsupported'],
+      ['response', 'applied', 'response-replacement-applied'],
+    ])
   })
 
   it('resolves relative request URLs against the page location', () => {

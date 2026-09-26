@@ -91,7 +91,7 @@ describe('V3 panel configuration adapter', () => {
     await expect(readV3PanelSnapshot(storage)).resolves.toMatchObject({
       ok: true,
       snapshot: {
-        config: { ...backup, formatVersion: 6, disabledOrigins: [] },
+        config: { ...backup, formatVersion: 7, disabledOrigins: [] },
         hitCounters: { 'rule-1': 5 },
         revision: expect.stringMatching(/^sha256:[a-f0-9]{64}$/),
       },
@@ -151,7 +151,7 @@ describe('V3 panel configuration adapter', () => {
     expect(storage.write).toHaveBeenCalledOnce()
     expect(storage.write).toHaveBeenCalledWith(StorageKey.V3_CONFIG, {
       ...backup,
-      formatVersion: 6,
+      formatVersion: 7,
       disabledOrigins: [],
     })
     expect(storage.write).not.toHaveBeenCalledWith(StorageKey.INTERCEPT_LIST, expect.anything())
@@ -250,7 +250,7 @@ describe('V3 panel configuration adapter', () => {
     )
     expect(storage.write).toHaveBeenCalledWith(StorageKey.V3_CONFIG, {
       ...backup,
-      formatVersion: 6,
+      formatVersion: 7,
       disabledOrigins: [],
     })
   })
@@ -275,7 +275,7 @@ describe('V3 panel configuration adapter', () => {
     )
     expect(storage.write).toHaveBeenCalledExactlyOnceWith(StorageKey.V3_CONFIG, {
       ...backup,
-      formatVersion: 6,
+      formatVersion: 7,
       disabledOrigins: [],
     })
     expect(storage.read).toHaveBeenCalledExactlyOnceWith(StorageKey.V3_CONFIG, null)
@@ -303,7 +303,7 @@ describe('V3 panel configuration adapter', () => {
       error: 'config-conflict',
       current: { revision: expect.stringMatching(/^sha256:/) },
     })
-    expect(conflict.current.config.formatVersion).toBe(6)
+    expect(conflict.current.config.formatVersion).toBe(7)
     expect(conflict.current.config.settings.globalEnabled).toBe(results[0].ok)
     const success = results.find((result) => result.ok)
     expect(success && conflict.current.revision).toBe(success?.revision)
@@ -352,7 +352,7 @@ describe('V3 panel configuration adapter', () => {
     )
     expect(storage.write).toHaveBeenCalledWith(StorageKey.V3_CONFIG, {
       ...backup,
-      formatVersion: 6,
+      formatVersion: 7,
       disabledOrigins: [],
     })
   })

@@ -1,6 +1,6 @@
 export * from './backup'
 export * from './backupVersion'
-export type { JsonValue, V3ResponseFunctionResult, V3Rule, V3Tag } from './rules'
+export type { JsonValue, V3RedirectConfig, V3ResponseFunctionResult, V3Rule, V3Tag } from './rules'
 export { analyzeV3RuleMatches, isV3RedirectExcluded, selectV3Rule } from './ruleMatching'
 export type {
   V3RequestMatchInput,

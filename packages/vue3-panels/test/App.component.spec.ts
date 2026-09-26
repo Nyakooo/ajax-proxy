@@ -225,11 +225,11 @@ describe('App redirect exclusion persistence flow', () => {
     await buttonByText(wrapper, '创建重定向规则').trigger('click')
     await wrapper
       .get('.rule-editor form')
-      .findAll('input:not([type="checkbox"])')[0]
+      .findAll('input:not([type="checkbox"]):not([type="radio"])')[0]
       .setValue('/api')
     await wrapper
       .get('.rule-editor form')
-      .findAll('input:not([type="checkbox"])')[1]
+      .findAll('input:not([type="checkbox"]):not([type="radio"])')[1]
       .setValue('/target')
     await wrapper.get('[data-testid="redirect-exclusions"]').setValue('/health\nskip=1')
     await wrapper.get('.rule-editor form').trigger('submit')
@@ -240,6 +240,36 @@ describe('App redirect exclusion persistence flow', () => {
       url: '/target',
       exclusions: ['/health', 'skip=1'],
     })
+  })
+
+  it('persists a function redirect as a disabled V3 action after code confirmation', async () => {
+    vi.spyOn(globalThis, 'confirm').mockReturnValue(true)
+    const { wrapper, sentMessages } = await mountApp()
+
+    const redirectNavigation = wrapper
+      .findAll('.nav-item')
+      .find((button) => button.text().includes('重定向规则'))
+    await redirectNavigation!.trigger('click')
+    await buttonByText(wrapper, '创建重定向规则').trigger('click')
+    await wrapper
+      .get('.rule-editor form')
+      .find('input[name="redirect-mode"][value="function"]')
+      .setValue(true)
+    await flushPromises()
+    await wrapper
+      .get('.rule-editor form')
+      .findAll('input:not([type="checkbox"]):not([type="radio"])')[0]
+      .setValue('/api')
+    await wrapper.get('.rule-editor form').trigger('submit')
+    await flushPromises()
+
+    const save = sentMessages.find((message) => message.key === V3PanelMessageKey.SAVE_CONFIG)
+    expect(save.value.config.formatVersion).toBe(7)
+    expect(save.value.config.rules[0].request).toEqual({
+      enabled: false,
+      redirect: { type: 'function', code: 'return request.url' },
+    })
+    expect(globalThis.confirm).toHaveBeenCalledTimes(1)
   })
 })
 

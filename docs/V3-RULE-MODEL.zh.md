@@ -9,13 +9,16 @@
 ## 数据模型
 
 ```ts
+type RedirectConfig =
+  { url: string; exclusions?: string[] } | { type: 'function'; code: string; exclusions?: string[] }
+
 interface Rule {
   id: string
   enabled: boolean
   match: RequestMatcher
   request?: {
     enabled: boolean
-    redirect: RedirectConfig & { exclusions?: string[] }
+    redirect: RedirectConfig
   }
   response?: {
     enabled: boolean
@@ -26,10 +29,11 @@ interface Rule {
 
 - `match` 只匹配原始请求。本阶段定义 URL 与 method：`normal` 是原始 URL 的区分大小写子串匹配；`regex` 使用不区分大小写的 RE2；`exact` 将完整原始 URL 字符串区分大小写比较，不额外规范化、拆分或忽略 query 参数。method 按大写后的 HTTP token 精确匹配，未填写或填写 `ANY` 表示任意 method。headers 等条件不属于当前 schema。
 - 缺省 `type` 仍表示 `normal`。格式版本 3 仅允许 `normal` / `regex`；版本 4 新增 `exact`，旧版本 3 备份仍可导入且保留原有匹配语义。matcher 不含请求 header 条件或 matcher 级忽略列表；重定向 action 的排除项单独定义如下。
-- 版本 5 增加完整备份字段 `disabledOrigins`，用规范化 HTTP(S) origin（协议、主机名、端口）精确关闭当前站点的 V3 规则；路径不参与站点识别。未列出的站点默认启用。关闭站点不会修改规则自身启用状态或顺序；全局开关关闭时仍以全局设置为准。版本 3 / 4 导入时站点列表默认为空，随后统一规范化为当前版本 6。
-- 版本 6 在 `request.redirect` 下增加可选 `exclusions`。每项是区分大小写的字面 URL 子串；请求 URL 含任一子串时跳过该规则的重定向。只有重定向 action 的规则会继续检查下一条；组合规则仍选中当前规则并执行 response action。版本 3 / 4 / 5 备份仍可读，缺省排除列表为空，均规范化为版本 6。
+- 版本 5 增加完整备份字段 `disabledOrigins`，用规范化 HTTP(S) origin（协议、主机名、端口）精确关闭当前站点的 V3 规则；路径不参与站点识别。未列出的站点默认启用。关闭站点不会修改规则自身启用状态或顺序；全局开关关闭时仍以全局设置为准。版本 3 / 4 导入时站点列表默认为空，随后统一规范化为当前版本 7。
+- 版本 6 在 `request.redirect` 下增加可选 `exclusions`。每项是区分大小写的字面 URL 子串；请求 URL 含任一子串时跳过该规则的重定向。只有重定向 action 的规则会继续检查下一条；组合规则仍选中当前规则并执行 response action。旧备份缺省排除列表为空。
+- 版本 7 的 `request.redirect` 可使用静态 `{ url, exclusions? }` 或动态 `{ type: "function", code, exclusions? }` 结构，二者不能混用。函数代码最多 65,536 个字符；Fetch 执行时只接收原始请求 URL 和 method，并须返回合法 HTTP(S) URL 字符串。导入函数代码时保留源码并停用 `request.enabled`。版本 3–6 的 V3 备份仍可读并规范化为版本 7；V2 格式仍不兼容。
 - `request` 和 `response` 是独立能力；至少开启一项的规则才参与匹配。
-- 列表顺序就是规则优先级，界面允许调整顺序。第一条满足规则级 `enabled`、至少一个 action 的 `enabled`，且 URL / method 全部匹配的规则负责请求。两种 action 均关闭的规则仍可保存（例如函数代码导入时自动停用 response action），但运行时将其视为不参与匹配。选中后锁定稳定的规则 ID；action 失败也不会把请求交给后续规则。
+- 列表顺序就是规则优先级，界面允许调整顺序。第一条满足规则级 `enabled`、至少一个 action 的 `enabled`，且 URL / method 全部匹配的规则负责请求。两种 action 均关闭的规则仍可保存（例如导入函数代码时自动停用对应的 request 或 response action），但运行时将其视为不参与匹配。选中后锁定稳定的规则 ID；action 失败也不会把请求交给后续规则。
 - schema 需要格式版本、严格校验和可读错误；不读取或转换 V2 字段。
 
 执行策略：一个请求只选中一条规则；该规则中 request、response action 可独立启用，也可同时启用。请求在网络发送前只执行一次 request action；响应到达后只执行同一规则的 response action。规则命中统计在选中规则时增加一次，不按 action 数重复增加；重定向和响应替换的结果作为 action 诊断记录。匹配器自身异常时跳过该规则并继续列表；action 失败按 fail-open 返回原请求 / 原响应，不继续尝试后续规则。重定向后的 URL 不重新匹配，网络请求也不自动重试。
@@ -65,22 +69,22 @@ V3 备份使用独立标识，不通过字段猜测把旧文件转换成新格�
 }
 ```
 
-- 顶层必须且只能包含 `format`、`formatVersion`、`settings`、`tags`、`rules`、`disabledOrigins`。格式标识固定为 `ajax-proxy-backup`；当前导出版本为整数 `6`，同时读取版本 `3` / `4` / `5` 备份并规范化为版本 `6`。`disabledOrigins` 最多 1000 项，每项必须是唯一、无路径和凭据的规范 HTTP(S) origin。其它未知格式 / 版本拒绝，检测到 V2 字段时返回明确的不兼容提示。
+- 顶层必须且只能包含 `format`、`formatVersion`、`settings`、`tags`、`rules`、`disabledOrigins`。格式标识固定为 `ajax-proxy-backup`；当前导出版本为整数 `7`，同时读取版本 `3`–`6` 备份并规范化为版本 `7`。`disabledOrigins` 最多 1000 项，每项必须是唯一、无路径和凭据的规范 HTTP(S) origin。其它未知格式 / 版本拒绝，检测到 V2 字段时返回明确的不兼容提示。
 - `settings` 必须包含布尔值 `globalEnabled`、`interceptor` / `redirector` 模式和 `zh-CN` / `en` 语言。未知字段拒绝，避免输入拼错后被静默忽略。
 - `tags` 必须是数组；每个 tag 包含唯一非空字符串 `id`、非空 `name` 和布尔 `used`，不允许未知字段。空数组合法。
-- `rules` 必须是数组；每条规则包含唯一非空 `id`、布尔 `enabled`、非空 URL `match`，可选 `tagIds`、`request` 重定向 action 和 `response` 替换 action。`tagIds` 缺省表示无标签；提供时必须是唯一标签 ID 数组，且每个 ID 都必须指向顶层 `tags`。版本 6 的 `request.redirect.exclusions` 最多 100 项，每项为 1–4096 个字符的非空字符串，不允许首尾空白或重复项；总 UTF-8 字节数最多 1 MiB。此字段在低于版本 6 的备份中无效；未知规则和 matcher 字段拒绝。
-- URL matcher 的 `method` 是可选字符串，`type` 可选 `normal` 或 `regex`。正则采用 RE2 语法，以避免灾难性回溯；lookahead、backreference 等 RE2 不支持的语法在保存 / 导入时拒绝，具体输入上限见 `docs/V3-INPUT-VALIDATION.zh.md`。重定向 payload 必须含非空目标 `url`；响应替换可选 `status`（200–599 整数）、字符串 header map、JSON `body` 和字符串 `code`。未知 action / payload 字段拒绝。
+- `rules` 必须是数组；每条规则包含唯一非空 `id`、布尔 `enabled`、非空 URL `match`，可选 `tagIds`、`request` 重定向 action 和 `response` 替换 action。`tagIds` 缺省表示无标签；提供时必须是唯一标签 ID 数组，且每个 ID 都必须指向顶层 `tags`。版本 6 / 7 的 `request.redirect.exclusions` 最多 100 项，每项为 1–4096 个字符的非空字符串，不允许首尾空白或重复项；总 UTF-8 字节数最多 1 MiB。版本 7 函数 redirect payload 需要非空 `code` 且不得包含 `url`；旧版本不能包含函数字段。未知规则和 matcher 字段拒绝。
+- URL matcher 的 `method` 是可选字符串，`type` 可选 `normal` 或 `regex`。正则采用 RE2 语法，以避免灾难性回溯；lookahead、backreference 等 RE2 不支持的语法在保存 / 导入时拒绝，具体输入上限见 `docs/V3-INPUT-VALIDATION.zh.md`。静态重定向 payload 必须含非空目标 `url`；函数重定向必须含非空 `code` 且不能同时设置 `url`。响应替换可选 `status`（200–599 整数）、字符串 header map、JSON `body` 和字符串 `code`。未知 action / payload 字段拒绝。
 - 校验结果携带字段路径和可读原因，不通过部分修复或丢弃字段来“尽量导入”。整个备份校验成功后才允许替换当前配置。
 
 上述 envelope 已落为独立的 `@proxy/v3-domain` 校验实现。扩展备份 schema 时递增 `formatVersion`，并保留对旧版本的有针对性读取；静态响应 header 配置入口则需先单独审查 Fetch / XHR 差异并决定是否提供能力降级。
 
-导入入口使用 `parseV3BackupJson(text)` 完成 JSON 解析和 schema 校验，UTF-8 BOM 会在解析前移除。返回的 `issues` 带有 `$` 根路径或 `rules[0].match.url` 这类字段路径；`formatV3ValidationIssues()` 可将其转换成可直接呈现的文本。语法错误、V2 不兼容、版本不支持和字段校验错误都通过同一结果结构返回，调用方应展示这些原因并在校验失败时保持当前配置不变。合法结果另含 `warnings`；含 response `code` 的规则会列出代码字段路径，并在返回数据中停用对应 response action，导入前不会执行代码。
+导入入口使用 `parseV3BackupJson(text)` 完成 JSON 解析和 schema 校验，UTF-8 BOM 会在解析前移除。返回的 `issues` 带有 `$` 根路径或 `rules[0].match.url` 这类字段路径；`formatV3ValidationIssues()` 可将其转换成可直接呈现的文本。语法错误、V2 不兼容、版本不支持和字段校验错误都通过同一结果结构返回，调用方应展示这些原因并在校验失败时保持当前配置不变。合法结果另含 `warnings`；含函数 redirect / response code 的规则会列出代码字段路径，并在返回数据中停用对应的函数 action，导入前不会执行代码。
 
 ## 建议的匹配和执行顺序
 
 1. 捕获原始 URL 与 method；method 转为大写，原 URL 在请求及响应两个阶段都保持不变。
 2. 按规则列表顺序检查规则启用状态、是否至少有一个 action 启用、URL matcher 与 method。未填写 method 或 `ANY` 匹配任意 method；其余 method 大小写无关地比较。选择第一条完整命中的规则；后续规则不再参与该请求。`normal` URL 条件按区分大小写的子串匹配，`regex` 按不区分大小写的 RE2 语义执行。若启用的 redirect action 排除列表命中且 response action 也未启用，则跳过该规则并检查下一条；如果 response action 已启用，仍选中这条组合规则。
-3. 一旦选中规则，锁定本次请求的 rule ID。规则的 request action 若启用且当前 URL 未被排除，则在网络请求发出前计算重定向目标并改写请求；命中排除项时保留原始请求。排除只影响重定向，不会阻止同规则的 response action。
+3. 一旦选中规则，锁定本次请求的 rule ID。规则的 request action 若启用且当前 URL 未被排除，则在网络请求发出前解析静态目标，或在 sandbox 中执行函数并以原始 URL / method 计算目标 URL；函数结果必须是无凭据的 HTTP(S) URL。命中排除项或函数失败时保留原始请求。排除只影响重定向，不会阻止同规则的 response action。
 4. 请求只发送一次。收到响应后，使用同一条规则的 response action；若启用，则尝试拦截 / 替换。规则不会在重定向后的 URL 上重新匹配，也不会因 action 失败而转交给下一条规则。
 5. 选中规则时记录一次命中，并分别记录重定向与响应替换的状态，避免组合 action 导致重复计数。诊断至少区分 `matched`、`redirect-applied`、`response-replaced` 和 `failed-open`。
 
