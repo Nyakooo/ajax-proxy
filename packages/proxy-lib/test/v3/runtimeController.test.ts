@@ -538,6 +538,51 @@ describe('createV3RuntimeController', () => {
     expect(JSON.stringify(events)).not.toContain('https://example.test')
   })
 
+  it('suppresses a pending Fetch outcome after diagnostics are disarmed', async () => {
+    const dispatchEvent = vi.fn()
+    const host = {
+      location: { origin: 'https://example.test' },
+      dispatchEvent,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    } as unknown as Window
+    let resolveNativeResponse!: (response: Response) => void
+    const fetcher = vi.fn(
+      () =>
+        new Promise<Response>((resolve) => {
+          resolveNativeResponse = resolve
+        })
+    )
+    const controller = createV3RuntimeController(
+      host,
+      fetcher as typeof window.fetch,
+      class {} as unknown as typeof window.XMLHttpRequest
+    )
+    controller.update({
+      ...backup,
+      rules: [
+        {
+          id: 'pending-fetch-rule',
+          enabled: true,
+          match: { url: '/api', method: 'GET' },
+          response: { enabled: true, replace: { body: { mocked: true } } },
+        },
+      ],
+    })
+    controller.setFetchOutcomeDiagnosticsArmed(true)
+
+    const responsePromise = controller.fetch('https://example.test/api')
+    expect(fetcher).toHaveBeenCalledOnce()
+    controller.setFetchOutcomeDiagnosticsArmed(false)
+    resolveNativeResponse(new Response('native'))
+
+    const response = await responsePromise
+    expect(await response.text()).toBe('{"mocked":true}')
+    expect(
+      dispatchEvent.mock.calls.map(([event]) => (event as CustomEvent).detail.kind)
+    ).not.toContain('v3-fetch-outcome')
+  })
+
   it('dispatches a distinct XHR outcome notice only after a replacement is observed', () => {
     const dispatchEvent = vi.fn()
     const host = {
@@ -585,5 +630,42 @@ describe('createV3RuntimeController', () => {
     })
     expect(event.correlation_id).toMatch(/^v3-xhr-/)
     expect(JSON.stringify(event)).not.toContain('https://example.test')
+  })
+
+  it('suppresses a pending XHR outcome after diagnostics are disarmed', () => {
+    const dispatchEvent = vi.fn()
+    const host = {
+      location: { origin: 'https://example.test' },
+      dispatchEvent,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    } as unknown as Window
+    const controller = createV3RuntimeController(
+      host,
+      vi.fn(async () => new Response('native')) as typeof window.fetch,
+      RuntimeXHR as unknown as typeof window.XMLHttpRequest
+    )
+    controller.update({
+      ...backup,
+      rules: [
+        {
+          id: 'pending-xhr-rule',
+          enabled: true,
+          match: { url: '/api', method: 'GET' },
+          response: { enabled: true, replace: { body: 'replacement' } },
+        },
+      ],
+    })
+    controller.setFetchOutcomeDiagnosticsArmed(true)
+    const xhr = new controller.xhr() as unknown as RuntimeXHR
+    xhr.open('GET', 'https://example.test/api')
+    xhr.send()
+    controller.setFetchOutcomeDiagnosticsArmed(false)
+    xhr.complete('native')
+
+    expect(xhr.responseText).toBe('"replacement"')
+    expect(
+      dispatchEvent.mock.calls.map(([event]) => (event as CustomEvent).detail.kind)
+    ).not.toContain('v3-xhr-outcome')
   })
 })
