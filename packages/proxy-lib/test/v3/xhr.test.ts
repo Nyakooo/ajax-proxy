@@ -117,6 +117,29 @@ describe('createV3XHR', () => {
     expect(onNoMatch).not.toHaveBeenCalled()
   })
 
+  it('resolves relative request URLs against the page location', () => {
+    vi.stubGlobal('location', { href: 'https://example.test/page' })
+    try {
+      const onMatched = vi.fn()
+      const xhr = makeXHR(
+        [
+          rule('page-relative', {
+            match: { url: 'https://example.test/api', method: 'POST' },
+            response: { enabled: true, replace: { body: 'replacement' } },
+          }),
+        ],
+        onMatched
+      )
+
+      xhr.open('POST', '/api', true)
+
+      expect(onMatched).toHaveBeenCalledOnce()
+      expect(xhr.openArgs).toEqual(['POST', '/api', true])
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+
   it('fails open with the original open arguments when rule selection throws', () => {
     const Constructor = createV3XHR(FakeXHR as unknown as V3XHRConstructor, {
       getRules: () => {
