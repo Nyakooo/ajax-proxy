@@ -41,10 +41,12 @@ export interface V3RuleSelection {
 
 export type V3RuleMatchReason =
   | 'matched'
+  | 'matched-request-excluded'
   | 'lower-priority'
   | 'global-disabled'
   | 'rule-disabled'
   | 'actions-disabled'
+  | 'request-excluded'
   | 'method-mismatch'
   | 'url-mismatch'
   | 'invalid-regex'
@@ -65,19 +67,35 @@ function getRuleMatchReason(rule: V3Rule, request: V3RequestMatchInput): V3RuleM
       if (rule.match.method.toUpperCase() !== request.method.toUpperCase()) return 'method-mismatch'
     }
     const matcherType = rule.match.type ?? 'normal'
+    let matchesUrl: boolean
     if (matcherType === 'regex') {
       const regex = getRegex(rule.match.url)
       if (!regex) return 'invalid-regex'
-      return regex.test(request.url) ? 'matched' : 'url-mismatch'
+      matchesUrl = regex.test(request.url)
+    } else if (matcherType === 'exact') {
+      matchesUrl = request.url === rule.match.url
+    } else {
+      if (matcherType !== 'normal') return 'invalid-match-type'
+      matchesUrl = request.url.includes(rule.match.url)
     }
-    if (matcherType === 'exact') {
-      return request.url === rule.match.url ? 'matched' : 'url-mismatch'
+    if (!matchesUrl) return 'url-mismatch'
+    if (isV3RedirectExcluded(rule, request.url)) {
+      return rule.response?.enabled ? 'matched-request-excluded' : 'request-excluded'
     }
-    if (matcherType !== 'normal') return 'invalid-match-type'
-    return request.url.includes(rule.match.url) ? 'matched' : 'url-mismatch'
+    return 'matched'
   } catch {
     return 'matcher-error'
   }
+}
+
+/** Whether a request matches one of the literal URL substrings excluded by its redirect action. */
+export function isV3RedirectExcluded(rule: V3Rule, url: string): boolean {
+  if (!rule.request?.enabled) return false
+  const exclusions = rule.request.redirect.exclusions
+  if (!Array.isArray(exclusions)) return false
+  return exclusions.some(
+    (exclusion) => typeof exclusion === 'string' && exclusion.length > 0 && url.includes(exclusion)
+  )
 }
 
 /** Explain how the current ordered rules classify a manually supplied request. */
@@ -100,7 +118,7 @@ export function analyzeV3RuleMatches(
     if (!globalEnabled) reason = 'global-disabled'
     else if (selectedRuleId) reason = 'lower-priority'
     else reason = getRuleMatchReason(rule, normalizedRequest)
-    if (reason === 'matched') selectedRuleId = rule.id
+    if (reason === 'matched' || reason === 'matched-request-excluded') selectedRuleId = rule.id
     results.push({ ruleId: rule.id, index, reason })
   }
   return { selectedRuleId, results }
@@ -120,7 +138,8 @@ export function selectV3Rule(
 
   for (let index = 0; index < rules.length; index += 1) {
     const rule = rules[index]
-    if (getRuleMatchReason(rule, { url: request.url, method }) === 'matched') {
+    const reason = getRuleMatchReason(rule, { url: request.url, method })
+    if (reason === 'matched' || reason === 'matched-request-excluded') {
       return {
         rule,
         index,

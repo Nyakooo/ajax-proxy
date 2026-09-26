@@ -14,7 +14,7 @@ Vue 3 候选面板已经接入 `vue-i18n` 11 Composition API，当前 shell 只�
 
 V3 adapter 使用独立的 `GET_SNAPSHOT` / `SAVE_CONFIG` 协议，不复用 content script 到页面主世界的 `V3_CONFIG` 通知。service worker 只接受扩展内 `panels-v3/` 页面发送的请求；读配置时先运行 V3 backup 校验，再清理已知规则的命中计数；保存时同样校验并仅写 `V3_CONFIG`，`null` 只清除该配置键。V2 的配置和 storage 路径不参与此 adapter。Vue 3 客户端在发送前及接收后验证数据结构，并将扩展不可用 / 消息失败映射成稳定错误。
 
-当前真实数据流程覆盖 V3 重定向 CRUD、JSON 响应 CRUD、自定义 Fetch 函数响应编辑及 JSON 备份恢复：读取快照后按 action 展示规则；新增、编辑、删除、启停及调整数组顺序都会保存完整 V3 backup，顺序就是首条命中优先级。编辑组合规则会保留另一个 action；响应编辑保留未编辑 headers，删除 action 不会误删同规则内的另一个 action。JSON body 和状态码在保存前校验；语法诊断在浏览器提供解析位置时显示行 / 列，并提供对象、数组、字符串和 null 示例。字符串 / RE2 匹配、method、直接 HTTP(S) 或相对跳转目标及 JSON response body 已支持。V2 专有的 substring replacement、headers、ignores 和 redirect function 尚未迁移；函数响应仅支持 Fetch，XHR 保持原响应。备份恢复流程见 [V3 配置备份与恢复](V3-BACKUP-RESTORE.zh.md)。独立网页预览使用明确标注的内存样例；完整扩展包中的 `panels-v3/` 使用真实消息和 storage adapter。
+当前真实数据流程覆盖 V3 重定向 CRUD、字面 URL 排除项、JSON 响应 CRUD、自定义 Fetch 函数响应编辑及 JSON 备份恢复：读取快照后按 action 展示规则；新增、编辑、删除、启停及调整数组顺序都会保存完整 V3 backup，顺序就是首条命中优先级。编辑组合规则会保留另一个 action；响应编辑保留未编辑 headers，删除 action 不会误删同规则内的另一个 action。JSON body 和状态码在保存前校验；语法诊断在浏览器提供解析位置时显示行 / 列，并提供对象、数组、字符串和 null 示例。字符串 / RE2 匹配、method、直接 HTTP(S) 或相对跳转目标及 JSON response body 已支持。V2 `ignores` 的静态子串排除行为可在 V3 规则中手工重建；V2 文件和字段不会自动迁移。V2 专有的 substring replacement、请求 header 覆盖和 redirect function 尚未迁移；函数响应仅支持 Fetch，XHR 保持原响应。备份恢复流程见 [V3 配置备份与恢复](V3-BACKUP-RESTORE.zh.md)。独立网页预览使用明确标注的内存样例；完整扩展包中的 `panels-v3/` 使用真实消息和 storage adapter。
 
 ## 迁移切片顺序
 
@@ -33,4 +33,4 @@ V3 staging 已加入根 `pnpm build`，把 Vue 3 build 复制到 `build/panels-v
 - staging extension 使用不同输出目录，不清理、覆盖或打包为生产目录。
 - 每个可独立验证的迁移切片在 `refactor/v3` 单独提交、推送；正式切换是后续单独提交，不能和功能迁移混在一起。
 
-迁移前现状盘点和 V2 / Vue 3 风险热点见 Codex 执行记录及 `docs/V3-PANEL-IA.zh.md`。V3 消息与配置 adapter、redirect CRUD、JSON response CRUD、Fetch 函数响应编辑、备份恢复、标签管理与关联、独立 staging 打包和扩展内请求验证已接入；V2 专有高级 redirect 能力和默认面板切换仍待实施。Chrome Stable 品牌浏览器的扩展验收仍在进行。
+迁移前现状盘点和 V2 / Vue 3 风险热点见 Codex 执行记录及 `docs/V3-PANEL-IA.zh.md`。V3 消息与配置 adapter、redirect CRUD 与排除项、JSON response CRUD、Fetch 函数响应编辑、备份恢复、标签管理与关联、独立 staging 打包和扩展内请求验证已接入；V2 substring replacement、请求 header 覆盖、redirect function 和默认面板切换仍待评估或实施。Chrome 与 Edge 当前 Stable 的 staging 扩展及 Fetch / XHR runtime 验收已有记录，切换默认面板前仍须完成完整 UI 验收。

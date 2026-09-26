@@ -77,7 +77,7 @@ V3 当前针对 **Chrome / Edge 当前稳定版**开发和验收。要试用 V3�
 2. [函数方式响应说明](README.func.md)
 3. **为什么打开的还是旧面板？** V3 仍在 development staging 阶段，扩展默认入口还是 Vue 2 面板。构建并加载本地扩展后，需在地址栏显式打开 `chrome-extension://<扩展 ID>/panels-v3/index.html`；将 `<扩展 ID>` 替换为扩展详情页显示的 ID。
 4. **V2 和 V3 配置能否互相导入？** 不能。V2 / V3 规则与备份格式不兼容，也没有自动迁移。请保留 V2 备份，并在 V3 面板中按需重新创建规则。详见 [V3 配置备份与恢复](docs/V3-BACKUP-RESTORE.zh.md#v2-备份不兼容)。
-5. **V3 是否已覆盖 V2 的全部能力？** 尚未。当前 staging 支持 V3 格式的重定向和 JSON 响应规则、Fetch 函数响应及配置备份 / 恢复；函数响应仅作用于 Fetch。V2 专有的 substring replacement、headers、ignores 和 redirect function 尚未迁移。详见 [V3 面板迁移说明](docs/V3-PANEL-MIGRATION.zh.md)。
+5. **V3 是否已覆盖 V2 的全部能力？** 尚未。当前 staging 支持 V3 格式的重定向规则及 URL 排除项、JSON 响应规则、Fetch 函数响应及配置备份 / 恢复；函数响应仅作用于 Fetch。V2 文件不自动迁移；substring replacement、请求 header 覆盖和 redirect function 尚未迁移。详见 [V3 面板迁移说明](docs/V3-PANEL-MIGRATION.zh.md)。
 6. **V3 请求为什么没有命中规则？** 请确认打开的是 `panels-v3/` 页面、全局和站点开关已启用、规则 URL 与 method 条件匹配。多条规则命中时按列表顺序只应用首条。函数响应仅拦截 Fetch；XHR 保留原生响应。详见 [V3 规则模型](docs/V3-RULE-MODEL.zh.md)。
 
 ## Monorepo

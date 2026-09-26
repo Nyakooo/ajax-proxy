@@ -40,7 +40,7 @@ describe('V3 backup schema', () => {
     expect(validateV3Backup(exactBackup)).toMatchObject({ ok: true })
     expect(parseV3BackupJson(JSON.stringify(exactBackup))).toMatchObject({
       ok: true,
-      data: { formatVersion: 5, disabledOrigins: [], rules: [{ match: { type: 'exact' } }] },
+      data: { formatVersion: 6, disabledOrigins: [], rules: [{ match: { type: 'exact' } }] },
     })
 
     const unsupportedLegacyExactBackup = structuredClone(validBackup)
@@ -57,11 +57,11 @@ describe('V3 backup schema', () => {
       const validation = validateV3Backup(backup)
       expect(validation).toMatchObject({
         ok: true,
-        data: { formatVersion: 5, disabledOrigins: [] },
+        data: { formatVersion: 6, disabledOrigins: [] },
       })
       expect(parseV3BackupJson(JSON.stringify(backup))).toMatchObject({
         ok: true,
-        data: { formatVersion: 5, disabledOrigins: [] },
+        data: { formatVersion: 6, disabledOrigins: [] },
       })
     }
   })
@@ -74,11 +74,11 @@ describe('V3 backup schema', () => {
     }
     expect(validateV3Backup(backup)).toMatchObject({
       ok: true,
-      data: { formatVersion: 5, disabledOrigins: backup.disabledOrigins },
+      data: { formatVersion: 6, disabledOrigins: backup.disabledOrigins },
     })
     expect(parseV3BackupJson(JSON.stringify(backup))).toMatchObject({
       ok: true,
-      data: { formatVersion: 5, disabledOrigins: backup.disabledOrigins },
+      data: { formatVersion: 6, disabledOrigins: backup.disabledOrigins },
     })
   })
 
@@ -107,6 +107,76 @@ describe('V3 backup schema', () => {
 
     const legacyWithNewField = { ...structuredClone(validBackup), disabledOrigins: [] }
     expect(validateV3Backup(legacyWithNewField)).toMatchObject({ ok: false })
+  })
+
+  it('roundtrips V6 redirect exclusions and keeps V3 through V5 backups without exclusions valid', () => {
+    const backup = {
+      ...structuredClone(validBackup),
+      formatVersion: 6,
+      disabledOrigins: [],
+      rules: [
+        {
+          ...structuredClone(validBackup.rules[0]),
+          request: {
+            enabled: true,
+            redirect: { url: '/target', exclusions: ['/api/health', 'skip=1'] },
+          },
+        },
+      ],
+    }
+    expect(validateV3Backup(backup)).toMatchObject({
+      ok: true,
+      data: { formatVersion: 6, rules: [{ request: backup.rules[0].request }] },
+    })
+    expect(parseV3BackupJson(JSON.stringify(backup))).toMatchObject({
+      ok: true,
+      data: { formatVersion: 6, rules: [{ request: backup.rules[0].request }] },
+    })
+
+    for (const formatVersion of [3, 4, 5]) {
+      const oldBackup = structuredClone(backup)
+      oldBackup.formatVersion = formatVersion
+      if (formatVersion < 5) delete (oldBackup as { disabledOrigins?: string[] }).disabledOrigins
+      expect(validateV3Backup(oldBackup)).toMatchObject({ ok: false })
+    }
+    for (const formatVersion of [3, 4, 5]) {
+      const oldBackup = structuredClone(validBackup)
+      oldBackup.formatVersion = formatVersion
+      if (formatVersion === 5) {
+        ;(oldBackup as typeof oldBackup & { disabledOrigins?: string[] }).disabledOrigins = []
+      }
+      expect(validateV3Backup(oldBackup)).toMatchObject({ ok: true })
+    }
+  })
+
+  it('rejects unsafe V6 redirect exclusion lists', () => {
+    const base = {
+      ...structuredClone(validBackup),
+      formatVersion: 6,
+      disabledOrigins: [],
+      rules: [
+        {
+          ...structuredClone(validBackup.rules[0]),
+          request: { enabled: true, redirect: { url: '/target', exclusions: [] as unknown } },
+        },
+      ],
+    }
+    const invalidLists: unknown[] = [
+      null,
+      'skip=1',
+      [''],
+      ['  skip=1'],
+      ['skip=1  '],
+      ['x'.repeat(4097)],
+      ['same', 'same'],
+      Array.from({ length: 101 }, (_, index) => `skip=${index}`),
+    ]
+    for (const exclusions of invalidLists) {
+      const candidate = structuredClone(base)
+      ;(candidate.rules[0].request!.redirect as unknown as Record<string, unknown>).exclusions =
+        exclusions
+      expect(validateV3Backup(candidate)).toMatchObject({ ok: false })
+    }
   })
 
   it('normalizes HTTP(S) URLs to origins and checks disabled origins exactly', () => {
@@ -601,6 +671,54 @@ describe('V3 rule selection', () => {
         method: 'GET',
       })?.rule
     ).toBe(laterRule)
+  })
+
+  it('skips only an excluded redirect action and selects the next eligible rule', () => {
+    const excluded = {
+      ...requestRule('excluded-redirect', '/api'),
+      request: {
+        enabled: true,
+        redirect: { url: '/first-target', exclusions: ['skip=1', '/health'] },
+      },
+    }
+    const next = requestRule('next-redirect', '/api')
+    const request = { url: 'https://example.test/api/items?skip=1', method: 'GET' }
+
+    expect(selectV3Rule([excluded, next], request)).toMatchObject({
+      rule: next,
+      index: 1,
+      originalRequest: request,
+    })
+    expect(analyzeV3RuleMatches([excluded, next], request)).toEqual({
+      selectedRuleId: 'next-redirect',
+      results: [
+        { ruleId: 'excluded-redirect', index: 0, reason: 'request-excluded' },
+        { ruleId: 'next-redirect', index: 1, reason: 'matched' },
+      ],
+    })
+    expect(selectV3Rule([excluded], request)).toBeUndefined()
+  })
+
+  it('keeps an excluded redirect rule selected when its response action is enabled', () => {
+    const composite = {
+      ...requestRule('composite', '/api'),
+      request: {
+        enabled: true,
+        redirect: { url: '/first-target', exclusions: ['/health'] },
+      },
+      response: { enabled: true, replace: { body: { ok: true } } },
+    }
+    const later = requestRule('later', '/api')
+    const request = { url: 'https://example.test/api/health', method: 'GET' }
+
+    expect(selectV3Rule([composite, later], request)?.rule).toBe(composite)
+    expect(analyzeV3RuleMatches([composite, later], request)).toEqual({
+      selectedRuleId: 'composite',
+      results: [
+        { ruleId: 'composite', index: 0, reason: 'matched-request-excluded' },
+        { ruleId: 'later', index: 1, reason: 'lower-priority' },
+      ],
+    })
   })
 
   it('explains the first-match outcome and the reason each earlier rule was skipped', () => {

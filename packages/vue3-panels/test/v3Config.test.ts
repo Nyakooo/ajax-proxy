@@ -75,7 +75,7 @@ describe('V3 config panel adapter', () => {
       to: NoticeTo.SERVICE_WORKER,
       key: V3PanelMessageKey.SAVE_CONFIG,
       value: {
-        config: { ...backup, formatVersion: 5, disabledOrigins: [] },
+        config: { ...backup, formatVersion: 6, disabledOrigins: [] },
         expectedRevision: revision,
       },
     })

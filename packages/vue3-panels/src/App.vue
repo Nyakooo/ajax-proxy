@@ -695,7 +695,13 @@ async function saveRedirectRule(fields) {
     enabled: fields.enabled,
     tagIds: [...(fields.tagIds ?? [])],
     match: fields.match,
-    request: { enabled: true, redirect: { url: fields.redirectUrl } },
+    request: {
+      enabled: true,
+      redirect: {
+        url: fields.redirectUrl,
+        ...(fields.exclusions?.length ? { exclusions: [...fields.exclusions] } : {}),
+      },
+    },
   }
   const nextRules = editingRule.value
     ? ruleOperations.replaceV3Rule(current.rules, id, rule)

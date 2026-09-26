@@ -213,6 +213,36 @@ describe('App global switch persistence flow', () => {
   })
 })
 
+describe('App redirect exclusion persistence flow', () => {
+  it('saves edited exclusions into the V3 snapshot', async () => {
+    const { wrapper, sentMessages } = await mountApp()
+
+    const redirectNavigation = wrapper
+      .findAll('.nav-item')
+      .find((button) => button.text().includes('重定向规则'))
+    expect(redirectNavigation).toBeDefined()
+    await redirectNavigation!.trigger('click')
+    await buttonByText(wrapper, '创建重定向规则').trigger('click')
+    await wrapper
+      .get('.rule-editor form')
+      .findAll('input:not([type="checkbox"])')[0]
+      .setValue('/api')
+    await wrapper
+      .get('.rule-editor form')
+      .findAll('input:not([type="checkbox"])')[1]
+      .setValue('/target')
+    await wrapper.get('[data-testid="redirect-exclusions"]').setValue('/health\nskip=1')
+    await wrapper.get('.rule-editor form').trigger('submit')
+    await flushPromises()
+
+    const save = sentMessages.find((message) => message.key === V3PanelMessageKey.SAVE_CONFIG)
+    expect(save.value.config.rules[0].request.redirect).toEqual({
+      url: '/target',
+      exclusions: ['/health', 'skip=1'],
+    })
+  })
+})
+
 describe('App concurrent configuration conflict flow', () => {
   it('requires confirmation before loading the latest config after a conflict', async () => {
     const remoteConfig = {

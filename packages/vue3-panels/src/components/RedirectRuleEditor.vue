@@ -17,6 +17,8 @@ const firstInput = ref(null)
 const dialogRoot = ref(null)
 const form = ref(createForm())
 const localIssue = ref('')
+const MAX_EXCLUSIONS = 100
+const MAX_EXCLUSION_LENGTH = 4096
 
 function createForm(rule = null) {
   return {
@@ -24,6 +26,7 @@ function createForm(rule = null) {
     matchType: rule?.match?.type ?? 'normal',
     method: rule?.match?.method ?? 'ANY',
     targetUrl: rule?.request?.redirect?.url ?? '',
+    exclusionsText: (rule?.request?.redirect?.exclusions ?? []).join('\n'),
     enabled: rule?.enabled ?? true,
     tagIds: [...(rule?.tagIds ?? [])],
   }
@@ -54,6 +57,19 @@ function submit() {
     localIssue.value = t('editor.noOuterWhitespace')
     return
   }
+  const exclusionLines = form.value.exclusionsText
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+  if (exclusionLines.length > MAX_EXCLUSIONS) {
+    localIssue.value = t('editor.exclusionsTooMany')
+    return
+  }
+  if (exclusionLines.some((line) => line.length > MAX_EXCLUSION_LENGTH)) {
+    localIssue.value = t('editor.exclusionTooLong')
+    return
+  }
+  const exclusions = [...new Set(exclusionLines)]
   emit('save', {
     enabled: form.value.enabled,
     match: {
@@ -62,6 +78,7 @@ function submit() {
       method: form.value.method,
     },
     redirectUrl: form.value.targetUrl,
+    exclusions,
     tagIds: [...form.value.tagIds],
   })
 }
@@ -145,6 +162,17 @@ function trapFocus(event) {
           <span>{{ t('editor.targetUrl') }}</span>
           <input v-model="form.targetUrl" required autocomplete="off" />
           <small>{{ t('editor.targetUrlHelp') }}</small>
+        </label>
+
+        <label class="editor-field">
+          <span>{{ t('editor.exclusions') }}</span>
+          <textarea
+            v-model="form.exclusionsText"
+            data-testid="redirect-exclusions"
+            rows="3"
+            autocomplete="off"
+          />
+          <small>{{ t('editor.exclusionsHelp') }}</small>
         </label>
 
         <label class="editor-enabled">

@@ -190,6 +190,70 @@ describe('createV3XHR', () => {
     // Native events and response headers are intentionally not synthesized or rewritten.
   })
 
+  it('skips an excluded redirect and applies the next eligible XHR rule', () => {
+    const excludedRule = rule('excluded', {
+      request: {
+        enabled: true,
+        redirect: { url: 'https://wrong.test/', exclusions: ['skip=1'] },
+      },
+    })
+    const nextRule = rule('next', {
+      request: { enabled: true, redirect: { url: 'https://target.test/next' } },
+    })
+    const onMatched = vi.fn()
+    const xhr = makeXHR([excludedRule, nextRule], onMatched)
+
+    xhr.open('POST', 'https://example.test/api?skip=1', true)
+
+    expect(xhr.openArgs).toEqual(['POST', 'https://target.test/next', true])
+    expect(onMatched).toHaveBeenCalledExactlyOnceWith(nextRule, 1, {
+      url: 'https://example.test/api?skip=1',
+      method: 'POST',
+    })
+  })
+
+  it('keeps an excluded composite XHR request native and applies its response action', () => {
+    const compositeRule = rule('excluded-composite', {
+      request: {
+        enabled: true,
+        redirect: { url: 'https://wrong.test/', exclusions: ['/health'] },
+      },
+      response: { enabled: true, replace: { status: 202, body: { source: 'response' } } },
+    })
+    const onMatched = vi.fn()
+    const xhr = makeXHR([compositeRule], onMatched)
+
+    xhr.open('POST', 'https://example.test/api/health', true)
+    xhr.complete('native response')
+
+    expect(xhr.openArgs).toEqual(['POST', 'https://example.test/api/health', true])
+    expect(onMatched).toHaveBeenCalledExactlyOnceWith(compositeRule, 0, {
+      url: 'https://example.test/api/health',
+      method: 'POST',
+    })
+    expect(xhr.status).toBe(202)
+    expect(xhr.responseText).toBe('{"source":"response"}')
+  })
+
+  it('reports no match and keeps native XHR arguments when every matching redirect is excluded', () => {
+    const excludedRule = rule('only-excluded', {
+      request: {
+        enabled: true,
+        redirect: { url: 'https://wrong.test/', exclusions: ['skip=1'] },
+      },
+    })
+    const onMatched = vi.fn()
+    const onNoMatch = vi.fn()
+    const xhr = makeXHR([excludedRule], onMatched, onNoMatch)
+    const url = 'https://example.test/api?skip=1'
+
+    xhr.open('POST', url, true, 'user', 'pass')
+
+    expect(xhr.openArgs).toEqual(['POST', url, true, 'user', 'pass'])
+    expect(onMatched).not.toHaveBeenCalled()
+    expect(onNoMatch).toHaveBeenCalledExactlyOnceWith({ url, method: 'POST' })
+  })
+
   it('keeps the native request and response when the URL matches but the method does not', () => {
     const selectedRule = rule('post-only', {
       response: { enabled: true, replace: { status: 201, body: { mocked: true } } },

@@ -143,6 +143,82 @@ describe('createV3Fetch', () => {
     expect(await result.json()).toEqual({ ok: true })
   })
 
+  it('skips an excluded redirect and applies the next eligible rule', async () => {
+    const excludedRule = rule('excluded', {
+      request: {
+        enabled: true,
+        redirect: { url: 'https://wrong.test/', exclusions: ['skip=1'] },
+      },
+    })
+    const nextRule = rule('next', {
+      request: { enabled: true, redirect: { url: 'https://target.test/next' } },
+    })
+    const fetcher = vi.fn(async (request: Request) => new Response(request.url))
+    const onMatched = vi.fn()
+    const fetch = createV3Fetch(fetcher, {
+      getRules: () => [excludedRule, nextRule],
+      onMatched,
+    })
+
+    const result = await fetch('https://example.test/api?skip=1', { method: 'POST' })
+
+    expect(fetcher).toHaveBeenCalledOnce()
+    expect((fetcher.mock.calls[0][0] as Request).url).toBe('https://target.test/next')
+    expect(onMatched).toHaveBeenCalledExactlyOnceWith(nextRule, 1, {
+      url: 'https://example.test/api?skip=1',
+      method: 'POST',
+    })
+    expect(await result.text()).toBe('https://target.test/next')
+  })
+
+  it('leaves an excluded redirect request native and still applies its response action', async () => {
+    const compositeRule = rule('excluded-composite', {
+      request: {
+        enabled: true,
+        redirect: { url: 'https://wrong.test/', exclusions: ['/health'] },
+      },
+      response: { enabled: true, replace: { status: 202, body: { source: 'response' } } },
+    })
+    const fetcher = vi.fn(async () => new Response('native response'))
+    const fetch = createV3Fetch(fetcher, { getRules: () => [compositeRule] })
+
+    const input = 'https://example.test/api/health'
+    const init = { method: 'POST' }
+    const result = await fetch(input, init)
+
+    expect(fetcher).toHaveBeenCalledOnce()
+    expect(fetcher).toHaveBeenCalledExactlyOnceWith(input, init)
+    expect(result.status).toBe(202)
+    expect(await result.json()).toEqual({ source: 'response' })
+  })
+
+  it('uses the original Fetch call unchanged when every matching redirect is excluded', async () => {
+    const excludedRule = rule('only-excluded', {
+      request: {
+        enabled: true,
+        redirect: { url: 'https://wrong.test/', exclusions: ['skip=1'] },
+      },
+    })
+    const response = new Response('native')
+    const fetcher = vi.fn(async () => response)
+    const onMatched = vi.fn()
+    const onNoMatch = vi.fn()
+    const input = 'https://example.test/api?skip=1'
+    const init = { method: 'POST' }
+    const fetch = createV3Fetch(fetcher, {
+      getRules: () => [excludedRule],
+      onMatched,
+      onNoMatch,
+    })
+
+    const result = await fetch(input, init)
+
+    expect(result).toBe(response)
+    expect(fetcher).toHaveBeenCalledExactlyOnceWith(input, init)
+    expect(onMatched).not.toHaveBeenCalled()
+    expect(onNoMatch).toHaveBeenCalledExactlyOnceWith({ url: input, method: 'POST' })
+  })
+
   it('keeps the native body when response replacement changes only headers', async () => {
     const selectedRule = rule('headers-only', {
       response: { enabled: true, replace: { headers: { 'x-replaced': 'yes' } } },

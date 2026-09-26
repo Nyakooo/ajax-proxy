@@ -260,6 +260,7 @@ describe('RedirectRuleEditor', () => {
     await selects[0].setValue('regex')
     await selects[1].setValue('POST')
     await wrapper.get('.rule-tag-picker input[type="checkbox"]').setValue(true)
+    await wrapper.get('[data-testid="redirect-exclusions"]').setValue('/health\n /admin \n/health')
     await wrapper.get('form').trigger('submit')
 
     expect(wrapper.emitted('save')).toEqual([
@@ -268,6 +269,7 @@ describe('RedirectRuleEditor', () => {
           enabled: true,
           match: { url: '/api', type: 'regex', method: 'POST' },
           redirectUrl: 'https://target.test/redirect',
+          exclusions: ['/health', '/admin'],
           tagIds: ['tag-a'],
         },
       ],
@@ -278,13 +280,13 @@ describe('RedirectRuleEditor', () => {
     const firstRule = {
       enabled: false,
       match: { url: '/first', type: 'normal', method: 'GET' },
-      request: { redirect: { url: 'https://first.test/' } },
+      request: { redirect: { url: 'https://first.test/', exclusions: ['/first-skip'] } },
       tagIds: ['tag-a'],
     }
     const secondRule = {
       enabled: true,
       match: { url: '/second', type: 'exact', method: 'POST' },
-      request: { redirect: { url: 'https://second.test/' } },
+      request: { redirect: { url: 'https://second.test/', exclusions: ['/second-skip'] } },
       tagIds: ['tag-b'],
     }
     const wrapper = mount(RedirectRuleEditor, {
@@ -309,6 +311,7 @@ describe('RedirectRuleEditor', () => {
 
     expect(inputs[0].element.value).toBe('/second')
     expect(inputs[1].element.value).toBe('https://second.test/')
+    expect(wrapper.get('[data-testid="redirect-exclusions"]').element.value).toBe('/second-skip')
     expect(wrapper.findAll('select')[0].element.value).toBe('exact')
     expect(wrapper.findAll('select')[1].element.value).toBe('POST')
     expect(wrapper.findAll('.rule-tag-picker input[type="checkbox"]')[1].element.checked).toBe(true)
@@ -320,6 +323,7 @@ describe('RedirectRuleEditor', () => {
       enabled: true,
       match: { url: '/second', type: 'exact', method: 'POST' },
       redirectUrl: 'https://second.test/',
+      exclusions: ['/second-skip'],
       tagIds: ['tag-b'],
     })
   })

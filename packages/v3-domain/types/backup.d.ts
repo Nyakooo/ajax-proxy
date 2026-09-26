@@ -1,14 +1,14 @@
-import { V3_BACKUP_LEGACY_VERSION, V3_BACKUP_PREVIOUS_VERSION, V3_BACKUP_VERSION } from './backupVersion';
+import { V3_BACKUP_DISABLED_ORIGINS_VERSION, V3_BACKUP_EXACT_MATCH_VERSION, V3_BACKUP_LEGACY_VERSION, V3_BACKUP_PREVIOUS_VERSION, V3_BACKUP_REDIRECT_EXCLUSIONS_VERSION, V3_BACKUP_VERSION } from './backupVersion';
 import type { V3ResponseFunctionResult, V3Rule, V3Tag } from './rules';
 export declare const V3_BACKUP_FORMAT: "ajax-proxy-backup";
-export { V3_BACKUP_LEGACY_VERSION, V3_BACKUP_PREVIOUS_VERSION, V3_BACKUP_VERSION };
+export { V3_BACKUP_DISABLED_ORIGINS_VERSION, V3_BACKUP_EXACT_MATCH_VERSION, V3_BACKUP_LEGACY_VERSION, V3_BACKUP_PREVIOUS_VERSION, V3_BACKUP_REDIRECT_EXCLUSIONS_VERSION, V3_BACKUP_VERSION, };
 export declare const V3_BACKUP_MAX_BYTES: number;
 export declare const V3_FUNCTION_RESULT_MAX_BYTES: number;
 export type V3Mode = 'interceptor' | 'redirector';
 export type V3Language = 'zh-CN' | 'en';
 export interface V3Backup {
     format: typeof V3_BACKUP_FORMAT;
-    formatVersion: typeof V3_BACKUP_VERSION | typeof V3_BACKUP_PREVIOUS_VERSION | typeof V3_BACKUP_LEGACY_VERSION;
+    formatVersion: 3 | 4 | 5 | 6;
     settings: {
         globalEnabled: boolean;
         mode: V3Mode;

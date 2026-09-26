@@ -1,4 +1,4 @@
-import { selectV3Rule } from '@proxy/v3-domain'
+import { isV3RedirectExcluded, selectV3Rule } from '@proxy/v3-domain'
 import type { V3Rule } from '@proxy/v3-domain'
 import type {
   V3FetchOutcomeReason,
@@ -129,7 +129,7 @@ export function createV3Fetch(fetcher: V3Fetch, options: V3FetchOptions): V3Fetc
       options.onFetchOutcome !== undefined && (options.isFetchOutcomeDiagnosticsArmed?.() ?? true)
     const correlationId = outcomeArmed ? createCorrelationId() : undefined
     const redirect = selection.rule.request
-    if (redirect?.enabled) {
+    if (redirect?.enabled && !isV3RedirectExcluded(selection.rule, originalRequest.url)) {
       try {
         requestForResponse = await redirectRequest(
           originalRequest,

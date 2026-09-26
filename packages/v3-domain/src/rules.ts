@@ -25,7 +25,7 @@ export interface V3Rule {
   }
   request?: {
     enabled: boolean
-    redirect: { url: string }
+    redirect: { url: string; exclusions?: string[] }
   }
   response?: {
     enabled: boolean

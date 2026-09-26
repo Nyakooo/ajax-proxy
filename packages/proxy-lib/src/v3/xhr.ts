@@ -1,4 +1,4 @@
-import { selectV3Rule } from '@proxy/v3-domain'
+import { isV3RedirectExcluded, selectV3Rule } from '@proxy/v3-domain'
 import type { V3Rule } from '@proxy/v3-domain'
 import type { V3RuntimeHostOptions } from './runtimeOptions'
 import type { V3FetchOutcomeStage, V3FetchOutcomeStatus, V3XHROutcomeReason } from '@proxy/protocol'
@@ -211,14 +211,17 @@ export function createV3XHR(NativeXHR: V3XHRConstructor, options: V3XHROptions):
               }
 
               const redirect = selected?.request
+              const redirectExcluded = selected
+                ? isV3RedirectExcluded(selected, originalUrl)
+                : false
               const redirectValue: unknown = redirect?.redirect?.url
               const targetUrl =
-                redirect?.enabled && typeof redirectValue === 'string'
+                redirect?.enabled && !redirectExcluded && typeof redirectValue === 'string'
                   ? resolveRedirect(redirectValue, originalUrl)
                   : undefined
               // Only static targets are supported. Function source is intentionally ignored.
               if (!targetUrl) {
-                if (redirect?.enabled && selected) {
+                if (redirect?.enabled && selected && !redirectExcluded) {
                   requestOutcome = {
                     outcome: 'fallback',
                     reason: 'redirect-target-unsupported',

@@ -57,7 +57,7 @@ describe('createV3RuntimeController', () => {
     expect(controller.backup).toBeNull()
     expect(controller.update(backup)).toEqual({ ok: true, status: 'updated' })
     const active = controller.backup
-    expect(active).toEqual({ ...backup, formatVersion: 5, disabledOrigins: [] })
+    expect(active).toEqual({ ...backup, formatVersion: 6, disabledOrigins: [] })
 
     const invalidUpdate = controller.update({ ...backup, formatVersion: 2 })
     expect(invalidUpdate).toMatchObject({

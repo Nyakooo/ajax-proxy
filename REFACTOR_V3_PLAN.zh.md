@@ -169,6 +169,7 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - [x] 建立 Vue 3 面板与 service worker 的独立消息协议及配置 snapshot adapter；读取前校验 V3 配置、清理已知规则命中计数，保存仅写 V3 专属键，并拒绝非 V3 面板页面来源。UI service 校验请求和响应；redirector CRUD 已接入该 adapter。
 - [x] 为 V3 `V3Rule[]` 提供不可变的追加 / 插入 / 替换 / 删除 / 启停 / 调序操作；重复 ID、未知 ID 与边界索引行为有测试，规则数组顺序作为首条命中优先级。
 - [x] 将 V3 候选面板的重定向列表接入 snapshot 和保存流程，实现创建、编辑、删除重定向行为、启停和调序；中英界面显示匹配条件 / 目标地址，删除组合规则中的 redirect action 会保留 response action。Chrome 与 Edge Stable production preview 交互验证通过；V2 substring replacement 和专有 redirect 字段不作隐式映射。
+- [x] 为 V3 重定向 action 增加可编辑 URL 排除子串；定义 V6 严格 schema 与 V3 / V4 / V5 备份规范化，验证 Fetch / XHR 的跳过与组合响应语义，并覆盖面板编辑、备份恢复及扩展 smoke。V2 备份仍不兼容，`ignores` 需在 V3 手工重建。
 - [x] 将 V3 拦截列表接入 JSON 响应规则创建、编辑、删除、启停和首条优先级；校验状态码和 JSON，编辑组合规则时保留 request action 与未编辑响应字段，删除响应 action 时保留 redirect。Chrome 与 Edge Stable production preview 验证通过；函数响应编辑和标签关联已接入；V2 配置自动迁移不在范围内。
 - [x] 将 Vue 3 候选面板独立暂存到扩展 `panels-v3/`，保留 Vue 2 默认 `panels/`；真实扩展中通过 V3 消息保存并重载读取 JSON 响应规则，验证 Fetch 状态 / body 替换、V3 hit 增长及 V2 storage 不变。Chrome for Testing 154 与 Edge Stable 153 真实扩展 smoke 通过；service worker 鉴权按 extension ID + V3 页面 URL 验证，允许真实扩展标签页携带 `sender.tab`。
 - [x] 增强 JSON response 编辑器的语法反馈和示例：解析器能提供准确位置时显示 1-based 行 / 列，不能定位时保留通用错误；支持对象 / 数组 / 字符串 / null 一键插入，输入修正后清除过期语法错误。Chrome for Testing 154 与 Edge Stable 153 的真实扩展 smoke 验证行列、示例、保存和请求响应闭环。
@@ -228,7 +229,7 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - [x] 提供离线规则匹配试算：按当前 V3 完整规则顺序复用 domain matcher，逐条说明首条匹配、优先级遮蔽、停用状态、method / URL 不匹配及无效正则；不发请求、不保存输入或改动运行状态。
 - [x] 评估快捷创建规则：限定从面板内存的最近命中记录发起，预填实际 URL / method，用户编辑审核；默认停用、不复制响应数据或函数代码。
 - [x] 从最近命中记录打开预填规则编辑器，用户确认保存并显式启用后才参与请求处理。
-- [x] 评估更灵活的请求匹配条件及响应配置：先实施完整 URL 精确匹配；暂不扩展请求 header 条件或 V2 忽略列表。静态响应 header 编辑单独评估 Fetch / XHR 能力差异后再定范围。
+- [x] 评估更灵活的请求匹配条件及响应配置：实施完整 URL 精确匹配与 redirect action 局部排除项；不增加请求 header matcher 或全局 ignore。静态响应 header 编辑单独评估 Fetch / XHR 能力差异后再定范围。
 - [x] 为 URL matcher 增加精确相等模式，保留现有 normal 子串与 regex 行为，并让列表、规则编辑器、离线试算和 Fetch / XHR 共用同一语义。
 - [x] 评估静态响应 header 编辑能力及其 Fetch / XHR 差异；由于 XHR 无法忠实替换响应头，本期暂缓增加配置入口，待接受明确的能力降级方案后再决定是否实施。
 - [x] 规则分组沿用现有多标签关联，标签可组合筛选；暂不增加嵌套分组或组级启停 / 优先级语义。
@@ -791,4 +792,5 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - 2026-09-26：完成 SockJS 的 `uuid` 安全更新：仅对 `sockjs@0.3.24` 的依赖边覆盖到包含上游回补修复的 `uuid@11.1.1`；SockJS 实际使用的 `uuid.v4()` 不传入公告涉及的 buffer 参数。真实 CommonJS 加载、SockJS 服务 / 连接与 UUID 生成 smoke 通过。全量 build、345 项 Vitest、typecheck、声明、边界、迁移 lint、格式、生产审计及 1,356 个签名验证通过；CI run `36248918208` 的 Chrome / Edge Stable、Chrome 141 / Edge 140 最低版本及扩展 Fetch / XHR smoke 全绿。完整审计降至 9 条（0 高 / 8 中 / 1 低）。完成 331 / 366 项（90.4%）。
 - 2026-09-26：完成 esbuild 开发依赖修复：将 `minimizer-webpack-plugin` 与 `terser-webpack-plugin` 可选 peer 快照中的 `esbuild@0.14.27` 统一覆盖到已有 `0.25.12`，并通过 Shell Chrome / Vue panels 的真实 Webpack CommonJS transform 与 source map smoke。锁文件审阅未发现其他包版本升级；全量 build、345 项 Vitest、typecheck、声明、边界、迁移 lint、格式、生产审计及 1,286 个 registry 签名验证通过。CI run `36249982627` 的 Chrome / Edge Stable、Chrome 141 / Edge 140 最低版本和扩展 Fetch / XHR smoke 全绿。完整审计降至 8 条（0 高 / 7 中 / 1 低）。完成 332 / 367 项（90.5%）。
 - 2026-09-26：完成 webpack-dev-server 安全升级：从 4.15.2 升至 5.2.6，清理六条 WDS 公告；旧配置迁移至 `allowedHosts: "auto"`，保留本机与 IP Host 访问并拒绝任意 DNS Host。真实 Chrome Stable 通过 LAN IP 页面上的 HMR WebSocket 热更新，无整页刷新或运行时错误；localhost / LAN IP 请求为 200，任意 DNS Host 为 403。Node 24.21 下全量 build、345 项覆盖测试、typecheck、声明、边界、迁移 lint、格式、生产审计及 1,337 个 registry 签名验证通过；CI run [36250903658](https://github.com/Nyakooo/ajax-proxy/actions/runs/36250903658) 的 Chrome / Edge Stable、Chrome 141 / Edge 140 最低版本、构建与 Fetch / XHR smoke 全部通过。完整审计剩余 2 条（Vue 2 模板编译器中危开发依赖、Vue 2 低危生产依赖），无高危项。完成 333 / 368 项（90.5%）。
+- 2026-09-26：完成 V3 redirect exclusions 切片：重定向规则可配置区分大小写的字面 URL 子串，命中后跳过 redirect 并继续下一条；启用 response 的组合规则仍执行 response。备份升至 V6，V3 / V4 / V5 旧 V3 格式读取后规范化，严格限制每条规则 100 项、每项 4096 字符和合计 1 MiB；V2 格式仍保持不兼容。全量 Vitest 35 文件 / 355 项、Vue 3 UI 7 文件 / 34 项、typecheck、clean build、边界、迁移 lint、格式、Chrome Stable 与 Edge Stable runtime smoke、bundled Chromium 扩展 Fetch / XHR 排除 smoke 均通过。完成 334 / 369 项（90.5%）。
 - GitHub 里程碑：[阶段 0](https://github.com/Nyakooo/ajax-proxy/milestone/1)、[阶段 1](https://github.com/Nyakooo/ajax-proxy/milestone/2)、[阶段 2](https://github.com/Nyakooo/ajax-proxy/milestone/3)、[阶段 3](https://github.com/Nyakooo/ajax-proxy/milestone/4)、[阶段 4](https://github.com/Nyakooo/ajax-proxy/milestone/5)、[阶段 5](https://github.com/Nyakooo/ajax-proxy/milestone/6)、[阶段 6](https://github.com/Nyakooo/ajax-proxy/milestone/7)、[阶段 7](https://github.com/Nyakooo/ajax-proxy/milestone/8)；已复现缺陷：[issue #56](https://github.com/Nyakooo/ajax-proxy/issues/56)。

@@ -48,7 +48,7 @@ describe('BackupRestoreDialog', () => {
       [
         {
           ...backupWithFunctionRule,
-          formatVersion: 5,
+          formatVersion: 6,
           disabledOrigins: [],
           rules: [
             {
@@ -167,7 +167,7 @@ describe('BackupRestoreDialog', () => {
     await importButton.trigger('click')
     expect(wrapper.emitted('import-rules')).toHaveLength(1)
     expect(wrapper.emitted('import-rules')?.[0]?.[0]).toMatchObject({
-      formatVersion: 5,
+      formatVersion: 6,
       disabledOrigins: [],
       rules: [{ id: 'tagged-rule', tagIds: ['tag-1'] }],
     })

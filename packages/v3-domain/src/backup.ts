@@ -1,13 +1,23 @@
 import { isValidRegexPattern } from '@proxy/protocol'
 import {
+  V3_BACKUP_DISABLED_ORIGINS_VERSION,
+  V3_BACKUP_EXACT_MATCH_VERSION,
   V3_BACKUP_LEGACY_VERSION,
   V3_BACKUP_PREVIOUS_VERSION,
+  V3_BACKUP_REDIRECT_EXCLUSIONS_VERSION,
   V3_BACKUP_VERSION,
 } from './backupVersion'
 import type { JsonValue, V3ResponseFunctionResult, V3Rule, V3Tag } from './rules'
 
 export const V3_BACKUP_FORMAT = 'ajax-proxy-backup' as const
-export { V3_BACKUP_LEGACY_VERSION, V3_BACKUP_PREVIOUS_VERSION, V3_BACKUP_VERSION }
+export {
+  V3_BACKUP_DISABLED_ORIGINS_VERSION,
+  V3_BACKUP_EXACT_MATCH_VERSION,
+  V3_BACKUP_LEGACY_VERSION,
+  V3_BACKUP_PREVIOUS_VERSION,
+  V3_BACKUP_REDIRECT_EXCLUSIONS_VERSION,
+  V3_BACKUP_VERSION,
+}
 export const V3_BACKUP_MAX_BYTES = 5 * 1024 * 1024
 
 const MAX_RULES = 1000
@@ -18,6 +28,9 @@ const MAX_ID_LENGTH = 256
 const MAX_LABEL_LENGTH = 512
 const MAX_MATCH_URL_LENGTH = 4096
 const MAX_REDIRECT_URL_LENGTH = 4096
+const MAX_REDIRECT_EXCLUSIONS = 100
+const MAX_REDIRECT_EXCLUSION_LENGTH = 4096
+const MAX_REDIRECT_EXCLUSION_BYTES = 1024 * 1024
 const MAX_METHOD_LENGTH = 32
 const MAX_HEADERS = 100
 const MAX_HEADER_NAME_LENGTH = 256
@@ -33,8 +46,7 @@ export type V3Language = 'zh-CN' | 'en'
 
 export interface V3Backup {
   format: typeof V3_BACKUP_FORMAT
-  formatVersion:
-    typeof V3_BACKUP_VERSION | typeof V3_BACKUP_PREVIOUS_VERSION | typeof V3_BACKUP_LEGACY_VERSION
+  formatVersion: 3 | 4 | 5 | 6
   settings: {
     globalEnabled: boolean
     mode: V3Mode
@@ -172,7 +184,8 @@ function validateRule(
   index: number,
   availableTagIds: Set<string>,
   formatVersion: number,
-  issues: V3ValidationIssue[]
+  issues: V3ValidationIssue[],
+  redirectExclusionBytes: { value: number }
 ) {
   const path = `rules[${index}]`
   if (!isObject(value)) {
@@ -241,12 +254,12 @@ function validateRule(
       value.match.type !== undefined &&
       value.match.type !== 'normal' &&
       value.match.type !== 'regex' &&
-      (value.match.type !== 'exact' || formatVersion < V3_BACKUP_PREVIOUS_VERSION)
+      (value.match.type !== 'exact' || formatVersion < V3_BACKUP_EXACT_MATCH_VERSION)
     ) {
       addIssue(
         issues,
         `${path}.match.type`,
-        formatVersion < V3_BACKUP_PREVIOUS_VERSION
+        formatVersion < V3_BACKUP_EXACT_MATCH_VERSION
           ? 'Expected "normal" or "regex" for backup version 3.'
           : 'Expected "normal", "regex", or "exact".'
       )
@@ -262,9 +275,9 @@ function validateRule(
     }
   }
 
-  for (const [actionName, payloadName, allowedActionKeys, allowedPayloadKeys] of [
-    ['request', 'redirect', ['enabled', 'redirect'], ['url']],
-    ['response', 'replace', ['enabled', 'replace'], ['status', 'headers', 'body', 'code']],
+  for (const [actionName, payloadName, allowedActionKeys] of [
+    ['request', 'redirect', ['enabled', 'redirect']],
+    ['response', 'replace', ['enabled', 'replace']],
   ] as const) {
     const action = value[actionName]
     if (action === undefined) continue
@@ -277,7 +290,13 @@ function validateRule(
       addIssue(issues, `${actionPath}.enabled`, 'Expected a boolean.')
     const payload = action[payloadName]
     const payloadPath = `${actionPath}.${payloadName}`
-    if (!isObject(payload) || !hasOnlyKeys(payload, [...allowedPayloadKeys])) {
+    const allowedPayloadKeys =
+      actionName === 'request'
+        ? formatVersion >= V3_BACKUP_REDIRECT_EXCLUSIONS_VERSION
+          ? ['url', 'exclusions']
+          : ['url']
+        : ['status', 'headers', 'body', 'code']
+    if (!isObject(payload) || !hasOnlyKeys(payload, allowedPayloadKeys)) {
       addIssue(issues, payloadPath, 'Expected an action payload with supported fields only.')
       continue
     }
@@ -300,6 +319,42 @@ function validateRule(
           }
         } catch {
           addIssue(issues, `${payloadPath}.url`, 'Expected a valid HTTP(S) or relative URL.')
+        }
+      }
+      if (payload.exclusions !== undefined) {
+        if (
+          !Array.isArray(payload.exclusions) ||
+          payload.exclusions.length > MAX_REDIRECT_EXCLUSIONS
+        ) {
+          addIssue(
+            issues,
+            `${payloadPath}.exclusions`,
+            `Expected at most ${MAX_REDIRECT_EXCLUSIONS} URL exclusion strings.`
+          )
+        } else {
+          const exclusions = new Set<string>()
+          payload.exclusions.forEach((exclusion, exclusionIndex) => {
+            const exclusionPath = `${payloadPath}.exclusions[${exclusionIndex}]`
+            if (
+              typeof exclusion !== 'string' ||
+              exclusion.trim() === '' ||
+              exclusion.length > MAX_REDIRECT_EXCLUSION_LENGTH ||
+              exclusion !== exclusion.trim()
+            ) {
+              addIssue(
+                issues,
+                exclusionPath,
+                `Expected a non-empty URL substring without outer whitespace, up to ${MAX_REDIRECT_EXCLUSION_LENGTH} characters.`
+              )
+            } else {
+              redirectExclusionBytes.value += new TextEncoder().encode(exclusion).length
+              if (exclusions.has(exclusion)) {
+                addIssue(issues, exclusionPath, 'URL exclusions must be unique.')
+              } else {
+                exclusions.add(exclusion)
+              }
+            }
+          })
         }
       }
       continue
@@ -360,7 +415,10 @@ function validateV3BackupUnchecked(value: unknown): V3BackupValidation {
       'settings',
       'tags',
       'rules',
-      ...(value.formatVersion === V3_BACKUP_VERSION ? ['disabledOrigins'] : []),
+      ...(typeof value.formatVersion === 'number' &&
+      value.formatVersion >= V3_BACKUP_DISABLED_ORIGINS_VERSION
+        ? ['disabledOrigins']
+        : []),
     ])
   ) {
     addIssue(issues, '$', 'Backup contains an unsupported field.')
@@ -368,15 +426,19 @@ function validateV3BackupUnchecked(value: unknown): V3BackupValidation {
   if (
     value.formatVersion !== V3_BACKUP_VERSION &&
     value.formatVersion !== V3_BACKUP_PREVIOUS_VERSION &&
+    value.formatVersion !== V3_BACKUP_EXACT_MATCH_VERSION &&
     value.formatVersion !== V3_BACKUP_LEGACY_VERSION
   ) {
     addIssue(
       issues,
       'formatVersion',
-      `Expected version ${V3_BACKUP_LEGACY_VERSION}, ${V3_BACKUP_PREVIOUS_VERSION}, or ${V3_BACKUP_VERSION}.`
+      `Expected version ${V3_BACKUP_LEGACY_VERSION}, ${V3_BACKUP_EXACT_MATCH_VERSION}, ${V3_BACKUP_PREVIOUS_VERSION}, or ${V3_BACKUP_VERSION}.`
     )
   }
-  if (value.formatVersion === V3_BACKUP_VERSION) {
+  if (
+    value.formatVersion === V3_BACKUP_DISABLED_ORIGINS_VERSION ||
+    value.formatVersion === V3_BACKUP_VERSION
+  ) {
     if (!Array.isArray(value.disabledOrigins)) {
       addIssue(issues, 'disabledOrigins', 'Expected an array of canonical HTTP(S) origins.')
     } else {
@@ -469,13 +531,28 @@ function validateV3BackupUnchecked(value: unknown): V3BackupValidation {
       addIssue(issues, 'rules', `At most ${MAX_REGEX_RULES} regular expression rules are allowed.`)
     }
     const ids = new Set<string>()
+    const redirectExclusionBytes = { value: 0 }
     value.rules.forEach((rule, index) => {
-      validateRule(rule, index, availableTagIds, value.formatVersion as number, issues)
+      validateRule(
+        rule,
+        index,
+        availableTagIds,
+        value.formatVersion as number,
+        issues,
+        redirectExclusionBytes
+      )
       if (isObject(rule) && typeof rule.id === 'string') {
         if (ids.has(rule.id)) addIssue(issues, `rules[${index}].id`, 'Rule IDs must be unique.')
         ids.add(rule.id)
       }
     })
+    if (redirectExclusionBytes.value > MAX_REDIRECT_EXCLUSION_BYTES) {
+      addIssue(
+        issues,
+        'rules',
+        `Combined URL exclusions must not exceed ${MAX_REDIRECT_EXCLUSION_BYTES} UTF-8 bytes.`
+      )
+    }
   }
   return issues.length === 0
     ? {
@@ -483,7 +560,11 @@ function validateV3BackupUnchecked(value: unknown): V3BackupValidation {
         data: {
           ...value,
           formatVersion: V3_BACKUP_VERSION,
-          disabledOrigins: value.formatVersion === V3_BACKUP_VERSION ? value.disabledOrigins : [],
+          disabledOrigins:
+            typeof value.formatVersion === 'number' &&
+            value.formatVersion >= V3_BACKUP_DISABLED_ORIGINS_VERSION
+              ? value.disabledOrigins
+              : [],
         } as unknown as V3Backup,
       }
     : { ok: false, issues }

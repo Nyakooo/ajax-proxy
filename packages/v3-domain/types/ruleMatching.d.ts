@@ -8,7 +8,7 @@ export interface V3RuleSelection {
     index: number;
     originalRequest: V3RequestMatchInput;
 }
-export type V3RuleMatchReason = 'matched' | 'lower-priority' | 'global-disabled' | 'rule-disabled' | 'actions-disabled' | 'method-mismatch' | 'url-mismatch' | 'invalid-regex' | 'invalid-match-type' | 'matcher-error' | 'request-too-long';
+export type V3RuleMatchReason = 'matched' | 'matched-request-excluded' | 'lower-priority' | 'global-disabled' | 'rule-disabled' | 'actions-disabled' | 'request-excluded' | 'method-mismatch' | 'url-mismatch' | 'invalid-regex' | 'invalid-match-type' | 'matcher-error' | 'request-too-long';
 export interface V3RuleMatchAnalysis {
     selectedRuleId?: string;
     results: Array<{
@@ -17,6 +17,8 @@ export interface V3RuleMatchAnalysis {
         reason: V3RuleMatchReason;
     }>;
 }
+/** Whether a request matches one of the literal URL substrings excluded by its redirect action. */
+export declare function isV3RedirectExcluded(rule: V3Rule, url: string): boolean;
 /** Explain how the current ordered rules classify a manually supplied request. */
 export declare function analyzeV3RuleMatches(rules: readonly V3Rule[], request: V3RequestMatchInput, globalEnabled?: boolean): V3RuleMatchAnalysis;
 /**

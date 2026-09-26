@@ -937,7 +937,7 @@ async function main() {
       async (key) => (await chrome.storage.local.get(key))[key],
       'ajax-proxy:storage:v3-config'
     )
-    assert.equal(disabledSiteConfig.formatVersion, 5)
+    assert.equal(disabledSiteConfig.formatVersion, 6)
     assert.deepEqual(disabledSiteConfig.disabledOrigins, [siteSwitchOrigin])
     await staleGlobalSwitch.click()
     await staleV3Panel
@@ -1300,10 +1300,7 @@ async function main() {
       await quickRedirectEditor.locator('.editor-field-row select').nth(1).inputValue(),
       'POST'
     )
-    assert.equal(
-      await quickRedirectEditor.locator('.editor-field').last().locator('input').inputValue(),
-      ''
-    )
+    assert.equal(await quickRedirectEditor.getByLabel('Redirect target URL').inputValue(), '')
     assert.equal(await quickRedirectEditor.locator('.editor-enabled input').isChecked(), false)
     await quickRedirectEditor.getByRole('button', { name: 'Cancel', exact: true }).click()
     assert.deepEqual(
@@ -1480,7 +1477,7 @@ async function main() {
     ])
     const exportedBackup = JSON.parse(fs.readFileSync(await backupDownload.path(), 'utf8'))
     assert.equal(exportedBackup.format, 'ajax-proxy-backup')
-    assert.equal(exportedBackup.formatVersion, 5)
+    assert.equal(exportedBackup.formatVersion, 6)
     assert.deepEqual(exportedBackup.disabledOrigins, [])
     assert.deepEqual(exportedBackup.rules, backupConfigBefore.rules)
     assert.equal('hitCounters' in exportedBackup, false)
@@ -1999,7 +1996,7 @@ async function main() {
       async (key) => (await chrome.storage.local.get(key))[key].formatVersion,
       'ajax-proxy:storage:v3-config'
     )
-    assert.equal(exactBackupVersion, 5, 'saving an exact matcher keeps the latest backup format')
+    assert.equal(exactBackupVersion, 6, 'saving an exact matcher keeps the latest backup format')
     assert.deepEqual(quickCreatedRule.response, {
       enabled: true,
       replace: { status: 200, body: {} },
@@ -2139,6 +2136,115 @@ async function main() {
       addedTemplates.every((rule) =>
         rule.response?.replace ? rule.response.replace.code === undefined : true
       )
+    )
+
+    await restartedWorker.evaluate(
+      async ({ key, port }) => {
+        const config = (await chrome.storage.local.get(key))[key]
+        const match = { url: '/api/v3-exclusion', method: 'POST', type: 'normal' }
+        const rules = [
+          {
+            id: 'v3-redirect-exclusion-extension-smoke',
+            enabled: true,
+            match,
+            request: {
+              enabled: true,
+              redirect: {
+                url: `http://127.0.0.1:${port}/mock/blocked`,
+                exclusions: ['skip=1'],
+              },
+            },
+          },
+          {
+            id: 'v3-redirect-exclusion-fallback-extension-smoke',
+            enabled: true,
+            match,
+            request: {
+              enabled: true,
+              redirect: { url: `http://127.0.0.1:${port}/mock/echo` },
+            },
+          },
+          {
+            id: 'v3-redirect-exclusion-native-extension-smoke',
+            enabled: true,
+            match: { url: '/api/v3-native-exclusion', method: 'POST', type: 'normal' },
+            request: {
+              enabled: true,
+              redirect: {
+                url: `http://127.0.0.1:${port}/mock/blocked`,
+                exclusions: ['skip=1'],
+              },
+            },
+          },
+        ]
+        await chrome.storage.local.set({
+          [key]: {
+            ...config,
+            formatVersion: 6,
+            disabledOrigins: [],
+            rules: [...rules, ...config.rules],
+          },
+        })
+      },
+      { key: 'ajax-proxy:storage:v3-config', port }
+    )
+    await restartedPage.reload()
+    const excludedFetchResult = await restartedPage.evaluate(async () => {
+      const response = await fetch('/api/v3-exclusion?skip=1', {
+        method: 'POST',
+        body: 'excluded Fetch',
+      })
+      return { url: response.url, body: await response.json() }
+    })
+    assert.equal(
+      excludedFetchResult.url,
+      `http://127.0.0.1:${port}/mock/echo`,
+      'Fetch should skip the excluded first redirect and use the next rule'
+    )
+    assert.equal(excludedFetchResult.body.body, 'excluded Fetch')
+    const excludedXhrResult = await restartedPage.evaluate(
+      () =>
+        new Promise((resolve, reject) => {
+          const request = new XMLHttpRequest()
+          request.onload = () =>
+            resolve({ url: request.responseURL, body: JSON.parse(request.responseText) })
+          request.onerror = () => reject(new Error('excluded XHR failed'))
+          request.open('POST', '/api/v3-exclusion?skip=1')
+          request.send('excluded XHR')
+        })
+    )
+    assert.equal(
+      excludedXhrResult.url,
+      `http://127.0.0.1:${port}/mock/echo`,
+      'XHR should skip the excluded first redirect and use the next rule'
+    )
+    assert.equal(excludedXhrResult.body.body, 'excluded XHR')
+    const excludedNativeFetch = await restartedPage.evaluate(async () => {
+      const response = await fetch('/api/v3-native-exclusion?skip=1', {
+        method: 'POST',
+        body: 'native Fetch',
+      })
+      return { url: response.url, body: await response.json() }
+    })
+    assert.equal(
+      excludedNativeFetch.url,
+      `http://127.0.0.1:${port}/api/v3-native-exclusion?skip=1`,
+      'Fetch should keep the original URL when every matching redirect is excluded'
+    )
+    const excludedNativeXhr = await restartedPage.evaluate(
+      () =>
+        new Promise((resolve, reject) => {
+          const request = new XMLHttpRequest()
+          request.onload = () => resolve({ url: request.responseURL })
+          request.onerror = () => reject(new Error('excluded native XHR failed'))
+          request.open('POST', '/api/v3-native-exclusion?skip=1')
+          request.send('native XHR')
+        })
+    )
+    assert.equal(
+      excludedNativeXhr.url,
+      `http://127.0.0.1:${port}/api/v3-native-exclusion?skip=1`,
+      'XHR should keep the original URL when every matching redirect is excluded'
     )
 
     console.log(

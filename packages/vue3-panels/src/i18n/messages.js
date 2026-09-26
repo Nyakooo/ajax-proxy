@@ -189,6 +189,8 @@ export const messages = {
       ruleSummary: '第 {index} 条 · {id} · {url}',
       reasons: {
         matched: '首条完整匹配',
+        'matched-request-excluded': '规则已命中，重定向因排除 URL 跳过；响应行为仍按此规则执行',
+        'request-excluded': '请求 URL 命中排除条件；继续检查下一条规则',
         'lower-priority': '前面已有规则命中，此规则不会处理该请求',
         'global-disabled': '全局代理已停用',
         'rule-disabled': '规则已停用',
@@ -224,6 +226,9 @@ export const messages = {
       method: '请求方法',
       targetUrl: '跳转目标 URL',
       targetUrlHelp: '可填写 HTTP(S) 完整地址或相对地址；匹配规则只把请求直接跳转到此目标。',
+      exclusions: '排除 URL（每行一项）',
+      exclusionsHelp:
+        '请求 URL 包含任一项时跳过此规则的重定向，并继续检查下一条规则；按区分大小写的字面子串匹配。若此规则还启用了响应行为，响应行为仍会执行。最多 100 项，每项不超过 4096 个字符。',
       enableRule: '保存后启用此规则',
       cancel: '取消',
       save: '保存规则',
@@ -231,6 +236,8 @@ export const messages = {
       loading: '正在读取配置…',
       requiredFields: '匹配 URL 和跳转目标不能为空。',
       noOuterWhitespace: 'URL 前后不能包含空格。',
+      exclusionsTooMany: '排除 URL 最多可以填写 100 项。',
+      exclusionTooLong: '每项排除 URL 不能超过 4096 个字符。',
       duplicateRule: '规则 ID 冲突，请重试。',
       confirmDelete: '确定删除匹配「{url}」的规则吗？',
       confirmDeleteRedirect: '确定移除「{url}」的重定向行为吗？此规则的响应行为会保留。',
@@ -487,6 +494,9 @@ export const messages = {
       ruleSummary: 'Rule {index} · {id} · {url}',
       reasons: {
         matched: 'First complete match',
+        'matched-request-excluded':
+          'Rule matched; its redirect is excluded, but its response action still applies',
+        'request-excluded': 'Request URL matches an exclusion; checking the next rule',
         'lower-priority': 'An earlier rule matched; this rule will not handle the request',
         'global-disabled': 'Global proxy is disabled',
         'rule-disabled': 'Rule is disabled',
@@ -531,6 +541,9 @@ export const messages = {
       targetUrl: 'Redirect target URL',
       targetUrlHelp:
         'Use an absolute HTTP(S) URL or a relative URL. A match redirects directly to this target.',
+      exclusions: 'Excluded URLs (one per line)',
+      exclusionsHelp:
+        'If the request URL contains any entry, skip this rule’s redirect and check the next rule. Matching is a case-sensitive literal substring. If this rule also has a response action, that action still runs. Up to 100 entries, 4096 characters each.',
       enableRule: 'Enable this rule after saving',
       cancel: 'Cancel',
       save: 'Save rule',
@@ -538,6 +551,8 @@ export const messages = {
       loading: 'Loading configuration…',
       requiredFields: 'Match URL and redirect target are required.',
       noOuterWhitespace: 'URLs cannot have leading or trailing whitespace.',
+      exclusionsTooMany: 'You can enter up to 100 URL exclusions.',
+      exclusionTooLong: 'Each URL exclusion must be 4096 characters or fewer.',
       duplicateRule: 'Rule ID conflict. Please try again.',
       confirmDelete: 'Delete the rule matching “{url}”?',
       confirmDeleteRedirect:
