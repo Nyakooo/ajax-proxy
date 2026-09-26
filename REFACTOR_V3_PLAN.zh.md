@@ -352,7 +352,7 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - [x] BackupRestoreDialog 在规则引用的标签 ID 与当前同 ID 标签名称冲突时禁用追加导入并显示原因；名称一致后可恢复导入。
 - [x] ResponseRuleEditor 函数响应保存必须经过明确安全确认；取消时不保存，确认后 payload 默认保持函数响应停用。
 - [x] RedirectRuleEditor 在编辑同一对话框切换规则时重新加载 match / redirect URL / method / tags，清除旧校验错误，并保存新的规范 payload。
-- [ ] 建立扩展端到端测试，覆盖安装、启停、规则编辑和真实页面请求行为。
+- [x] 建立扩展端到端测试，覆盖安装、启停、规则编辑和真实页面请求行为。
 - [x] 扩展 E2E 覆盖快速创建的精确响应规则被停用并重新加载页面后，原通用规则继续处理匹配请求。
 - [x] 在 CI 中运行测试并生成覆盖率报告。
 - [ ] 按包和风险级别设定覆盖率目标；核心规则匹配、请求改写和配置校验模块以分支覆盖率至少 95% 为目标，并持续向 100% 提升。
@@ -736,4 +736,5 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - 2026-09-26：阶段 6 补 App 级追加导入失败后重试回归，并修复 `BackupRestoreDialog` 漏声明 `import-rules` 导致 App 处理器不执行的缺陷。已有规则 ID 被跳过，同名不同 ID 标签重映射到现有标签；失败时保留旧设置 / 禁用 origin / 规则，重试后只保存追加规则。Vue 3 组件套件 7 个文件 / 32 项测试、改动文件 ESLint / Prettier 通过。完成 270 / 336 项（80.4%）。
 - 2026-09-26：阶段 6 审核并补齐规则匹配验收：现有 V3 URL / regex / method / priority 与 V2 ignore helper 测试完整；新增 legacy `redirectFetch` 逐规则 ignore 命中后将原 Request / init 透传给 native fetch 的集成回归。明确 V3 规则不承载 V2 ignore 列表。定向测试 5 项、改动文件 ESLint / Prettier 通过。完成 272 / 337 项（80.7%）。
 - 2026-09-26：阶段 6 补 V3 Fetch 的 `Request + init` 覆盖：init method/body 参与匹配，并按 POST redirect 且保留请求 body；补 V3 XHR method mismatch：同 URL 的 GET 不命中 POST 替换规则，原生打开及响应保持不变。Fetch / XHR 定向测试 2 个文件 / 64 项通过，改动文件 ESLint / Prettier 通过。完成 276 / 339 项（81.4%）。
+- 2026-09-26：阶段 6 根据现有 CI 证据完成扩展端到端测试验收：`extension:smoke` 在隔离持久化 Chromium profile 加载生产扩展，覆盖启停、规则编辑、Fetch / XHR 真实请求、面板与站点状态同步和 Service Worker 重启；CI 对该 smoke 已通过。品牌 Chrome / Edge Stable 另由 runtime smoke 验证，Playwright 扩展自动化使用配套 Chromium。完成 277 / 339 项（81.7%）。
 - GitHub 里程碑：[阶段 0](https://github.com/Nyakooo/ajax-proxy/milestone/1)、[阶段 1](https://github.com/Nyakooo/ajax-proxy/milestone/2)、[阶段 2](https://github.com/Nyakooo/ajax-proxy/milestone/3)、[阶段 3](https://github.com/Nyakooo/ajax-proxy/milestone/4)、[阶段 4](https://github.com/Nyakooo/ajax-proxy/milestone/5)、[阶段 5](https://github.com/Nyakooo/ajax-proxy/milestone/6)、[阶段 6](https://github.com/Nyakooo/ajax-proxy/milestone/7)、[阶段 7](https://github.com/Nyakooo/ajax-proxy/milestone/8)；已复现缺陷：[issue #56](https://github.com/Nyakooo/ajax-proxy/issues/56)。
