@@ -399,6 +399,31 @@ describe('createV3XHR', () => {
     expect(malformed.response).toBe('{"native":true}')
   })
 
+  it('exposes text replacements and fails open when serializing a replacement throws', () => {
+    const textXhr = makeXHR([
+      rule('text-replacement', {
+        response: { enabled: true, replace: { body: 'replacement text' } },
+      }),
+    ])
+    textXhr.open('POST', 'https://example.test/api', true)
+    textXhr.complete('native text')
+    expect(textXhr.response).toBe('"replacement text"')
+
+    const throwingBody = {
+      toJSON() {
+        throw new Error('cannot serialize replacement')
+      },
+    } as unknown as JsonValue
+    const failedXhr = makeXHR([
+      rule('throwing-replacement', {
+        response: { enabled: true, replace: { body: throwingBody } },
+      }),
+    ])
+    failedXhr.open('POST', 'https://example.test/api', true)
+    failedXhr.complete('native text')
+    expect(failedXhr.response).toBe('native text')
+  })
+
   it('preserves the native responseText error for JSON responseType', () => {
     const selectedRule = rule('json-response-text', {
       response: { enabled: true, replace: { body: { answer: 42 } } },
