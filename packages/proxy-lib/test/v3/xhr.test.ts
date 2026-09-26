@@ -208,6 +208,26 @@ describe('createV3XHR', () => {
     expect(xhr.sentBody).toBe(body)
   })
 
+  it('preserves sensitive request headers when redirecting to another path on the same origin', () => {
+    const xhr = makeXHR([
+      rule('same-origin-redirect', {
+        request: { enabled: true, redirect: { url: 'https://example.test/redirected' } },
+      }),
+    ])
+
+    xhr.open('POST', 'https://example.test/api', true)
+    xhr.setRequestHeader('Authorization', 'Bearer secret')
+    xhr.setRequestHeader('Cookie', 'session=secret')
+    xhr.setRequestHeader('X-Custom-Request', 'custom-value')
+
+    expect(xhr.openArgs).toEqual(['POST', 'https://example.test/redirected', true])
+    expect(xhr.requestHeaders).toEqual([
+      ['Authorization', 'Bearer secret'],
+      ['Cookie', 'session=secret'],
+      ['X-Custom-Request', 'custom-value'],
+    ])
+  })
+
   it('forwards event listener this, target and currentTarget to the public proxy', () => {
     const xhr = makeXHR([
       rule('response', { response: { enabled: true, replace: { body: 'mock' } } }),
