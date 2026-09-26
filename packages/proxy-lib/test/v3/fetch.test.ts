@@ -454,4 +454,32 @@ describe('createV3Fetch', () => {
       ['response', 'fallback', 'response-replacement-failed'],
     ])
   })
+
+  it('fails open with the original bytes when a text snapshot is not valid UTF-8', async () => {
+    const bytes = new Uint8Array([0xff, 0xfe, 0xc3, 0x28])
+    const response = new Response(bytes, { headers: { 'content-type': 'text/plain' } })
+    const executeResponseFunction = vi.fn()
+    const onFunctionError = vi.fn()
+    const onFetchOutcome = vi.fn()
+    const selectedRule = rule('invalid-text-snapshot', {
+      response: { enabled: true, replace: { code: 'return { body: "changed" }' } },
+    })
+    const fetch = createV3Fetch(async () => response, {
+      getRules: () => [selectedRule],
+      executeResponseFunction,
+      onFunctionError,
+      isFetchOutcomeDiagnosticsArmed: () => true,
+      onFetchOutcome,
+    })
+
+    const result = await fetch('https://example.test/api', { method: 'POST' })
+
+    expect(result).toBe(response)
+    expect([...new Uint8Array(await result.arrayBuffer())]).toEqual([...bytes])
+    expect(executeResponseFunction).not.toHaveBeenCalled()
+    expect(onFunctionError.mock.calls[0][2]).toBe('snapshot-unsupported')
+    expect(onFetchOutcome.mock.calls.map((call) => call.slice(2))).toEqual([
+      ['response', 'unsupported', 'response-replacement-unsupported'],
+    ])
+  })
 })
