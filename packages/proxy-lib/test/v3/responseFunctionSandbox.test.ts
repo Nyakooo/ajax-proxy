@@ -261,4 +261,43 @@ describe('createV3ResponseFunctionExecutor', () => {
       expect(frame.contentWindow.postMessage).not.toHaveBeenCalled()
     }
   )
+
+  it('ignores malformed or untrusted ready messages and times out while loading', async () => {
+    vi.useFakeTimers()
+    vi.stubGlobal('HTMLIFrameElement', FakeIFrameElement)
+    const frame = new FakeIFrameElement()
+    const otherWindow = {} as Window
+    let onMessage: ((event: MessageEvent) => void) | undefined
+    const host = {
+      document: { getElementById: vi.fn(() => frame) },
+      addEventListener: vi.fn((_type: string, listener: EventListenerOrEventListenerObject) => {
+        if (typeof listener === 'function') onMessage = listener as (event: MessageEvent) => void
+      }),
+      crypto: { randomUUID: () => 'invalid-ready-execution' },
+    } as unknown as Window
+    const execute = createV3ResponseFunctionExecutor(host)
+    const execution = execute(
+      'return response.body',
+      { url: '/api', method: 'GET' },
+      {
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+        body: 'native',
+      }
+    )
+    await Promise.resolve()
+    const deliver = (origin: string, source: Window, data: unknown) =>
+      onMessage?.({ origin, source, data } as MessageEvent)
+    const ready = { channel: 'ajax-proxy-v3-function-sandbox', type: 'ready' }
+
+    deliver('https://example.test', frame.contentWindow, ready)
+    deliver('null', otherWindow, ready)
+    deliver('null', frame.contentWindow, { ...ready, unexpected: true })
+    expect(frame.contentWindow.postMessage).not.toHaveBeenCalled()
+
+    const rejection = expect(execution).rejects.toThrow('Function sandbox timed out while loading.')
+    await vi.advanceTimersByTimeAsync(5000)
+    await rejection
+  })
 })

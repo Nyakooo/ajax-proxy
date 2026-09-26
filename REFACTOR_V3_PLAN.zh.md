@@ -274,6 +274,7 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - [x] 为 V3 response function executor 覆盖源码长度保护；空白和超过 65,536 字符的代码须在 iframe 查找前被拒绝。
 - [x] 为 V3 response function executor 覆盖并发上限；四个活动执行保留并可完成，第五个在排队前稳定拒绝。
 - [x] 为 V3 response function executor 覆盖 iframe scheme 与 sandbox 路径校验，拒绝普通网页 URL 和扩展内非 sandbox 资源。
+- [x] 为 V3 response function executor 覆盖握手消息的 origin、source 和严格字段校验；不可信 / 畸形 `ready` 不得启用执行。
 - [ ] 完善 Service Worker 消息协议、V3 配置校验及导入 / 导出的边界与错误路径测试。
 - [ ] 为 Vue 组件和关键用户流程编写组件 / 集成测试。
 - [ ] 建立扩展端到端测试，覆盖安装、启停、规则编辑和真实页面请求行为。
@@ -552,4 +553,5 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - 2026-09-26：阶段 6 补齐 sandbox 最大并发回归：四个等待执行的调用均能完成，第五个调用在投递前被稳定拒绝，不影响已接受请求。定向与全量测试、workspace typecheck、改动文件 ESLint / Prettier 通过。完成 160 / 226 项（70.8%）。
 - 2026-09-26：阶段 6 将 XHR `status=0` 保留回归扩展到网络 `error`、`abort` 和 `timeout`，确认 readyState 4 与各终止事件的监听器读取到原生失败响应，不应用 configured success replacement。全量 237 项 Vitest、workspace typecheck、改动文件零告警 ESLint / Prettier 通过。完成 161 / 227 项（71.0%）。
 - 2026-09-26：阶段 6 为 sandbox iframe 验证补回归：拒绝普通网站 URL 与扩展内错误路径，防止 executor 向非 sandbox 页面投递函数代码和快照。全量 239 项 Vitest、workspace typecheck、改动文件零告警 ESLint / Prettier 通过。完成 162 / 228 项（71.1%）。
+- 2026-09-26：阶段 6 补齐 sandbox `ready` 握手校验：错误 origin、错误 source 和含额外字段的消息都不会启动执行；无效握手最终以加载超时稳定失败。全量 240 项 Vitest、workspace typecheck、改动文件零告警 ESLint / Prettier 通过。完成 163 / 229 项（71.2%）。
 - GitHub 里程碑：[阶段 0](https://github.com/Nyakooo/ajax-proxy/milestone/1)、[阶段 1](https://github.com/Nyakooo/ajax-proxy/milestone/2)、[阶段 2](https://github.com/Nyakooo/ajax-proxy/milestone/3)、[阶段 3](https://github.com/Nyakooo/ajax-proxy/milestone/4)、[阶段 4](https://github.com/Nyakooo/ajax-proxy/milestone/5)、[阶段 5](https://github.com/Nyakooo/ajax-proxy/milestone/6)、[阶段 6](https://github.com/Nyakooo/ajax-proxy/milestone/7)、[阶段 7](https://github.com/Nyakooo/ajax-proxy/milestone/8)；已复现缺陷：[issue #56](https://github.com/Nyakooo/ajax-proxy/issues/56)。
