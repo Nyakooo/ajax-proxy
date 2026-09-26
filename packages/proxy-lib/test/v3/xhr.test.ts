@@ -604,6 +604,17 @@ describe('createV3XHR', () => {
     expect(failedOutcome.mock.calls[0]?.slice(2)).toEqual(['request', 'failed', 'send-failed'])
   })
 
+  it('preserves a synchronous send error without reporting an absent redirect outcome', () => {
+    const outcome = vi.fn()
+    const xhr = makeXHR([rule('no-redirect')], undefined, undefined, outcome, true)
+    const sendError = new Error('native send failed')
+    xhr.open('POST', 'https://example.test/api', true)
+    FakeXHR.sendFailure = sendError
+
+    expect(() => xhr.send()).toThrow(sendError)
+    expect(outcome).not.toHaveBeenCalled()
+  })
+
   it('reports response replacement only when a completed response getter returns it', () => {
     const outcome = vi.fn()
     const selectedRule = rule('replace', {
