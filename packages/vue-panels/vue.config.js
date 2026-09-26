@@ -9,7 +9,7 @@ module.exports = {
     host: "0.0.0.0",
     port: 8082,
     hot: true, // 开启热模块加载
-    allowedHosts: "all", // 保持局域网访问
+    allowedHosts: "auto", // 自动允许本机及 IP 访问，并保留 Host 校验
     // proxy: {},
   },
   publicPath: process.env.NODE_ENV === "production" ? "./" : "/",
