@@ -227,6 +227,38 @@ describe('V3 panel configuration adapter', () => {
     })
   })
 
+  it.each([
+    ['a different extension ID', { ...trustedPanelSender, id: 'other-extension' }, undefined],
+    [
+      'a non-V3 extension page',
+      { ...trustedPanelSender, url: 'chrome-extension://test-extension/panels/index.html' },
+      undefined,
+    ],
+    ['a malformed message', trustedPanelSender, { from: NoticeFrom.PANELS, extra: true }],
+  ])(
+    'rejects startup messages from %s before using storage or responding',
+    (_case, sender, value) => {
+      const storage = createStorage()
+      const sendResponse = vi.fn()
+      const handler = createV3PanelStartupMessageHandler({
+        extensionId: 'test-extension',
+        extensionUrl: 'chrome-extension://test-extension/',
+        storageReady: Promise.resolve(),
+        storage,
+      })
+      const message = value ?? {
+        from: NoticeFrom.PANELS,
+        to: NoticeTo.SERVICE_WORKER,
+        key: V3PanelMessageKey.GET_SNAPSHOT,
+      }
+
+      expect(handler(message, sender, sendResponse)).toBe(false)
+      expect(storage.read).not.toHaveBeenCalled()
+      expect(storage.write).not.toHaveBeenCalled()
+      expect(sendResponse).not.toHaveBeenCalled()
+    }
+  )
+
   it('answers startup requests when storage initialization fails', async () => {
     const sendResponse = vi.fn()
     const handler = createV3PanelStartupMessageHandler({
