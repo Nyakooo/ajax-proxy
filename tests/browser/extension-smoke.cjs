@@ -618,11 +618,21 @@ async function main() {
       }
     })
     await v3Panel.goto(`chrome-extension://${extensionId}/panels-v3/index.html`)
+    const v3GlobalSwitch = v3Panel.getByRole('switch', { name: 'Enable Ajax Proxy globally' })
+    await v3GlobalSwitch.click({ trial: true })
     assert.equal(
       codeMirrorLoaded,
       false,
       'CodeMirror must stay unloaded before opening a rule editor'
     )
+    const staleV3Panel = await context.newPage()
+    staleV3Panel.setDefaultTimeout(10000)
+    await staleV3Panel.goto(`chrome-extension://${extensionId}/panels-v3/index.html`)
+    await staleV3Panel.getByRole('button', { name: 'Site switches' }).waitFor()
+    const staleGlobalSwitch = staleV3Panel.getByRole('switch', {
+      name: 'Enable Ajax Proxy globally',
+    })
+    await staleGlobalSwitch.click({ trial: true })
     const siteSwitchOrigin = `http://127.0.0.1:${port}`
     await v3Panel.getByRole('button', { name: 'Site switches' }).click()
     const siteSwitchesDialog = v3Panel.getByRole('dialog', { name: 'Manage site switches' })
@@ -638,6 +648,21 @@ async function main() {
     )
     assert.equal(disabledSiteConfig.formatVersion, 5)
     assert.deepEqual(disabledSiteConfig.disabledOrigins, [siteSwitchOrigin])
+    await staleGlobalSwitch.click()
+    await staleV3Panel
+      .getByText('The configuration changed in another panel.', { exact: false })
+      .waitFor()
+    await staleV3Panel.getByRole('button', { name: 'Load latest configuration' }).waitFor()
+    const configAfterConflict = await restartedWorker.evaluate(
+      async (key) => (await chrome.storage.local.get(key))[key],
+      'ajax-proxy:storage:v3-config'
+    )
+    assert.equal(configAfterConflict.settings.globalEnabled, true)
+    assert.deepEqual(configAfterConflict.disabledOrigins, [siteSwitchOrigin])
+    staleV3Panel.once('dialog', (dialog) => dialog.accept())
+    await staleV3Panel.getByRole('button', { name: 'Load latest configuration' }).click()
+    await staleV3Panel.locator('.operation-alert').waitFor({ state: 'detached' })
+    await staleV3Panel.close()
     await v3Panel.getByRole('button', { name: 'Site switches' }).click()
     const disabledSiteRow = siteSwitchesDialog
       .locator('.disabled-origin-list li')

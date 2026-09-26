@@ -239,6 +239,9 @@ export const messages = {
       moveDown: '降低规则「{url}」的优先级',
       loadFailed: '读取 V3 配置失败：{error}',
       saveFailed: '保存 V3 配置失败：{error}',
+      configConflict: '配置已在其他面板中更新。本地修改未保存；请先加载最新配置。',
+      loadLatest: '加载最新配置',
+      confirmLoadLatest: '加载最新配置会丢弃当前面板中未保存的修改。确定继续吗？',
       validationFailed: '规则未保存：{issue}',
       edit: '编辑',
       delete: '删除',
@@ -545,6 +548,11 @@ export const messages = {
       moveDown: 'Lower the priority of rule “{url}”',
       loadFailed: 'Could not load the V3 configuration: {error}',
       saveFailed: 'Could not save the V3 configuration: {error}',
+      configConflict:
+        'The configuration changed in another panel. Local changes were not saved; load the latest configuration first.',
+      loadLatest: 'Load latest configuration',
+      confirmLoadLatest:
+        'Loading the latest configuration will discard unsaved changes in this panel. Continue?',
       validationFailed: 'Rule not saved: {issue}',
       edit: 'Edit',
       delete: 'Delete',

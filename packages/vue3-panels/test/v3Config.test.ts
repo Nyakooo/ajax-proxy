@@ -9,10 +9,11 @@ const backup = {
   tags: [],
   rules: [],
 }
+const revision = `sha256:${'a'.repeat(64)}`
 
 describe('V3 config panel adapter', () => {
   it('reads a V3 snapshot through a strict extension message', async () => {
-    const response = { ok: true, snapshot: { config: backup, hitCounters: {} } }
+    const response = { ok: true, snapshot: { config: backup, hitCounters: {}, revision } }
     const runtime = { sendMessage: vi.fn().mockResolvedValue(response) }
     const service = createV3ConfigService(runtime)
 
@@ -28,7 +29,7 @@ describe('V3 config panel adapter', () => {
     const runtime = {
       sendMessage: vi.fn().mockResolvedValue({
         ok: true,
-        snapshot: { config: { format: 'v2' }, hitCounters: {} },
+        snapshot: { config: { format: 'v2' }, hitCounters: {}, revision },
       }),
     }
     const service = createV3ConfigService(runtime)
@@ -53,10 +54,10 @@ describe('V3 config panel adapter', () => {
   })
 
   it('validates a config locally before sending SAVE_CONFIG', async () => {
-    const runtime = { sendMessage: vi.fn().mockResolvedValue({ ok: true }) }
+    const runtime = { sendMessage: vi.fn().mockResolvedValue({ ok: true, revision }) }
     const service = createV3ConfigService(runtime)
 
-    await expect(service.saveConfig({ format: 'v2' })).resolves.toMatchObject({
+    await expect(service.saveConfig({ format: 'v2' }, revision)).resolves.toMatchObject({
       ok: false,
       issues: [{ path: 'format' }],
     })
@@ -64,22 +65,25 @@ describe('V3 config panel adapter', () => {
   })
 
   it('sends normalized valid snapshots and explicit clears through SAVE_CONFIG', async () => {
-    const runtime = { sendMessage: vi.fn().mockResolvedValue({ ok: true }) }
+    const runtime = { sendMessage: vi.fn().mockResolvedValue({ ok: true, revision }) }
     const service = createV3ConfigService(runtime)
 
-    await expect(service.saveConfig(backup)).resolves.toEqual({ ok: true })
-    await expect(service.saveConfig(null)).resolves.toEqual({ ok: true })
+    await expect(service.saveConfig(backup, revision)).resolves.toEqual({ ok: true, revision })
+    await expect(service.saveConfig(null, revision)).resolves.toEqual({ ok: true, revision })
     expect(runtime.sendMessage).toHaveBeenNthCalledWith(1, {
       from: NoticeFrom.PANELS,
       to: NoticeTo.SERVICE_WORKER,
       key: V3PanelMessageKey.SAVE_CONFIG,
-      value: { config: { ...backup, formatVersion: 5, disabledOrigins: [] } },
+      value: {
+        config: { ...backup, formatVersion: 5, disabledOrigins: [] },
+        expectedRevision: revision,
+      },
     })
     expect(runtime.sendMessage).toHaveBeenNthCalledWith(2, {
       from: NoticeFrom.PANELS,
       to: NoticeTo.SERVICE_WORKER,
       key: V3PanelMessageKey.SAVE_CONFIG,
-      value: { config: null },
+      value: { config: null, expectedRevision: revision },
     })
   })
 
@@ -87,7 +91,7 @@ describe('V3 config panel adapter', () => {
     const runtime = { sendMessage: vi.fn().mockResolvedValue({ ok: 'yes' }) }
     const service = createV3ConfigService(runtime)
 
-    await expect(service.saveConfig(backup)).resolves.toEqual({
+    await expect(service.saveConfig(backup, revision)).resolves.toEqual({
       ok: false,
       error: 'invalid-response',
     })
@@ -100,16 +104,60 @@ describe('V3 config panel adapter', () => {
         .mockResolvedValueOnce({ ok: false, issues: [{ path: 2, message: 'invalid' }] })
         .mockResolvedValueOnce({
           ok: true,
-          snapshot: { config: backup, hitCounters: {} },
+          snapshot: { config: backup, hitCounters: {}, revision },
           extra: true,
         }),
     }
     const service = createV3ConfigService(runtime)
 
-    await expect(service.saveConfig(backup)).resolves.toEqual({
+    await expect(service.saveConfig(backup, revision)).resolves.toEqual({
       ok: false,
       error: 'invalid-response',
     })
     await expect(service.getSnapshot()).resolves.toEqual({ ok: false, error: 'invalid-response' })
+  })
+
+  it('rejects null and getter-backed save responses without throwing', async () => {
+    const getterBackedResponse = Object.defineProperty({}, 'ok', {
+      enumerable: true,
+      get() {
+        throw new Error('response getter should not escape validation')
+      },
+    })
+    const runtime = {
+      sendMessage: vi.fn().mockResolvedValueOnce(null).mockResolvedValueOnce(getterBackedResponse),
+    }
+    const service = createV3ConfigService(runtime)
+
+    await expect(service.saveConfig(backup, revision)).resolves.toEqual({
+      ok: false,
+      error: 'invalid-response',
+    })
+    await expect(service.saveConfig(backup, revision)).resolves.toEqual({
+      ok: false,
+      error: 'invalid-response',
+    })
+  })
+
+  it('accepts a well-formed conflict snapshot and rejects invalid revision input locally', async () => {
+    const runtime = {
+      sendMessage: vi.fn().mockResolvedValue({
+        ok: false,
+        error: 'config-conflict',
+        current: { config: backup, revision },
+      }),
+    }
+    const service = createV3ConfigService(runtime)
+
+    await expect(service.saveConfig(backup, revision)).resolves.toEqual({
+      ok: false,
+      error: 'config-conflict',
+      current: { config: backup, revision },
+    })
+    await expect(service.saveConfig(backup, '')).resolves.toEqual({
+      ok: false,
+      error: 'invalid-revision',
+    })
+    expect(runtime.sendMessage).toHaveBeenCalledOnce()
   })
 })

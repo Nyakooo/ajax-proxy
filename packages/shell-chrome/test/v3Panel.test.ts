@@ -57,10 +57,29 @@ describe('V3 panel configuration adapter', () => {
 
     await expect(readV3PanelSnapshot(storage)).resolves.toEqual({
       ok: true,
-      snapshot: { config: null, hitCounters: {} },
+      snapshot: { config: null, hitCounters: {}, revision: 'empty-v3-config' },
     })
     expect(storage.read).toHaveBeenCalledOnce()
     expect(storage.read).toHaveBeenCalledWith(StorageKey.V3_CONFIG, null)
+  })
+
+  it('uses the same SHA-256 revision for equivalent config regardless of input key order', async () => {
+    const reverseKeys = (value: unknown): unknown => {
+      if (Array.isArray(value)) return value.map(reverseKeys)
+      if (typeof value !== 'object' || value === null) return value
+      return Object.fromEntries(
+        Object.entries(value)
+          .reverse()
+          .map(([key, nested]) => [key, reverseKeys(nested)])
+      )
+    }
+    const first = await readV3PanelSnapshot(createStorage({ [StorageKey.V3_CONFIG]: backup }))
+    const second = await readV3PanelSnapshot(
+      createStorage({ [StorageKey.V3_CONFIG]: reverseKeys(backup) })
+    )
+
+    expect(first.ok && second.ok).toBe(true)
+    if (first.ok && second.ok) expect(first.snapshot.revision).toBe(second.snapshot.revision)
   })
 
   it('validates the stored snapshot and keeps only counters for known rules', async () => {
@@ -69,11 +88,12 @@ describe('V3 panel configuration adapter', () => {
       [StorageKey.V3_HITS]: { 'rule-1': 5, deleted: 90, unsafe: Number.MAX_SAFE_INTEGER + 1 },
     })
 
-    await expect(readV3PanelSnapshot(storage)).resolves.toEqual({
+    await expect(readV3PanelSnapshot(storage)).resolves.toMatchObject({
       ok: true,
       snapshot: {
         config: { ...backup, formatVersion: 5, disabledOrigins: [] },
         hitCounters: { 'rule-1': 5 },
+        revision: expect.stringMatching(/^sha256:[a-f0-9]{64}$/),
       },
     })
     expect(storage.read).toHaveBeenCalledWith(StorageKey.V3_CONFIG, null)
@@ -105,7 +125,7 @@ describe('V3 panel configuration adapter', () => {
     const storage = createStorage()
     vi.mocked(storage.write).mockRejectedValueOnce(new Error('storage unavailable'))
 
-    await expect(saveV3PanelConfig(backup, storage)).resolves.toEqual({
+    await expect(saveV3PanelConfig(backup, 'empty-v3-config', storage)).resolves.toEqual({
       ok: false,
       error: 'storage-write-failed',
     })
@@ -114,7 +134,9 @@ describe('V3 panel configuration adapter', () => {
   it('rejects invalid backups without writing any V3 or V2 key', async () => {
     const storage = createStorage()
 
-    await expect(saveV3PanelConfig({ format: 'v2' }, storage)).resolves.toMatchObject({
+    await expect(
+      saveV3PanelConfig({ format: 'v2' }, 'empty-v3-config', storage)
+    ).resolves.toMatchObject({
       ok: false,
       issues: [{ path: 'format' }],
     })
@@ -124,7 +146,8 @@ describe('V3 panel configuration adapter', () => {
   it('writes a validated V3 snapshot only to its dedicated storage key', async () => {
     const storage = createStorage()
 
-    await expect(saveV3PanelConfig(backup, storage)).resolves.toEqual({ ok: true })
+    const result = await saveV3PanelConfig(backup, 'empty-v3-config', storage)
+    expect(result).toMatchObject({ ok: true, revision: expect.stringMatching(/^sha256:/) })
     expect(storage.write).toHaveBeenCalledOnce()
     expect(storage.write).toHaveBeenCalledWith(StorageKey.V3_CONFIG, {
       ...backup,
@@ -137,7 +160,10 @@ describe('V3 panel configuration adapter', () => {
   it('supports an explicit null clear without changing V2 settings', async () => {
     const storage = createStorage()
 
-    await expect(saveV3PanelConfig(null, storage)).resolves.toEqual({ ok: true })
+    await expect(saveV3PanelConfig(null, 'empty-v3-config', storage)).resolves.toEqual({
+      ok: true,
+      revision: 'empty-v3-config',
+    })
     expect(storage.write).toHaveBeenCalledWith(StorageKey.V3_CONFIG, null)
     expect(storage.write).not.toHaveBeenCalledWith(StorageKey.GLOBAL_SWITCH, expect.anything())
   })
@@ -146,7 +172,7 @@ describe('V3 panel configuration adapter', () => {
     const storage = createStorage()
     vi.mocked(storage.write).mockRejectedValueOnce(new Error('storage unavailable'))
 
-    await expect(saveV3PanelConfig(null, storage)).resolves.toEqual({
+    await expect(saveV3PanelConfig(null, 'empty-v3-config', storage)).resolves.toEqual({
       ok: false,
       error: 'storage-write-failed',
     })
@@ -185,7 +211,7 @@ describe('V3 panel configuration adapter', () => {
     await vi.waitFor(() =>
       expect(sendResponse).toHaveBeenCalledWith({
         ok: true,
-        snapshot: { config: null, hitCounters: {} },
+        snapshot: { config: null, hitCounters: {}, revision: 'empty-v3-config' },
       })
     )
     expect(handler(message, { ...trustedPanelSender, url: 'https://example.test/' })).toBe(false)
@@ -200,7 +226,7 @@ describe('V3 panel configuration adapter', () => {
     await vi.waitFor(() =>
       expect(sendResponse).toHaveBeenCalledWith({
         ok: true,
-        snapshot: { config: null, hitCounters: {} },
+        snapshot: { config: null, hitCounters: {}, revision: 'empty-v3-config' },
       })
     )
   })
@@ -212,11 +238,16 @@ describe('V3 panel configuration adapter', () => {
       from: NoticeFrom.PANELS,
       to: NoticeTo.SERVICE_WORKER,
       key: V3PanelMessageKey.SAVE_CONFIG,
-      value: { config: backup },
+      value: { config: backup, expectedRevision: 'empty-v3-config' },
     }
 
     expect(handler(message, trustedPanelSender)).toBe(true)
-    await vi.waitFor(() => expect(sendResponse).toHaveBeenCalledWith({ ok: true }))
+    await vi.waitFor(() =>
+      expect(sendResponse).toHaveBeenCalledWith({
+        ok: true,
+        revision: expect.stringMatching(/^sha256:/),
+      })
+    )
     expect(storage.write).toHaveBeenCalledWith(StorageKey.V3_CONFIG, {
       ...backup,
       formatVersion: 5,
@@ -232,7 +263,7 @@ describe('V3 panel configuration adapter', () => {
       from: NoticeFrom.PANELS,
       to: NoticeTo.SERVICE_WORKER,
       key: V3PanelMessageKey.SAVE_CONFIG,
-      value: { config: backup },
+      value: { config: backup, expectedRevision: 'empty-v3-config' },
     }
 
     expect(handler(message, trustedPanelSender)).toBe(true)
@@ -247,7 +278,46 @@ describe('V3 panel configuration adapter', () => {
       formatVersion: 5,
       disabledOrigins: [],
     })
-    expect(storage.read).not.toHaveBeenCalled()
+    expect(storage.read).toHaveBeenCalledExactlyOnceWith(StorageKey.V3_CONFIG, null)
+  })
+
+  it('serializes concurrent saves and rejects the second stale revision without overwriting', async () => {
+    const storage = createStorage()
+    const secondConfig = {
+      ...backup,
+      settings: { ...backup.settings, globalEnabled: false },
+    }
+
+    const results = await Promise.all([
+      saveV3PanelConfig(backup, 'empty-v3-config', storage),
+      saveV3PanelConfig(secondConfig, 'empty-v3-config', storage),
+    ])
+
+    expect(results.filter((result) => result.ok)).toHaveLength(1)
+    expect(
+      results.filter((result) => !result.ok && result.error === 'config-conflict')
+    ).toHaveLength(1)
+    expect(storage.write).toHaveBeenCalledOnce()
+    const conflict = results.find((result) => !result.ok && result.error === 'config-conflict')
+    expect(conflict).toMatchObject({
+      error: 'config-conflict',
+      current: { revision: expect.stringMatching(/^sha256:/) },
+    })
+    expect(conflict.current.config.formatVersion).toBe(5)
+    expect(conflict.current.config.settings.globalEnabled).toBe(results[0].ok)
+    const success = results.find((result) => result.ok)
+    expect(success && conflict.current.revision).toBe(success?.revision)
+  })
+
+  it('fails closed when reading the current revision fails before save', async () => {
+    const storage = createStorage()
+    vi.mocked(storage.read).mockRejectedValueOnce(new Error('storage unavailable'))
+
+    await expect(saveV3PanelConfig(backup, 'empty-v3-config', storage)).resolves.toEqual({
+      ok: false,
+      error: 'storage-read-failed',
+    })
+    expect(storage.write).not.toHaveBeenCalled()
   })
 
   it('registers V3 requests before storage is ready and handles them after initialization', async () => {
@@ -267,14 +337,19 @@ describe('V3 panel configuration adapter', () => {
       from: NoticeFrom.PANELS,
       to: NoticeTo.SERVICE_WORKER,
       key: V3PanelMessageKey.SAVE_CONFIG,
-      value: { config: backup },
+      value: { config: backup, expectedRevision: 'empty-v3-config' },
     }
 
     expect(handler(message, trustedPanelSender, sendResponse)).toBe(true)
     expect(storage.write).not.toHaveBeenCalled()
     resolveStorageReady()
 
-    await vi.waitFor(() => expect(sendResponse).toHaveBeenCalledWith({ ok: true }))
+    await vi.waitFor(() =>
+      expect(sendResponse).toHaveBeenCalledWith({
+        ok: true,
+        revision: expect.stringMatching(/^sha256:/),
+      })
+    )
     expect(storage.write).toHaveBeenCalledWith(StorageKey.V3_CONFIG, {
       ...backup,
       formatVersion: 5,
@@ -325,7 +400,7 @@ describe('V3 panel configuration adapter', () => {
       from: NoticeFrom.PANELS,
       to: NoticeTo.SERVICE_WORKER,
       key: V3PanelMessageKey.SAVE_CONFIG,
-      value: { config: backup },
+      value: { config: backup, expectedRevision: 'empty-v3-config' },
     }
 
     expect(handler(message, trustedPanelSender, sendResponse)).toBe(true)

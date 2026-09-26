@@ -53,6 +53,8 @@ const initialConfig = () => ({
   rules: [],
   disabledOrigins: [],
 })
+const initialRevision = `sha256:${'a'.repeat(64)}`
+const savedRevision = `sha256:${'b'.repeat(64)}`
 
 let mountedWrapper
 let previousChrome
@@ -71,15 +73,28 @@ async function mountApp(saveResponses = [], startingConfig = initialConfig()) {
   i18n.global.locale.value = 'zh-CN'
   previousChrome = globalThis.chrome
   let storedConfig = structuredClone(startingConfig)
+  let storedRevision = initialRevision
   const sentMessages = []
   const sendMessage = vi.fn(async (message) => {
     sentMessages.push(message)
     if (message.key === V3PanelMessageKey.GET_SNAPSHOT) {
-      return { ok: true, snapshot: { config: storedConfig, hitCounters: {} } }
+      return {
+        ok: true,
+        snapshot: { config: storedConfig, hitCounters: {}, revision: storedRevision },
+      }
     }
     if (message.key === V3PanelMessageKey.SAVE_CONFIG) {
       const response = saveResponses.shift() ?? { ok: true }
-      if (response.ok) storedConfig = message.value.config
+      if (response.error === 'config-conflict') {
+        storedConfig = response.current.config
+        storedRevision = response.current.revision
+        return response
+      }
+      if (response.ok) {
+        storedConfig = message.value.config
+        storedRevision = savedRevision
+        return { ...response, revision: storedRevision }
+      }
       return response
     }
     throw new Error(`Unexpected extension message: ${message.key}`)
@@ -195,6 +210,46 @@ describe('App global switch persistence flow', () => {
     ).toBe('false')
     expect(wrapper.get('.enable-control').text()).toContain('代理已停用')
     expect(wrapper.find('.sidebar-footer').text()).toContain('规则暂不作用于页面')
+  })
+})
+
+describe('App concurrent configuration conflict flow', () => {
+  it('requires confirmation before loading the latest config after a conflict', async () => {
+    const remoteConfig = {
+      ...initialConfig(),
+      settings: { ...initialConfig().settings, globalEnabled: false },
+    }
+    const remoteRevision = `sha256:${'c'.repeat(64)}`
+    const { wrapper, sentMessages } = await mountApp([
+      {
+        ok: false,
+        error: 'config-conflict',
+        current: { config: remoteConfig, revision: remoteRevision },
+      },
+    ])
+    const confirm = vi.spyOn(globalThis, 'confirm').mockReturnValue(false)
+
+    await wrapper.get('[role="switch"][aria-label="全局启用 Ajax Proxy"]').trigger('click')
+    await flushPromises()
+    expect(wrapper.get('.operation-alert').text()).toContain('配置已在其他面板中更新')
+    expect(wrapper.get('.operation-alert').text()).toContain('加载最新配置')
+    expect(sentMessages.at(-1).value.expectedRevision).toBe(initialRevision)
+
+    await buttonByText(wrapper, '加载最新配置').trigger('click')
+    await flushPromises()
+    expect(confirm).toHaveBeenCalledOnce()
+    expect(wrapper.get('.operation-alert').exists()).toBe(true)
+
+    confirm.mockReturnValue(true)
+    await buttonByText(wrapper, '加载最新配置').trigger('click')
+    await flushPromises()
+    expect(wrapper.find('.operation-alert').exists()).toBe(false)
+    expect(
+      wrapper.get('[role="switch"][aria-label="全局启用 Ajax Proxy"]').attributes('aria-checked')
+    ).toBe('false')
+    expect(
+      sentMessages.filter((message) => message.key === V3PanelMessageKey.GET_SNAPSHOT)
+    ).toHaveLength(2)
   })
 })
 

@@ -17,7 +17,7 @@ export type V3PanelSaveConfigRequest = {
   from: NoticeFrom.PANELS
   to: NoticeTo.SERVICE_WORKER
   key: typeof V3PanelMessageKey.SAVE_CONFIG
-  value: { config: unknown }
+  value: { config: unknown; expectedRevision: string }
 }
 
 export type V3PanelMessage = V3PanelGetSnapshotRequest | V3PanelSaveConfigRequest
@@ -25,16 +25,21 @@ export type V3PanelMessage = V3PanelGetSnapshotRequest | V3PanelSaveConfigReques
 export type V3PanelGetSnapshotResponse =
   | {
       ok: true
-      snapshot: { config: unknown | null; hitCounters: Record<string, number> }
+      snapshot: { config: unknown | null; hitCounters: Record<string, number>; revision: string }
     }
   | { ok: false; issues?: V3PanelValidationIssue[]; error?: 'storage-read-failed' }
 
 export type V3PanelSaveConfigResponse =
-  | { ok: true }
+  | { ok: true; revision: string }
   | {
       ok: false
       issues?: V3PanelValidationIssue[]
-      error?: 'storage-write-failed'
+      error?: 'storage-write-failed' | 'storage-read-failed'
+    }
+  | {
+      ok: false
+      error: 'config-conflict'
+      current: { config: unknown | null; revision: string }
     }
 
 function isPlainRecord(value: unknown): value is Record<string, unknown> {
@@ -92,6 +97,7 @@ export function isV3PanelSaveConfigRequest(value: unknown): value is V3PanelSave
     const messageValue = getOwnDataProperty(value, 'value')
     if (!messageValue.ok || !isPlainRecord(messageValue.value)) return false
     const config = getOwnDataProperty(messageValue.value, 'config')
+    const expectedRevision = getOwnDataProperty(messageValue.value, 'expectedRevision')
     return (
       hasExactlyKeys(value, ['from', 'to', 'key', 'value']) &&
       from.ok &&
@@ -100,8 +106,10 @@ export function isV3PanelSaveConfigRequest(value: unknown): value is V3PanelSave
       to.value === NoticeTo.SERVICE_WORKER &&
       key.ok &&
       key.value === V3PanelMessageKey.SAVE_CONFIG &&
-      hasExactlyKeys(messageValue.value, ['config']) &&
-      config.ok
+      hasExactlyKeys(messageValue.value, ['config', 'expectedRevision']) &&
+      config.ok &&
+      expectedRevision.ok &&
+      typeof expectedRevision.value === 'string'
     )
   } catch {
     return false

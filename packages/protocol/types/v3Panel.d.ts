@@ -18,6 +18,7 @@ export type V3PanelSaveConfigRequest = {
     key: typeof V3PanelMessageKey.SAVE_CONFIG;
     value: {
         config: unknown;
+        expectedRevision: string;
     };
 };
 export type V3PanelMessage = V3PanelGetSnapshotRequest | V3PanelSaveConfigRequest;
@@ -26,6 +27,7 @@ export type V3PanelGetSnapshotResponse = {
     snapshot: {
         config: unknown | null;
         hitCounters: Record<string, number>;
+        revision: string;
     };
 } | {
     ok: false;
@@ -34,10 +36,18 @@ export type V3PanelGetSnapshotResponse = {
 };
 export type V3PanelSaveConfigResponse = {
     ok: true;
+    revision: string;
 } | {
     ok: false;
     issues?: V3PanelValidationIssue[];
-    error?: 'storage-write-failed';
+    error?: 'storage-write-failed' | 'storage-read-failed';
+} | {
+    ok: false;
+    error: 'config-conflict';
+    current: {
+        config: unknown | null;
+        revision: string;
+    };
 };
 /** Guard the strict panel-to-service-worker V3 snapshot request envelope. */
 export declare function isV3PanelGetSnapshotRequest(value: unknown): value is V3PanelGetSnapshotRequest;

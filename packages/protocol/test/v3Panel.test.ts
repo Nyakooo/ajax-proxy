@@ -19,7 +19,7 @@ const saveConfigMessage = {
   from: NoticeFrom.PANELS,
   to: NoticeTo.SERVICE_WORKER,
   key: V3PanelMessageKey.SAVE_CONFIG,
-  value: { config: null },
+  value: { config: null, expectedRevision: 'empty-v3-config' },
 }
 
 describe('V3 panel message guard', () => {
@@ -28,7 +28,12 @@ describe('V3 panel message guard', () => {
     expect(isV3PanelSaveConfigRequest(saveConfigMessage)).toBe(true)
     expect(isV3PanelMessage(getSnapshotMessage)).toBe(true)
     expect(isV3PanelMessage(saveConfigMessage)).toBe(true)
-    expect(isV3PanelMessage({ ...saveConfigMessage, value: { config: undefined } })).toBe(true)
+    expect(
+      isV3PanelMessage({
+        ...saveConfigMessage,
+        value: { config: undefined, expectedRevision: 'empty-v3-config' },
+      })
+    ).toBe(true)
   })
 
   it('rejects extra or missing top-level fields', () => {
@@ -46,17 +51,26 @@ describe('V3 panel message guard', () => {
     expect(isV3PanelMessage({ ...getSnapshotMessage, key: NoticeKey.V3_CONFIG })).toBe(false)
   })
 
-  it('requires SAVE_CONFIG value to be a plain object with config only', () => {
+  it('requires SAVE_CONFIG value to include only config and a string revision', () => {
     expect(isV3PanelMessage({ ...saveConfigMessage, value: null })).toBe(false)
     expect(isV3PanelMessage({ ...saveConfigMessage, value: [] })).toBe(false)
     expect(isV3PanelMessage({ ...saveConfigMessage, value: {} })).toBe(false)
-    expect(isV3PanelMessage({ ...saveConfigMessage, value: { config: null, extra: true } })).toBe(
-      false
-    )
     expect(
       isV3PanelMessage({
         ...saveConfigMessage,
-        value: Object.assign(Object.create({ inherited: true }), { config: null }),
+        value: { config: null, expectedRevision: 'empty-v3-config', extra: true },
+      })
+    ).toBe(false)
+    expect(
+      isV3PanelMessage({ ...saveConfigMessage, value: { config: null, expectedRevision: 42 } })
+    ).toBe(false)
+    expect(
+      isV3PanelMessage({
+        ...saveConfigMessage,
+        value: Object.assign(Object.create({ inherited: true }), {
+          config: null,
+          expectedRevision: 'empty-v3-config',
+        }),
       })
     ).toBe(false)
   })
@@ -92,7 +106,13 @@ describe('V3 panel message guard', () => {
     Object.defineProperty(accessorGet, 'key', { enumerable: true, get: getKey })
     const accessorSave = {
       ...saveConfigMessage,
-      value: Object.defineProperty({}, 'config', { enumerable: true, get: getConfig }),
+      value: Object.defineProperties(
+        {},
+        {
+          config: { enumerable: true, get: getConfig },
+          expectedRevision: { enumerable: true, value: 'empty-v3-config' },
+        }
+      ),
     }
 
     expect(isV3PanelGetSnapshotRequest(accessorGet)).toBe(false)

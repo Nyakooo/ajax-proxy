@@ -76,6 +76,8 @@ const ruleMatchTypeFilter = ref('all')
 const selectedTagId = ref('')
 const selectedRuleIds = ref([])
 const config = ref(createEmptyConfig())
+const configRevision = ref('')
+const configConflict = ref(false)
 const hitCounters = ref({})
 const recentMatches = ref([])
 const recentFunctionErrors = ref([])
@@ -491,6 +493,7 @@ onMounted(async () => {
             disabledOrigins: snapshotConfig.disabledOrigins ?? [],
           }
         : createEmptyConfig()
+      configRevision.value = result.snapshot.revision
       hitCounters.value = result.snapshot.hitCounters
       if (snapshotConfig) locale.value = snapshotConfig.settings.language
       configReady.value = true
@@ -534,6 +537,7 @@ onBeforeUnmount(() => {
 
 async function persistConfig(nextConfig) {
   operationError.value = ''
+  configConflict.value = false
   nextConfig = {
     ...nextConfig,
     formatVersion: v3BackupVersion,
@@ -544,16 +548,55 @@ async function persistConfig(nextConfig) {
     return true
   }
   saving.value = true
-  const result = await configService.saveConfig(nextConfig)
+  const result = await configService.saveConfig(nextConfig, configRevision.value)
   saving.value = false
   if (!result.ok) {
-    operationError.value = result.issues?.[0]
-      ? t('editor.validationFailed', { issue: result.issues[0].message })
-      : t('editor.saveFailed', { error: result.error ?? 'invalid-response' })
+    if (result.error === 'config-conflict') {
+      configConflict.value = true
+      operationError.value = t('editor.configConflict')
+    } else {
+      operationError.value = result.issues?.[0]
+        ? t('editor.validationFailed', { issue: result.issues[0].message })
+        : t('editor.saveFailed', { error: result.error ?? 'invalid-response' })
+    }
     return false
   }
   config.value = nextConfig
+  configRevision.value = result.revision
   return true
+}
+
+async function loadLatestConfig() {
+  if (!configConflict.value || !globalThis.confirm(t('editor.confirmLoadLatest'))) return
+  saving.value = true
+  const result = await configService.getSnapshot()
+  saving.value = false
+  if (!result.ok) {
+    operationError.value = t('editor.loadFailed', { error: result.error ?? 'invalid-response' })
+    return
+  }
+  const snapshotConfig = result.snapshot.config
+  config.value = snapshotConfig
+    ? {
+        ...snapshotConfig,
+        formatVersion: v3BackupVersion,
+        disabledOrigins: snapshotConfig.disabledOrigins ?? [],
+      }
+    : createEmptyConfig()
+  configRevision.value = result.snapshot.revision
+  if (snapshotConfig) locale.value = snapshotConfig.settings.language
+  configConflict.value = false
+  operationError.value = ''
+  editorOpen.value = false
+  editingRule.value = null
+  editorIssue.value = ''
+  responseEditorOpen.value = false
+  editingResponseRule.value = null
+  responseEditorIssue.value = ''
+  siteSwitchesDialogOpen.value = false
+  ruleTemplatesDialogOpen.value = false
+  backupDialogOpen.value = false
+  ruleTagsDialogOpen.value = false
 }
 
 async function restoreBackup(backup) {
@@ -1206,6 +1249,14 @@ async function moveRule(rule, targetRule) {
 
           <div v-if="operationError" class="operation-alert" role="alert">
             {{ operationError }}
+            <AppButton
+              v-if="configConflict"
+              :label="t('editor.loadLatest')"
+              severity="secondary"
+              outlined
+              :disabled="saving"
+              @click="loadLatestConfig"
+            />
           </div>
 
           <div
