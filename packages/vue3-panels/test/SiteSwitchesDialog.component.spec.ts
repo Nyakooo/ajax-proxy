@@ -1,6 +1,6 @@
 import { mount } from '@vue/test-utils'
 import { nextTick } from 'vue'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import SiteSwitchesDialog from '../src/components/SiteSwitchesDialog.vue'
 import ResponseRuleEditor from '../src/components/ResponseRuleEditor.vue'
 import { i18n } from '../src/i18n/index.js'
@@ -99,8 +99,39 @@ describe('ResponseRuleEditor', () => {
     expect(wrapper.get('[role="alert"]').text()).toBe('状态码必须是 200 到 599 之间的整数。')
     expect(wrapper.emitted('save')).toBeUndefined()
   })
+
+  it('requires confirmation before saving a disabled function response rule', async () => {
+    const wrapper = mount(ResponseRuleEditor, {
+      props: { open: true },
+      global: { plugins: [i18n] },
+    })
+    await nextTick()
+    await wrapper.get('.editor-field input').setValue('/api')
+    await wrapper.get('input[value="function"]').setValue(true)
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false)
+
+    await wrapper.get('form').trigger('submit')
+    expect(confirm).toHaveBeenCalledOnce()
+    expect(wrapper.emitted('save')).toBeUndefined()
+
+    confirm.mockReturnValue(true)
+    await wrapper.get('form').trigger('submit')
+    expect(wrapper.emitted('save')).toEqual([
+      [
+        {
+          enabled: true,
+          match: { url: '/api', type: 'normal', method: 'ANY' },
+          mode: 'function',
+          code: 'return { body: { ok: true } }',
+          responseEnabled: false,
+          tagIds: [],
+        },
+      ],
+    ])
+  })
 })
 
 afterEach(() => {
+  vi.restoreAllMocks()
   document.body.innerHTML = ''
 })
