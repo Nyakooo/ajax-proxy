@@ -98,6 +98,56 @@ describe('createV3RuntimeController', () => {
     expect(dispatchEvent).not.toHaveBeenCalled()
   })
 
+  it('keeps Fetch and XHR native when the global V3 switch is off', async () => {
+    const dispatchEvent = vi.fn()
+    const nativeResponse = new Response('native')
+    const fetcher = vi.fn(async () => nativeResponse)
+    const open = vi.spyOn(RuntimeXHR.prototype, 'open')
+    const send = vi.spyOn(RuntimeXHR.prototype, 'send')
+    const host = {
+      location: { origin: 'https://example.test' },
+      dispatchEvent,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    } as unknown as Window
+    const controller = createV3RuntimeController(
+      host,
+      fetcher as typeof window.fetch,
+      RuntimeXHR as unknown as typeof window.XMLHttpRequest
+    )
+    controller.update({
+      ...backup,
+      settings: { ...backup.settings, globalEnabled: false },
+      rules: [
+        {
+          id: 'global-off-rule',
+          enabled: true,
+          match: { url: '/api', method: 'GET' },
+          response: { enabled: true, replace: { body: { intercepted: true } } },
+        },
+      ],
+    })
+    controller.setDiagnosticsArmed(true)
+    controller.setFetchOutcomeDiagnosticsArmed(true)
+
+    const response = await controller.fetch('https://example.test/api')
+    expect(response).toBe(nativeResponse)
+    expect(fetcher).toHaveBeenCalledOnce()
+
+    const xhr = new controller.xhr() as unknown as RuntimeXHR
+    xhr.open('GET', 'https://example.test/api')
+    xhr.send()
+    xhr.complete('native XHR body')
+
+    expect(open).toHaveBeenCalledOnce()
+    expect(open).toHaveBeenCalledWith('GET', 'https://example.test/api')
+    expect(send).toHaveBeenCalledOnce()
+    expect(xhr.status).toBe(200)
+    expect(xhr.responseText).toBe('native XHR body')
+    expect(xhr.response).toBe('native XHR body')
+    expect(dispatchEvent).not.toHaveBeenCalled()
+  })
+
   it('leaves a disabled exact origin native without changing the configured rules', async () => {
     const host = {
       location: { origin: 'https://example.test' },

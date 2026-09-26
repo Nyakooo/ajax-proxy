@@ -159,7 +159,7 @@ export function createV3RuntimeController(
     onMatched: (rule: V3Rule, _index: number, request: { url: string; method: string }) =>
       notifyV3Match(host, rule, request),
     onNoMatch: (request: { url: string; method: string }) => {
-      if (!diagnosticsArmed || !backup) return
+      if (!diagnosticsArmed || !backup || !backup.settings.globalEnabled) return
       const origin = getHostOrigin(host)
       if (!origin.ok || isV3OriginDisabled(origin.origin, backup.disabledOrigins)) return
       notifyV3NoMatch(host, backup, request)
