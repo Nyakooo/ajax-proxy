@@ -482,6 +482,21 @@ describe('createV3XHR', () => {
     expect(onMatched).toHaveBeenCalledOnce()
   })
 
+  it('keeps the native response when an enabled replacement has no overrides', () => {
+    const outcome = vi.fn()
+    const selectedRule = rule('empty-replacement', {
+      response: { enabled: true, replace: {} },
+    })
+    const xhr = makeXHR([selectedRule], undefined, undefined, outcome, true)
+    xhr.open('POST', 'https://example.test/api', true)
+    xhr.send()
+    xhr.complete('native response')
+
+    expect(xhr.status).toBe(200)
+    expect(xhr.responseText).toBe('native response')
+    expect(outcome).not.toHaveBeenCalled()
+  })
+
   it('fails open for malformed original URLs and malformed redirect URLs', () => {
     const invalidOriginalUrl = makeXHR([rule('original-url')])
     invalidOriginalUrl.open('POST', 'http://[', true)
