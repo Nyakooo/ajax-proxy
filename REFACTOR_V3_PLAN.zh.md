@@ -253,7 +253,7 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 
 - [ ] 更新中英文 README、安装、使用、规则配置和 FAQ。
 - [ ] 说明自定义函数能力与风险，补充可复制的示例。
-- [ ] 说明 V2 与 V3 配置 / 备份不兼容，并提供 V3 备份、恢复和重新配置指南。
+- [x] 说明 V2 与 V3 配置 / 备份不兼容，并提供 V3 备份、恢复和重新配置指南；详见 `docs/V3-BACKUP-RESTORE.zh.md`。
 - [ ] 维护版本号策略、变更日志格式和发布检查表。
 - [ ] 从干净环境执行完整构建，并在目标浏览器加载验证扩展产物。
 - [ ] 完成权限、兼容性、核心请求和配置导入导出回归检查。
@@ -467,5 +467,6 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - 2026-09-25：基于 PrimeVue styled / Pass Through / unstyled 对照结果完成 utility-first 样式工具选型：当前无需引入 Tailwind CSS 或 UnoCSS；PrimeVue 提供交互组件，Ajax Proxy tokens 负责产品样式。若布局需求变化，再优先评估 Tailwind CSS v4。完成度 108 / 198（54.5%）。
 - 2026-09-25：完成 V3 函数响应纵向集成检查点：使用隔离 worker 执行、验证 JSON 输入输出与体积、限制 4 路并发，超时终止 worker、移除并重建 sandbox；面板已可编辑、显式启用和保存函数响应，XHR 保持原生响应。修复 Vue I18n 示例花括号导致编辑器初始化失败，以及长表单保存按钮被视口裁切；增加同步死循环 fail-open / sandbox 重建浏览器回归。Chrome for Testing 154.0.8037.57、Edge Stable 153.0.4234.48 隔离与函数 runtime smoke、Chrome 扩展 UI smoke 通过；全量 161 项 Vitest、TypeScript、相关 production build、ESLint 与 Prettier 检查通过。逐次运行错误诊断 UI、备份恢复警告计数仍留在后续面板集成项。本次完成度 109 / 199（54.8%）。
 - 2026-09-25：完成 V3 函数响应诊断：跨 content / service worker / 面板实时上报最近 10 次函数失败，只传规则元数据和固定错误类别，不传原始 URL、异常文本或请求响应体；面板说明失败类型与继续使用原始响应。Chrome for Testing 154 与 Edge Stable 153 验证无效返回、同步死循环 timeout、fail-open 和诊断 UI；Chrome extension smoke、165 项 Vitest、TypeScript、build、边界检查、改动文件零告警 ESLint、Prettier 通过。备份恢复的代码规则数量提示仍未接入。整体完成度 110 / 199（55.3%）。
-- 2026-09-26：V3 面板接入 JSON 备份导出、文件 / 文本导入预览、schema 错误显示和确认恢复；导入函数代码时显示规则数量及不可信提示，领域解析器确保对应响应行为保持停用。恢复成功后同步面板语言、清除过期诊断，不导入备份中不存在的命中计数。扩展 smoke 验证导出 envelope、无效 JSON 不写入配置、函数规则计数与禁用恢复后 Fetch 原始响应；Edge Stable 153.0.4234.48 与 Playwright Chromium 扩展 smoke、165 项 Vitest、Vue 3 面板 / Chrome 扩展构建、typecheck、package boundary、生成声明、改动文件 ESLint 与 Prettier 通过。Chrome Stable 154.0.8037.58 使用临时自动化 profile 时未启动扩展 service worker，该浏览器上的扩展 smoke 暂受阻，Edge Stable 与 Chromium 验收通过。完成 111 / 199 项（55.8%）。
+- 2026-09-26：V3 面板接入 JSON 备份导出、文件 / 文本导入预览、schema 错误显示和确认恢复；导入函数代码时显示规则数量及不可信提示，领域解析器确保对应响应行为保持停用。恢复成功后同步面板语言、清除过期诊断，不导入备份中不存在的命中计数。扩展 smoke 验证导出 envelope、无效 JSON 不写入配置、函数规则计数与禁用恢复后 Fetch 原始响应；Edge Stable 153.0.4234.48 与 Playwright Chromium 扩展 smoke、165 项 Vitest、Vue 3 面板 / Chrome 扩展构建、typecheck、package boundary、生成声明、改动文件 ESLint 与 Prettier 通过。Chrome Stable 154.0.8037.58 在独立 Playwright profile 下未观察到扩展 service worker；改用现有 Chrome 用户 profile 重载本地扩展后，真实 `panels-v3/` 页面可打开，函数代码备份预览和无效 JSON 错误态通过，配置保持 0 条规则。完成 111 / 199 项（55.8%）。
+- 2026-09-26：新增 `docs/V3-BACKUP-RESTORE.zh.md`，说明 staging 面板加载、完整快照导出 / 恢复、校验失败不写入、V2 不兼容和函数代码默认停用；同步修正 baseline、issues、panel migration 和 functions 文档中的过时实现状态并加入交叉链接。核对 UI 文案、domain importer 与真实扩展 smoke 的配置语义，`git diff --check` 和 Prettier 检查通过。完成 112 / 199 项（56.3%）。
 - GitHub 里程碑：[阶段 0](https://github.com/Nyakooo/ajax-proxy/milestone/1)、[阶段 1](https://github.com/Nyakooo/ajax-proxy/milestone/2)、[阶段 2](https://github.com/Nyakooo/ajax-proxy/milestone/3)、[阶段 3](https://github.com/Nyakooo/ajax-proxy/milestone/4)、[阶段 4](https://github.com/Nyakooo/ajax-proxy/milestone/5)、[阶段 5](https://github.com/Nyakooo/ajax-proxy/milestone/6)、[阶段 6](https://github.com/Nyakooo/ajax-proxy/milestone/7)、[阶段 7](https://github.com/Nyakooo/ajax-proxy/milestone/8)；已复现缺陷：[issue #56](https://github.com/Nyakooo/ajax-proxy/issues/56)。
