@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import {
   isValidInterceptors,
   isValidRedirectors,
@@ -38,6 +38,10 @@ describe('V3 hit event validation', () => {
     expect(isV3Hit({ ...valid, method: 'A'.repeat(17) })).toBe(false)
     expect(isV3Hit({ ...valid, url: 'x'.repeat(8193) })).toBe(false)
     expect(isV3Hit({ ...valid, extra: true })).toBe(false)
+    expect(isV3Hit({ ...valid, [Symbol('extra')]: true })).toBe(false)
+    const hiddenExtra = { ...valid }
+    Object.defineProperty(hiddenExtra, 'extra', { value: true })
+    expect(isV3Hit(hiddenExtra)).toBe(false)
     expect(isV3Hit(Object.assign(Object.create({ inherited: true }), valid))).toBe(false)
     expect(
       isV3Hit(
@@ -51,6 +55,22 @@ describe('V3 hit event validation', () => {
         )
       )
     ).toBe(false)
+  })
+
+  it('rejects accessor fields without invoking them', () => {
+    const getter = vi.fn(() => 'GET')
+    const accessor = { ...valid }
+    Object.defineProperty(accessor, 'method', { enumerable: true, get: getter })
+
+    expect(isV3Hit(accessor)).toBe(false)
+    expect(getter).not.toHaveBeenCalled()
+  })
+
+  it('validates copied property descriptors without invoking proxy get traps', () => {
+    const get = vi.fn(() => 'POST')
+
+    expect(isV3Hit(new Proxy(valid, { get }))).toBe(true)
+    expect(get).not.toHaveBeenCalled()
   })
 })
 
@@ -95,6 +115,15 @@ describe('V3 hit notice validation', () => {
         )
       )
     ).toBe(false)
+  })
+
+  it('rejects accessor fields without invoking them', () => {
+    const getter = vi.fn(() => 'https://site.test/api')
+    const accessor = { ...valid }
+    Object.defineProperty(accessor, 'url', { enumerable: true, get: getter })
+
+    expect(isV3HitNotice(accessor)).toBe(false)
+    expect(getter).not.toHaveBeenCalled()
   })
 })
 

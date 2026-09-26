@@ -16,21 +16,44 @@ export type V3HitNotice = {
   url: string
 }
 
+const HIT_NOTICE_KEYS = ['rule_id', 'count', 'match_url', 'method', 'url'] as const
+const HIT_KEYS = ['kind', 'rule_id', 'match_url', 'method', 'url'] as const
+
+/** Copy allowed own data properties without invoking getters or proxy get traps. */
+function copyOwnDataProperties(
+  value: object,
+  allowedKeys: readonly string[],
+  requiredKeys: readonly string[]
+): Record<string, unknown> | null {
+  try {
+    const keys = Reflect.ownKeys(value)
+    if (
+      keys.some((key) => typeof key !== 'string' || !allowedKeys.includes(key)) ||
+      requiredKeys.some((key) => !keys.includes(key))
+    )
+      return null
+
+    const data: Record<string, unknown> = Object.create(null)
+    for (const key of keys as string[]) {
+      const descriptor = Object.getOwnPropertyDescriptor(value, key)
+      if (descriptor === undefined || !('value' in descriptor)) return null
+      data[key] = descriptor.value
+    }
+    return data
+  } catch {
+    return null
+  }
+}
+
 /** Validate the untrusted service-worker hit notice before exposing it to panels. */
 export function isV3HitNotice(value: unknown): value is V3HitNotice {
   try {
     if (typeof value !== 'object' || value === null || Array.isArray(value)) return false
     const prototype = Object.getPrototypeOf(value)
     if (prototype !== Object.prototype && prototype !== null) return false
-    const data = value as Record<string, unknown>
-    if (
-      Object.keys(data).some(
-        (key) => !['rule_id', 'count', 'match_url', 'method', 'url'].includes(key)
-      )
-    )
-      return false
+    const data = copyOwnDataProperties(value, HIT_NOTICE_KEYS, HIT_NOTICE_KEYS)
+    if (data === null) return false
     return (
-      Object.keys(data).length === 5 &&
       typeof data.rule_id === 'string' &&
       data.rule_id.length > 0 &&
       Number.isSafeInteger(data.count) &&
@@ -53,13 +76,8 @@ export function isV3Hit(value: unknown): value is V3Hit {
     if (typeof value !== 'object' || value === null || Array.isArray(value)) return false
     const prototype = Object.getPrototypeOf(value)
     if (prototype !== Object.prototype && prototype !== null) return false
-    const data = value as Record<string, unknown>
-    if (
-      Object.keys(data).some(
-        (key) => !['kind', 'rule_id', 'match_url', 'method', 'url'].includes(key)
-      )
-    )
-      return false
+    const data = copyOwnDataProperties(value, HIT_KEYS, HIT_KEYS.slice(0, 4))
+    if (data === null) return false
     return (
       data.kind === 'v3-hit' &&
       typeof data.rule_id === 'string' &&
