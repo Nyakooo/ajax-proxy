@@ -447,6 +447,66 @@ describe('createV3ResponseFunctionExecutor', () => {
     )
   })
 
+  it('preserves executions on a replacement frame when the old sandbox times out', async () => {
+    vi.useFakeTimers()
+    vi.stubGlobal('HTMLIFrameElement', FakeIFrameElement)
+    const oldFrame = new FakeIFrameElement()
+    const replacementFrame = new FakeIFrameElement()
+    let currentFrame = oldFrame
+    let onMessage: ((event: MessageEvent) => void) | undefined
+    let nextId = 0
+    const host = {
+      document: { getElementById: vi.fn(() => currentFrame) },
+      addEventListener: vi.fn((_type: string, listener: EventListenerOrEventListenerObject) => {
+        if (typeof listener === 'function') onMessage = listener as (event: MessageEvent) => void
+      }),
+      crypto: { randomUUID: () => `replacement-execution-${++nextId}` },
+    } as unknown as Window
+    const execute = createV3ResponseFunctionExecutor(host)
+    const request = { url: '/api', method: 'GET' }
+    const response = { status: 200, statusText: 'OK', headers: {}, body: 'native' }
+    const deliver = (frame: FakeIFrameElement, data: unknown) =>
+      onMessage?.({ origin: 'null', source: frame.contentWindow, data } as MessageEvent)
+    const firstExecution = execute('return response.body', request, response)
+
+    deliver(oldFrame, { channel: 'ajax-proxy-v3-function-sandbox', type: 'ready' })
+    await Promise.resolve()
+    await Promise.resolve()
+    expect(oldFrame.contentWindow.postMessage).toHaveBeenCalledOnce()
+
+    await vi.advanceTimersByTimeAsync(1000)
+    currentFrame = replacementFrame
+    const replacementExecution = execute('return response.status', request, response)
+    deliver(replacementFrame, { channel: 'ajax-proxy-v3-function-sandbox', type: 'ready' })
+    await Promise.resolve()
+    await Promise.resolve()
+    expect(replacementFrame.contentWindow.postMessage).toHaveBeenCalledOnce()
+
+    const firstRejection = expect(firstExecution).rejects.toThrow(
+      'Function response timed out after 5 seconds.'
+    )
+    await vi.advanceTimersByTimeAsync(4000)
+    await firstRejection
+    await vi.advanceTimersByTimeAsync(100)
+
+    expect(oldFrame.remove).toHaveBeenCalledOnce()
+    expect(replacementFrame.remove).not.toHaveBeenCalled()
+    expect(replacementFrame.contentWindow.postMessage).toHaveBeenCalledOnce()
+
+    deliver(replacementFrame, {
+      channel: 'ajax-proxy-v3-function-sandbox',
+      type: 'result',
+      id: 'replacement-execution-2',
+      ok: true,
+      result: 200,
+    })
+    await expect(replacementExecution).resolves.toBe(200)
+
+    await vi.advanceTimersByTimeAsync(900)
+    expect(replacementFrame.contentWindow.postMessage).toHaveBeenCalledOnce()
+    expect(replacementFrame.remove).not.toHaveBeenCalled()
+  })
+
   it('rejects empty or oversized source before looking up a sandbox frame', async () => {
     const getElementById = vi.fn()
     const host = {
