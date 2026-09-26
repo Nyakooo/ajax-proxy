@@ -461,19 +461,21 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 
 以下问题在现有代码审查中识别，纳入重构期间的复现、修复和回归验证：
 
-- [ ] Fetch 重定向可能丢失 `Request` 或 `init` 中的请求选项。
-- [ ] 拦截与重定向规则的命中优先级及后续处理不一致。
-- [ ] 自定义异步函数可能不生效、挂起或缺少回退。
-- [ ] Fetch 使用 `Request` 对象时 method 识别可能不正确。
-- [ ] 替换响应时对无 body 状态和旧 headers 的处理需要验证。
-- [ ] XHR 重定向包装可能改变 `open()` 的原生语义。
-- [ ] 扩展上下文间的存储缓存可能不同步。
-- [ ] 空规则导入和清空行为可能无法覆盖旧数据。
-- [ ] 页面脚本注入及初始化状态同步依赖加载时序。2026-09-26 审查确认：MAIN world 在 `document_start` 先记录原生 Fetch / XHR，隔离世界随后异步读取 Chrome storage 并下发配置，因此配置到达前页面发出的首个请求可能直接走原生 API。已复用 `initStorage()` 读入的缓存快照，避免第二次 Chrome storage 全量读取，缩短启动窗口。Fetch / 异步 XHR 启动门控会改变请求发送与事件时序，同步 XHR 无法安全等待；为保留原生请求时序，本阶段不加门控，并记录剩余启动窗口为已知限制。
-- [ ] `eval` 执行用户函数的能力、边界和提示需要审查。
-- [ ] 启停时恢复原始 Fetch / XHR 可能覆盖页面其他脚本的包装。
-- [ ] 自动化测试和 CI 保障不足；部分开发依赖较旧。
-- [ ] 非扩展环境下 localStorage 的初始化与缓存读取行为需要核查。
+- [x] **V3 Fetch 重定向请求选项**：当前支持并已覆盖的 `Request` / `init` 有效属性会随重定向保留；跨源时移除敏感请求头。流式请求体与 `duplex` 尚未纳入验证范围，另列跟进项。
+- [x] **命中优先级及后续处理**：Fetch / XHR 使用同一条首个完整匹配规则，响应动作和重定向不会在后续阶段另选规则；已有规则匹配、低优先级与 runtime 回归。
+- [x] **异步自定义函数**：V3 sandbox 覆盖异步执行、失败回退、超时及取消；用户函数风险和执行限制已写入指南。V2 遗留函数单独标为旧接口。
+- [x] **Fetch `Request` method**：从规范化后的 `Request + init` 识别最终 method，并有覆盖 init 覆盖规则及匹配的回归。
+- [x] **替换响应与无 body 状态**：HEAD、204、205、304 不带替换 body；旧 content-length / encoding 等 body 相关 headers 会清理并有回归。
+- [x] **XHR `open()` 语义**：重定向保留 method、URL、async 等原始参数和异常行为，定向测试已覆盖。
+- [x] **扩展存储缓存同步**：初始化期间的 `storage.onChanged` 事件会排队合并到快照；普通网页 localStorage 也有初始化、读写、删除和清空回归。
+- [x] **空规则导入与清空**：完整 V3 备份允许 `rules: []` 并替换当前列表；缺失、null 或非法字段拒绝导入；显式 null 清除存储由 service-worker 测试覆盖。
+- [x] **页面启动配置时序已评估并记录限制**：MAIN world 在 `document_start` 先记录原生 Fetch / XHR，隔离世界后续读取 Chrome storage 并下发配置；配置到达前的首个请求可能走原生 API。已复用 `initStorage()` 缓存快照来缩短窗口。Fetch / 异步 XHR 启动门控会改变请求时序，同步 XHR 无法安全等待，因此保留剩余启动窗口并不延迟请求。
+- [x] **自定义函数安全边界**：V3 不用页面主世界 `eval`，改在隔离 sandbox 执行，覆盖 CSP、超时、取消和 fail-open 边界；文档明确不可信代码风险、权限边界及确认提示。V2 旧接口仍只应运行可信代码。
+- [x] **Fetch / XHR 页面包装器共存**：启停时保留注入前 wrapper，并在扩展外层 wrapper 存在时关闭内层代理而不覆盖页面引用；生命周期由 Vitest 和互操作说明覆盖。不能保证任意第三方扩展组合。
+- [x] **测试与 CI 自动化**：已建立全包测试、覆盖率、lint、typecheck、边界、构建、声明和 Chrome / Edge Stable 与最低版本 smoke 工作流。
+- [x] **非扩展环境 localStorage**：初始化快照、localStorage 变更同步和缓存读写 / 删除 / 清空 / 失败路径均有测试。
+- [ ] **依赖安全告警处置**：对 GitHub 默认分支当前 Dependabot 告警按生产 / 开发依赖、严重级别和 fixed version 分组，并分批修复；2026-09-26 push 提示汇总 133 条，升级需单独验证构建和浏览器兼容性。
+- [ ] **流式 Fetch 重定向兼容性**：验证 `ReadableStream` POST body 与 `duplex: 'half'` 在目标 Chrome / Edge 版本的保留行为及 fail-open，再决定支持范围并更新文档。
 
 ## 8. GitHub Issues 需求回顾
 
@@ -770,4 +772,5 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - 2026-09-26：阶段 6 为隐私诊断开关增加在途请求回归：Fetch native response 挂起期间、XHR `send()` 后关闭诊断开关，响应仍按规则完成但不再派发迟到的 outcome 事件。35 个测试文件 / 337 项全量覆盖测试通过，总体语句 / 分支 / 函数 / 行覆盖 83.65% / 82.15% / 84.41% / 85.35%，`runtimeController.ts` 分支覆盖由 89.65% 升至 93.10%；定向测试、ESLint、Prettier 和 diff 检查通过。完成 309 / 356 项（86.8%）。
 - 2026-09-26：阶段 6 扩展 V2 转换器兼容回归，验证旧顶层状态下已经使用新结构的拦截 / 重定向列表会原样保留，不会被清空。全量覆盖测试 35 个文件 / 338 项通过，总体语句 / 分支 / 函数 / 行覆盖 83.81% / 82.33% / 84.41% / 85.44%；转换器覆盖 91.83% / 92% / 100% / 100%，剩余未覆盖路径是空值 / 非数组类型守卫。定向测试、ESLint、Prettier 和 diff 检查通过；此回归补强阶段 6 已完成的 V2 转换测试项，整体完成度保持 309 / 356（86.8%）。
 - 2026-09-26：阶段 6 扩展 smoke 验证 V3 正则规则的真实请求路径：Fetch 与 XHR 对 `/api/items` 命中替换响应；同为 POST 的 `/api/nope` 保持服务端响应。CI `36241422200` 的 Chrome / Edge Stable、Chrome 141 / Edge 140 最低版本、构建与扩展 smoke 全部通过；作为已完成规则回归项的端到端补强，完成度保持 309 / 356（86.8%）。
+- 2026-09-26：复核第 7 节既有问题的实现 / 测试证据后，完成 V3 Fetch / XHR 生命周期、storage 缓存、V3 backup、函数 sandbox 和 CI 自动化等风险项；对首请求配置窗口保留明确限制。另拆出 Dependabot 依赖安全处置和流式 `duplex` 重定向验证作为独立后续项。完成 322 / 358 项（89.9%）。
 - GitHub 里程碑：[阶段 0](https://github.com/Nyakooo/ajax-proxy/milestone/1)、[阶段 1](https://github.com/Nyakooo/ajax-proxy/milestone/2)、[阶段 2](https://github.com/Nyakooo/ajax-proxy/milestone/3)、[阶段 3](https://github.com/Nyakooo/ajax-proxy/milestone/4)、[阶段 4](https://github.com/Nyakooo/ajax-proxy/milestone/5)、[阶段 5](https://github.com/Nyakooo/ajax-proxy/milestone/6)、[阶段 6](https://github.com/Nyakooo/ajax-proxy/milestone/7)、[阶段 7](https://github.com/Nyakooo/ajax-proxy/milestone/8)；已复现缺陷：[issue #56](https://github.com/Nyakooo/ajax-proxy/issues/56)。
