@@ -9,6 +9,7 @@ class FakeIFrameElement {
 
 afterEach(() => {
   vi.unstubAllGlobals()
+  vi.useRealTimers()
 })
 
 describe('createV3ResponseFunctionExecutor', () => {
@@ -111,5 +112,54 @@ describe('createV3ResponseFunctionExecutor', () => {
     })
 
     await expect(result).rejects.toThrow('Sandbox function failed.')
+  })
+
+  it('cancels a timed-out execution and removes the sandbox frame after the grace period', async () => {
+    vi.useFakeTimers()
+    vi.stubGlobal('HTMLIFrameElement', FakeIFrameElement)
+    const frame = new FakeIFrameElement()
+    let onMessage: ((event: MessageEvent) => void) | undefined
+    const host = {
+      document: { getElementById: vi.fn(() => frame) },
+      addEventListener: vi.fn((_type: string, listener: EventListenerOrEventListenerObject) => {
+        if (typeof listener === 'function') onMessage = listener as (event: MessageEvent) => void
+      }),
+      crypto: { randomUUID: () => 'timeout-execution-id' },
+    } as unknown as Window
+    const execute = createV3ResponseFunctionExecutor(host)
+    const result = execute(
+      'while (true) {}',
+      { url: '/api', method: 'GET' },
+      {
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+        body: 'native',
+      }
+    )
+    const sendMessage = (data: unknown) =>
+      onMessage?.({ origin: 'null', source: frame.contentWindow, data } as MessageEvent)
+
+    await Promise.resolve()
+    sendMessage({ channel: 'ajax-proxy-v3-function-sandbox', type: 'ready' })
+    await Promise.resolve()
+    await Promise.resolve()
+    expect(frame.contentWindow.postMessage).toHaveBeenCalledOnce()
+
+    const rejection = expect(result).rejects.toThrow('Function response timed out after 5 seconds.')
+    await vi.advanceTimersByTimeAsync(5000)
+    await rejection
+    expect(frame.contentWindow.postMessage).toHaveBeenLastCalledWith(
+      {
+        channel: 'ajax-proxy-v3-function-sandbox',
+        type: 'cancel',
+        id: 'timeout-execution-id',
+      },
+      '*'
+    )
+    expect(frame.remove).not.toHaveBeenCalled()
+
+    await vi.advanceTimersByTimeAsync(100)
+    expect(frame.remove).toHaveBeenCalledOnce()
   })
 })
