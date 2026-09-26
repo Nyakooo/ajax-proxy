@@ -3,6 +3,7 @@ import { nextTick } from 'vue'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import SiteSwitchesDialog from '../src/components/SiteSwitchesDialog.vue'
 import ResponseRuleEditor from '../src/components/ResponseRuleEditor.vue'
+import RedirectRuleEditor from '../src/components/RedirectRuleEditor.vue'
 import CodeMirrorJsonEditor from '../src/components/editors/CodeMirrorJsonEditor.vue'
 import { i18n } from '../src/i18n/index.js'
 
@@ -230,6 +231,47 @@ describe('ResponseRuleEditor', () => {
       '{\n  "second": true\n}'
     )
     expect(wrapper.find('[role="alert"]').exists()).toBe(false)
+  })
+})
+
+describe('RedirectRuleEditor', () => {
+  it('validates required and padded fields, then emits the redirect save payload', async () => {
+    const wrapper = mount(RedirectRuleEditor, {
+      props: { open: true, tags: [{ id: 'tag-a', name: 'API' }] },
+      global: { plugins: [i18n] },
+    })
+    await nextTick()
+    const inputs = wrapper.findAll('input:not([type="checkbox"])')
+    const matchUrl = inputs[0]
+    const targetUrl = inputs[1]
+    const selects = wrapper.findAll('select')
+
+    await wrapper.get('form').trigger('submit')
+    expect(wrapper.get('[role="alert"]').text()).toBe('匹配 URL 和跳转目标不能为空。')
+    expect(wrapper.emitted('save')).toBeUndefined()
+
+    await matchUrl.setValue(' /api ')
+    await targetUrl.setValue('https://target.test/redirect')
+    await wrapper.get('form').trigger('submit')
+    expect(wrapper.get('[role="alert"]').text()).toBe('URL 前后不能包含空格。')
+    expect(wrapper.emitted('save')).toBeUndefined()
+
+    await matchUrl.setValue('/api')
+    await selects[0].setValue('regex')
+    await selects[1].setValue('POST')
+    await wrapper.get('.rule-tag-picker input[type="checkbox"]').setValue(true)
+    await wrapper.get('form').trigger('submit')
+
+    expect(wrapper.emitted('save')).toEqual([
+      [
+        {
+          enabled: true,
+          match: { url: '/api', type: 'regex', method: 'POST' },
+          redirectUrl: 'https://target.test/redirect',
+          tagIds: ['tag-a'],
+        },
+      ],
+    ])
   })
 })
 
