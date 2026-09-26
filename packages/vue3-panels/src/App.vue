@@ -47,6 +47,10 @@ const backupDialogOpen = ref(false)
 const ruleFiltersOpen = ref(false)
 const ruleTagFilterOpen = ref(false)
 const ruleTagsDialogOpen = ref(false)
+const ruleDiagnosticsOpen = ref(false)
+const diagnosticUrl = ref('')
+const diagnosticMethod = ref('GET')
+const diagnosticResult = ref(null)
 const ruleStatusFilter = ref('all')
 const ruleMatchTypeFilter = ref('all')
 const selectedTagId = ref('')
@@ -272,6 +276,19 @@ function formatMatchTime(timestamp) {
   }).format(timestamp)
 }
 
+function runRuleDiagnostics() {
+  const url = diagnosticUrl.value.trim()
+  if (!url || !ruleOperations) {
+    diagnosticResult.value = null
+    return
+  }
+  diagnosticResult.value = ruleOperations.analyzeV3RuleMatches(
+    config.value.rules,
+    { url, method: diagnosticMethod.value },
+    config.value.settings.globalEnabled
+  )
+}
+
 let removeExtensionMessageListener
 
 watch(darkMode, (dark) => {
@@ -303,9 +320,22 @@ watch(
 
 onMounted(async () => {
   try {
-    const { deleteV3Rule, insertV3Rule, moveV3Rule, replaceV3Rule, setV3RuleEnabled } =
-      await import('@proxy/v3-domain')
-    ruleOperations = { deleteV3Rule, insertV3Rule, moveV3Rule, replaceV3Rule, setV3RuleEnabled }
+    const {
+      analyzeV3RuleMatches,
+      deleteV3Rule,
+      insertV3Rule,
+      moveV3Rule,
+      replaceV3Rule,
+      setV3RuleEnabled,
+    } = await import('@proxy/v3-domain')
+    ruleOperations = {
+      analyzeV3RuleMatches,
+      deleteV3Rule,
+      insertV3Rule,
+      moveV3Rule,
+      replaceV3Rule,
+      setV3RuleEnabled,
+    }
 
     if (memoryOnly.value) {
       config.value = createPreviewConfig()
@@ -846,6 +876,14 @@ async function moveRule(rule, targetRule) {
               :disabled="loading || saving || visibleRules.length === 0"
               @click="toggleVisibleRuleSelection"
             />
+            <AppButton
+              :label="t('diagnostics.open')"
+              severity="secondary"
+              outlined
+              :aria-expanded="ruleDiagnosticsOpen"
+              :disabled="loading"
+              @click="ruleDiagnosticsOpen = !ruleDiagnosticsOpen"
+            />
             <div ref="ruleTagsControl" class="filter-control">
               <AppButton
                 :label="
@@ -942,6 +980,76 @@ async function moveRule(rule, targetRule) {
           <div v-if="!enabled" class="disabled-notice" role="status">
             {{ t('proxy.disabledNotice') }}
           </div>
+
+          <section v-if="ruleDiagnosticsOpen" class="rule-diagnostics">
+            <header>
+              <h2>{{ t('diagnostics.title') }}</h2>
+              <p>{{ t('diagnostics.description') }}</p>
+            </header>
+            <form class="diagnostic-form" @submit.prevent="runRuleDiagnostics">
+              <label>
+                <span>{{ t('diagnostics.urlLabel') }}</span>
+                <input
+                  v-model="diagnosticUrl"
+                  data-testid="diagnostic-url-input"
+                  type="text"
+                  maxlength="8192"
+                  autocomplete="off"
+                  @input="diagnosticResult = null"
+                />
+              </label>
+              <label>
+                <span>{{ t('diagnostics.methodLabel') }}</span>
+                <select
+                  v-model="diagnosticMethod"
+                  data-testid="diagnostic-method-select"
+                  @change="diagnosticResult = null"
+                >
+                  <option
+                    v-for="method in ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS']"
+                    :key="method"
+                  >
+                    {{ method }}
+                  </option>
+                </select>
+              </label>
+              <AppButton
+                type="submit"
+                :label="t('diagnostics.analyze')"
+                severity="secondary"
+                outlined
+                :disabled="!diagnosticUrl.trim() || loading"
+              />
+            </form>
+            <template v-if="diagnosticResult">
+              <p class="diagnostic-summary" role="status">
+                {{
+                  diagnosticResult.selectedRuleId
+                    ? t('diagnostics.firstMatch', { id: diagnosticResult.selectedRuleId })
+                    : t('diagnostics.noMatch')
+                }}
+              </p>
+              <ol v-if="diagnosticResult.results.length" class="diagnostic-results">
+                <li
+                  v-for="result in diagnosticResult.results"
+                  :key="result.ruleId"
+                  :class="{ matched: result.reason === 'matched' }"
+                >
+                  <span>{{ t(`diagnostics.reasons.${result.reason}`) }}</span>
+                  <code>
+                    {{
+                      t('diagnostics.ruleSummary', {
+                        index: result.index + 1,
+                        id: result.ruleId,
+                        url: config.rules[result.index].match.url,
+                      })
+                    }}
+                  </code>
+                </li>
+              </ol>
+              <p v-else class="diagnostic-summary">{{ t('diagnostics.noRules') }}</p>
+            </template>
+          </section>
 
           <section
             v-if="recentMatches.length"

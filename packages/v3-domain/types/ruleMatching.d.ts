@@ -8,6 +8,17 @@ export interface V3RuleSelection {
     index: number;
     originalRequest: V3RequestMatchInput;
 }
+export type V3RuleMatchReason = 'matched' | 'lower-priority' | 'global-disabled' | 'rule-disabled' | 'actions-disabled' | 'method-mismatch' | 'url-mismatch' | 'invalid-regex' | 'invalid-match-type' | 'matcher-error' | 'request-too-long';
+export interface V3RuleMatchAnalysis {
+    selectedRuleId?: string;
+    results: Array<{
+        ruleId: string;
+        index: number;
+        reason: V3RuleMatchReason;
+    }>;
+}
+/** Explain how the current ordered rules classify a manually supplied request. */
+export declare function analyzeV3RuleMatches(rules: readonly V3Rule[], request: V3RequestMatchInput, globalEnabled?: boolean): V3RuleMatchAnalysis;
 /**
  * Select the first enabled V3 rule whose enabled actions and request matcher
  * match the original request. The returned selection can be retained for the

@@ -39,6 +39,70 @@ export interface V3RuleSelection {
   originalRequest: V3RequestMatchInput
 }
 
+export type V3RuleMatchReason =
+  | 'matched'
+  | 'lower-priority'
+  | 'global-disabled'
+  | 'rule-disabled'
+  | 'actions-disabled'
+  | 'method-mismatch'
+  | 'url-mismatch'
+  | 'invalid-regex'
+  | 'invalid-match-type'
+  | 'matcher-error'
+  | 'request-too-long'
+
+export interface V3RuleMatchAnalysis {
+  selectedRuleId?: string
+  results: Array<{ ruleId: string; index: number; reason: V3RuleMatchReason }>
+}
+
+function getRuleMatchReason(rule: V3Rule, request: V3RequestMatchInput): V3RuleMatchReason {
+  try {
+    if (!rule.enabled) return 'rule-disabled'
+    if (!rule.request?.enabled && !rule.response?.enabled) return 'actions-disabled'
+    if (rule.match.method && rule.match.method.toUpperCase() !== 'ANY') {
+      if (rule.match.method.toUpperCase() !== request.method.toUpperCase()) return 'method-mismatch'
+    }
+    const matcherType = rule.match.type ?? 'normal'
+    if (matcherType === 'regex') {
+      const regex = getRegex(rule.match.url)
+      if (!regex) return 'invalid-regex'
+      return regex.test(request.url) ? 'matched' : 'url-mismatch'
+    }
+    if (matcherType !== 'normal') return 'invalid-match-type'
+    return request.url.includes(rule.match.url) ? 'matched' : 'url-mismatch'
+  } catch {
+    return 'matcher-error'
+  }
+}
+
+/** Explain how the current ordered rules classify a manually supplied request. */
+export function analyzeV3RuleMatches(
+  rules: readonly V3Rule[],
+  request: V3RequestMatchInput,
+  globalEnabled = true
+): V3RuleMatchAnalysis {
+  const results: V3RuleMatchAnalysis['results'] = []
+  if (request.url.length > MAX_MATCH_INPUT_LENGTH) {
+    return {
+      results: rules.map((rule, index) => ({ ruleId: rule.id, index, reason: 'request-too-long' })),
+    }
+  }
+  const normalizedRequest = { ...request, method: request.method.toUpperCase() }
+  let selectedRuleId: string | undefined
+  for (let index = 0; index < rules.length; index += 1) {
+    const rule = rules[index]
+    let reason: V3RuleMatchReason
+    if (!globalEnabled) reason = 'global-disabled'
+    else if (selectedRuleId) reason = 'lower-priority'
+    else reason = getRuleMatchReason(rule, normalizedRequest)
+    if (reason === 'matched') selectedRuleId = rule.id
+    results.push({ ruleId: rule.id, index, reason })
+  }
+  return { selectedRuleId, results }
+}
+
 /**
  * Select the first enabled V3 rule whose enabled actions and request matcher
  * match the original request. The returned selection can be retained for the
@@ -52,25 +116,13 @@ export function selectV3Rule(
   const method = request.method.toUpperCase()
 
   for (let index = 0; index < rules.length; index += 1) {
-    try {
-      const rule = rules[index]
-      if (!rule.enabled || (!rule.request?.enabled && !rule.response?.enabled)) continue
-      if (rule.match.method && rule.match.method.toUpperCase() !== 'ANY') {
-        if (rule.match.method.toUpperCase() !== method) continue
-      }
-      const matcherType = rule.match.type ?? 'normal'
-      const matchesUrl =
-        matcherType === 'regex'
-          ? (getRegex(rule.match.url)?.test(request.url) ?? false)
-          : matcherType === 'normal' && request.url.includes(rule.match.url)
-      if (!matchesUrl) continue
+    const rule = rules[index]
+    if (getRuleMatchReason(rule, { url: request.url, method }) === 'matched') {
       return {
         rule,
         index,
         originalRequest: { url: request.url, method },
       }
-    } catch {
-      // Runtime state may be stale or corrupted. Skip this rule and continue.
     }
   }
   return undefined

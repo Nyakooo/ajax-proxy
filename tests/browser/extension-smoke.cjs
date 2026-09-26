@@ -600,6 +600,46 @@ async function main() {
         'Matches received while this panel is open; misses are not recorded. Closing or reloading clears this list.'
       )
       .waitFor()
+    const diagnosticConfigBefore = await restartedWorker.evaluate(
+      async (key) => (await chrome.storage.local.get(key))[key],
+      'ajax-proxy:storage:v3-config'
+    )
+    const diagnosticHitsBefore = await restartedWorker.evaluate(
+      async (key) => (await chrome.storage.local.get(key))[key],
+      'ajax-proxy:storage:v3-hits'
+    )
+    await v3Panel.getByRole('button', { name: 'Diagnose rule matching' }).click()
+    const diagnosticsPanel = v3Panel.locator('.rule-diagnostics')
+    await diagnosticsPanel
+      .getByTestId('diagnostic-url-input')
+      .fill(`http://127.0.0.1:${port}/api/v3-ui`)
+    await diagnosticsPanel.getByTestId('diagnostic-method-select').selectOption('POST')
+    await diagnosticsPanel.getByRole('button', { name: 'Analyze request' }).click()
+    await diagnosticsPanel.getByText(`Current first complete match: ${v3UiRule.id}`).waitFor()
+    await diagnosticsPanel.getByText('First complete match', { exact: true }).waitFor()
+    await diagnosticsPanel.getByTestId('diagnostic-method-select').selectOption('GET')
+    await diagnosticsPanel.getByRole('button', { name: 'Analyze request' }).click()
+    await diagnosticsPanel.getByText('No rule completely matches these conditions.').waitFor()
+    assert.ok(
+      (await diagnosticsPanel.getByText('Request method does not match', { exact: true }).count()) >
+        0
+    )
+    assert.deepEqual(
+      await restartedWorker.evaluate(
+        async (key) => (await chrome.storage.local.get(key))[key],
+        'ajax-proxy:storage:v3-config'
+      ),
+      diagnosticConfigBefore,
+      'offline diagnostics must not change or save the active configuration'
+    )
+    assert.deepEqual(
+      await restartedWorker.evaluate(
+        async (key) => (await chrome.storage.local.get(key))[key],
+        'ajax-proxy:storage:v3-hits'
+      ),
+      diagnosticHitsBefore,
+      'offline diagnostics must not send requests or increment hit counters'
+    )
     await restartedPage.evaluate(async () => {
       await Promise.all(
         Array.from({ length: 11 }, (_, index) =>

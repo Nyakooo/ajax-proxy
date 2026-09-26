@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  analyzeV3RuleMatches,
   formatV3ValidationIssues,
   parseV3BackupJson,
   selectV3Rule,
@@ -282,6 +283,54 @@ describe('V3 rule selection', () => {
         method: 'GET',
       })?.rule
     ).toBe(laterRule)
+  })
+
+  it('explains the first-match outcome and the reason each earlier rule was skipped', () => {
+    const wrongMethod = requestRule('wrong-method', '/api', 'POST')
+    const wrongUrl = requestRule('wrong-url', '/other')
+    const disabled = { ...requestRule('disabled', '/api'), enabled: false }
+    const noActions = {
+      ...requestRule('no-actions', '/api'),
+      request: { enabled: false, redirect: { url: 'https://target.test/' } },
+    }
+    const firstMatch = requestRule('first-match', '/api')
+    const laterMatch = requestRule('later-match', '/api')
+
+    expect(
+      analyzeV3RuleMatches([wrongMethod, wrongUrl, disabled, noActions, firstMatch, laterMatch], {
+        url: 'https://example.test/api/items',
+        method: 'get',
+      })
+    ).toEqual({
+      selectedRuleId: 'first-match',
+      results: [
+        { ruleId: 'wrong-method', index: 0, reason: 'method-mismatch' },
+        { ruleId: 'wrong-url', index: 1, reason: 'url-mismatch' },
+        { ruleId: 'disabled', index: 2, reason: 'rule-disabled' },
+        { ruleId: 'no-actions', index: 3, reason: 'actions-disabled' },
+        { ruleId: 'first-match', index: 4, reason: 'matched' },
+        { ruleId: 'later-match', index: 5, reason: 'lower-priority' },
+      ],
+    })
+  })
+
+  it('reports global disable, invalid regex, and oversized URL without selecting a rule', () => {
+    const activeRule = requestRule('active', '/api')
+    const invalidRegex = {
+      ...requestRule('invalid-regex', '['),
+      match: { url: '[', type: 'regex' as const },
+    }
+
+    expect(
+      analyzeV3RuleMatches([activeRule], { url: '/api', method: 'GET' }, false).results
+    ).toEqual([{ ruleId: 'active', index: 0, reason: 'global-disabled' }])
+    expect(
+      analyzeV3RuleMatches([invalidRegex], { url: '/api', method: 'GET' }).results[0].reason
+    ).toBe('invalid-regex')
+    expect(
+      analyzeV3RuleMatches([activeRule], { url: '/'.padEnd(65537, 'x'), method: 'GET' }).results[0]
+        .reason
+    ).toBe('request-too-long')
   })
 
   it('treats an omitted method and ANY as wildcards and method tokens case-insensitively', () => {
