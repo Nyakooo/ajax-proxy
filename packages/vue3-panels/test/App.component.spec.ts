@@ -196,3 +196,77 @@ describe('App global switch persistence flow', () => {
     expect(wrapper.find('.sidebar-footer').text()).toContain('规则暂不作用于页面')
   })
 })
+
+describe('App backup restore persistence flow', () => {
+  it('keeps the current config after a failed restore and applies the normalized backup on retry', async () => {
+    const { wrapper, sentMessages } = await mountApp([
+      { ok: false, error: 'storage-write-failed' },
+      { ok: true },
+    ])
+    const backup = {
+      format: 'ajax-proxy-backup',
+      formatVersion: V3_BACKUP_VERSION,
+      settings: { globalEnabled: false, mode: 'interceptor', language: 'en' },
+      tags: [],
+      rules: [
+        {
+          id: 'restored-json-rule',
+          enabled: true,
+          match: { url: '/restored', method: 'GET', type: 'normal' },
+          response: { enabled: true, replace: { body: '{"restored":true}' } },
+        },
+      ],
+      disabledOrigins: ['https://blocked.example'],
+    }
+    const expectedConfig = {
+      ...backup,
+      rules: [
+        {
+          ...backup.rules[0],
+          response: {
+            ...backup.rules[0].response,
+            enabled: true,
+          },
+        },
+      ],
+    }
+
+    await buttonByText(wrapper, '备份 / 恢复').trigger('click')
+    await wrapper.get('[data-testid="backup-json-input"]').setValue(JSON.stringify(backup))
+    await buttonByText(wrapper, '验证备份').trigger('click')
+    await flushPromises()
+    expect(wrapper.find('.backup-valid').exists()).toBe(true)
+
+    const restoreButton = wrapper.get('[data-testid="backup-restore-button"]')
+    await restoreButton.trigger('click')
+    await flushPromises()
+
+    const saves = () =>
+      sentMessages.filter((message) => message.key === V3PanelMessageKey.SAVE_CONFIG)
+    expect(saves()).toHaveLength(1)
+    expect(saves()[0].value.config).toEqual(expectedConfig)
+    expect(wrapper.get('[role="dialog"]').exists()).toBe(true)
+    expect(
+      wrapper.get('[role="switch"][aria-label="全局启用 Ajax Proxy"]').attributes('aria-checked')
+    ).toBe('true')
+    expect(wrapper.get('[aria-label="界面语言"]').find('[aria-pressed="true"]').text()).toBe('中')
+    expect(wrapper.find('.rule-row').exists()).toBe(false)
+    expect(wrapper.get('.operation-alert').text()).toContain('storage-write-failed')
+
+    await wrapper.get('[data-testid="backup-restore-button"]').trigger('click')
+    await flushPromises()
+
+    expect(saves()).toHaveLength(2)
+    expect(saves()[1].value.config).toEqual(expectedConfig)
+    expect(wrapper.find('[role="dialog"]').exists()).toBe(false)
+    expect(
+      wrapper
+        .get('[role="switch"][aria-label="Enable Ajax Proxy globally"]')
+        .attributes('aria-checked')
+    ).toBe('false')
+    expect(
+      wrapper.get('[aria-label="Interface language"]').find('[aria-pressed="true"]').text()
+    ).toBe('EN')
+    expect(wrapper.get('.rule-row').text()).toContain('/restored')
+  })
+})
