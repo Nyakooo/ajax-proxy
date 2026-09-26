@@ -481,6 +481,21 @@ describe('V3 backup schema', () => {
       ]),
     })
   })
+
+  it('rejects non-object tags and empty tag IDs', () => {
+    const backupWithMalformedTags = {
+      ...structuredClone(validBackup),
+      tags: [null, { id: '', name: 'No ID', used: true }],
+    }
+
+    expect(validateV3Backup(backupWithMalformedTags)).toMatchObject({
+      ok: false,
+      issues: expect.arrayContaining([
+        expect.objectContaining({ path: 'tags[0]' }),
+        expect.objectContaining({ path: 'tags[1].id' }),
+      ]),
+    })
+  })
 })
 
 describe('V3 response function result validation', () => {
