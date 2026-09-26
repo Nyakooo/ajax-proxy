@@ -507,4 +507,32 @@ describe('V3 rule selection', () => {
       selectV3Rule([laterRule], { url: '/'.padEnd(65537, 'x'), method: 'GET' })
     ).toBeUndefined()
   })
+
+  it('classifies malformed runtime matchers and continues to the next rule', () => {
+    const invalidTypeRule = {
+      ...requestRule('invalid-type', '/api'),
+      match: { url: '/api', type: 'prefix' as unknown as 'normal' },
+    }
+    const oversizedRegexRule = {
+      ...requestRule('oversized-regex', 'x'.repeat(4097)),
+      match: { url: 'x'.repeat(4097), type: 'regex' as const },
+    }
+    const throwingMatcherRule = {
+      ...requestRule('throwing-matcher', '/api'),
+      match: Object.defineProperty({ url: '/api' }, 'type', {
+        get() {
+          throw new Error('malformed matcher')
+        },
+      }),
+    }
+    const laterRule = requestRule('later', '/api')
+    const rules = [invalidTypeRule, oversizedRegexRule, throwingMatcherRule, laterRule]
+
+    expect(
+      analyzeV3RuleMatches(rules, { url: '/api', method: 'GET' }).results.map(
+        ({ reason }) => reason
+      )
+    ).toEqual(['invalid-match-type', 'invalid-regex', 'matcher-error', 'matched'])
+    expect(selectV3Rule(rules, { url: '/api', method: 'GET' })?.rule).toBe(laterRule)
+  })
 })
