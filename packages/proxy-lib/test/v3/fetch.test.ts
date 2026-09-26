@@ -254,23 +254,32 @@ describe('createV3Fetch', () => {
     expect(onFetchOutcome).not.toHaveBeenCalled()
   })
 
-  it('preserves no-body status semantics and does not let statistics errors affect the request', async () => {
-    const selectedRule = rule('no-body', {
-      response: { enabled: true, replace: { status: 204, body: { ignored: true } } },
-    })
-    const fetcher = vi.fn(async () => new Response('original'))
-    const fetch = createV3Fetch(fetcher, {
-      getRules: () => [selectedRule],
-      onMatched: () => {
-        throw new Error('statistics unavailable')
-      },
-    })
+  it.each([
+    ['HEAD', 200],
+    ['POST', 204],
+    ['POST', 205],
+    ['POST', 304],
+  ] as const)(
+    'preserves no-body semantics for %s / status %i and ignores statistics errors',
+    async (method, status) => {
+      const selectedRule = rule('no-body', {
+        match: { url: '/api', method },
+        response: { enabled: true, replace: { status, body: { ignored: true } } },
+      })
+      const fetcher = vi.fn(async () => new Response('original'))
+      const fetch = createV3Fetch(fetcher, {
+        getRules: () => [selectedRule],
+        onMatched: () => {
+          throw new Error('statistics unavailable')
+        },
+      })
 
-    const result = await fetch('https://example.test/api', { method: 'POST' })
+      const result = await fetch('https://example.test/api', { method })
 
-    expect(result.status).toBe(204)
-    expect(result.body).toBeNull()
-  })
+      expect(result.status).toBe(status)
+      expect(result.body).toBeNull()
+    }
+  )
 
   it('passes through unmatched requests without rewriting the input', async () => {
     const fetcher = vi.fn(async () => new Response('ok'))
