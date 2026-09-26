@@ -293,6 +293,7 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - [x] 为 V3 backup 校验覆盖 regex 数量、header 数量 / UTF-8 总字节数和 disabled origin 数量上限。
 - [x] 为 V3 response function 覆盖超出 512 KiB 快照上限后的 fail-open；不执行函数，保留完整原响应并记录固定错误类别。
 - [x] 为 V3 XHR 覆盖 `EventListenerObject.handleEvent` 的 `this` 绑定，以及事件 target / currentTarget 的代理语义。
+- [x] 为 V3 backup 严格校验补结构畸形回归，覆盖非对象 settings / rule、非对象 action / payload / headers，以及缺少 action 的规则。
 - [ ] 完善 Service Worker 消息协议、V3 配置校验及导入 / 导出的边界与错误路径测试。
 - [ ] 为 Vue 组件和关键用户流程编写组件 / 集成测试。
 - [ ] 建立扩展端到端测试，覆盖安装、启停、规则编辑和真实页面请求行为。
@@ -590,5 +591,6 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - 2026-09-26：阶段 6 为 V3 backup 配置补 regex 规则数、header 数与组合 UTF-8 字节数、disabled origin 数量上限回归；上限溢出均拒绝导入。全量覆盖运行 246 项 Vitest 后，整体语句 75.57%、分支 72.09%、函数 77.41%、行 77.40%；`backup.ts` 分支覆盖由 86.29% 提升至 88.14%，V3 domain 整体分支 91.05%。workspace typecheck、改动文件零告警 ESLint / Prettier 通过。完成 180 / 246 项（73.2%）。
 - 2026-09-26：阶段 6 为 V3 response function 覆盖响应 snapshot 超过 512 KiB 的 fail-open 路径：executor 不运行，`snapshot-too-large` 诊断固定，fetch 返回同一原 Response 且 body 完整可读。全量覆盖运行 247 项 Vitest 后，整体语句 75.65%、分支 72.28%、函数 77.41%、行 77.40%；`responseAction.ts` 分支覆盖由 80.48% 提升至 85.36%，V3 runtime 总分支为 83.49%。workspace typecheck、改动文件零告警 ESLint / Prettier 通过。完成 181 / 247 项（73.3%）。
 - 2026-09-26：阶段 6 为 V3 XHR 增加 `EventListenerObject.handleEvent` 回归；断言回调 `this` 保持 listener object，`target` / `currentTarget` 在回调期间指向公开 XHR proxy。全量覆盖运行 248 项 Vitest 后，整体语句 75.69%、分支 72.32%、函数 77.41%、行 77.45%；`xhr.ts` 分支覆盖升至 84.73%，V3 runtime 总分支 83.74%。workspace typecheck、改动文件零告警 ESLint / Prettier 通过。完成 182 / 248 项（73.4%）。
+- 2026-09-26：阶段 6 为 V3 backup 严格校验补结构畸形回归，按 issue path 检查非对象 settings / rule、非对象 action / payload / headers 和无 action rule 均被拒绝。全量覆盖运行 249 项 Vitest 后，整体语句 76.14%、分支 72.70%、函数 77.41%、行 77.91%；`backup.ts` 分支覆盖达到 91.11%，V3 domain 整体分支达到 93.15%。workspace typecheck、改动文件零告警 ESLint / Prettier 通过。完成 183 / 249 项（73.5%）。
 - 2026-09-26：阶段 6 补齐响应规则 JSON 保存成功路径：状态码、解析后的 JSON body、匹配条件、规则 enabled 和所选标签 ID 被组合到 save event。Vue 3 组件测试增至 6 项；组件 / 全量 Vitest、workspace typecheck、改动文件零告警 ESLint / Prettier 通过。完成 172 / 238 项（72.3%）。
 - GitHub 里程碑：[阶段 0](https://github.com/Nyakooo/ajax-proxy/milestone/1)、[阶段 1](https://github.com/Nyakooo/ajax-proxy/milestone/2)、[阶段 2](https://github.com/Nyakooo/ajax-proxy/milestone/3)、[阶段 3](https://github.com/Nyakooo/ajax-proxy/milestone/4)、[阶段 4](https://github.com/Nyakooo/ajax-proxy/milestone/5)、[阶段 5](https://github.com/Nyakooo/ajax-proxy/milestone/6)、[阶段 6](https://github.com/Nyakooo/ajax-proxy/milestone/7)、[阶段 7](https://github.com/Nyakooo/ajax-proxy/milestone/8)；已复现缺陷：[issue #56](https://github.com/Nyakooo/ajax-proxy/issues/56)。

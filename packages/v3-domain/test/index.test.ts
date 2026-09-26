@@ -353,6 +353,38 @@ describe('V3 backup schema', () => {
     }
     expect(validateV3Backup(tooManyDisabledOrigins)).toMatchObject({ ok: false })
   })
+
+  it('rejects malformed settings, rules, action payloads, and header maps by path', () => {
+    const malformedSettings = { ...structuredClone(validBackup), settings: null }
+    const nonObjectRule = { ...structuredClone(validBackup), rules: [null] }
+
+    const malformedAction = structuredClone(validBackup)
+    ;(malformedAction.rules[0] as unknown as Record<string, unknown>).request = null
+
+    const malformedPayload = structuredClone(validBackup)
+    ;(malformedPayload.rules[0].response as unknown) = { enabled: true, replace: null }
+
+    const malformedHeaders = structuredClone(validBackup)
+    ;(malformedHeaders.rules[0].response.replace as Record<string, unknown>).headers = null
+
+    const ruleWithoutActions = structuredClone(validBackup)
+    delete (ruleWithoutActions.rules[0] as { response?: unknown }).response
+
+    const cases: Array<{ value: unknown; path: string }> = [
+      { value: malformedSettings, path: 'settings' },
+      { value: nonObjectRule, path: 'rules[0]' },
+      { value: malformedAction, path: 'rules[0].request' },
+      { value: malformedPayload, path: 'rules[0].response.replace' },
+      { value: malformedHeaders, path: 'rules[0].response.replace.headers' },
+      { value: ruleWithoutActions, path: 'rules[0]' },
+    ]
+
+    for (const { value, path } of cases) {
+      const result = validateV3Backup(value)
+      expect(result.ok).toBe(false)
+      if (!result.ok) expect(result.issues.map(({ path: issuePath }) => issuePath)).toContain(path)
+    }
+  })
 })
 
 describe('V3 response function result validation', () => {
