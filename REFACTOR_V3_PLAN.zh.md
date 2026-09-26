@@ -221,7 +221,10 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - [x] 批量导入、导出规则并校验冲突与覆盖范围：所选规则单独导出；按 ID 跳过冲突、合并引用标签且仅追加到末尾，不修改既有规则或设置。
 - [x] 面板内存保留最近 10 次规则命中，跨标签页显示；面板关闭或刷新后清空，不记录请求 body / headers。
 - [x] 按当前 V3 完整规则顺序离线试算 URL / method，逐条说明首条匹配、优先级遮蔽、禁用状态、method / URL 不匹配及无效正则；不发请求、不保存输入或改动运行状态。
-- [ ] 记录实际请求的未命中原因和 action 最终结果；不能从模拟结果或“匹配”事件推断历史请求的实际处理。
+- [x] 评估实际请求的未命中原因与 action 最终结果诊断：不得把模拟结果或“匹配”通知当作执行结果；只在用户主动开启临时诊断时记录，不持久化、不采集 body / headers。
+- [ ] 增加临时真实请求诊断：默认关闭，由用户主动开启；当前会话内最多保留 10 条真实未命中原因，不记录 URL / query、body 或 headers，面板关闭 / 刷新后清空。
+- [ ] 记录 Fetch 请求 / 响应 action 的实际执行结果与安全失败分类；用临时关联 ID 关联阶段，不改变请求回退策略或命中计数。
+- [ ] 记录异步 XHR action 的实际结果；在响应值可确认的时点报告成功 / native fallback / unsupported，不把 `open()` 时的匹配误报成结果。
 - [x] 提供离线规则匹配试算：按当前 V3 完整规则顺序复用 domain matcher，逐条说明首条匹配、优先级遮蔽、停用状态、method / URL 不匹配及无效正则；不发请求、不保存输入或改动运行状态。
 - [x] 评估快捷创建规则：限定从面板内存的最近命中记录发起，预填实际 URL / method，用户编辑审核；默认停用、不复制响应数据或函数代码。
 - [x] 从最近命中记录打开预填规则编辑器，用户确认保存并显式启用后才参与请求处理。
@@ -496,4 +499,5 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - 2026-09-26：只读审计下一项宽泛需求后，将“更灵活的请求匹配条件及响应配置”拆为 URL 精确匹配实现、静态响应 header 能力评估。当前 V3 已有 normal 子串与 regex 匹配；请求 header 条件和 V2 忽略列表会扩大 schema、运行时及浏览器兼容范围，暂不纳入精确匹配切片。静态响应 headers 虽已进入 schema，但编辑器没有配置入口，Fetch 与 XHR 执行能力不同，需独立确定降级策略。完成 125 / 210 项（59.5%）。
 - 2026-09-26：完成 V3 URL 精确匹配：`exact` 对完整原始 URL 做区分大小写字符串相等比较；缺省 / `normal` 子串、`regex` RE2 语义不变。规则列表、拦截 / 重定向编辑器、匹配类型筛选、离线试算和 Fetch / XHR runtime 共用该 matcher。备份升至格式 4；仍读取只允许旧 matcher 的格式 3，用户保存 `exact` 时自动升级。171 项 Vitest、domain / proxy-lib / Vue 3 / Chrome 构建、类型检查、包边界 / 面板隔离、Chrome / Edge 扩展 smoke、ESLint / Prettier 通过。完成 126 / 210 项（60.0%）。
 - 2026-09-26：评估静态响应 header 编辑能力。Fetch 可以应用 header 覆盖；XHR 无法忠实重写网络响应头，当前策略会让配置了响应 header 的 XHR action 整体 fail-open。为避免新增一个在 XHR 上不生效且易被误解的编辑入口，本期暂缓该 UI，待确认可接受的能力降级后再决定。完成 127 / 210 项（60.5%）。
+- 2026-09-26：并行审计实际运行时诊断的 Fetch / XHR 生命周期、消息边界和隐私风险后，将宽泛诊断项拆分：用户主动开启、默认关闭的临时未命中原因；Fetch action outcome；异步 XHR action outcome。诊断仅保存在面板内存、不写 storage，不携带 URL / query、body、headers 或函数代码；真实事件按 best-effort 提示处理，不作为安全证据。命中通知仍只代表规则选择，必须等动作确认点再报告 outcome。完成 128 / 213 项（60.1%）。
 - GitHub 里程碑：[阶段 0](https://github.com/Nyakooo/ajax-proxy/milestone/1)、[阶段 1](https://github.com/Nyakooo/ajax-proxy/milestone/2)、[阶段 2](https://github.com/Nyakooo/ajax-proxy/milestone/3)、[阶段 3](https://github.com/Nyakooo/ajax-proxy/milestone/4)、[阶段 4](https://github.com/Nyakooo/ajax-proxy/milestone/5)、[阶段 5](https://github.com/Nyakooo/ajax-proxy/milestone/6)、[阶段 6](https://github.com/Nyakooo/ajax-proxy/milestone/7)、[阶段 7](https://github.com/Nyakooo/ajax-proxy/milestone/8)；已复现缺陷：[issue #56](https://github.com/Nyakooo/ajax-proxy/issues/56)。
