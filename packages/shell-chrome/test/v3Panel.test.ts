@@ -142,6 +142,35 @@ describe('V3 panel configuration adapter', () => {
     expect(storage.write).not.toHaveBeenCalledWith(StorageKey.GLOBAL_SWITCH, expect.anything())
   })
 
+  it('maps a rejected explicit null clear to storage-write-failed without other writes', async () => {
+    const storage = createStorage()
+    vi.mocked(storage.write).mockRejectedValueOnce(new Error('storage unavailable'))
+
+    await expect(saveV3PanelConfig(null, storage)).resolves.toEqual({
+      ok: false,
+      error: 'storage-write-failed',
+    })
+    expect(storage.write).toHaveBeenCalledExactlyOnceWith(StorageKey.V3_CONFIG, null)
+  })
+
+  it('fails the full snapshot when reading hit counters rejects after a valid config read', async () => {
+    const storage = createStorage()
+    vi.mocked(storage.read).mockImplementation(async (key, defaultValue) => {
+      if (key === StorageKey.V3_CONFIG) return backup
+      if (key === StorageKey.V3_HITS) throw new Error('counter storage unavailable')
+      return defaultValue
+    })
+
+    await expect(readV3PanelSnapshot(storage)).resolves.toEqual({
+      ok: false,
+      error: 'storage-read-failed',
+    })
+    expect(storage.read.mock.calls.map(([key]) => key)).toEqual([
+      StorageKey.V3_CONFIG,
+      StorageKey.V3_HITS,
+    ])
+  })
+
   it('rejects messages from non-panel senders and accepts a trusted GET asynchronously', async () => {
     const storage = createStorage()
     const { handler, sendResponse } = createMessageHandler(storage)
