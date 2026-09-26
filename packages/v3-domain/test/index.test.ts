@@ -425,6 +425,27 @@ describe('V3 backup schema', () => {
       ]),
     })
   })
+
+  it('rejects invalid rule identity, enabled flags, matcher URLs, and action flags', () => {
+    const invalidFields = structuredClone(validBackup)
+    const rule = invalidFields.rules[0] as unknown as Record<string, unknown>
+    rule.id = '  '
+    rule.enabled = 'yes'
+    rule.match = { url: '  ', method: 'GET', type: 'normal' }
+    rule.request = { enabled: 'yes', redirect: { url: '/target' } }
+    rule.response = { enabled: 'yes', replace: {} }
+
+    expect(validateV3Backup(invalidFields)).toMatchObject({
+      ok: false,
+      issues: expect.arrayContaining([
+        expect.objectContaining({ path: 'rules[0].id' }),
+        expect.objectContaining({ path: 'rules[0].enabled' }),
+        expect.objectContaining({ path: 'rules[0].match.url' }),
+        expect.objectContaining({ path: 'rules[0].request.enabled' }),
+        expect.objectContaining({ path: 'rules[0].response.enabled' }),
+      ]),
+    })
+  })
 })
 
 describe('V3 response function result validation', () => {
