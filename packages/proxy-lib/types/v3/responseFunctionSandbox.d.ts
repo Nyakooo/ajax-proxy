@@ -1,24 +1,15 @@
 export interface V3FunctionRequestSnapshot {
-  url: string
-  method: string
-  body?: string
+    url: string;
+    method: string;
+    body?: string;
 }
 export interface V3FunctionResponseSnapshot {
-  status: number
-  statusText: string
-  headers: Record<string, string>
-  body: string
+    status: number;
+    statusText: string;
+    headers: Record<string, string>;
+    body: string;
 }
-export type V3ResponseFunctionExecutor = (
-  code: string,
-  request: V3FunctionRequestSnapshot,
-  response: V3FunctionResponseSnapshot
-) => Promise<unknown>
-export type V3RequestRedirectFunctionExecutor = (
-  code: string,
-  request: Pick<V3FunctionRequestSnapshot, 'url' | 'method'>
-) => Promise<unknown>
-export declare function createV3ResponseFunctionExecutor(host: Window): V3ResponseFunctionExecutor
-export declare function createV3RequestRedirectFunctionExecutor(
-  host: Window
-): V3RequestRedirectFunctionExecutor
+export type V3ResponseFunctionExecutor = (code: string, request: V3FunctionRequestSnapshot, response: V3FunctionResponseSnapshot) => Promise<unknown>;
+export type V3RequestRedirectFunctionExecutor = (code: string, request: Pick<V3FunctionRequestSnapshot, 'url' | 'method'>) => Promise<unknown>;
+export declare function createV3ResponseFunctionExecutor(host: Window): V3ResponseFunctionExecutor;
+export declare function createV3RequestRedirectFunctionExecutor(host: Window): V3RequestRedirectFunctionExecutor;
