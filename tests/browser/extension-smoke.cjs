@@ -286,6 +286,7 @@ async function main() {
     })
     page.on('requestfailed', (request) => {
       if (request.url().includes('/api/stream') || request.url().includes('/mock/echo')) {
+        if (request.failure()?.errorText === 'net::ERR_ABORTED') return
         console.error(
           'Extension smoke request failed:',
           request.method(),
@@ -608,6 +609,7 @@ async function main() {
     streamPage.on('pageerror', (error) => console.error('Stream smoke page error:', error))
     streamPage.on('requestfailed', (request) => {
       if (request.url().includes('/api/stream') || request.url().includes('/mock/echo')) {
+        if (request.failure()?.errorText === 'net::ERR_ABORTED') return
         console.error(
           'Stream smoke request failed:',
           request.method(),
@@ -668,6 +670,7 @@ async function main() {
         body: 'streamed request body',
         path: '/mock/echo',
         originalHeader: 'streamed-preserved',
+        cookie: 'redirect-smoke=present',
       },
     })
     assert.deepEqual(streamRequests, [
@@ -718,12 +721,20 @@ async function main() {
         originalHeader: 'fallback-preserved',
       },
     })
-    assert.deepEqual(streamRequests[1], {
-      url: '/api/stream-fallback',
-      method: 'POST',
-      body: 'fallback streamed body intact',
-      httpVersion: '2.0',
-    })
+    assert.deepEqual(streamRequests, [
+      {
+        url: '/mock/echo',
+        method: 'POST',
+        body: 'streamed request body',
+        httpVersion: '2.0',
+      },
+      {
+        url: '/api/stream-fallback',
+        method: 'POST',
+        body: 'fallback streamed body intact',
+        httpVersion: '2.0',
+      },
+    ])
 
     const v3RegexFetchResult = await page.evaluate(async () => {
       const response = await fetch('/api/items', { method: 'POST', body: 'regex fetch' })
