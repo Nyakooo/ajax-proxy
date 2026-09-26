@@ -388,6 +388,15 @@ async function main() {
               replace: { status: 202, body: v3ResponseBody },
             },
           },
+          {
+            id: 'v3-regex-extension-smoke',
+            enabled: true,
+            match: { url: '/api/(echo|items)$', type: 'regex', method: 'POST' },
+            response: {
+              enabled: true,
+              replace: { status: 203, body: { source: 'v3-regex-intercepted', ok: true } },
+            },
+          },
         ],
       },
     })
@@ -489,6 +498,51 @@ async function main() {
       legacyHitState
     )
     assert.equal(await serviceWorker.evaluate(() => chrome.action.getBadgeText({})), '+2')
+
+    const v3RegexFetchResult = await page.evaluate(async () => {
+      const response = await fetch('/api/items', { method: 'POST', body: 'regex fetch' })
+      return { status: response.status, body: await response.json() }
+    })
+    assert.deepEqual(v3RegexFetchResult, {
+      status: 203,
+      body: { source: 'v3-regex-intercepted', ok: true },
+    })
+    const v3RegexXhrResult = await page.evaluate(
+      () =>
+        new Promise((resolve) => {
+          const request = new XMLHttpRequest()
+          request.onload = () =>
+            resolve({ status: request.status, body: JSON.parse(request.responseText) })
+          request.open('POST', '/api/items')
+          request.send('regex xhr')
+        })
+    )
+    assert.deepEqual(v3RegexXhrResult, {
+      status: 203,
+      body: { source: 'v3-regex-intercepted', ok: true },
+    })
+    const v3RegexUnmatchedFetchResult = await page.evaluate(async () => {
+      const response = await fetch('/api/nope', { method: 'POST', body: 'unmatched fetch' })
+      return { status: response.status, body: await response.json() }
+    })
+    assert.deepEqual(v3RegexUnmatchedFetchResult, {
+      status: 200,
+      body: { source: 'server', method: 'POST', body: 'unmatched fetch' },
+    })
+    const v3RegexUnmatchedXhrResult = await page.evaluate(
+      () =>
+        new Promise((resolve) => {
+          const request = new XMLHttpRequest()
+          request.onload = () =>
+            resolve({ status: request.status, body: JSON.parse(request.responseText) })
+          request.open('POST', '/api/nope')
+          request.send('unmatched xhr')
+        })
+    )
+    assert.deepEqual(v3RegexUnmatchedXhrResult, {
+      status: 200,
+      body: { source: 'server', method: 'POST', body: 'unmatched xhr' },
+    })
 
     const runtimeFunctionCode =
       "return { status: 209, body: { source: 'v3-function', requestBody: request.body, response: JSON.parse(response.body) } }"
