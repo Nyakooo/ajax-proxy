@@ -38,7 +38,7 @@ vi.mock('@proxy/v3-domain', async (importOriginal) => ({
 }))
 
 import { chromeBadge } from '../src/service-worker/badge'
-import { chromeBadgeV3 } from '../src/service-worker/v3Hit'
+import { chromeBadgeV3, renderActiveV3Badge } from '../src/service-worker/v3Hit'
 
 afterEach(() => {
   vi.unstubAllGlobals()
@@ -148,6 +148,29 @@ describe('chromeBadge rule selection', () => {
     await chromeBadgeV3({ kind: 'v3-hit', rule_id: 'v3-rule', match_url: '/wrong', method: 'POST' })
     await chromeBadgeV3({ kind: 'v3-hit', rule_id: 'v3-rule', match_url: '/api', method: 'GET' })
     expect(mocks.setStorage).not.toHaveBeenCalled()
+  })
+
+  it('clears the badge for disabled or invalid V3 configuration without reading counters', async () => {
+    let config: unknown = { formatVersion: 'invalid' }
+    mocks.getRealStorage.mockImplementation(async (key) => {
+      if (key === 'v3-config') return config
+      return {}
+    })
+    const setBadgeText = vi.fn()
+    vi.stubGlobal('chrome', { action: { setBadgeText } })
+
+    expect(await renderActiveV3Badge()).toBe(true)
+    config = {
+      formatVersion: 3,
+      settings: { globalEnabled: false },
+      rules: [],
+    }
+    expect(await renderActiveV3Badge()).toBe(true)
+
+    expect(setBadgeText).toHaveBeenCalledTimes(2)
+    expect(setBadgeText).toHaveBeenNthCalledWith(1, { text: '' })
+    expect(setBadgeText).toHaveBeenNthCalledWith(2, { text: '' })
+    expect(mocks.getRealStorage).not.toHaveBeenCalledWith('v3-hits', {})
   })
 
   it('continues counting after a storage write fails', async () => {
