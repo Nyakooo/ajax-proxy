@@ -199,6 +199,38 @@ describe('ResponseRuleEditor', () => {
     await wrapper.get('form').trigger('submit')
     expect(wrapper.emitted('save')?.at(-1)?.[0]).toMatchObject({ body: { ok: true }, mode: 'json' })
   })
+
+  it('resets fields and validation errors when reopened for a different rule', async () => {
+    const firstRule = {
+      enabled: true,
+      match: { url: '/first' },
+      response: { enabled: true, replace: { status: 201, body: { first: true } } },
+    }
+    const secondRule = {
+      enabled: false,
+      match: { url: '/second', type: 'exact', method: 'POST' },
+      response: { enabled: true, replace: { status: 202, body: { second: true } } },
+    }
+    const wrapper = mount(ResponseRuleEditor, {
+      props: { open: false, rule: firstRule },
+      global: { plugins: [i18n] },
+    })
+    await wrapper.setProps({ open: true })
+    await wrapper.get('.editor-field input').setValue(' /invalid ')
+    await wrapper.get('form').trigger('submit')
+    expect(wrapper.get('[role="alert"]').exists()).toBe(true)
+
+    await wrapper.setProps({ open: false, rule: secondRule })
+    await wrapper.setProps({ open: true })
+    await nextTick()
+    await flushPromises()
+    expect(wrapper.get('.editor-field input').element.value).toBe('/second')
+    expect(wrapper.get('input[type="number"]').element.value).toBe('202')
+    expect(wrapper.getComponent(CodeMirrorJsonEditor).props('modelValue')).toBe(
+      '{\n  "second": true\n}'
+    )
+    expect(wrapper.find('[role="alert"]').exists()).toBe(false)
+  })
 })
 
 afterEach(() => {
