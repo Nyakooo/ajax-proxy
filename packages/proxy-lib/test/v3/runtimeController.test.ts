@@ -1,5 +1,8 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { isV3FunctionError, NoticeTo } from '@proxy/protocol'
 import { createV3RuntimeController } from '../../src/v3/runtimeController'
+
+afterEach(() => vi.unstubAllGlobals())
 
 const backup = {
   format: 'ajax-proxy-backup',
@@ -29,6 +32,12 @@ class RuntimeXHR extends EventTarget {
     this.response = body
     this.dispatchEvent(new Event('loadend'))
   }
+}
+
+class RuntimeSandboxFrame {
+  src = 'chrome-extension://test-extension/v3-sandbox/sandbox.html'
+  contentWindow = { postMessage: vi.fn() } as unknown as Window
+  remove = vi.fn()
 }
 
 describe('createV3RuntimeController', () => {
@@ -146,6 +155,78 @@ describe('createV3RuntimeController', () => {
     expect(await response.text()).toBe('native')
     expect(fetcher).toHaveBeenCalledOnce()
     expect(dispatchEvent).not.toHaveBeenCalled()
+  })
+
+  it('emits a privacy-limited function error event when a sandbox result is invalid', async () => {
+    vi.stubGlobal('HTMLIFrameElement', RuntimeSandboxFrame)
+    const frame = new RuntimeSandboxFrame()
+    const dispatchEvent = vi.fn()
+    const fetcher = vi.fn(async () => new Response('native'))
+    let onMessage: ((event: MessageEvent) => void) | undefined
+    const host = {
+      location: { origin: 'https://example.test' },
+      document: { getElementById: vi.fn(() => frame) },
+      dispatchEvent,
+      addEventListener: vi.fn((_type: string, listener: EventListenerOrEventListenerObject) => {
+        if (typeof listener === 'function') onMessage = listener as (event: MessageEvent) => void
+      }),
+      removeEventListener: vi.fn(),
+      crypto: { randomUUID: () => 'invalid-function-result-id' },
+    } as unknown as Window
+    const controller = createV3RuntimeController(
+      host,
+      fetcher as typeof window.fetch,
+      class {} as unknown as typeof window.XMLHttpRequest
+    )
+    controller.update({
+      ...backup,
+      rules: [
+        {
+          id: 'function-rule',
+          enabled: true,
+          match: { url: '/api', method: 'POST' },
+          response: { enabled: true, replace: { code: 'return { unknown: true }' } },
+        },
+      ],
+    })
+
+    const responsePromise = controller.fetch('https://example.test/api?token=secret', {
+      method: 'POST',
+    })
+    onMessage?.({
+      origin: 'null',
+      source: frame.contentWindow,
+      data: { channel: 'ajax-proxy-v3-function-sandbox', type: 'ready' },
+    } as MessageEvent)
+    await vi.waitFor(() => expect(frame.contentWindow.postMessage).toHaveBeenCalledOnce())
+    const [runMessage] = vi.mocked(frame.contentWindow.postMessage).mock.calls[0] ?? []
+    onMessage?.({
+      origin: 'null',
+      source: frame.contentWindow,
+      data: {
+        channel: 'ajax-proxy-v3-function-sandbox',
+        type: 'result',
+        id: runMessage.id,
+        ok: true,
+        result: { unknown: true },
+      },
+    } as MessageEvent)
+
+    const response = await responsePromise
+    expect(await response.text()).toBe('native')
+    expect(fetcher).toHaveBeenCalledOnce()
+    const functionErrorEvent = dispatchEvent.mock.calls
+      .map(([event]) => event as CustomEvent)
+      .find((event) => isV3FunctionError(event.detail))
+    expect(functionErrorEvent?.type).toBe(NoticeTo.CONTENT)
+    expect(functionErrorEvent?.detail).toEqual({
+      rule_id: 'function-rule',
+      match_url: '/api',
+      method: 'POST',
+      code: 'invalid-result',
+    })
+    expect(isV3FunctionError(functionErrorEvent?.detail)).toBe(true)
+    expect(JSON.stringify(functionErrorEvent?.detail)).not.toContain('token=secret')
   })
 
   it('emits privacy-limited diagnostics only while armed and leaves fetch native', async () => {
