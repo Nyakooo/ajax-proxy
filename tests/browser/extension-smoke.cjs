@@ -25,6 +25,7 @@ assert.ok(
 )
 
 async function main() {
+  const requests = []
   const server = http.createServer((request, response) => {
     if (request.url === '/import-map') {
       response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' })
@@ -131,6 +132,11 @@ async function main() {
     const chunks = []
     request.on('data', (chunk) => chunks.push(chunk))
     request.on('end', () => {
+      requests.push({
+        url: request.url,
+        method: request.method,
+        body: Buffer.concat(chunks).toString(),
+      })
       if (request.url.startsWith('/mock/echo')) {
         response.writeHead(200, { 'content-type': 'application/json' })
         response.end(
@@ -191,6 +197,16 @@ async function main() {
     page.on('console', (message) => {
       if (message.type() === 'error')
         console.error('Extension smoke console error:', message.text())
+    })
+    page.on('requestfailed', (request) => {
+      if (request.url().includes('/api/stream') || request.url().includes('/mock/echo')) {
+        console.error(
+          'Extension smoke request failed:',
+          request.method(),
+          request.url(),
+          request.failure()?.errorText
+        )
+      }
     })
     await page.goto(`http://127.0.0.1:${port}/`)
     await secondPage.goto(`http://127.0.0.1:${port}/`)
@@ -520,22 +536,28 @@ async function main() {
     )
     assert.equal(await serviceWorker.evaluate(() => chrome.action.getBadgeText({})), '+2')
 
-    const streamedRedirectResult = await page.evaluate(async () => {
-      const body = new ReadableStream({
-        start(controller) {
-          controller.enqueue(new TextEncoder().encode('streamed '))
-          controller.enqueue(new TextEncoder().encode('request body'))
-          controller.close()
-        },
+    let streamedRedirectResult
+    try {
+      streamedRedirectResult = await page.evaluate(async () => {
+        const body = new ReadableStream({
+          start(controller) {
+            controller.enqueue(new TextEncoder().encode('streamed '))
+            controller.enqueue(new TextEncoder().encode('request body'))
+            controller.close()
+          },
+        })
+        const response = await fetch('/api/stream', {
+          method: 'POST',
+          body,
+          duplex: 'half',
+          headers: { 'x-original': 'streamed-preserved' },
+        })
+        return { status: response.status, url: response.url, body: await response.json() }
       })
-      const response = await fetch('/api/stream', {
-        method: 'POST',
-        body,
-        duplex: 'half',
-        headers: { 'x-original': 'streamed-preserved' },
-      })
-      return { status: response.status, url: response.url, body: await response.json() }
-    })
+    } catch (error) {
+      console.error('Streaming redirect server requests before failure:', requests)
+      throw error
+    }
     assert.deepEqual(streamedRedirectResult, {
       status: 200,
       url: `http://127.0.0.1:${port}/mock/echo`,
