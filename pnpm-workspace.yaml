@@ -44,3 +44,6 @@ overrides:
   'css-minimizer-webpack-plugin@3.0.2>serialize-javascript': 7.1.2
   # PostCSS 7 has no patched release; isolate the Vue compiler to the existing PostCSS 8 line.
   '@vue/component-compiler-utils@3.3.0>postcss': 8.5.28
+  # GHSA-43f8-2h32-f4cj: patch hosted-git-info within both parent semver ranges.
+  'normalize-package-data@2.3.2>hosted-git-info': 2.8.9
+  'normalize-package-data@2.5.0>hosted-git-info': 2.8.9
