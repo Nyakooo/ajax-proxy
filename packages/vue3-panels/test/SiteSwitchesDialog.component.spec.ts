@@ -129,6 +129,31 @@ describe('ResponseRuleEditor', () => {
       ],
     ])
   })
+
+  it('saves a valid JSON response with selected rule tags', async () => {
+    const wrapper = mount(ResponseRuleEditor, {
+      props: { open: true, tags: [{ id: 'tag-a', name: 'API' }] },
+      global: { plugins: [i18n] },
+    })
+    await nextTick()
+    await wrapper.get('.editor-field input').setValue('/api')
+    await wrapper.get('.rule-tag-picker input[type="checkbox"]').setValue(true)
+    await wrapper.get('form').trigger('submit')
+
+    expect(wrapper.emitted('save')).toEqual([
+      [
+        {
+          enabled: true,
+          match: { url: '/api', type: 'normal', method: 'ANY' },
+          status: 200,
+          body: {},
+          mode: 'json',
+          responseEnabled: true,
+          tagIds: ['tag-a'],
+        },
+      ],
+    ])
+  })
 })
 
 afterEach(() => {
