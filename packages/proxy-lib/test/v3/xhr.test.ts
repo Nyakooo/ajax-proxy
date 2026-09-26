@@ -478,6 +478,22 @@ describe('createV3XHR', () => {
     expect(unarmedOutcome).not.toHaveBeenCalled()
   })
 
+  it('does not let XHR outcome reporting errors change native send behavior', () => {
+    const selectedRule = rule('redirect', {
+      request: { enabled: true, redirect: { url: 'https://target.test/api' } },
+    })
+    const onXHROutcome = vi.fn(() => {
+      throw new Error('diagnostic callback failed')
+    })
+    const xhr = makeXHR([selectedRule], undefined, undefined, onXHROutcome, true)
+
+    xhr.open('POST', 'https://example.test/api', true)
+    expect(() => xhr.send('request body')).not.toThrow()
+
+    expect(xhr.sentBody).toBe('request body')
+    expect(onXHROutcome).toHaveBeenCalledOnce()
+  })
+
   it('reports a redirect open fallback after successful send, and preserves synchronous send errors', () => {
     const outcome = vi.fn()
     const selectedRule = rule('redirect', {
