@@ -1,6 +1,8 @@
 const assert = require('node:assert/strict')
+const { execFileSync } = require('node:child_process')
 const fs = require('node:fs')
 const http = require('node:http')
+const http2 = require('node:http2')
 const os = require('node:os')
 const path = require('node:path')
 const { chromium } = require('playwright')
@@ -171,16 +173,100 @@ async function main() {
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve))
   const { port } = server.address()
   const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ajax-proxy-extension-smoke-'))
+  const streamRequests = []
+  let streamServer
+  let streamOrigin
+  let certificateDir
   const contextOptions = {
     channel: process.env.BROWSER_EXECUTABLE_PATH ? undefined : 'chromium',
     executablePath: process.env.BROWSER_EXECUTABLE_PATH,
     headless: process.env.EXTENSION_SMOKE_HEADLESS !== '0',
     acceptDownloads: true,
+    ignoreHTTPSErrors: true,
     args: [`--disable-extensions-except=${extensionPath}`, `--load-extension=${extensionPath}`],
   }
   let context
 
   try {
+    certificateDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ajax-proxy-stream-smoke-'))
+    const keyPath = path.join(certificateDir, 'key.pem')
+    const certificatePath = path.join(certificateDir, 'certificate.pem')
+    execFileSync(
+      'openssl',
+      [
+        'req',
+        '-x509',
+        '-newkey',
+        'rsa:2048',
+        '-keyout',
+        keyPath,
+        '-out',
+        certificatePath,
+        '-sha256',
+        '-days',
+        '1',
+        '-nodes',
+        '-subj',
+        '/CN=127.0.0.1',
+        '-addext',
+        'subjectAltName=IP:127.0.0.1',
+      ],
+      { stdio: 'pipe' }
+    )
+    // Chromium rejects streamed Fetch request bodies on HTTP/1.x, so exercise them over HTTPS/HTTP2.
+    streamServer = http2.createSecureServer(
+      {
+        key: fs.readFileSync(keyPath),
+        cert: fs.readFileSync(certificatePath),
+        allowHTTP1: true,
+      },
+      (request, response) => {
+        if (request.method === 'GET' && request.url === '/') {
+          response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' })
+          response.end('<!doctype html><title>V3 Stream Smoke Page</title>')
+          return
+        }
+        if (request.method === 'GET' && request.url === '/favicon.ico') {
+          response.writeHead(204)
+          response.end()
+          return
+        }
+
+        const chunks = []
+        request.on('data', (chunk) => chunks.push(chunk))
+        request.on('end', () => {
+          const body = Buffer.concat(chunks).toString()
+          streamRequests.push({
+            url: request.url,
+            method: request.method,
+            body,
+            httpVersion: request.httpVersion,
+          })
+          const result =
+            request.url === '/api/stream-fallback'
+              ? {
+                  source: 'server',
+                  method: request.method,
+                  body,
+                  originalHeader: request.headers['x-original'],
+                }
+              : {
+                  source: 'server',
+                  method: request.method,
+                  body,
+                  path: request.url,
+                  originalHeader: request.headers['x-original'],
+                  redirectedHeader: request.headers['x-redirected'],
+                  cookie: request.headers.cookie,
+                }
+          response.writeHead(200, { 'content-type': 'application/json' })
+          response.end(JSON.stringify(result))
+        })
+      }
+    )
+    await new Promise((resolve) => streamServer.listen(0, '127.0.0.1', resolve))
+    streamOrigin = `https://127.0.0.1:${streamServer.address().port}`
+
     context = await chromium.launchPersistentContext(userDataDir, contextOptions)
 
     const serviceWorker =
@@ -413,7 +499,7 @@ async function main() {
             match: { url: '/api/stream', method: 'POST' },
             request: {
               enabled: true,
-              redirect: { url: `http://127.0.0.1:${port}/mock/echo` },
+              redirect: { url: `${streamOrigin}/mock/echo` },
             },
           },
           {
@@ -422,7 +508,7 @@ async function main() {
             match: { url: '/api/stream-fallback', method: 'POST' },
             request: {
               enabled: true,
-              redirect: { url: `http://127.0.0.1:${port}/mock/stream-fallback` },
+              redirect: { url: `${streamOrigin}/mock/stream-fallback` },
             },
           },
           {
@@ -517,6 +603,21 @@ async function main() {
       await chrome.storage.local.set({ [key]: { ...config, disabledOrigins: [] } })
     }, 'ajax-proxy:storage:v3-config')
     await page.reload()
+    const streamPage = await context.newPage()
+    streamPage.setDefaultTimeout(10000)
+    streamPage.on('pageerror', (error) => console.error('Stream smoke page error:', error))
+    streamPage.on('requestfailed', (request) => {
+      if (request.url().includes('/api/stream') || request.url().includes('/mock/echo')) {
+        console.error(
+          'Stream smoke request failed:',
+          request.method(),
+          request.url(),
+          request.failure()?.errorText
+        )
+      }
+    })
+    await streamPage.goto(`${streamOrigin}/`)
+    await streamPage.reload()
     let v3Counters = {}
     for (let attempt = 0; attempt < 40; attempt += 1) {
       v3Counters = await serviceWorker.evaluate(
@@ -538,7 +639,7 @@ async function main() {
 
     let streamedRedirectResult
     try {
-      streamedRedirectResult = await page.evaluate(async () => {
+      streamedRedirectResult = await streamPage.evaluate(async () => {
         const body = new ReadableStream({
           start(controller) {
             controller.enqueue(new TextEncoder().encode('streamed '))
@@ -555,12 +656,12 @@ async function main() {
         return { status: response.status, url: response.url, body: await response.json() }
       })
     } catch (error) {
-      console.error('Streaming redirect server requests before failure:', requests)
+      console.error('Streaming redirect server requests before failure:', streamRequests)
       throw error
     }
     assert.deepEqual(streamedRedirectResult, {
       status: 200,
-      url: `http://127.0.0.1:${port}/mock/echo`,
+      url: `${streamOrigin}/mock/echo`,
       body: {
         source: 'server',
         method: 'POST',
@@ -569,8 +670,16 @@ async function main() {
         originalHeader: 'streamed-preserved',
       },
     })
+    assert.deepEqual(streamRequests, [
+      {
+        url: '/mock/echo',
+        method: 'POST',
+        body: 'streamed request body',
+        httpVersion: '2.0',
+      },
+    ])
 
-    const streamedFallbackResult = await page.evaluate(async (redirectTarget) => {
+    const streamedFallbackResult = await streamPage.evaluate(async (redirectTarget) => {
       const body = new ReadableStream({
         start(controller) {
           controller.enqueue(new TextEncoder().encode('fallback streamed '))
@@ -598,16 +707,22 @@ async function main() {
       } finally {
         window.Request = NativeRequest
       }
-    }, `http://127.0.0.1:${port}/mock/stream-fallback`)
+    }, `${streamOrigin}/mock/stream-fallback`)
     assert.deepEqual(streamedFallbackResult, {
       status: 200,
-      url: `http://127.0.0.1:${port}/api/stream-fallback`,
+      url: `${streamOrigin}/api/stream-fallback`,
       body: {
         source: 'server',
         method: 'POST',
         body: 'fallback streamed body intact',
         originalHeader: 'fallback-preserved',
       },
+    })
+    assert.deepEqual(streamRequests[1], {
+      url: '/api/stream-fallback',
+      method: 'POST',
+      body: 'fallback streamed body intact',
+      httpVersion: '2.0',
     })
 
     const v3RegexFetchResult = await page.evaluate(async () => {
@@ -2021,6 +2136,12 @@ async function main() {
   } finally {
     await context?.close()
     fs.rmSync(userDataDir, { recursive: true, force: true })
+    if (certificateDir) fs.rmSync(certificateDir, { recursive: true, force: true })
+    if (streamServer?.listening) {
+      await new Promise((resolve, reject) => {
+        streamServer.close((error) => (error ? reject(error) : resolve()))
+      })
+    }
     await new Promise((resolve, reject) => {
       server.close((error) => (error ? reject(error) : resolve()))
     })
