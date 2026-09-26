@@ -48,6 +48,37 @@ describe('SiteSwitchesDialog', () => {
     expect(wrapper.get('[role="alert"]').text()).toBe('此 origin 已经停用。')
     expect(wrapper.emitted('disable')).toBeUndefined()
   })
+
+  it('traps Tab focus at both ends and emits close for Escape', async () => {
+    const wrapper = mount(SiteSwitchesDialog, {
+      attachTo: document.body,
+      props: { open: false },
+      global: { plugins: [i18n] },
+    })
+    await wrapper.setProps({ open: true })
+    await nextTick()
+    const dialog = wrapper.get('[role="dialog"]')
+    const input = wrapper.get('#site-switch-origin')
+    const first = wrapper.get('.editor-close')
+    const last = wrapper.get('.editor-actions button')
+
+    expect(document.activeElement).toBe(input.element)
+    first.element.focus()
+    const shiftTab = new KeyboardEvent('keydown', {
+      key: 'Tab',
+      shiftKey: true,
+      bubbles: true,
+      cancelable: true,
+    })
+    dialog.element.dispatchEvent(shiftTab)
+    expect(shiftTab.defaultPrevented).toBe(true)
+    expect(document.activeElement).toBe(last.element)
+    dialog.element.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', bubbles: true }))
+    expect(document.activeElement).toBe(first.element)
+
+    dialog.element.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+    expect(wrapper.emitted('close')).toHaveLength(1)
+  })
 })
 
 afterEach(() => {
