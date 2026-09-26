@@ -481,6 +481,33 @@ describe('createV3Fetch', () => {
     ])
   })
 
+  it('keeps the response when the function error reporter throws', async () => {
+    const selectedRule = rule('throwing-error-reporter', {
+      response: { enabled: true, replace: { code: 'return { body: "changed" }' } },
+    })
+    const response = new Response('native')
+    const onFetchOutcome = vi.fn()
+    const fetch = createV3Fetch(async () => response, {
+      getRules: () => [selectedRule],
+      executeResponseFunction: async () => {
+        throw new Error('execution failed')
+      },
+      onFunctionError: () => {
+        throw new Error('diagnostic callback failed')
+      },
+      isFetchOutcomeDiagnosticsArmed: () => true,
+      onFetchOutcome,
+    })
+
+    const result = await fetch('https://example.test/api', { method: 'POST' })
+
+    expect(result).toBe(response)
+    expect(await result.text()).toBe('native')
+    expect(onFetchOutcome.mock.calls.map((call) => call.slice(2))).toEqual([
+      ['response', 'fallback', 'response-replacement-failed'],
+    ])
+  })
+
   it('does not expose binary response bodies to response functions', async () => {
     const executeResponseFunction = vi.fn(async () => ({ body: 'changed' }))
     const onFunctionError = vi.fn()
