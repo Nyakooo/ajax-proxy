@@ -32,6 +32,7 @@ const { locale, t } = useI18n({ useScope: 'global' })
 const extensionRuntime = globalThis.chrome?.runtime
 let configService
 let ruleOperations
+let quickCreateReturnSection = null
 const memoryOnly = ref(!extensionRuntime?.sendMessage)
 const loading = ref(true)
 const configReady = ref(false)
@@ -417,6 +418,42 @@ function showResponseEditor(rule = null) {
   responseEditorOpen.value = true
 }
 
+function createRuleFromMatch(match, action) {
+  if (loading.value || saving.value) return
+  quickCreateReturnSection = section.value
+  const rule = {
+    enabled: false,
+    tagIds: [],
+    match: {
+      url: match.url || match.match_url,
+      method: match.method,
+      type: 'normal',
+    },
+  }
+  if (action === 'redirect') {
+    section.value = 'redirect'
+    showEditor({ ...rule, request: { enabled: true, redirect: { url: '' } } })
+    return
+  }
+  section.value = 'intercept'
+  showResponseEditor({
+    ...rule,
+    response: { enabled: true, replace: { status: 200, body: {} } },
+  })
+}
+
+function closeQuickRedirectEditor() {
+  editorOpen.value = false
+  if (quickCreateReturnSection !== null) section.value = quickCreateReturnSection
+  quickCreateReturnSection = null
+}
+
+function closeQuickResponseEditor() {
+  responseEditorOpen.value = false
+  if (quickCreateReturnSection !== null) section.value = quickCreateReturnSection
+  quickCreateReturnSection = null
+}
+
 async function saveRedirectRule(fields) {
   const current = config.value
   const id = editingRule.value?.id ?? createRuleId(current.rules)
@@ -435,13 +472,16 @@ async function saveRedirectRule(fields) {
     editorIssue.value = t('editor.duplicateRule')
     return
   }
-  if (await persistConfig({ ...current, rules: [...nextRules] })) editorOpen.value = false
+  if (await persistConfig({ ...current, rules: [...nextRules] })) {
+    editorOpen.value = false
+    quickCreateReturnSection = null
+  }
 }
 
 async function saveResponseRule(fields) {
   const current = config.value
   const id = editingResponseRule.value?.id ?? createRuleId(current.rules)
-  const existing = editingResponseRule.value
+  const existing = editingResponseRule.value?.id ? editingResponseRule.value : null
   if (fields.mode === 'function') {
     const validation = validateFunctionResponseDraft(fields.code)
     if (!validation.ok) {
@@ -470,7 +510,10 @@ async function saveResponseRule(fields) {
       responseEditorIssue.value = t('editor.duplicateRule')
       return
     }
-    if (await persistConfig({ ...current, rules: [...nextRules] })) responseEditorOpen.value = false
+    if (await persistConfig({ ...current, rules: [...nextRules] })) {
+      responseEditorOpen.value = false
+      quickCreateReturnSection = null
+    }
     return
   }
   const result = buildV3ResponseRule({
@@ -489,6 +532,7 @@ async function saveResponseRule(fields) {
     return
   }
   const rule = result.rule
+  rule.enabled = fields.enabled
   rule.tagIds = [...(fields.tagIds ?? [])]
   const nextRules = existing
     ? ruleOperations.replaceV3Rule(current.rules, id, rule)
@@ -497,7 +541,10 @@ async function saveResponseRule(fields) {
     responseEditorIssue.value = t('editor.duplicateRule')
     return
   }
-  if (await persistConfig({ ...current, rules: [...nextRules] })) responseEditorOpen.value = false
+  if (await persistConfig({ ...current, rules: [...nextRules] })) {
+    responseEditorOpen.value = false
+    quickCreateReturnSection = null
+  }
 }
 
 function createRuleId(existingRules) {
@@ -1071,6 +1118,32 @@ async function moveRule(rule, targetRule) {
                 <time :datetime="new Date(match.receivedAt).toISOString()">
                   {{ formatMatchTime(match.receivedAt) }}
                 </time>
+                <div class="recent-match-actions">
+                  <button
+                    type="button"
+                    :aria-label="
+                      t('rules.createResponseFromMatchLabel', {
+                        method: match.method,
+                        url: match.url,
+                      })
+                    "
+                    @click="createRuleFromMatch(match, 'response')"
+                  >
+                    {{ t('rules.createResponseFromMatch') }}
+                  </button>
+                  <button
+                    type="button"
+                    :aria-label="
+                      t('rules.createRedirectFromMatchLabel', {
+                        method: match.method,
+                        url: match.url,
+                      })
+                    "
+                    @click="createRuleFromMatch(match, 'redirect')"
+                  >
+                    {{ t('rules.createRedirectFromMatch') }}
+                  </button>
+                </div>
               </li>
             </ol>
           </section>
@@ -1262,7 +1335,7 @@ async function moveRule(rule, targetRule) {
       :tags="config.tags"
       :saving="saving"
       :issue="editorIssue"
-      @close="editorOpen = false"
+      @close="closeQuickRedirectEditor"
       @save="saveRedirectRule"
     />
     <ResponseRuleEditor
@@ -1271,7 +1344,7 @@ async function moveRule(rule, targetRule) {
       :tags="config.tags"
       :saving="saving"
       :issue="responseEditorIssue"
-      @close="responseEditorOpen = false"
+      @close="closeQuickResponseEditor"
       @save="saveResponseRule"
     />
     <BackupRestoreDialog

@@ -535,6 +535,7 @@ input {
 
 .recent-matches-list li {
   display: flex;
+  flex-wrap: wrap;
   align-items: flex-start;
   justify-content: space-between;
   gap: 8px 12px;
@@ -568,6 +569,27 @@ input {
   color: var(--ap-muted);
   font-size: 10px;
   font-variant-numeric: tabular-nums;
+}
+
+.recent-match-actions {
+  display: flex;
+  flex: 0 0 100%;
+  gap: 8px;
+}
+
+.recent-match-actions button {
+  border: 0;
+  padding: 0;
+  color: var(--ap-teal);
+  background: transparent;
+  font: inherit;
+  font-size: 10px;
+  cursor: pointer;
+}
+
+.recent-match-actions button:focus-visible {
+  outline: 2px solid var(--ap-accent);
+  outline-offset: 3px;
 }
 
 .rule-diagnostics {

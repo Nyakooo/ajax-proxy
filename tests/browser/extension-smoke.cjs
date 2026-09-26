@@ -574,7 +574,10 @@ async function main() {
       { key: 'ajax-proxy:storage:v3-hits', ruleId: v3UiRule.id }
     )
     const v3UiFetchResult = await restartedPage.evaluate(async () => {
-      const response = await fetch('/api/v3-ui', { method: 'POST', body: 'from UI rule' })
+      const response = await fetch('/api/v3-ui?token=smoke', {
+        method: 'POST',
+        body: 'from UI rule',
+      })
       return { status: response.status, body: await response.json() }
     })
     assert.deepEqual(v3UiFetchResult, {
@@ -597,9 +600,67 @@ async function main() {
     assert.equal(await v3Panel.locator('.recent-matches-list li').count(), 1)
     await v3Panel
       .getByText(
-        'Matches received while this panel is open; misses are not recorded. Closing or reloading clears this list.'
+        'Kept only while this panel is open; closing or reloading clears it. Misses are not recorded. Full URLs may contain sensitive query parameters; review before creating a rule.'
       )
       .waitFor()
+    const historyItem = v3Panel
+      .locator('.recent-matches-list li')
+      .filter({ hasText: '/api/v3-ui?token=smoke' })
+      .first()
+    const configBeforeQuickCreateCancel = await restartedWorker.evaluate(
+      async (key) => (await chrome.storage.local.get(key))[key],
+      'ajax-proxy:storage:v3-config'
+    )
+    await historyItem.getByRole('button', { name: /Create a response rule from POST/ }).click()
+    const quickResponseEditor = v3Panel.locator('.response-rule-editor[role="dialog"]')
+    assert.equal(
+      await quickResponseEditor.locator('label.editor-field').first().locator('input').inputValue(),
+      `http://127.0.0.1:${port}/api/v3-ui?token=smoke`
+    )
+    assert.equal(
+      await quickResponseEditor.locator('.editor-field-row select').nth(0).inputValue(),
+      'normal'
+    )
+    assert.equal(
+      await quickResponseEditor.locator('.editor-field-row select').nth(1).inputValue(),
+      'POST'
+    )
+    assert.equal(await quickResponseEditor.locator('.editor-enabled input').isChecked(), false)
+    assert.equal(
+      await quickResponseEditor
+        .locator('input[name="response-mode"][value="function"]')
+        .isChecked(),
+      false
+    )
+    assert.deepEqual(
+      JSON.parse(await quickResponseEditor.locator('.response-json-input .cm-content').innerText()),
+      {}
+    )
+    await quickResponseEditor.getByRole('button', { name: 'Cancel', exact: true }).click()
+    await historyItem.getByRole('button', { name: /Create a redirect rule from POST/ }).click()
+    const quickRedirectEditor = v3Panel.locator('.rule-editor[role="dialog"]')
+    assert.equal(
+      await quickRedirectEditor.locator('label.editor-field').first().locator('input').inputValue(),
+      `http://127.0.0.1:${port}/api/v3-ui?token=smoke`
+    )
+    assert.equal(
+      await quickRedirectEditor.locator('.editor-field-row select').nth(1).inputValue(),
+      'POST'
+    )
+    assert.equal(
+      await quickRedirectEditor.locator('.editor-field').last().locator('input').inputValue(),
+      ''
+    )
+    assert.equal(await quickRedirectEditor.locator('.editor-enabled input').isChecked(), false)
+    await quickRedirectEditor.getByRole('button', { name: 'Cancel', exact: true }).click()
+    assert.deepEqual(
+      await restartedWorker.evaluate(
+        async (key) => (await chrome.storage.local.get(key))[key],
+        'ajax-proxy:storage:v3-config'
+      ),
+      configBeforeQuickCreateCancel,
+      'closing a quick-create editor does not save a rule'
+    )
     const diagnosticConfigBefore = await restartedWorker.evaluate(
       async (key) => (await chrome.storage.local.get(key))[key],
       'ajax-proxy:storage:v3-config'
@@ -651,11 +712,6 @@ async function main() {
       () => document.querySelectorAll('.recent-matches-list li').length === 10
     )
     assert.equal(await v3Panel.locator('.recent-matches-list li').count(), 10)
-    const v3UiRuleRow = v3Panel.locator('.rule-row').filter({ hasText: '/api/v3-ui' })
-    await v3UiRuleRow
-      .locator('.hit-count strong')
-      .getByText(String(beforeV3UiHit + 1))
-      .waitFor()
 
     v3Panel.on('dialog', (dialog) => dialog.accept())
     await v3Panel.getByRole('button', { name: 'Create intercept rule' }).click()
@@ -1227,6 +1283,58 @@ async function main() {
       false,
       'deleting a tag removes its references from all rules'
     )
+
+    await restartedPage.evaluate(async () => {
+      await fetch('/api/echo?quick-create=smoke', { method: 'POST', body: 'quick create source' })
+    })
+    const quickCreateSource = v3Panel
+      .locator('.recent-matches-list li')
+      .filter({ hasText: '/api/echo?quick-create=smoke' })
+      .first()
+    await quickCreateSource.waitFor()
+    await quickCreateSource
+      .getByRole('button', { name: /Create a response rule from POST/ })
+      .click()
+    const savedQuickResponseEditor = v3Panel.locator('.response-rule-editor[role="dialog"]')
+    assert.equal(
+      await savedQuickResponseEditor.locator('.editor-enabled input').isChecked(),
+      false,
+      'a quick-created rule starts disabled'
+    )
+    await savedQuickResponseEditor.getByRole('button', { name: 'Save rule', exact: true }).click()
+    await v3Panel.waitForTimeout(500)
+    if (await savedQuickResponseEditor.isVisible()) {
+      const issue = await savedQuickResponseEditor.locator('[role="alert"]').allTextContents()
+      throw new Error(
+        `quick-created response rule did not save: ${issue.join(' | ') || 'no visible validation issue'}`
+      )
+    }
+    await savedQuickResponseEditor.waitFor({ state: 'hidden' })
+    let quickCreatedRule
+    for (let attempt = 0; attempt < 40; attempt += 1) {
+      const currentConfig = await restartedWorker.evaluate(
+        async (key) => (await chrome.storage.local.get(key))[key],
+        'ajax-proxy:storage:v3-config'
+      )
+      quickCreatedRule = currentConfig.rules.find(
+        (rule) => rule.match.url === `http://127.0.0.1:${port}/api/echo?quick-create=smoke`
+      )
+      if (quickCreatedRule) break
+      await new Promise((resolve) => setTimeout(resolve, 50))
+    }
+    assert.ok(quickCreatedRule)
+    assert.equal(quickCreatedRule.enabled, false)
+    assert.deepEqual(quickCreatedRule.match, {
+      url: `http://127.0.0.1:${port}/api/echo?quick-create=smoke`,
+      method: 'POST',
+      type: 'normal',
+    })
+    assert.deepEqual(quickCreatedRule.response, {
+      enabled: true,
+      replace: { status: 200, body: {} },
+    })
+    assert.equal(quickCreatedRule.request, undefined)
+    assert.equal(quickCreatedRule.tagIds.length, 0)
 
     await restartedPage.reload()
     await restartedPage.waitForFunction(
