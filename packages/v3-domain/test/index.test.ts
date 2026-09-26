@@ -306,6 +306,17 @@ describe('V3 backup schema', () => {
       Array(50001).fill(null)
     expect(validateV3Backup(tooManyBodyNodes)).toMatchObject({ ok: false })
 
+    for (const nonFiniteBody of [Number.NaN, Number.POSITIVE_INFINITY]) {
+      const invalidJsonBody = structuredClone(validBackup)
+      ;(invalidJsonBody.rules[0].response.replace as Record<string, unknown>).body = nonFiniteBody
+      expect(validateV3Backup(invalidJsonBody)).toMatchObject({
+        ok: false,
+        issues: expect.arrayContaining([
+          expect.objectContaining({ path: 'rules[0].response.replace.body' }),
+        ]),
+      })
+    }
+
     const tooMuchCode = structuredClone(validBackup)
     ;(tooMuchCode.rules[0].response.replace as Record<string, unknown>).code = 'x'.repeat(65537)
     expect(validateV3Backup(tooMuchCode)).toMatchObject({ ok: false })
