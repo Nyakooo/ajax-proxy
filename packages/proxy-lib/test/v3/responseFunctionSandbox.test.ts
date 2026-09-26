@@ -308,6 +308,41 @@ describe('createV3ResponseFunctionExecutor', () => {
     await rejection
   })
 
+  it('does not execute when the sandbox frame is replaced while loading', async () => {
+    vi.stubGlobal('HTMLIFrameElement', FakeIFrameElement)
+    const frame = new FakeIFrameElement()
+    const replacementFrame = new FakeIFrameElement()
+    const getElementById = vi
+      .fn()
+      .mockReturnValueOnce(frame)
+      .mockReturnValueOnce(frame)
+      .mockReturnValue(replacementFrame)
+    let onMessage: ((event: MessageEvent) => void) | undefined
+    const host = {
+      document: { getElementById },
+      addEventListener: vi.fn((_type: string, listener: EventListenerOrEventListenerObject) => {
+        if (typeof listener === 'function') onMessage = listener as (event: MessageEvent) => void
+      }),
+      crypto: { randomUUID: () => 'replaced-frame-execution-id' },
+    } as unknown as Window
+    const execute = createV3ResponseFunctionExecutor(host)
+    const execution = execute(
+      'return response.body',
+      { url: '/api', method: 'GET' },
+      { status: 200, statusText: 'OK', headers: {}, body: 'native' }
+    )
+
+    onMessage?.({
+      origin: 'null',
+      source: frame.contentWindow,
+      data: { channel: 'ajax-proxy-v3-function-sandbox', type: 'ready' },
+    } as MessageEvent)
+
+    await expect(execution).rejects.toThrow('Function sandbox frame changed while loading.')
+    expect(frame.contentWindow.postMessage).not.toHaveBeenCalled()
+    expect(replacementFrame.contentWindow.postMessage).not.toHaveBeenCalled()
+  })
+
   it('removes the sandbox when a timed-out execution responds during cancellation grace', async () => {
     vi.useFakeTimers()
     vi.stubGlobal('HTMLIFrameElement', FakeIFrameElement)

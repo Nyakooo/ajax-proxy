@@ -158,6 +158,48 @@ describe('createV3RuntimeController', () => {
     expect(JSON.stringify(event.detail)).not.toContain('secret')
   })
 
+  it('truncates no-match diagnostics after 100 rules', async () => {
+    const dispatchEvent = vi.fn()
+    const fetcher = vi.fn(async () => new Response('native'))
+    const host = {
+      location: { origin: 'https://example.test' },
+      dispatchEvent,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    } as unknown as Window
+    const controller = createV3RuntimeController(
+      host,
+      fetcher as typeof window.fetch,
+      class {} as unknown as typeof window.XMLHttpRequest
+    )
+    controller.update({
+      ...backup,
+      rules: Array.from({ length: 101 }, (_, index) => ({
+        id: `rule-${index}`,
+        enabled: true,
+        match: { url: `/expected-${index}`, method: 'GET' },
+        response: { enabled: true, replace: { body: { intercepted: true } } },
+      })),
+    })
+    controller.setDiagnosticsArmed(true)
+
+    const response = await controller.fetch('https://example.test/private')
+
+    expect(await response.text()).toBe('native')
+    expect(fetcher).toHaveBeenCalledOnce()
+    expect(dispatchEvent).toHaveBeenCalledOnce()
+    const event = dispatchEvent.mock.calls[0][0] as CustomEvent
+    expect(event.detail).toMatchObject({
+      kind: 'v3-no-match',
+      method: 'GET',
+      truncated: true,
+    })
+    expect(event.detail.rules).toHaveLength(100)
+    expect(event.detail.rules[0]).toEqual({ rule_id: 'rule-0', reason: 'url-mismatch' })
+    expect(event.detail.rules[99]).toEqual({ rule_id: 'rule-99', reason: 'url-mismatch' })
+    expect(event.detail.rules).not.toContainEqual({ rule_id: 'rule-100', reason: 'url-mismatch' })
+  })
+
   it('dispatches correlated Fetch outcomes only under their independent opt-in gate', async () => {
     const dispatchEvent = vi.fn()
     const host = {
