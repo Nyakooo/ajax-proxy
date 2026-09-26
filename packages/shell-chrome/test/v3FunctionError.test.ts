@@ -86,4 +86,12 @@ describe('notifyV3FunctionError', () => {
     await expect(notifyV3FunctionError(errorNotice)).rejects.toThrow('storage unavailable')
     expect(mocks.noticePanelsByServiceWorker).not.toHaveBeenCalled()
   })
+
+  it('rejects malformed function error envelopes before reading storage', async () => {
+    expect(
+      await notifyV3FunctionError({ ...errorNotice, private_url: 'https://secret.test/' })
+    ).toBe(false)
+    expect(mocks.getRealStorage).not.toHaveBeenCalled()
+    expect(mocks.noticePanelsByServiceWorker).not.toHaveBeenCalled()
+  })
 })
