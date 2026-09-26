@@ -202,6 +202,32 @@ describe('createV3XHR', () => {
     expect(removedListener).not.toHaveBeenCalled()
   })
 
+  it('preserves EventListenerObject binding and wraps event targets with the public proxy', () => {
+    const xhr = makeXHR([rule('event-listener-object')])
+    const seen: Array<{
+      thisIsListener: boolean
+      targetIsProxy: boolean
+      currentTargetIsProxy: boolean
+    }> = []
+    const listener: EventListenerObject = {
+      handleEvent(event) {
+        seen.push({
+          thisIsListener: this === listener,
+          targetIsProxy: event.target === xhr,
+          currentTargetIsProxy: event.currentTarget === xhr,
+        })
+      },
+    }
+
+    xhr.addEventListener('loadend', listener)
+    xhr.open('POST', 'https://example.test/api', true)
+    xhr.complete('network response')
+
+    expect(seen).toEqual([
+      { thisIsListener: true, targetIsProxy: true, currentTargetIsProxy: true },
+    ])
+  })
+
   it('applies response replacements before readyState 4 and load handlers observe the response', () => {
     const selectedRule = rule('lifecycle', {
       response: { enabled: true, replace: { status: 201, body: { source: 'mock' } } },
