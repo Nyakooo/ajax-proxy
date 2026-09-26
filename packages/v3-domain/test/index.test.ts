@@ -465,6 +465,22 @@ describe('V3 backup schema', () => {
       ]),
     })
   })
+
+  it('rejects invalid backup settings values by field path', () => {
+    const invalidSettings = {
+      ...structuredClone(validBackup),
+      settings: { globalEnabled: 'yes', mode: 'unknown', language: 'fr' },
+    }
+
+    expect(validateV3Backup(invalidSettings)).toMatchObject({
+      ok: false,
+      issues: expect.arrayContaining([
+        expect.objectContaining({ path: 'settings.globalEnabled' }),
+        expect.objectContaining({ path: 'settings.mode' }),
+        expect.objectContaining({ path: 'settings.language' }),
+      ]),
+    })
+  })
 })
 
 describe('V3 response function result validation', () => {
