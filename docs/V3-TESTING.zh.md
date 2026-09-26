@@ -8,6 +8,7 @@
 - `pnpm browser:smoke`：使用 `BROWSER_CHANNEL=chrome` 或 `msedge` 启动对应稳定版，检查核心 Fetch / Request、XHR、CSS 和减少动态效果 API。CI 分别运行 Chrome Stable 与 Edge Stable。
 - `pnpm v3:browser:smoke`：临时 bundle V3 组合 Fetch / XHR 原型，在真实品牌浏览器页面验证首条规则的静态重定向、POST body、同规则响应 body / status 替换、XHR `open()` 凭证参数和事件回调代理语义；支持 Chromium、Chrome Stable 和 Edge Stable。CI 覆盖 Chrome / Edge Stable 与固定最低版本 Chrome 141 / Edge 140。该 smoke 不加载扩展，不能代替 extension runtime 集成验收。
 - `pnpm extension:smoke`：在已构建产物上用临时持久化浏览器 profile 加载扩展，通过面板创建临时规则，验证 Fetch / XHR 响应拦截及 Fetch Response 元数据 / Content-Length 处理、`fetch(new Request(...))` 重定向的 method / body / headers / cookie、双标签同步、子 frame 拦截，以及关闭并重开浏览器后 service worker 冷启动读取已保存配置。另验证 JSON tree 模式的展开 / 折叠、类型识别、节点增删改、数组重排、撤销 / 重做。CI 在构建后执行该 smoke。
+- 2026-09-26 在 macOS Chrome Stable 154.0.8037.58 手动加载本地生产扩展并做真实页面验证：V3 面板临时建立 status `209` 的 JSON 响应规则后，真实 Fetch 和 XHR 均返回配置的 status / body。验证后已删除临时规则并关闭本地测试服务；这项浏览器手工检查不属于 CI，自动扩展 E2E 仍由配套 Chromium 执行。
 - `pnpm editor:smoke`：直接加载生产依赖中的 JSONEditor / Ace，输入非法 JSON 并确认错误行标记，CI 执行该 smoke。
 - `pnpm format:check`：Prettier 严格检查计划、文档、根配置、CI workflow、迁移脚本与测试；全包格式基线检查登记了 50 个未格式化旧源码并禁止债务增加。
 - `pnpm lint`：ESLint flat config 扫描所有 package 下的 JS、TS、Vue 文件，并严格检查新测试、浏览器 smoke、构建报告脚本和配置。全包当前零 error，最多允许 378 条既有源码 warning；新增迁移范围文件必须零 warning。
