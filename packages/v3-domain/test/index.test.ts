@@ -396,6 +396,35 @@ describe('V3 backup schema', () => {
       if (!result.ok) expect(result.issues.map(({ path: issuePath }) => issuePath)).toContain(path)
     }
   })
+
+  it('rejects rule-level unknown fields and objects with throwing prototype traps', () => {
+    const ruleWithUnknownField = structuredClone(validBackup)
+    ;(ruleWithUnknownField.rules[0] as unknown as Record<string, unknown>).unexpected = true
+    expect(validateV3Backup(ruleWithUnknownField)).toMatchObject({
+      ok: false,
+      issues: expect.arrayContaining([
+        expect.objectContaining({
+          path: 'rules[0]',
+          message: 'Rule contains an unsupported field.',
+        }),
+      ]),
+    })
+
+    const hostileObject = new Proxy(
+      {},
+      {
+        getPrototypeOf() {
+          throw new Error('prototype access blocked')
+        },
+      }
+    )
+    expect(validateV3Backup(hostileObject)).toMatchObject({
+      ok: false,
+      issues: expect.arrayContaining([
+        expect.objectContaining({ path: '$', message: 'Expected a backup object.' }),
+      ]),
+    })
+  })
 })
 
 describe('V3 response function result validation', () => {
@@ -407,6 +436,10 @@ describe('V3 response function result validation', () => {
   })
 
   it('rejects invalid, non-JSON, unsupported, and oversized results', () => {
+    expect(validateV3ResponseFunctionResult({})).toEqual({
+      ok: false,
+      issue: 'The result must change at least one field.',
+    })
     expect(validateV3ResponseFunctionResult({ status: 101 })).toMatchObject({ ok: false })
     expect(validateV3ResponseFunctionResult({ body: Number.NaN })).toMatchObject({ ok: false })
     expect(validateV3ResponseFunctionResult({ headers: { 'bad header': 'x' } })).toMatchObject({

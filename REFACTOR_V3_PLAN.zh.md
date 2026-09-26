@@ -294,6 +294,7 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - [x] 为 V3 response function 覆盖超出 512 KiB 快照上限后的 fail-open；不执行函数，保留完整原响应并记录固定错误类别。
 - [x] 为 V3 XHR 覆盖 `EventListenerObject.handleEvent` 的 `this` 绑定，以及事件 target / currentTarget 的代理语义。
 - [x] 为 V3 backup 严格校验补结构畸形回归，覆盖非对象 settings / rule、非对象 action / payload / headers，以及缺少 action 的规则。
+- [x] 为 V3 backup / response result validator 补未知规则字段、原型读取抛错和空结果边界回归。
 - [x] 为 V3 backup JSON body 校验覆盖 `NaN` 与正无穷输入；按精确 issue path 断言非有限数值被拒绝。
 - [x] 为 V3 XHR 覆盖布尔型及对象型 capture 参数映射到不同原生包装监听器，以及按 capture 移除对应包装器。
 - [x] 为 response function 缺少 sandbox executor 覆盖 fail-open 和固定 `sandbox-unavailable` 诊断。
@@ -618,5 +619,6 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - 2026-09-26：阶段 6 为 V3 XHR 覆盖规则读取在异步 `open()` 期间抛错的 fail-open 路径；扩展保持原 URL、method、async、用户名和密码参数调用原生 `open()`。全量覆盖运行 263 项 Vitest 后，整体语句 76.62%、分支 73.86%、函数 77.41%、行 78.36%；`xhr.ts` 行覆盖达到 95%。workspace typecheck、改动文件零告警 ESLint / Prettier 通过。完成 194 / 264 项（73.5%）。
 - 2026-09-26：阶段 6 为 V3 Fetch 覆盖运行时非法 response status（700）导致 `Response` 构造异常的回退路径；不暴露构造错误，返回相同原始 response / body 并报告 `response-replacement-failed`。全量覆盖运行 264 项 Vitest 后，整体语句 76.70%、分支 73.86%、函数 77.41%、行 78.46%；`responseAction.ts` 语句覆盖 94.01%、行覆盖 96.22%。workspace typecheck、改动文件零告警 ESLint / Prettier 通过。完成 195 / 265 项（73.6%）。
 - 2026-09-26：阶段 6 为 V3 backup JSON body 校验覆盖 JavaScript 输入中的 `NaN` 与正无穷，均按精确字段路径拒绝。全量覆盖运行 264 项 Vitest，整体语句 76.70%、分支 73.86%、函数 77.41%、行 78.46%。workspace typecheck、改动文件零告警 ESLint / Prettier 通过。完成 196 / 266 项（73.7%）。
+- 2026-09-26：阶段 6 为 V3 backup / response result validator 补规则级未知字段拒绝、恶意 Proxy 原型读取异常拒绝及空函数结果拒绝。全量覆盖运行 265 项 Vitest 后，整体语句 76.87%、分支 74.00%、函数 77.41%、行 78.64%；`backup.ts` 分支覆盖升至 92.22%，V3 domain 分支覆盖 93.94%。workspace typecheck、改动文件零告警 ESLint / Prettier 通过。完成 197 / 267 项（73.8%）。
 - 2026-09-26：阶段 6 补齐响应规则 JSON 保存成功路径：状态码、解析后的 JSON body、匹配条件、规则 enabled 和所选标签 ID 被组合到 save event。Vue 3 组件测试增至 6 项；组件 / 全量 Vitest、workspace typecheck、改动文件零告警 ESLint / Prettier 通过。完成 172 / 238 项（72.3%）。
 - GitHub 里程碑：[阶段 0](https://github.com/Nyakooo/ajax-proxy/milestone/1)、[阶段 1](https://github.com/Nyakooo/ajax-proxy/milestone/2)、[阶段 2](https://github.com/Nyakooo/ajax-proxy/milestone/3)、[阶段 3](https://github.com/Nyakooo/ajax-proxy/milestone/4)、[阶段 4](https://github.com/Nyakooo/ajax-proxy/milestone/5)、[阶段 5](https://github.com/Nyakooo/ajax-proxy/milestone/6)、[阶段 6](https://github.com/Nyakooo/ajax-proxy/milestone/7)、[阶段 7](https://github.com/Nyakooo/ajax-proxy/milestone/8)；已复现缺陷：[issue #56](https://github.com/Nyakooo/ajax-proxy/issues/56)。
