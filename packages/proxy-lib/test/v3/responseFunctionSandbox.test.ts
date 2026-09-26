@@ -181,4 +181,53 @@ describe('createV3ResponseFunctionExecutor', () => {
     )
     expect(getElementById).not.toHaveBeenCalled()
   })
+
+  it('limits concurrent executions without losing accepted requests', async () => {
+    vi.stubGlobal('HTMLIFrameElement', FakeIFrameElement)
+    const frame = new FakeIFrameElement()
+    let onMessage: ((event: MessageEvent) => void) | undefined
+    let nextId = 0
+    const host = {
+      document: { getElementById: vi.fn(() => frame) },
+      addEventListener: vi.fn((_type: string, listener: EventListenerOrEventListenerObject) => {
+        if (typeof listener === 'function') onMessage = listener as (event: MessageEvent) => void
+      }),
+      crypto: { randomUUID: () => `execution-${++nextId}` },
+    } as unknown as Window
+    const execute = createV3ResponseFunctionExecutor(host)
+    const request = { url: '/api', method: 'GET' }
+    const response = { status: 200, statusText: 'OK', headers: {}, body: 'native' }
+    const accepted = Array.from({ length: 4 }, () =>
+      execute('return response.body', request, response)
+    )
+
+    await expect(execute('return response.body', request, response)).rejects.toThrow(
+      'Too many V3 response functions are running concurrently.'
+    )
+    onMessage?.({
+      origin: 'null',
+      source: frame.contentWindow,
+      data: { channel: 'ajax-proxy-v3-function-sandbox', type: 'ready' },
+    } as MessageEvent)
+    await vi.waitFor(() => expect(frame.contentWindow.postMessage).toHaveBeenCalledTimes(4))
+
+    const runMessages = vi
+      .mocked(frame.contentWindow.postMessage)
+      .mock.calls.map(([message]) => message as { id: string })
+    for (const { id } of runMessages) {
+      onMessage?.({
+        origin: 'null',
+        source: frame.contentWindow,
+        data: {
+          channel: 'ajax-proxy-v3-function-sandbox',
+          type: 'result',
+          id,
+          ok: true,
+          result: 'mock response',
+        },
+      } as MessageEvent)
+    }
+
+    await expect(Promise.all(accepted)).resolves.toEqual(Array(4).fill('mock response'))
+  })
 })
