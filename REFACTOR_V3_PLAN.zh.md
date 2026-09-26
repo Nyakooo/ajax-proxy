@@ -258,8 +258,8 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 
 - [ ] 为全部重要生产模块提供与职责相匹配的测试用例，包括核心逻辑、UI、扩展 API 交互和错误路径。
 - [x] 为 URL / 正则匹配、V2 规则忽略、method 匹配和规则优先级编写单元测试；V3 规则不包含 V2 ignore 列表。
-- [ ] 为 Fetch 拦截与重定向覆盖 Request、init、body、headers、状态码和异常情况。
-- [ ] 为 XHR 生命周期、事件、方法匹配、请求头和对象复用编写测试。
+- [x] 为 Fetch 拦截与重定向覆盖 Request、init、body、headers、状态码和异常情况。
+- [x] 为 XHR 生命周期、事件、方法匹配、请求头和对象复用编写测试。
 - [ ] 为自定义函数覆盖同步、异步、异常、未回调和超时场景。
 - [x] 为 shared-utils Chrome storage 与网页 localStorage 缓存操作（初始化、读取、写入、删除、清空）覆盖成功和失败回归；删除 / 清空失败须拒绝、保留缓存并派发错误事件。
 - [x] 为 V3 XHR 响应完成时序增加回归：`readystatechange` 到 readyState 4 及 `load` 回调 / 监听器读取响应时，替换后的 body 与 status 已就绪。
@@ -341,6 +341,8 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - [x] 为 V3 XHR 覆盖未发生重定向的规则遇到同步 send 错误时不误报 redirect outcome。
 - [x] 为 V3 Fetch 覆盖运行时非法 status 导致 Response 构造失败时保留原始网络响应并报告 fallback。
 - [x] 为 legacy V2 `redirectFetch` 覆盖 per-rule ignore 命中时继续透传原 Request / init 到 native fetch，不执行该重定向。
+- [x] 为 V3 Fetch 覆盖 `Request` 输入被 `init` 的 method / body 覆盖后，以有效 method 匹配规则并将 body 保留到 redirect Request。
+- [x] 为 V3 XHR 覆盖同 URL 但 method 不匹配时原样发出 native 请求 / 响应且不报告命中。
 - [ ] 完善 Service Worker 消息协议、V3 配置校验及导入 / 导出的边界与错误路径测试。
 - [x] V3 hit / hit notice 只从精确的 own data property 描述符读取字段；拒绝 getter、symbol 和隐藏扩展字段，并验证校验不会触发 getter 或 proxy get trap。
 - [x] 为 V3 response function result validator 覆盖字段 getter 抛错时的安全、稳定错误结果。
@@ -733,4 +735,5 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - 2026-09-26：阶段 6 修复备份文件读取失败时静默拒绝并可能残留旧预览的问题：`File.text()` reject 后清空旧候选、禁用恢复 / 追加操作并显示本地化错误，用户粘贴有效内容后错误清除。Vue 3 组件套件 7 个文件 / 31 项测试、改动文件 ESLint / Prettier 通过。完成 269 / 335 项（80.3%）。
 - 2026-09-26：阶段 6 补 App 级追加导入失败后重试回归，并修复 `BackupRestoreDialog` 漏声明 `import-rules` 导致 App 处理器不执行的缺陷。已有规则 ID 被跳过，同名不同 ID 标签重映射到现有标签；失败时保留旧设置 / 禁用 origin / 规则，重试后只保存追加规则。Vue 3 组件套件 7 个文件 / 32 项测试、改动文件 ESLint / Prettier 通过。完成 270 / 336 项（80.4%）。
 - 2026-09-26：阶段 6 审核并补齐规则匹配验收：现有 V3 URL / regex / method / priority 与 V2 ignore helper 测试完整；新增 legacy `redirectFetch` 逐规则 ignore 命中后将原 Request / init 透传给 native fetch 的集成回归。明确 V3 规则不承载 V2 ignore 列表。定向测试 5 项、改动文件 ESLint / Prettier 通过。完成 272 / 337 项（80.7%）。
+- 2026-09-26：阶段 6 补 V3 Fetch 的 `Request + init` 覆盖：init method/body 参与匹配，并按 POST redirect 且保留请求 body；补 V3 XHR method mismatch：同 URL 的 GET 不命中 POST 替换规则，原生打开及响应保持不变。Fetch / XHR 定向测试 2 个文件 / 64 项通过，改动文件 ESLint / Prettier 通过。完成 276 / 339 项（81.4%）。
 - GitHub 里程碑：[阶段 0](https://github.com/Nyakooo/ajax-proxy/milestone/1)、[阶段 1](https://github.com/Nyakooo/ajax-proxy/milestone/2)、[阶段 2](https://github.com/Nyakooo/ajax-proxy/milestone/3)、[阶段 3](https://github.com/Nyakooo/ajax-proxy/milestone/4)、[阶段 4](https://github.com/Nyakooo/ajax-proxy/milestone/5)、[阶段 5](https://github.com/Nyakooo/ajax-proxy/milestone/6)、[阶段 6](https://github.com/Nyakooo/ajax-proxy/milestone/7)、[阶段 7](https://github.com/Nyakooo/ajax-proxy/milestone/8)；已复现缺陷：[issue #56](https://github.com/Nyakooo/ajax-proxy/issues/56)。

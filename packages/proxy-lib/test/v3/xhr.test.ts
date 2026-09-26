@@ -190,6 +190,27 @@ describe('createV3XHR', () => {
     // Native events and response headers are intentionally not synthesized or rewritten.
   })
 
+  it('keeps the native request and response when the URL matches but the method does not', () => {
+    const selectedRule = rule('post-only', {
+      response: { enabled: true, replace: { status: 201, body: { mocked: true } } },
+    })
+    const onMatched = vi.fn()
+    const onNoMatch = vi.fn()
+    const xhr = makeXHR([selectedRule], onMatched, onNoMatch)
+
+    xhr.open('GET', 'https://example.test/api/items', true)
+    xhr.complete('native response')
+
+    expect(xhr.openArgs).toEqual(['GET', 'https://example.test/api/items', true])
+    expect(xhr.status).toBe(200)
+    expect(xhr.responseText).toBe('native response')
+    expect(onMatched).not.toHaveBeenCalled()
+    expect(onNoMatch).toHaveBeenCalledExactlyOnceWith({
+      url: 'https://example.test/api/items',
+      method: 'GET',
+    })
+  })
+
   it('passes request headers and body through native XHR methods', () => {
     const xhr = makeXHR([
       rule('redirect', {

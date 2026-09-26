@@ -123,6 +123,27 @@ describe('createV3Fetch', () => {
     expect(await redirected.text()).toBe('request body')
   })
 
+  it('uses init method and body overrides from a Request when matching and redirecting', async () => {
+    const selectedRule = rule('init-override', {
+      request: { enabled: true, redirect: { url: 'https://target.test/post' } },
+    })
+    const fetcher = vi.fn(async () => new Response('ok'))
+    const onMatched = vi.fn()
+    const fetch = createV3Fetch(fetcher, { getRules: () => [selectedRule], onMatched })
+    const request = new Request('https://example.test/api', { method: 'GET' })
+
+    await fetch(request, { method: 'POST', body: 'override body' })
+
+    const redirected = fetcher.mock.calls[0][0] as Request
+    expect(onMatched).toHaveBeenCalledExactlyOnceWith(selectedRule, 0, {
+      url: 'https://example.test/api',
+      method: 'POST',
+    })
+    expect(redirected.url).toBe('https://target.test/post')
+    expect(redirected.method).toBe('POST')
+    expect(await redirected.text()).toBe('override body')
+  })
+
   it('preserves credential and custom headers on a same-origin redirect', async () => {
     const selectedRule = rule('same-origin-redirect', {
       request: { enabled: true, redirect: { url: 'https://example.test/target' } },
