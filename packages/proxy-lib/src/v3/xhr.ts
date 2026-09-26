@@ -46,6 +46,9 @@ function resolveRedirect(value: string, originalUrl: string): string | undefined
 function getReplacement(xhr: XMLHttpRequest, rule: V3Rule): ReplacementResolution | undefined {
   const config = rule.response?.replace
   if (!rule.response?.enabled || !config) return undefined
+  // A failed network request has no HTTP response to replace. Keep status 0
+  // and the native response visible rather than turning the error into success.
+  if (xhr.status === 0) return undefined
   if ((config.code?.trim() ?? '') !== '') {
     return { failure: 'unsupported', hasStatus: false, hasBody: false }
   }

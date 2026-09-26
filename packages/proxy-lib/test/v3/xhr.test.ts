@@ -57,6 +57,17 @@ class FakeXHR extends EventTarget {
     this.dispatchEvent(new Event('load'))
     this.dispatchEvent(new Event('loadend'))
   }
+
+  fail() {
+    this.readyState = 4
+    this.status = 0
+    this.statusText = ''
+    this.responseText = ''
+    this.response = ''
+    this.dispatchEvent(new Event('readystatechange'))
+    this.dispatchEvent(new Event('error'))
+    this.dispatchEvent(new Event('loadend'))
+  }
 }
 
 function rule(id: string, options: Partial<V3Rule> = {}): V3Rule {
@@ -227,6 +238,29 @@ describe('createV3XHR', () => {
       ['readystatechange-listener', '{"source":"mock"}', 201],
       ['load-handler', '{"source":"mock"}', 201],
       ['load-listener', '{"source":"mock"}', 201],
+    ])
+  })
+
+  it('preserves native failure status and response when an XHR request errors', () => {
+    const xhr = makeXHR([
+      rule('failure', {
+        response: { enabled: true, replace: { status: 200, body: { fake: true } } },
+      }),
+    ])
+    const observed: Array<[string, number, string]> = []
+    xhr.onreadystatechange = function () {
+      if (this.readyState === 4) observed.push(['readystatechange', this.status, this.responseText])
+    }
+    xhr.addEventListener('error', function () {
+      observed.push(['error', this.status, this.responseText])
+    })
+
+    xhr.open('POST', 'https://example.test/api', true)
+    xhr.fail()
+
+    expect(observed).toEqual([
+      ['readystatechange', 0, ''],
+      ['error', 0, ''],
     ])
   })
 
