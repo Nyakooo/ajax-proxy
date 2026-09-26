@@ -123,6 +123,36 @@ describe('createV3Fetch', () => {
     expect(await redirected.text()).toBe('request body')
   })
 
+  it('preserves credential and custom headers on a same-origin redirect', async () => {
+    const selectedRule = rule('same-origin-redirect', {
+      request: { enabled: true, redirect: { url: 'https://example.test/target' } },
+    })
+    const fetcher = vi.fn(async () => new Response('ok'))
+    const fetch = createV3Fetch(fetcher, { getRules: () => [selectedRule] })
+    const request = new Request('https://example.test/api', {
+      method: 'POST',
+      body: 'request body',
+      headers: {
+        authorization: 'Bearer secret',
+        'proxy-authorization': 'Basic secret',
+        cookie: 'session=secret',
+        cookie2: '$Version=1',
+        'x-custom': 'preserved',
+      },
+    })
+
+    await fetch(request)
+
+    const redirected = fetcher.mock.calls[0][0] as Request
+    expect(redirected.url).toBe('https://example.test/target')
+    expect(redirected.headers.get('authorization')).toBe('Bearer secret')
+    expect(redirected.headers.get('proxy-authorization')).toBe('Basic secret')
+    expect(redirected.headers.get('cookie')).toBe('session=secret')
+    expect(redirected.headers.get('cookie2')).toBe('$Version=1')
+    expect(redirected.headers.get('x-custom')).toBe('preserved')
+    expect(await redirected.text()).toBe('request body')
+  })
+
   it('fails open to the original request when redirect construction fails and still replaces its response', async () => {
     const selectedRule = rule('fallback', {
       request: { enabled: true, redirect: { url: 'javascript:alert(1)' } },
