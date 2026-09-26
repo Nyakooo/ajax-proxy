@@ -67,6 +67,49 @@ describe('notifyV3NoMatch', () => {
     expect(mocks.noticePanelsByServiceWorker).not.toHaveBeenCalled()
   })
 
+  it('forwards the first 100 configured rules with the truncated marker', async () => {
+    const config = {
+      ...backup(),
+      rules: Array.from({ length: 101 }, (_, index) => ({ id: `rule-${index + 1}` })),
+    }
+    const truncatedEvent = {
+      ...event,
+      rules: config.rules.slice(0, 100).map(({ id }) => ({ rule_id: id, reason: 'url-mismatch' })),
+      truncated: true,
+    }
+    setup({ config })
+
+    expect(await notifyV3NoMatch(truncatedEvent)).toBe(true)
+    expect(mocks.removeStorage).toHaveBeenCalledOnce()
+    expect(mocks.noticePanelsByServiceWorker).toHaveBeenCalledOnce()
+    expect(mocks.noticePanelsByServiceWorker).toHaveBeenCalledWith('v3-no-match', truncatedEvent)
+  })
+
+  it('rejects inconsistent truncation metadata and rule ordering before consuming the arm', async () => {
+    const config = {
+      ...backup(),
+      rules: Array.from({ length: 101 }, (_, index) => ({ id: `rule-${index + 1}` })),
+    }
+    const truncatedEvent = {
+      ...event,
+      rules: config.rules.slice(0, 100).map(({ id }) => ({ rule_id: id, reason: 'url-mismatch' })),
+      truncated: true,
+    }
+    setup({ config })
+
+    expect(await notifyV3NoMatch({ ...truncatedEvent, truncated: false })).toBe(false)
+    const wrongRuleOrder = {
+      ...truncatedEvent,
+      rules: truncatedEvent.rules.map((entry, index) =>
+        index === 99 ? { ...entry, rule_id: 'wrong-rule' } : entry
+      ),
+    }
+    expect(await notifyV3NoMatch(wrongRuleOrder)).toBe(false)
+    expect(mocks.getRealStorage.mock.calls.some(([key]) => key === 'diagnostics-armed')).toBe(false)
+    expect(mocks.removeStorage).not.toHaveBeenCalled()
+    expect(mocks.noticePanelsByServiceWorker).not.toHaveBeenCalled()
+  })
+
   it('does not consume the arm for inactive, invalid or mismatched configurations', async () => {
     setup({ config: backup(false) })
     const globallyDisabled = {
