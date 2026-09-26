@@ -1392,12 +1392,8 @@ async function moveRule(rule, targetRule) {
 
           <section class="recent-matches no-match-diagnostics" aria-live="polite">
             <header class="recent-matches-heading">
-              <strong>{{ locale === 'zh-CN' ? '未命中诊断' : 'No-match diagnostics' }}</strong>
-              <small>{{
-                locale === 'zh-CN'
-                  ? '仅捕获任一 V3 运行标签页的下一条真正未命中请求；临时保存在此面板内存中。'
-                  : 'Capture the next actual unmatched request from any V3-enabled tab. Kept temporarily in this panel.'
-              }}</small>
+              <strong>{{ t('diagnostics.noMatchCapture.title') }}</strong>
+              <small>{{ t('diagnostics.noMatchCapture.description') }}</small>
             </header>
             <button
               type="button"
@@ -1406,17 +1402,15 @@ async function moveRule(rule, targetRule) {
               @click="setNoMatchCapture(!noMatchCaptureArmed)"
             >
               {{
-                noMatchCaptureArmed
-                  ? locale === 'zh-CN'
-                    ? '正在等待未命中请求 · 点击取消'
-                    : 'Waiting for an unmatched request · Cancel'
-                  : locale === 'zh-CN'
-                    ? '捕获下一条未匹配请求'
-                    : 'Capture the next unmatched request'
+                t(
+                  noMatchCaptureArmed
+                    ? 'diagnostics.noMatchCapture.waiting'
+                    : 'diagnostics.noMatchCapture.capture'
+                )
               }}
             </button>
             <p v-if="!recentNoMatches.length" class="diagnostic-summary">
-              {{ locale === 'zh-CN' ? '尚无临时诊断记录。' : 'No temporary diagnostics yet.' }}
+              {{ t('diagnostics.noMatchCapture.empty') }}
             </p>
             <ol v-else class="recent-matches-list">
               <li v-for="(event, index) in recentNoMatches" :key="`${event.receivedAt}-${index}`">
@@ -1428,19 +1422,13 @@ async function moveRule(rule, targetRule) {
                       :key="`${rule.rule_id}-${ruleIndex}`"
                     >
                       <code>{{ rule.rule_id }}</code>
-                      <span>: {{ rule.reason }}</span>
+                      <span>: {{ t(`diagnostics.reasons.${rule.reason}`) }}</span>
                       <span v-if="ruleIndex < event.rules.length - 1"> · </span>
                     </span>
                   </small>
-                  <small v-else>{{
-                    locale === 'zh-CN' ? '当前没有配置规则。' : 'No rules are configured.'
-                  }}</small>
+                  <small v-else>{{ t('diagnostics.noMatchCapture.noRules') }}</small>
                   <small v-if="event.truncated">
-                    {{
-                      locale === 'zh-CN'
-                        ? '规则过多，诊断结果已截断。'
-                        : 'Results were truncated because there are too many rules.'
-                    }}
+                    {{ t('diagnostics.noMatchCapture.truncated') }}
                   </small>
                 </div>
                 <time :datetime="new Date(event.receivedAt).toISOString()">{{
@@ -1452,14 +1440,8 @@ async function moveRule(rule, targetRule) {
 
           <section class="recent-matches fetch-outcome-diagnostics" aria-live="polite">
             <header class="recent-matches-heading">
-              <strong>{{
-                locale === 'zh-CN' ? 'Fetch / XHR 动作结果' : 'Fetch / XHR action outcomes'
-              }}</strong>
-              <small>{{
-                locale === 'zh-CN'
-                  ? '开启后临时显示任一 V3 标签页的 Fetch 与异步 XHR 动作结果；同一请求用关联 ID 标识。关闭或刷新面板后清空。'
-                  : 'Temporarily show Fetch and async XHR outcomes from any V3 tab. Correlation IDs link stages; closing or reloading this panel clears them.'
-              }}</small>
+              <strong>{{ t('diagnostics.actionOutcomes.title') }}</strong>
+              <small>{{ t('diagnostics.actionOutcomes.description') }}</small>
             </header>
             <button
               type="button"
@@ -1468,17 +1450,15 @@ async function moveRule(rule, targetRule) {
               @click="setFetchOutcomeCapture(!fetchOutcomeCaptureArmed)"
             >
               {{
-                fetchOutcomeCaptureArmed
-                  ? locale === 'zh-CN'
-                    ? '正在捕获动作结果 · 点击关闭'
-                    : 'Capturing action outcomes · Click to stop'
-                  : locale === 'zh-CN'
-                    ? '捕获 Fetch / XHR 动作结果'
-                    : 'Capture Fetch / XHR action outcomes'
+                t(
+                  fetchOutcomeCaptureArmed
+                    ? 'diagnostics.actionOutcomes.waiting'
+                    : 'diagnostics.actionOutcomes.capture'
+                )
               }}
             </button>
             <p v-if="!recentFetchOutcomes.length" class="diagnostic-summary">
-              {{ locale === 'zh-CN' ? '尚无临时结果。' : 'No temporary outcomes yet.' }}
+              {{ t('diagnostics.actionOutcomes.empty') }}
             </p>
             <ol v-else class="recent-matches-list">
               <li
@@ -1488,8 +1468,10 @@ async function moveRule(rule, targetRule) {
                 <div class="recent-match-copy">
                   <code>{{ event.rule_id }}</code>
                   <small>
-                    {{ event.kind === 'v3-xhr-outcome' ? 'XHR' : 'Fetch' }} · {{ event.stage }} ·
-                    {{ event.outcome }} · {{ event.reason }}
+                    {{ event.kind === 'v3-xhr-outcome' ? 'XHR' : 'Fetch' }} ·
+                    {{ t(`diagnostics.outcomes.stage.${event.stage}`) }} ·
+                    {{ t(`diagnostics.outcomes.status.${event.outcome}`) }} ·
+                    {{ t(`diagnostics.outcomes.reason.${event.reason}`) }}
                   </small>
                   <small>
                     {{ locale === 'zh-CN' ? '关联 ID' : 'Correlation ID' }}:

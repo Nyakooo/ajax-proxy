@@ -187,7 +187,7 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - [x] 确认编辑器方向：函数编辑和 JSON 原始文本模式采用按需 CodeMirror 6；JSON 结构化编辑保留独立树形能力。JSONEditor 现有构建 chunk 为 262.79 kB gzip，不直接作为 V3 生产依赖；轻量树原型尚不具备生产所需的全部操作、撤销及大数据优化，需在生产实现阶段完善或另选方案。
 - [x] 为 V3 JSON response body 增加生产结构化树模式，保留 CodeMirror 原始文本编辑和既有保存 / 备份数据模型；仅在切换到树模式时按需加载。支持对象键改名、增删条目、标量类型更改、数组调序与最多 100 份快照的撤销 / 重做；无效 JSON 不会被树模式覆盖，保存仍校验原 JSON 草稿。组件及真实扩展 smoke 验证通过；大型 JSON 虚拟化、操作系统 IME 和完整屏幕阅读器 / WCAG 审计仍待后续验收。见 `docs/V3-EDITOR-ASSESSMENT.zh.md`。
 - [x] V3 面板展示跨标签页最近一次已验证规则命中，包括原始请求 method / URL、规则匹配条件和“已匹配”状态；不将早期命中事件描述为请求改写或响应成功。
-- [ ] 统一 Fetch / XHR 生命周期后，再展示最终请求改写结果和失败原因。
+- [x] 将 Fetch 与异步 XHR 的已确认 request / response action outcome 通过统一临时诊断视图展示，按 correlation ID 关联阶段并给出本地化的 applied / fallback / failed / unsupported 原因；仅用户主动开启时捕获，面板内最多保留 10 条。同步 XHR 和 XHR 原生网络 error / timeout / abort 不单独作为 action outcome 报告。
 - [x] 启用状态由 V3 面板全局开关和扩展图标显示；不增加独立的持续页面活动指示器。
 - [x] 评估规则命中时的轻量视觉提示；页面边缘光晕不纳入 V3，避免增加跨 frame / SPA、可访问性和性能验收范围。
 - [x] 扩展图标 / 面板已提示全局启用状态；由于本期不实现页面光晕，无需为该效果增加降级提示。
@@ -297,6 +297,7 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - [x] 为 Vue 3 BackupRestoreDialog 覆盖函数规则恢复确认及编辑 source 后使旧预览失效。
 - [x] 为 Vue 3 RuleTagsDialog 覆盖创建后清空输入及重命名空值 / 相同值禁用和新值事件。
 - [x] 为 Vue 3 RuleTagsDialog 覆盖打开焦点、Tab / Shift+Tab 回绕、Escape 关闭及 dialog 可访问名称。
+- [x] 为临时未命中及 Fetch / XHR action outcome 诊断覆盖简体中文 / 英文控制文案和可读原因标签，扩展 smoke 断言也使用本地化结果。
 - [x] 为 Vue 3 RuleTemplatesDialog 覆盖模板选择、保存中禁用、可访问属性、焦点和关闭交互。
 - [x] 修复函数响应启用确认取消时 checkbox 视觉状态未回滚，并以组件回归锁定。
 - [x] 为 Vue 3 响应 body 编辑覆盖无效 JSON 行列反馈及修正后的错误清除 / 成功保存。
@@ -802,4 +803,5 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - 2026-09-27：完成 V3 JSON response 原始文本 / 结构化树编辑闭环：树 chunk 只在切换至树模式时加载；对象 / 数组 / 标量编辑、键重命名校验和 100 步撤销 / 重做已接入，切换模式不会覆盖无效 JSON，保存 payload / backup schema 不变。Vue 3 UI 8 文件 / 47 项通过，类型检查、边界、V3 面板构建、改动文件 ESLint / Prettier 和生产扩展 smoke 全绿；实际扩展验证按需加载、JSON 草稿往返、对象键改名、数组调序、storage 精确保存及 Fetch 结果。树 chunk 7.66 kB（gzip 2.65 kB），详情见 `docs/V3-EDITOR-ASSESSMENT.zh.md`。完成 336 / 371 项（90.6%）；真实 IME / 屏幕阅读器审计仍未完成。
 - 2026-09-27：加固 V3 响应规则编辑器的 Tab / Shift+Tab 焦点循环：纳入 JSON 树的原生 `<summary>` disclosure，并排除隐藏、inert 与折叠 details 中不可达的后代控件。组件回归验证从树节点 summary 正向回绕到首项、反向回到 summary；响应规则编辑器定向组件测试 5 项、workspace typecheck、V3 面板生产构建、改动文件 ESLint / Prettier 通过，树编辑器仍独立为按需 chunk。整体完成 337 / 372 项（90.6%）。
 - 2026-09-27：补齐 V3 RuleTagsDialog 键盘与命名回归：打开弹窗后聚焦新建输入框，Tab / Shift+Tab 两端回绕，Escape 触发关闭，ARIA modal 与标题关联有组件断言。全量 Vue 3 UI 组件测试 8 文件 / 49 项通过，改动文件 ESLint / Prettier 和 diff 检查通过；上一代码提交 CI run [36279787533](https://github.com/Nyakooo/ajax-proxy/actions/runs/36279787533) 全部通过。整体完成 338 / 373 项（90.6%）。
+- 2026-09-27：统一临时 no-match 与 Fetch / 异步 XHR outcome 诊断的中英文文案：规则原因、请求 / 响应阶段、结果和固定失败原因均映射到用户可读标签；扩展 smoke 断言真实 Fetch / XHR 两阶段结果、关联 ID 与隐私过滤。更新规则模型文档，明确 action outcome 捕获范围及同步 XHR / 原生 XHR error、timeout、abort 的排除边界。Vue 3 UI 8 文件 / 50 项、V3 面板生产构建、`pnpm pkg`、`pnpm extension:smoke`、改动文件 ESLint / Prettier 与 diff 检查全部通过。整体完成 340 / 374 项（90.9%）。
 - GitHub 里程碑：[阶段 0](https://github.com/Nyakooo/ajax-proxy/milestone/1)、[阶段 1](https://github.com/Nyakooo/ajax-proxy/milestone/2)、[阶段 2](https://github.com/Nyakooo/ajax-proxy/milestone/3)、[阶段 3](https://github.com/Nyakooo/ajax-proxy/milestone/4)、[阶段 4](https://github.com/Nyakooo/ajax-proxy/milestone/5)、[阶段 5](https://github.com/Nyakooo/ajax-proxy/milestone/6)、[阶段 6](https://github.com/Nyakooo/ajax-proxy/milestone/7)、[阶段 7](https://github.com/Nyakooo/ajax-proxy/milestone/8)；已复现缺陷：[issue #56](https://github.com/Nyakooo/ajax-proxy/issues/56)。

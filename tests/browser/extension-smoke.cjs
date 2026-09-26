@@ -1142,7 +1142,7 @@ async function main() {
     await noMatchItem.waitFor()
     const noMatchText = await noMatchItem.innerText()
     assert.match(noMatchText, /GET/)
-    assert.match(noMatchText, /url-mismatch|method-mismatch/)
+    assert.match(noMatchText, /URL condition does not match|Request method does not match/)
     assert.doesNotMatch(noMatchText, /diagnostic-unmatched|private-captured|must-not-be-recorded/)
     await noMatchDiagnostics
       .getByRole('button', { name: 'Capture the next unmatched request' })
@@ -1216,10 +1216,8 @@ async function main() {
     const outcomeItems = fetchOutcomeDiagnostics.locator('.recent-matches-list li')
     const outcomeTexts = await outcomeItems.allTextContents()
     assert.equal(outcomeTexts.length, 2)
-    assert.ok(outcomeTexts.some((text) => /request · applied · redirect-applied/.test(text)))
-    assert.ok(
-      outcomeTexts.some((text) => /response · applied · response-replacement-applied/.test(text))
-    )
+    assert.ok(outcomeTexts.some((text) => /Request · Applied · Redirect applied/.test(text)))
+    assert.ok(outcomeTexts.some((text) => /Response · Applied · Response replaced/.test(text)))
     assert.ok(outcomeTexts.every((text) => !/outcome smoke|\/api\/echo|private/.test(text)))
     const firstCorrelationId = await outcomeItems.nth(0).locator('code').nth(1).innerText()
     const secondCorrelationId = await outcomeItems.nth(1).locator('code').nth(1).innerText()
@@ -1247,10 +1245,8 @@ async function main() {
     const xhrOutcomeItems = allOutcomeItems.filter({ hasText: 'XHR ·' })
     assert.equal(await xhrOutcomeItems.count(), 2)
     const xhrOutcomeTexts = await xhrOutcomeItems.allTextContents()
-    assert.ok(xhrOutcomeTexts.some((text) => /request · applied · redirect-applied/.test(text)))
-    assert.ok(
-      xhrOutcomeTexts.some((text) => /response · applied · response-replacement-applied/.test(text))
-    )
+    assert.ok(xhrOutcomeTexts.some((text) => /Request · Applied · Redirect applied/.test(text)))
+    assert.ok(xhrOutcomeTexts.some((text) => /Response · Applied · Response replaced/.test(text)))
     assert.ok(xhrOutcomeTexts.every((text) => !/private-xhr-outcome|\/api\/echo/.test(text)))
     const xhrCorrelationId = await xhrOutcomeItems
       .filter({ hasText: 'XHR · request' })

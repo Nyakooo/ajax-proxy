@@ -203,6 +203,38 @@ export const messages = {
         'matcher-error': '匹配检查发生错误',
         'request-too-long': 'URL 超出匹配长度限制',
       },
+      noMatchCapture: {
+        title: '未命中诊断',
+        description: '仅捕获任一 V3 运行标签页的下一条真正未命中请求；临时保存在此面板内存中。',
+        waiting: '正在等待未命中请求 · 点击取消',
+        capture: '捕获下一条未匹配请求',
+        empty: '尚无临时诊断记录。',
+        noRules: '当前没有配置规则。',
+        truncated: '规则过多，诊断结果已截断。',
+      },
+      outcomes: {
+        stage: { request: '请求阶段', response: '响应阶段' },
+        status: { applied: '已应用', fallback: '已回退', failed: '失败', unsupported: '不支持' },
+        reason: {
+          'redirect-applied': '重定向已应用',
+          'redirect-construction-failed': '重定向请求无法构造，已使用原请求',
+          'network-failed': '网络请求失败',
+          'redirect-open-failed': '无法打开重定向后的 XHR，已使用原 URL',
+          'redirect-target-unsupported': '异步 XHR 不支持此重定向，已使用原 URL',
+          'send-failed': 'XHR 发送失败',
+          'response-replacement-applied': '响应已替换',
+          'response-replacement-failed': '响应替换失败，已使用原始响应',
+          'response-replacement-unsupported': '当前响应类型不支持替换，已使用原始响应',
+        },
+      },
+      actionOutcomes: {
+        title: 'Fetch / XHR 动作结果',
+        description:
+          '开启后临时显示任一 V3 标签页的 Fetch 与异步 XHR 动作结果；同一请求用关联 ID 标识。关闭或刷新面板后清空。',
+        capture: '捕获 Fetch / XHR 动作结果',
+        waiting: '正在捕获动作结果 · 点击关闭',
+        empty: '尚无临时结果。',
+      },
     },
     action: {
       responseJson: '响应 JSON',
@@ -559,6 +591,47 @@ export const messages = {
         'invalid-match-type': 'Match type is invalid',
         'matcher-error': 'An error occurred while checking this rule',
         'request-too-long': 'URL exceeds the matching length limit',
+      },
+      noMatchCapture: {
+        title: 'No-match diagnostics',
+        description:
+          'Capture the next actual unmatched request from any V3-enabled tab. Kept temporarily in this panel.',
+        waiting: 'Waiting for an unmatched request · Cancel',
+        capture: 'Capture the next unmatched request',
+        empty: 'No temporary diagnostics yet.',
+        noRules: 'No rules are configured.',
+        truncated: 'Results were truncated because there are too many rules.',
+      },
+      outcomes: {
+        stage: { request: 'Request', response: 'Response' },
+        status: {
+          applied: 'Applied',
+          fallback: 'Fell back',
+          failed: 'Failed',
+          unsupported: 'Unsupported',
+        },
+        reason: {
+          'redirect-applied': 'Redirect applied',
+          'redirect-construction-failed':
+            'Could not create the redirect request; original request used',
+          'network-failed': 'Network request failed',
+          'redirect-open-failed': 'Could not open redirected XHR; original URL used',
+          'redirect-target-unsupported':
+            'Redirect unsupported by asynchronous XHR; original URL used',
+          'send-failed': 'XHR send failed',
+          'response-replacement-applied': 'Response replaced',
+          'response-replacement-failed': 'Response replacement failed; original response used',
+          'response-replacement-unsupported':
+            'Response replacement unsupported; original response used',
+        },
+      },
+      actionOutcomes: {
+        title: 'Fetch / XHR action outcomes',
+        description:
+          'Temporarily show Fetch and async XHR outcomes from any V3 tab. Correlation IDs link stages; closing or reloading this panel clears them.',
+        capture: 'Capture Fetch / XHR action outcomes',
+        waiting: 'Capturing action outcomes · Click to stop',
+        empty: 'No temporary outcomes yet.',
       },
     },
     action: {

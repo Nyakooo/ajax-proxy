@@ -117,7 +117,9 @@ V3 备份使用独立标识，不通过字段猜测把旧文件转换成新格�
 
 页面请求 API 只能在 MAIN world 包装，因此扩展 content script 通过同源 `window.postMessage` 把 V3 配置交给 MAIN-world runtime。该消息通道不是身份认证机制：页面脚本能观察消息，也能伪造格式正确的配置消息；MAIN-world 的 schema 校验只限制结构，不证明消息来自扩展。运行时因此只消费格式化、受限长度且经 schema 校验的规则，但 V3 配置不得视为页面不可见或防篡改的机密。跨 origin 重定向会剥离 `Authorization`、`Proxy-Authorization`、`Cookie` 和 `Cookie2`；这不能替代安全隔离。若页面已在扩展代理外包装 Fetch / XHR，扩展遵循现有“不覆盖页面包装器”策略，不能保证 V3 立即接管；已捕获的 V2 代理会在 V3 状态生效时停止应用旧规则。
 
-V3 runtime 使用独立 `V3_HIT` 消息和 `V3_HITS` 存储，不发送 V2 badge 命中消息，也不把计数写进 V2 规则或 V3 backup。Fetch / XHR 选择第一条完整命中规则后上报其 ID、匹配条件与原始 URL / method；service worker 重新校验活动 backup、启用状态和规则字段，再串行递增对应计数。扩展徽章在有效 V3 配置启用时显示 V3 总命中数；清除配置后再恢复 V2 badge 逻辑。打开的 V3 面板会在内存显示跨标签页最近 10 条收到的命中通知、原始请求 URL / method、规则匹配条件与接收时间；刷新或关闭面板后清空，不保存请求 body / headers。此通知早于请求处理完成，因此“已匹配”不代表重定向或响应替换成功。尚无运行时未命中原因或 action 最终结果视图，计数和页面主世界事件不能视为可信日志或安全证据。
+V3 runtime 使用独立 `V3_HIT` 消息和 `V3_HITS` 存储，不发送 V2 badge 命中消息，也不把计数写进 V2 规则或 V3 backup。Fetch / XHR 选择第一条完整命中规则后上报其 ID、匹配条件与原始 URL / method；service worker 重新校验活动 backup、启用状态和规则字段，再串行递增对应计数。扩展徽章在有效 V3 配置启用时显示 V3 总命中数；清除配置后再恢复 V2 badge 逻辑。打开的 V3 面板会在内存显示跨标签页最近 10 条收到的命中通知、原始请求 URL / method、规则匹配条件与接收时间；刷新或关闭面板后清空，不保存请求 body / headers。此通知早于请求处理完成，因此“已匹配”不代表重定向或响应替换成功。
+
+用户可主动开启一次未命中捕获，面板最多在内存保留 10 条 method、规则 ID、未命中原因和截断状态，不记录 URL / query、body 或 headers；面板关闭或刷新后清空。用户也可主动开启 Fetch / 异步 XHR action outcome 捕获。两种 API 共用分阶段视图与 correlation ID，按请求改写 / 响应处理显示 applied、fallback、failed 或 unsupported 的可读中英文原因；每次请求可在两阶段各产生一条记录。结果仅含 API 类型、规则 ID、关联 ID、阶段、结果和固定原因分类，最多保留 10 条在面板内存，关闭或刷新后清空。service worker 仅在校验消息、当前配置 / action 且诊断已启用后转发。XHR 同步请求没有异步 action outcome；XHR 原生网络 `error`、`timeout` 和 `abort` 不单独作为 action outcome 上报。页面主世界事件可被网页脚本伪造，这些临时诊断和命中计数只用于排查，不能作为可信日志或安全证据；计数写入失败不会影响请求。
 
 面板另提供离线规则匹配试算：用户手动输入 URL / method，使用当前完整规则顺序复用同一 domain matcher，逐条说明全局或规则停用、action 全停用、method / URL 不符、无效正则、首条完整命中和优先级遮蔽。试算不会发出请求、改写配置或计数，也不持久化输入；它只解释当前配置对这组输入的判断，不代表某次历史请求的实际生命周期或 action 成败。
 

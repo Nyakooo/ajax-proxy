@@ -3,7 +3,7 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h } from 'vue'
 import { V3_BACKUP_VERSION } from '@proxy/v3-domain'
-import { V3PanelMessageKey } from '@proxy/protocol'
+import { NoticeFrom, NoticeKey, NoticeTo, V3PanelMessageKey } from '@proxy/protocol'
 import { i18n } from '../src/i18n/index.js'
 
 const AppButton = defineComponent({
@@ -74,6 +74,7 @@ async function mountApp(saveResponses = [], startingConfig = initialConfig()) {
   previousChrome = globalThis.chrome
   let storedConfig = structuredClone(startingConfig)
   let storedRevision = initialRevision
+  let extensionMessageListener
   const sentMessages = []
   const sendMessage = vi.fn(async (message) => {
     sentMessages.push(message)
@@ -99,7 +100,19 @@ async function mountApp(saveResponses = [], startingConfig = initialConfig()) {
     }
     throw new Error(`Unexpected extension message: ${message.key}`)
   })
-  globalThis.chrome = { runtime: { sendMessage } } as typeof chrome
+  globalThis.chrome = {
+    runtime: {
+      sendMessage,
+      onMessage: {
+        addListener(listener) {
+          extensionMessageListener = listener
+        },
+        removeListener(listener) {
+          if (extensionMessageListener === listener) extensionMessageListener = undefined
+        },
+      },
+    },
+  } as typeof chrome
 
   vi.resetModules()
   const { default: App } = await import('../src/App.vue')
@@ -118,7 +131,14 @@ async function mountApp(saveResponses = [], startingConfig = initialConfig()) {
   await flushPromises()
   await vi.waitFor(() => expect(sentMessages.length).toBeGreaterThan(0))
   await flushPromises()
-  return { wrapper: mountedWrapper, sentMessages }
+  return {
+    wrapper: mountedWrapper,
+    sentMessages,
+    sendExtensionMessage(message) {
+      if (!extensionMessageListener) throw new Error('No extension message listener is registered')
+      extensionMessageListener(message)
+    },
+  }
 }
 
 function buttonByText(wrapper, text) {
@@ -126,6 +146,90 @@ function buttonByText(wrapper, text) {
   if (!button) throw new Error(`Could not find button: ${text}`)
   return button
 }
+
+describe('App no-match diagnostics localization', () => {
+  it('localizes no-match controls and reason labels in the selected language', async () => {
+    const startingConfig = {
+      ...initialConfig(),
+      rules: [
+        {
+          id: 'known-rule',
+          enabled: true,
+          match: { url: '/expected', method: 'POST', type: 'normal' },
+          response: { enabled: true, replace: { body: '{"ok":true}' } },
+        },
+      ],
+    }
+    const { wrapper, sendExtensionMessage } = await mountApp([], startingConfig)
+
+    sendExtensionMessage({
+      from: NoticeFrom.SERVICE_WORKER,
+      to: NoticeTo.PANELS,
+      key: NoticeKey.V3_NO_MATCH,
+      value: {
+        kind: 'v3-no-match',
+        method: 'GET',
+        rules: [{ rule_id: 'known-rule', reason: 'method-mismatch' }],
+        truncated: false,
+      },
+    })
+    sendExtensionMessage({
+      from: NoticeFrom.SERVICE_WORKER,
+      to: NoticeTo.PANELS,
+      key: NoticeKey.V3_FETCH_OUTCOME,
+      value: {
+        kind: 'v3-fetch-outcome',
+        correlation_id: 'smoke-outcome-id',
+        rule_id: 'known-rule',
+        stage: 'response',
+        outcome: 'applied',
+        reason: 'response-replacement-applied',
+      },
+    })
+    sendExtensionMessage({
+      from: NoticeFrom.SERVICE_WORKER,
+      to: NoticeTo.PANELS,
+      key: NoticeKey.V3_FETCH_OUTCOME,
+      value: {
+        kind: 'v3-xhr-outcome',
+        correlation_id: 'smoke-xhr-outcome-id',
+        rule_id: 'known-rule',
+        stage: 'response',
+        outcome: 'failed',
+        reason: 'response-replacement-failed',
+      },
+    })
+    await flushPromises()
+
+    const diagnostics = wrapper.get('.no-match-diagnostics')
+    const outcomes = wrapper.get('.fetch-outcome-diagnostics')
+    expect(diagnostics.text()).toContain('未命中诊断')
+    expect(diagnostics.text()).toContain('捕获下一条未匹配请求')
+    expect(diagnostics.text()).toContain('请求方法不匹配')
+    expect(diagnostics.text()).not.toContain('method-mismatch')
+    expect(outcomes.text()).toContain('Fetch · 响应阶段 · 已应用 · 响应已替换')
+    expect(outcomes.text()).toContain('Fetch / XHR 动作结果')
+    expect(outcomes.text()).toContain('捕获 Fetch / XHR 动作结果')
+    expect(outcomes.text()).toContain('XHR · 响应阶段 · 失败 · 响应替换失败，已使用原始响应')
+    expect(outcomes.text()).not.toContain('response-replacement-applied')
+    expect(outcomes.text()).not.toContain('response-replacement-failed')
+
+    await wrapper.get('.language-toggle button[aria-label="English"]').trigger('click')
+
+    expect(diagnostics.text()).toContain('No-match diagnostics')
+    expect(diagnostics.text()).toContain('Capture the next unmatched request')
+    expect(diagnostics.text()).toContain('Request method does not match')
+    expect(diagnostics.text()).not.toContain('method-mismatch')
+    expect(outcomes.text()).toContain('Fetch · Response · Applied · Response replaced')
+    expect(outcomes.text()).toContain(
+      'XHR · Response · Failed · Response replacement failed; original response used'
+    )
+    expect(outcomes.text()).toContain('Fetch / XHR action outcomes')
+    expect(outcomes.text()).toContain('Capture Fetch / XHR action outcomes')
+    expect(outcomes.text()).not.toContain('response-replacement-applied')
+    expect(outcomes.text()).not.toContain('response-replacement-failed')
+  })
+})
 
 describe('App site switch persistence flow', () => {
   it('persists only the normalized origin and removes it when re-enabled', async () => {
