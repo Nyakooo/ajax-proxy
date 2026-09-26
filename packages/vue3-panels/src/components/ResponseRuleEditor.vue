@@ -122,7 +122,9 @@ function setFunctionEnabled(event) {
     form.value.functionEnabled = false
     return
   }
-  form.value.functionEnabled = window.confirm(t('responseEditor.functionEnableConfirm'))
+  const confirmed = window.confirm(t('responseEditor.functionEnableConfirm'))
+  form.value.functionEnabled = confirmed
+  event.target.checked = confirmed
 }
 
 function setResponseMode(mode) {

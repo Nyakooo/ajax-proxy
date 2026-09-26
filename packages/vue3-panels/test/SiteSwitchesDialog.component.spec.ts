@@ -154,6 +154,28 @@ describe('ResponseRuleEditor', () => {
       ],
     ])
   })
+
+  it('requires a separate confirmation before enabling a function response', async () => {
+    const wrapper = mount(ResponseRuleEditor, {
+      props: { open: true },
+      global: { plugins: [i18n] },
+    })
+    await nextTick()
+    await wrapper.get('input[value="function"]').setValue(true)
+    const enable = wrapper.get('.function-enabled input[type="checkbox"]')
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false)
+
+    await enable.setValue(true)
+    await nextTick()
+    expect(confirm).toHaveBeenCalledOnce()
+    expect(enable.element.checked).toBe(false)
+
+    confirm.mockReturnValue(true)
+    await enable.setValue(true)
+    await nextTick()
+    expect(enable.element.checked).toBe(true)
+    expect(wrapper.get('.function-safety-warning').exists()).toBe(true)
+  })
 })
 
 afterEach(() => {
