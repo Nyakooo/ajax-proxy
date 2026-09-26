@@ -1,0 +1,115 @@
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { NoticeFrom, NoticeKey, NoticeTo } from '@proxy/shared-utils'
+import { INIT_CURRENT_TITLE } from '../src/consts'
+
+type MessageListener = (message: unknown, sender: chrome.runtime.MessageSender) => unknown
+
+function deferred<T>() {
+  let resolve!: (value: T) => void
+  const promise = new Promise<T>((resolvePromise) => {
+    resolve = resolvePromise
+  })
+  return { promise, resolve }
+}
+
+afterEach(() => {
+  vi.unstubAllGlobals()
+  vi.resetModules()
+  vi.doUnmock('@proxy/shared-utils')
+  vi.doUnmock('../src/service-worker/notice')
+  vi.doUnmock('../src/service-worker/init')
+  vi.doUnmock('../src/service-worker/event')
+  vi.doUnmock('../src/service-worker/badge')
+  vi.doUnmock('../src/service-worker/v3Hit')
+  vi.doUnmock('../src/service-worker/v3FunctionError')
+  vi.doUnmock('../src/service-worker/v3NoMatch')
+  vi.doUnmock('../src/service-worker/v3FetchOutcome')
+  vi.doUnmock('../src/service-worker/v3XHROutcome')
+  vi.doUnmock('../src/service-worker/v3Panel')
+})
+
+describe('service worker message entry', () => {
+  it('isolates a rejected V3 function error notification and handles the next message', async () => {
+    const storageReady = deferred<void>()
+    const runtimeListeners: MessageListener[] = []
+    const noticePanelsByServiceWorker = vi.fn()
+    const notifyV3FunctionError = vi.fn().mockRejectedValue(new Error('notification failed'))
+    const chromeMock = {
+      runtime: {
+        id: 'test-extension',
+        getURL: vi.fn((path: string) => `chrome-extension://test-extension/${path}`),
+        onMessage: {
+          addListener: vi.fn((listener: MessageListener) => runtimeListeners.push(listener)),
+        },
+      },
+      storage: {
+        onChanged: { addListener: vi.fn() },
+      },
+      action: { setIcon: vi.fn() },
+    }
+    vi.stubGlobal('chrome', chromeMock)
+
+    vi.doMock('@proxy/shared-utils', async (importOriginal) => {
+      const actual = await importOriginal<typeof import('@proxy/shared-utils')>()
+      return {
+        ...actual,
+        initStorage: vi.fn(() => storageReady.promise),
+        noticePanelsByServiceWorker,
+      }
+    })
+    vi.doMock('../src/service-worker/notice', () => ({ useCurrentTitle: vi.fn(() => '') }))
+    vi.doMock('../src/service-worker/init', () => ({ initDefaultSth: vi.fn() }))
+    vi.doMock('../src/service-worker/event', () => ({ injectEventListener: vi.fn() }))
+    vi.doMock('../src/service-worker/badge', () => ({ chromeBadge: vi.fn() }))
+    vi.doMock('../src/service-worker/v3Hit', () => ({ chromeBadgeV3: vi.fn() }))
+    vi.doMock('../src/service-worker/v3FunctionError', () => ({ notifyV3FunctionError }))
+    vi.doMock('../src/service-worker/v3NoMatch', () => ({ notifyV3NoMatch: vi.fn() }))
+    vi.doMock('../src/service-worker/v3FetchOutcome', () => ({ notifyV3FetchOutcome: vi.fn() }))
+    vi.doMock('../src/service-worker/v3XHROutcome', () => ({ notifyV3XHROutcome: vi.fn() }))
+    vi.doMock('../src/service-worker/v3Panel', () => ({
+      createV3PanelStartupMessageHandler: vi.fn(() => vi.fn(() => false)),
+    }))
+
+    await import('../src/service-worker/index')
+    storageReady.resolve()
+    await vi.waitFor(() => expect(runtimeListeners).toHaveLength(2))
+
+    const listener = runtimeListeners[1]
+    const contentSender = { id: 'test-extension', tab: { id: 1 } }
+    const functionError = {
+      rule_id: 'rule-a',
+      match_url: '/api/items',
+      method: 'POST',
+      code: 'execution-failed',
+    }
+
+    listener(
+      {
+        from: NoticeFrom.CONTENT,
+        to: NoticeTo.SERVICE_WORKER,
+        key: NoticeKey.V3_FUNCTION_ERROR,
+        value: functionError,
+      },
+      contentSender
+    )
+    await vi.waitFor(() =>
+      expect(notifyV3FunctionError).toHaveBeenCalledExactlyOnceWith(functionError)
+    )
+
+    listener(
+      {
+        from: NoticeFrom.CONTENT,
+        to: NoticeTo.SERVICE_WORKER,
+        key: INIT_CURRENT_TITLE,
+        value: 'After rejection',
+      },
+      contentSender
+    )
+
+    expect(noticePanelsByServiceWorker).toHaveBeenCalledExactlyOnceWith(
+      NoticeKey.GET_CURRENT_TITLE,
+      'After rejection'
+    )
+    await Promise.resolve()
+  })
+})
