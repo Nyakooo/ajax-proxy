@@ -278,4 +278,27 @@ describe('V3 panel configuration adapter', () => {
       expect(sendResponse).toHaveBeenCalledWith({ ok: false, error: 'storage-write-failed' })
     )
   })
+
+  it('returns a stable read error when startup initialization fails for a snapshot request', async () => {
+    const storage = createStorage()
+    const sendResponse = vi.fn()
+    const handler = createV3PanelStartupMessageHandler({
+      extensionId: 'test-extension',
+      extensionUrl: 'chrome-extension://test-extension/',
+      storageReady: Promise.reject(new Error('storage unavailable')),
+      storage,
+    })
+    const message = {
+      from: NoticeFrom.PANELS,
+      to: NoticeTo.SERVICE_WORKER,
+      key: V3PanelMessageKey.GET_SNAPSHOT,
+    }
+
+    expect(handler(message, trustedPanelSender, sendResponse)).toBe(true)
+    await vi.waitFor(() =>
+      expect(sendResponse).toHaveBeenCalledWith({ ok: false, error: 'storage-read-failed' })
+    )
+    expect(storage.read).not.toHaveBeenCalled()
+    expect(storage.write).not.toHaveBeenCalled()
+  })
 })
