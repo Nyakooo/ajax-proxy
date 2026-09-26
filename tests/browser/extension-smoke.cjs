@@ -903,9 +903,13 @@ async function main() {
       if (message.type() === 'error') console.error('V3 panel smoke console error:', message.text())
     })
     let codeMirrorLoaded = false
+    let jsonTreeLoaded = false
     v3Panel.on('request', (request) => {
       if (request.resourceType() === 'script' && request.url().includes('CodeMirrorJsonEditor-')) {
         codeMirrorLoaded = true
+      }
+      if (request.resourceType() === 'script' && request.url().includes('JsonTreeEditor-')) {
+        jsonTreeLoaded = true
       }
     })
     await v3Panel.goto(`chrome-extension://${extensionId}/panels-v3/index.html`)
@@ -916,6 +920,7 @@ async function main() {
       false,
       'CodeMirror must stay unloaded before opening a rule editor'
     )
+    assert.equal(jsonTreeLoaded, false, 'JSON tree must stay unloaded before selecting tree mode')
     const staleV3Panel = await context.newPage()
     staleV3Panel.setDefaultTimeout(10000)
     await staleV3Panel.goto(`chrome-extension://${extensionId}/panels-v3/index.html`)
@@ -985,19 +990,50 @@ async function main() {
         throw error
       })
     assert.equal(codeMirrorLoaded, true, 'Opening a response rule editor should load CodeMirror')
+    assert.equal(jsonTreeLoaded, false, 'Opening the response editor should not load the JSON tree')
     await responseEditor.locator('label.editor-field').nth(0).locator('input').fill('/api/v3-ui')
     await responseEditor.locator('.editor-field-row select').nth(1).selectOption('POST')
     await responseEditor.locator('.editor-field-row input[type="number"]').fill('203')
     const responseBody = responseEditor.locator(
       '.response-json-input .cm-content[contenteditable="true"]'
     )
-    await responseBody.fill('{\n  "name": 1,\n  bad\n}')
+    const invalidJson = '{\n  "name": 1,\n  bad\n}'
+    await responseBody.fill(invalidJson)
     await responseEditor.getByRole('button', { name: 'Save' }).click()
     await v3Panel.getByRole('alert').getByText('Invalid JSON at line 3, column 3.').waitFor()
+
+    await responseEditor.locator('input[name="json-editor-mode"][value="tree"]').check()
+    await responseEditor.locator('.json-tree-invalid').waitFor()
+    assert.equal(jsonTreeLoaded, true, 'Selecting tree mode should load its separate chunk')
+    await responseEditor.locator('input[name="json-editor-mode"][value="text"]').check()
+    assert.equal(await responseBody.innerText(), invalidJson)
+
     await responseEditor.getByRole('button', { name: 'Object' }).click()
     assert.match(await responseBody.innerText(), /"id": 123/)
     await v3Panel.getByRole('alert').waitFor({ state: 'detached' })
-    await responseBody.fill(JSON.stringify({ source: 'v3-ui', ok: true }))
+    await responseBody.fill(JSON.stringify({ source: 'v3-ui', ok: true, items: [1, 2] }))
+    await responseEditor.locator('input[name="json-editor-mode"][value="tree"]').check()
+    const treeEditor = responseEditor.locator('.json-tree-editor')
+    await treeEditor.waitFor()
+    const treeKeyInputs = treeEditor.locator('.json-tree-editor__key input')
+    assert.equal(
+      await treeKeyInputs.count(),
+      3,
+      `Tree editor should expose its three object keys: ${await treeEditor.innerText()}`
+    )
+    const sourceKey = treeKeyInputs.first()
+    assert.equal(await sourceKey.getAttribute('aria-label'), 'Key for source')
+    await sourceKey.fill('origin')
+    await sourceKey.press('Tab')
+    const itemsNode = treeEditor.locator('.json-tree-editor__node').nth(1)
+    await itemsNode.locator('summary').click()
+    await responseEditor.getByRole('button', { name: 'Move item 2 up' }).click()
+    await responseEditor.locator('input[name="json-editor-mode"][value="text"]').check()
+    assert.deepEqual(JSON.parse(await responseBody.innerText()), {
+      origin: 'v3-ui',
+      ok: true,
+      items: [2, 1],
+    })
     const legacyStateBeforeV3Ui = await restartedWorker.evaluate(
       async (key) => (await chrome.storage.local.get(key))[key],
       'ajax-proxy:storage:intercept-list'
@@ -1027,7 +1063,7 @@ async function main() {
     assert.deepEqual(v3UiRule.match, { url: '/api/v3-ui', type: 'normal', method: 'POST' })
     assert.deepEqual(v3UiRule.response, {
       enabled: true,
-      replace: { status: 203, body: { source: 'v3-ui', ok: true } },
+      replace: { status: 203, body: { origin: 'v3-ui', ok: true, items: [2, 1] } },
     })
     assert.deepEqual(
       await restartedWorker.evaluate(
@@ -1052,7 +1088,7 @@ async function main() {
     })
     assert.deepEqual(v3UiFetchResult, {
       status: 203,
-      body: { source: 'v3-ui', ok: true },
+      body: { origin: 'v3-ui', ok: true, items: [2, 1] },
     })
     let v3UiHitCount = beforeV3UiHit
     for (let attempt = 0; attempt < 40; attempt += 1) {

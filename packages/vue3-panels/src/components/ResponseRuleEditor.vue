@@ -8,6 +8,7 @@ import RuleTagPicker from './RuleTagPicker.vue'
 const CodeMirrorJsonEditor = defineAsyncComponent(
   () => import('./editors/CodeMirrorJsonEditor.vue')
 )
+const JsonTreeEditor = defineAsyncComponent(() => import('./editors/JsonTreeEditor.vue'))
 
 const props = defineProps({
   open: { type: Boolean, default: false },
@@ -25,6 +26,8 @@ const dialogRoot = ref(null)
 const form = ref(createForm())
 const localIssue = ref('')
 const jsonIssue = ref(false)
+const jsonEditorMode = ref('text')
+const jsonTreeHistoryKey = ref(0)
 
 function createForm(rule = null) {
   const replace = rule?.response?.replace ?? {}
@@ -49,6 +52,8 @@ watch(
     form.value = createForm(rule)
     localIssue.value = ''
     jsonIssue.value = false
+    jsonEditorMode.value = 'text'
+    jsonTreeHistoryKey.value += 1
     await nextTick()
     firstInput.value?.focus()
   },
@@ -131,6 +136,10 @@ function setResponseMode(mode) {
   form.value.responseMode = mode
   localIssue.value = ''
   jsonIssue.value = false
+}
+
+function setJsonEditorMode(mode) {
+  jsonEditorMode.value = mode
 }
 
 function formatJson() {
@@ -279,12 +288,45 @@ function trapFocus(event) {
 
         <div v-if="form.responseMode === 'json'" class="editor-field">
           <span>{{ t('responseEditor.jsonBody') }}</span>
-          <CodeMirrorJsonEditor
-            v-model="form.body"
-            class="response-json-input"
-            :aria-label="t('responseEditor.jsonBody')"
-            described-by="response-json-help response-editor-error"
-          />
+          <fieldset class="json-editor-mode-picker">
+            <legend>{{ t('responseEditor.editorMode') }}</legend>
+            <label>
+              <input
+                type="radio"
+                name="json-editor-mode"
+                value="text"
+                :checked="jsonEditorMode === 'text'"
+                @change="setJsonEditorMode('text')"
+              />
+              <span>{{ t('responseEditor.textEditor') }}</span>
+            </label>
+            <label>
+              <input
+                type="radio"
+                name="json-editor-mode"
+                value="tree"
+                :checked="jsonEditorMode === 'tree'"
+                @change="setJsonEditorMode('tree')"
+              />
+              <span>{{ t('responseEditor.treeEditor') }}</span>
+            </label>
+          </fieldset>
+          <KeepAlive>
+            <CodeMirrorJsonEditor
+              v-if="jsonEditorMode === 'text'"
+              v-model="form.body"
+              class="response-json-input"
+              :aria-label="t('responseEditor.jsonBody')"
+              described-by="response-json-help response-editor-error"
+            />
+            <JsonTreeEditor
+              v-else
+              v-model="form.body"
+              :history-key="jsonTreeHistoryKey"
+              class="response-json-input"
+              described-by="response-json-help response-editor-error"
+            />
+          </KeepAlive>
           <small id="response-json-help">{{ t('responseEditor.jsonHelp') }}</small>
         </div>
         <div

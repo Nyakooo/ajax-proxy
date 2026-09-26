@@ -53,7 +53,17 @@ V3 UI 阶段的原型方向：函数响应编辑器试用 CodeMirror 6；JSON �
 
 正式 V3 生产构建中，主 JS 为 405.29 kB（109.05 kB gzip），CodeMirror 异步 JS 为 310.22 kB（101.78 kB gzip），编辑器 CSS 为 0.24 kB（0.17 kB gzip）。这是 Vue 3 候选面板的阶段体积，不是扩展切换默认入口后的最终 ZIP 预算。扩展 E2E 明确验证编辑器关闭时没有请求 CodeMirror JS、打开拦截规则表单后请求该 chunk，并完成无效 JSON 阻止保存、插入示例、修正内容、V3 持久化及既有真实 Fetch / XHR smoke。Chrome for Testing 154 与 Edge Stable 153 均通过。
 
-当前只替换 JSON response body 的文本输入。受限 JavaScript response function 编辑器仍未迁移；完整函数 sandbox UI、真实操作系统 IME、屏幕阅读器及最终产品树编辑器仍是后续验收项。
+此前这一步只替换 JSON response body 的文本输入；生产树形编辑器在 2026-09-27 接入，细节和实测包体积见下节。函数 sandbox UI 已另行接入。真实操作系统 IME、屏幕阅读器与完整 WCAG 检查仍待桌面人工验收。
+
+## V3 JSON 结构化树编辑器
+
+2026-09-27 将生产树形编辑器加入 JSON 响应规则表单。CodeMirror 保留为原始文本模式；用户切换到“结构化树”时才加载独立 `JsonTreeEditor` chunk。两种模式共用同一 JSON 文本草稿和原有保存校验，不改 V3 配置或备份 schema。无效 JSON 切到树模式时原文保持不变，仅显示修复提示且不渲染修改控件；切回文本模式可继续修正，保存仍须通过 JSON parse。
+
+树编辑器覆盖对象 / 数组 / 标量根节点、标量值和类型更改、对象键重命名、添加 / 删除条目及数组上移 / 下移。空键和重复键会被拒绝。撤销 / 重做保留最多 100 个 JSON 快照，支持 Ctrl / Cmd+Z、Ctrl / Cmd+Shift+Z 和 Ctrl / Cmd+Y；焦点在输入控件或正在进行 IME composition 时不拦截浏览器快捷键。重新打开编辑器或切换规则会重置历史。所有控件均可键盘访问并有本地化 aria 标签；当前尚未对大型深层数据进行虚拟化，也未完成真实操作系统 IME、屏幕阅读器或完整 WCAG 验收。
+
+Vue 3 生产构建的 `JsonTreeEditor` 异步 JS 为 7.66 kB（gzip 2.65 kB）；该 chunk 在编辑器关闭、或响应编辑器处于 CodeMirror 文本模式时不加载。Chrome 扩展 smoke 验证了懒加载、无效 JSON 原文往返、对象键改名、数组排序、V3 storage 精确保存及 Fetch 返回值。组件测试额外覆盖对象属性增删、数组增删、scalar / null、重复键拒绝、撤销 / 重做、分支历史和外部草稿重置。
+
+同次生产构建测得 V3 面板入口 JS 478.89 kB（gzip 129.41 kB），CodeMirror 异步 JS 403.29 kB（gzip 138.22 kB）。完整扩展 ZIP 898,004 B（877.0 KiB）同时包含现有 Vue 2 默认面板和候选 `panels-v3/`，因此不作为 V3 最终 ZIP 预算；生成方式为 `pnpm build:v3-panels`、`pnpm build:chrome`、`pnpm run pkg`、`pnpm zip` 和 `pnpm size:report`。
 
 ## 当前首屏与扩展包体积
 
