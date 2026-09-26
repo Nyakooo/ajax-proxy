@@ -449,6 +449,20 @@ describe('V3 rule selection', () => {
     expect(selectV3Rule([regexRule], { url: '/API/123', method: 'GET' })?.rule).toBe(regexRule)
   })
 
+  it('reuses regexes and remains correct after evicting the oldest cache entry', () => {
+    const rules = Array.from({ length: 257 }, (_, index) => ({
+      ...requestRule(`cached-${index}`, `^/cache/${index}$`),
+      match: { url: `^/cache/${index}$`, type: 'regex' as const },
+    }))
+
+    for (let index = 0; index < rules.length; index += 1) {
+      expect(selectV3Rule([rules[index]], { url: `/cache/${index}`, method: 'GET' })?.rule).toBe(
+        rules[index]
+      )
+    }
+    expect(selectV3Rule([rules[0]], { url: '/cache/0', method: 'GET' })?.rule).toBe(rules[0])
+  })
+
   it('matches exact URLs by case-sensitive full-string equality in runtime and preview', () => {
     const exactRule = {
       ...requestRule('exact', 'https://example.test/api?tenant=one'),
