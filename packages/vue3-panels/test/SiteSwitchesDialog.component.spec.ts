@@ -2,6 +2,7 @@ import { mount } from '@vue/test-utils'
 import { nextTick } from 'vue'
 import { afterEach, describe, expect, it } from 'vitest'
 import SiteSwitchesDialog from '../src/components/SiteSwitchesDialog.vue'
+import ResponseRuleEditor from '../src/components/ResponseRuleEditor.vue'
 import { i18n } from '../src/i18n/index.js'
 
 describe('SiteSwitchesDialog', () => {
@@ -78,6 +79,25 @@ describe('SiteSwitchesDialog', () => {
 
     dialog.element.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
     expect(wrapper.emitted('close')).toHaveLength(1)
+  })
+})
+
+describe('ResponseRuleEditor', () => {
+  it('rejects padded match URLs and status codes outside the HTTP range', async () => {
+    const wrapper = mount(ResponseRuleEditor, {
+      props: { open: true },
+      global: { plugins: [i18n] },
+    })
+    await nextTick()
+    await wrapper.get('.editor-field input').setValue(' /api ')
+    await wrapper.get('form').trigger('submit')
+    expect(wrapper.get('[role="alert"]').text()).toBe('匹配 URL 不能为空，且不能包含首尾空格。')
+
+    await wrapper.get('.editor-field input').setValue('/api')
+    await wrapper.get('input[type="number"]').setValue('199')
+    await wrapper.get('form').trigger('submit')
+    expect(wrapper.get('[role="alert"]').text()).toBe('状态码必须是 200 到 599 之间的整数。')
+    expect(wrapper.emitted('save')).toBeUndefined()
   })
 })
 

@@ -281,6 +281,7 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - [x] 为 Vue 3 站点开关对话框建立组件测试并覆盖打开焦点、origin 规范化和启用 / 停用事件。
 - [x] 为 Vue 3 站点开关对话框覆盖非法 scheme 与重复停用 origin 的表单拒绝路径。
 - [x] 为 Vue 3 站点开关对话框覆盖 Tab / Shift+Tab 焦点回绕及 Escape 关闭。
+- [x] 为 Vue 3 响应规则编辑器覆盖匹配 URL 边缘空格和非法 HTTP 状态码拒绝保存。
 - [ ] 完善 Service Worker 消息协议、V3 配置校验及导入 / 导出的边界与错误路径测试。
 - [ ] 为 Vue 组件和关键用户流程编写组件 / 集成测试。
 - [ ] 建立扩展端到端测试，覆盖安装、启停、规则编辑和真实页面请求行为。
@@ -566,4 +567,5 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - 2026-09-26：阶段 6 建立 Vue 3 组件测试环境（复用 vue3-panels 的 Vite / Vue 插件，独立 Vitest + jsdom 配置及 `test:v3-ui` 命令），首个 `SiteSwitchesDialog` 回归覆盖打开焦点、完整 URL 规范化为精确 origin、停用与重新启用事件；CI 增加独立组件测试步骤。冻结 lockfile 安装、1 项组件测试、242 项全量 Vitest、workspace typecheck、改动文件零告警 ESLint / Prettier 通过。完成 167 / 233 项（71.7%）。
 - 2026-09-26：阶段 6 补齐站点开关表单拒绝回归：拒绝 FTP URL 和已停用 origin，显示明确错误且不发出 disable 事件。Vue 3 组件测试增至 2 项；组件 / 全量 Vitest、workspace typecheck、改动文件 ESLint / Prettier 通过。完成 168 / 234 项（71.8%）。
 - 2026-09-26：阶段 6 补齐站点开关键盘交互：从焦点序列首项 Shift+Tab 回绕到末项，末项 Tab 回到首项，Escape 发出关闭事件；同时确认打开时输入框获得焦点。Vue 3 组件测试增至 3 项，组件 / 全量 Vitest、workspace typecheck、改动文件 ESLint / Prettier 通过。完成 169 / 235 项（71.9%）。
+- 2026-09-26：阶段 6 为响应规则编辑器增加组件回归：匹配 URL 首尾空格及小于 HTTP 最低范围的状态码均显示校验错误，不发出保存事件。Vue 3 组件测试增至 4 项；组件 / 全量 Vitest、workspace typecheck、改动文件零告警 ESLint / Prettier 通过。完成 170 / 236 项（72.0%）。
 - GitHub 里程碑：[阶段 0](https://github.com/Nyakooo/ajax-proxy/milestone/1)、[阶段 1](https://github.com/Nyakooo/ajax-proxy/milestone/2)、[阶段 2](https://github.com/Nyakooo/ajax-proxy/milestone/3)、[阶段 3](https://github.com/Nyakooo/ajax-proxy/milestone/4)、[阶段 4](https://github.com/Nyakooo/ajax-proxy/milestone/5)、[阶段 5](https://github.com/Nyakooo/ajax-proxy/milestone/6)、[阶段 6](https://github.com/Nyakooo/ajax-proxy/milestone/7)、[阶段 7](https://github.com/Nyakooo/ajax-proxy/milestone/8)；已复现缺陷：[issue #56](https://github.com/Nyakooo/ajax-proxy/issues/56)。
