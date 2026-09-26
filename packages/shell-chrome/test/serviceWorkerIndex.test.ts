@@ -99,6 +99,30 @@ describe('service worker message entry', () => {
     expect(chromeBadge).not.toHaveBeenCalled()
 
     const listener = runtimeListeners[1]
+    const globalSwitchMessage = {
+      from: NoticeFrom.PANELS,
+      to: NoticeTo.SERVICE_WORKER,
+      key: NoticeKey.GLOBAL_SWITCH,
+      value: false,
+    }
+    listener(globalSwitchMessage, {
+      id: 'other-extension',
+      url: 'chrome-extension://test-extension/panels/index.html',
+    } as chrome.runtime.MessageSender)
+    listener(globalSwitchMessage, {
+      id: 'test-extension',
+      url: 'https://example.test/panels/index.html',
+    } as chrome.runtime.MessageSender)
+    expect(chromeMock.action.setIcon).not.toHaveBeenCalled()
+    expect(chromeBadge).not.toHaveBeenCalled()
+
+    listener(globalSwitchMessage, {
+      id: 'test-extension',
+      url: 'chrome-extension://test-extension/panels/index.html',
+    } as chrome.runtime.MessageSender)
+    expect(chromeMock.action.setIcon).toHaveBeenCalledExactlyOnceWith({ path: 'icons/128g.png' })
+    expect(chromeBadge).toHaveBeenCalledOnce()
+
     const contentSender = { id: 'test-extension', tab: { id: 1 } }
     const functionError = {
       rule_id: 'rule-a',
