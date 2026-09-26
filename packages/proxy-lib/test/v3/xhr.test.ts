@@ -228,6 +228,24 @@ describe('createV3XHR', () => {
     ])
   })
 
+  it('maps boolean and object capture options to distinct native listener wrappers', () => {
+    const nativeAdd = vi.spyOn(FakeXHR.prototype, 'addEventListener')
+    const nativeRemove = vi.spyOn(FakeXHR.prototype, 'removeEventListener')
+    const xhr = makeXHR([rule('capture-listener')])
+    const listener = () => {}
+
+    xhr.addEventListener('loadend', listener, false)
+    xhr.addEventListener('loadend', listener, { capture: true })
+    xhr.removeEventListener('loadend', listener, true)
+
+    const wrappedListeners = nativeAdd.mock.calls
+      .filter(([type]) => type === 'loadend')
+      .map(([, wrappedListener]) => wrappedListener)
+    expect(wrappedListeners).toHaveLength(2)
+    expect(wrappedListeners[0]).not.toBe(wrappedListeners[1])
+    expect(nativeRemove).toHaveBeenCalledExactlyOnceWith('loadend', wrappedListeners[1], true)
+  })
+
   it('applies response replacements before readyState 4 and load handlers observe the response', () => {
     const selectedRule = rule('lifecycle', {
       response: { enabled: true, replace: { status: 201, body: { source: 'mock' } } },
