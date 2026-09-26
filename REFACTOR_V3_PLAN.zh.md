@@ -285,6 +285,7 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - [x] 为 Vue 3 响应规则编辑器覆盖函数响应保存确认；取消不保存，确认后草稿规则仍默认停用。
 - [x] 为 Vue 3 响应规则编辑器覆盖有效 JSON 响应与标签选择的保存序列化。
 - [x] 修复函数响应启用确认取消时 checkbox 视觉状态未回滚，并以组件回归锁定。
+- [x] 为 Vue 3 响应 body 编辑覆盖无效 JSON 行列反馈及修正后的错误清除 / 成功保存。
 - [ ] 完善 Service Worker 消息协议、V3 配置校验及导入 / 导出的边界与错误路径测试。
 - [ ] 为 Vue 组件和关键用户流程编写组件 / 集成测试。
 - [ ] 建立扩展端到端测试，覆盖安装、启停、规则编辑和真实页面请求行为。
@@ -573,5 +574,6 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - 2026-09-26：阶段 6 为响应规则编辑器增加组件回归：匹配 URL 首尾空格及小于 HTTP 最低范围的状态码均显示校验错误，不发出保存事件。Vue 3 组件测试增至 4 项；组件 / 全量 Vitest、workspace typecheck、改动文件零告警 ESLint / Prettier 通过。完成 170 / 236 项（72.0%）。
 - 2026-09-26：阶段 6 为函数响应编辑添加 UI 安全确认回归：用户取消 `window.confirm` 时不发出 save；确认后发出函数 mode 数据，函数响应仍默认关闭，避免刚保存即执行。Vue 3 组件测试增至 5 项；组件 / 全量 Vitest、workspace typecheck、改动文件零告警 ESLint / Prettier 通过。完成 171 / 237 项（72.2%）。
 - 2026-09-26：阶段 6 组件测试发现并修复函数响应启用确认取消时 checkbox 仍保持视觉勾选的问题。现同步 DOM checked 属性与确认结果；取消保持关闭，确认才开启，安全提示可见。Vue 3 组件测试增至 7 项；组件 / 全量 Vitest、V3 面板 build、workspace typecheck、改动文件零告警 ESLint / Prettier 通过。完成 173 / 239 项（72.4%）。
+- 2026-09-26：阶段 6 为 JSON body 编辑回归补齐错误和恢复闭环：语法错误显示准确行列且阻止保存；输入修正后清除过期错误，保存解析后的 JSON body。Vue 3 组件测试增至 8 项；组件 / 全量 Vitest、workspace typecheck、改动文件零告警 ESLint / Prettier 通过。完成 174 / 240 项（72.5%）。
 - 2026-09-26：阶段 6 补齐响应规则 JSON 保存成功路径：状态码、解析后的 JSON body、匹配条件、规则 enabled 和所选标签 ID 被组合到 save event。Vue 3 组件测试增至 6 项；组件 / 全量 Vitest、workspace typecheck、改动文件零告警 ESLint / Prettier 通过。完成 172 / 238 项（72.3%）。
 - GitHub 里程碑：[阶段 0](https://github.com/Nyakooo/ajax-proxy/milestone/1)、[阶段 1](https://github.com/Nyakooo/ajax-proxy/milestone/2)、[阶段 2](https://github.com/Nyakooo/ajax-proxy/milestone/3)、[阶段 3](https://github.com/Nyakooo/ajax-proxy/milestone/4)、[阶段 4](https://github.com/Nyakooo/ajax-proxy/milestone/5)、[阶段 5](https://github.com/Nyakooo/ajax-proxy/milestone/6)、[阶段 6](https://github.com/Nyakooo/ajax-proxy/milestone/7)、[阶段 7](https://github.com/Nyakooo/ajax-proxy/milestone/8)；已复现缺陷：[issue #56](https://github.com/Nyakooo/ajax-proxy/issues/56)。

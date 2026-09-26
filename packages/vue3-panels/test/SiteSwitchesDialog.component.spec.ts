@@ -1,8 +1,9 @@
-import { mount } from '@vue/test-utils'
+import { flushPromises, mount } from '@vue/test-utils'
 import { nextTick } from 'vue'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import SiteSwitchesDialog from '../src/components/SiteSwitchesDialog.vue'
 import ResponseRuleEditor from '../src/components/ResponseRuleEditor.vue'
+import CodeMirrorJsonEditor from '../src/components/editors/CodeMirrorJsonEditor.vue'
 import { i18n } from '../src/i18n/index.js'
 
 describe('SiteSwitchesDialog', () => {
@@ -175,6 +176,28 @@ describe('ResponseRuleEditor', () => {
     await nextTick()
     expect(enable.element.checked).toBe(true)
     expect(wrapper.get('.function-safety-warning').exists()).toBe(true)
+  })
+
+  it('blocks invalid JSON, shows its location, and clears the error after correction', async () => {
+    const wrapper = mount(ResponseRuleEditor, {
+      props: { open: true },
+      global: { plugins: [i18n] },
+    })
+    await flushPromises()
+    await wrapper.get('.editor-field input').setValue('/api')
+    const editor = wrapper.getComponent(CodeMirrorJsonEditor)
+
+    editor.vm.$emit('update:modelValue', '{broken: 1}')
+    await nextTick()
+    await wrapper.get('form').trigger('submit')
+    expect(wrapper.get('[role="alert"]').text()).toMatch(/^JSON 格式有误：第 \d+ 行，第 \d+ 列。$/)
+    expect(wrapper.emitted('save')).toBeUndefined()
+
+    editor.vm.$emit('update:modelValue', '{"ok": true}')
+    await nextTick()
+    expect(wrapper.find('[role="alert"]').exists()).toBe(false)
+    await wrapper.get('form').trigger('submit')
+    expect(wrapper.emitted('save')?.at(-1)?.[0]).toMatchObject({ body: { ok: true }, mode: 'json' })
   })
 })
 
