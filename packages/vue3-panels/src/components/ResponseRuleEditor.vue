@@ -168,10 +168,26 @@ function useExample(body) {
 
 function trapFocus(event) {
   if (event.key !== 'Tab') return
-  const focusable = dialogRoot.value?.querySelectorAll(
-    'button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [contenteditable="true"]:not([aria-disabled="true"])'
-  )
-  if (!focusable?.length) return
+  const root = dialogRoot.value
+  const focusable = [
+    ...(root?.querySelectorAll(
+      'button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), summary, [contenteditable="true"]:not([aria-disabled="true"])'
+    ) ?? []),
+  ].filter((element) => {
+    if (element.closest('[hidden], [inert]')) return false
+    let ancestor = element.parentElement
+    while (ancestor && ancestor !== root) {
+      const summary = ancestor.matches('details:not([open])')
+        ? ancestor.querySelector(':scope > summary')
+        : null
+      if (ancestor.matches('details:not([open])') && !summary?.contains(element)) {
+        return false
+      }
+      ancestor = ancestor.parentElement
+    }
+    return true
+  })
+  if (!focusable.length) return
   const first = focusable[0]
   const last = focusable[focusable.length - 1]
   if (event.shiftKey && document.activeElement === first) {

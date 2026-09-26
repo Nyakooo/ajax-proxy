@@ -12,6 +12,7 @@ afterEach(() => {
 async function mountFunctionEditor() {
   const wrapper = mount(ResponseRuleEditor, {
     props: { open: true },
+    attachTo: document.body,
     global: {
       plugins: [i18n],
       stubs: {
@@ -29,6 +30,7 @@ async function mountFunctionEditor() {
 async function mountJsonEditor() {
   const wrapper = mount(ResponseRuleEditor, {
     props: { open: true },
+    attachTo: document.body,
     global: {
       plugins: [i18n],
       stubs: {
@@ -115,5 +117,44 @@ describe('ResponseRuleEditor JSON editing modes', () => {
 
     expect(wrapper.emitted('save')).toBeUndefined()
     expect(wrapper.text()).toContain('JSON 格式有误')
+  })
+
+  it('wraps focus through tree disclosure controls while skipping collapsed descendants', async () => {
+    const wrapper = await mountJsonEditor()
+    await wrapper.get('textarea.response-json-input').setValue('  {"nested":{"ok":true}}')
+    await wrapper.get('input[name="json-editor-mode"][value="tree"]').setValue()
+    await flushPromises()
+
+    const dialog = wrapper.get('.rule-editor').element
+    const collapsedNode = dialog.querySelector(
+      '.json-tree-editor__children > .json-tree-editor__child > details'
+    )
+    expect(collapsedNode).not.toBeNull()
+    expect(collapsedNode.open).toBe(false)
+    collapsedNode.querySelector(':scope > summary > button').remove()
+    dialog.append(collapsedNode)
+
+    const summary = collapsedNode.querySelector(':scope > summary')
+    summary.focus()
+    const forwardTab = new KeyboardEvent('keydown', {
+      key: 'Tab',
+      bubbles: true,
+      cancelable: true,
+    })
+    summary.dispatchEvent(forwardTab)
+
+    expect(forwardTab.defaultPrevented).toBe(true)
+    expect(document.activeElement).toBe(wrapper.get('.editor-close').element)
+
+    const backwardTab = new KeyboardEvent('keydown', {
+      key: 'Tab',
+      shiftKey: true,
+      bubbles: true,
+      cancelable: true,
+    })
+    document.activeElement.dispatchEvent(backwardTab)
+
+    expect(backwardTab.defaultPrevented).toBe(true)
+    expect(document.activeElement).toBe(summary)
   })
 })
