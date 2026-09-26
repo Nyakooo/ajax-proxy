@@ -102,6 +102,19 @@ describe('notifyV3NoMatch', () => {
     expect(mocks.noticePanelsByServiceWorker).not.toHaveBeenCalled()
   })
 
+  it('propagates storage read failures without poisoning the next queued event', async () => {
+    setup()
+    mocks.getRealStorage.mockRejectedValueOnce(new Error('storage unavailable'))
+
+    await expect(notifyV3NoMatch(event)).rejects.toThrow('storage unavailable')
+    expect(mocks.removeStorage).not.toHaveBeenCalled()
+    expect(mocks.noticePanelsByServiceWorker).not.toHaveBeenCalled()
+
+    expect(await notifyV3NoMatch(event)).toBe(true)
+    expect(mocks.removeStorage).toHaveBeenCalledOnce()
+    expect(mocks.noticePanelsByServiceWorker).toHaveBeenCalledOnce()
+  })
+
   it('consumes the arm and forwards only the first of concurrent valid events', async () => {
     let armed = true
     setup()

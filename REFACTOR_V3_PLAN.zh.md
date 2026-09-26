@@ -289,6 +289,7 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - [x] 为 Vue 3 响应规则编辑器覆盖关闭后切换规则并重开时重置 URL、status、body 和错误状态。
 - [x] 为 V3 domain 正则匹配器覆盖缓存复用、LRU 上限淘汰和淘汰后重新编译。
 - [x] 为 V3 domain 运行时 matcher 覆盖非法匹配类型、超长正则和异常 matcher 对象；匹配异常应继续检查后续规则。
+- [x] 为 V3 no-match Service Worker 队列覆盖 storage 读取异常；失败不得消耗一次性诊断开关或污染后续排队事件。
 - [ ] 完善 Service Worker 消息协议、V3 配置校验及导入 / 导出的边界与错误路径测试。
 - [ ] 为 Vue 组件和关键用户流程编写组件 / 集成测试。
 - [ ] 建立扩展端到端测试，覆盖安装、启停、规则编辑和真实页面请求行为。
@@ -581,5 +582,6 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - 2026-09-26：阶段 6 补齐响应编辑器切换规则的重置回归：关闭后切换到另一规则再打开，URL、状态码和 JSON body 都从新 rule 初始化，先前验证错误清空。Vue 3 组件测试增至 9 项；组件 / 全量 Vitest、workspace typecheck、改动文件零告警 ESLint / Prettier 通过。完成 175 / 241 项（72.6%）。
 - 2026-09-26：阶段 6 为 V3 domain 正则匹配器覆盖缓存复用及 256 项 LRU 上限：连续匹配 257 个唯一规则后再次请求最早模式，验证缓存淘汰后会重新编译且匹配结果仍正确。全量 243 项 Vitest、workspace typecheck、改动文件零告警 ESLint / Prettier 通过。完成 176 / 242 项（72.7%）。
 - 2026-09-26：阶段 6 补齐 V3 domain 运行时 matcher 防御边界：畸形匹配类型、超过 4096 字符的正则和抛错 matcher 对象分别产生稳定诊断，选择器跳过异常规则并继续命中下一条有效规则。全量 244 项 Vitest、9 项 Vue 3 组件测试、workspace typecheck、改动文件零告警 ESLint / Prettier 通过。完成 177 / 243 项（72.8%）。
+- 2026-09-26：阶段 6 为 V3 no-match Service Worker 队列补 storage 读取失败回归：读取异常向调用者 reject，不消耗诊断 arm、不转发事件；队列恢复后下一条有效事件正常完成。全量 245 项 Vitest、workspace typecheck、改动文件零告警 ESLint / Prettier 通过。完成 178 / 244 项（73.0%）。
 - 2026-09-26：阶段 6 补齐响应规则 JSON 保存成功路径：状态码、解析后的 JSON body、匹配条件、规则 enabled 和所选标签 ID 被组合到 save event。Vue 3 组件测试增至 6 项；组件 / 全量 Vitest、workspace typecheck、改动文件零告警 ESLint / Prettier 通过。完成 172 / 238 项（72.3%）。
 - GitHub 里程碑：[阶段 0](https://github.com/Nyakooo/ajax-proxy/milestone/1)、[阶段 1](https://github.com/Nyakooo/ajax-proxy/milestone/2)、[阶段 2](https://github.com/Nyakooo/ajax-proxy/milestone/3)、[阶段 3](https://github.com/Nyakooo/ajax-proxy/milestone/4)、[阶段 4](https://github.com/Nyakooo/ajax-proxy/milestone/5)、[阶段 5](https://github.com/Nyakooo/ajax-proxy/milestone/6)、[阶段 6](https://github.com/Nyakooo/ajax-proxy/milestone/7)、[阶段 7](https://github.com/Nyakooo/ajax-proxy/milestone/8)；已复现缺陷：[issue #56](https://github.com/Nyakooo/ajax-proxy/issues/56)。
