@@ -179,4 +179,43 @@ describe('notifyV3FetchOutcome', () => {
       networkFailure
     )
   })
+
+  it('forwards redirect-construction and unsupported-response fallbacks with matching actions', async () => {
+    setup()
+    const outcomes = [
+      {
+        ...requestOutcome,
+        outcome: 'fallback',
+        reason: 'redirect-construction-failed',
+      },
+      {
+        ...requestOutcome,
+        stage: 'response',
+        outcome: 'unsupported',
+        reason: 'response-replacement-unsupported',
+      },
+    ]
+
+    for (const outcome of outcomes) expect(await notifyV3FetchOutcome(outcome)).toBe(true)
+
+    expect(mocks.noticePanelsByServiceWorker).toHaveBeenCalledTimes(outcomes.length)
+    expect(mocks.noticePanelsByServiceWorker).toHaveBeenNthCalledWith(
+      1,
+      'v3-fetch-outcome',
+      outcomes[0]
+    )
+    expect(mocks.noticePanelsByServiceWorker).toHaveBeenNthCalledWith(
+      2,
+      'v3-fetch-outcome',
+      outcomes[1]
+    )
+  })
+
+  it('does not arm or forward outcomes when the V3 global switch is off', async () => {
+    setup({ config: backup({ settings: { globalEnabled: false } }) })
+
+    expect(await notifyV3FetchOutcome(requestOutcome)).toBe(false)
+    expect(mocks.getRealStorage).not.toHaveBeenCalledWith('fetch-outcomes-armed', false)
+    expect(mocks.noticePanelsByServiceWorker).not.toHaveBeenCalled()
+  })
 })
