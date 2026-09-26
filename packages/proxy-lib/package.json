@@ -22,7 +22,7 @@
   },
   "license": "MIT",
   "devDependencies": {
-    "vite": "^2.9.13"
+    "vite": "^6.4.3"
   },
   "dependencies": {
     "@proxy/protocol": "workspace:^1.0.0",

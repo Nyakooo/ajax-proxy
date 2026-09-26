@@ -313,8 +313,8 @@ importers:
         version: 2.8.6
     devDependencies:
       vite:
-        specifier: ^2.9.13
-        version: 2.9.13(sass@1.105.0)
+        specifier: ^6.4.3
+        version: 6.4.3(@types/node@26.6.2)(sass@1.105.0)(terser@5.51.2)
 
   packages/shared-utils:
     dependencies:
@@ -5551,11 +5551,6 @@ packages:
     deprecated: Rimraf versions prior to v4 are no longer supported
     hasBin: true
 
-  rollup@2.80.0:
-    resolution: {integrity: sha512-cIFJOD1DESzpjOBl763Kp1AH7UE/0fcdHe6rZXUdQ9c50uvgigvW97u3IcSeBwOkgqL/PXPBktBCh0KEu5L8XQ==}
-    engines: {node: '>=10.0.0'}
-    hasBin: true
-
   rollup@4.63.4:
     resolution: {integrity: sha512-4U0liVayNIoLp3GFl1FcI8561WepLnZ1rqfraGh7S9B3Ur5F9S283y8Futii7RUU2C/97tOBmBy7nYvhoiOpbQ==}
     engines: {node: '>=18.0.0', npm: '>=8.0.0'}
@@ -6276,22 +6271,6 @@ packages:
 
   vendors@1.0.4:
     resolution: {integrity: sha512-/juG65kTL4Cy2su4P8HjtkTxk6VmJDiOPBufWniqQ6wknac6jNiXS9vU+hO3wgusiyqWlzTbVHi0dyJqRONg3w==}
-
-  vite@2.9.13:
-    resolution: {integrity: sha512-AsOBAaT0AD7Mhe8DuK+/kE4aWYFMx/i0ZNi98hJclxb4e0OhQcZYUrvLjIaQ8e59Ui7txcvKMiJC1yftqpQoDw==}
-    engines: {node: '>=12.2.0'}
-    hasBin: true
-    peerDependencies:
-      less: '*'
-      sass: '*'
-      stylus: '*'
-    peerDependenciesMeta:
-      less:
-        optional: true
-      sass:
-        optional: true
-      stylus:
-        optional: true
 
   vite@6.4.3:
     resolution: {integrity: sha512-NTKlcQjlAK7MlQoyb6LgaqHc8sso/pVyUJYWMws3jg21uTJw/LddqIFPcPqP6PzpgbIcZyKI85sFE4HBrQDA8A==}
@@ -10333,6 +10312,7 @@ snapshots:
       esbuild-windows-32: 0.14.27
       esbuild-windows-64: 0.14.27
       esbuild-windows-arm64: 0.14.27
+    optional: true
 
   esbuild@0.25.12:
     optionalDependencies:
@@ -12565,10 +12545,6 @@ snapshots:
     dependencies:
       glob: 7.2.0
 
-  rollup@2.80.0:
-    optionalDependencies:
-      fsevents: 2.3.3
-
   rollup@4.63.4:
     dependencies:
       '@types/estree': 1.0.9
@@ -13319,16 +13295,6 @@ snapshots:
   vary@1.1.2: {}
 
   vendors@1.0.4: {}
-
-  vite@2.9.13(sass@1.105.0):
-    dependencies:
-      esbuild: 0.14.27
-      postcss: 8.5.28
-      resolve: 1.22.12
-      rollup: 2.80.0
-    optionalDependencies:
-      fsevents: 2.3.3
-      sass: 1.105.0
 
   vite@6.4.3(@types/node@26.6.2)(sass@1.105.0)(terser@5.51.2):
     dependencies:
