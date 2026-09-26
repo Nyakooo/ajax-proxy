@@ -57,12 +57,20 @@ function needsRequestSnapshot(rule: V3Rule): boolean {
   )
 }
 
-async function redirectRequest(request: Request, targetUrl: string): Promise<Request> {
+async function redirectRequest(
+  request: Request,
+  targetUrl: string,
+  preserveStreamingBody: boolean
+): Promise<Request> {
   const destination = new URL(targetUrl, request.url)
   if (destination.protocol !== 'http:' && destination.protocol !== 'https:') {
     throw new TypeError('V3 redirect targets must use HTTP or HTTPS.')
   }
-  const body = request.body ? request.clone().body : undefined
+  const body = request.body
+    ? preserveStreamingBody
+      ? request.clone().body
+      : await request.clone().arrayBuffer()
+    : undefined
   const headers = new Headers(request.headers)
   if (destination.origin !== new URL(request.url).origin) {
     for (const name of ['authorization', 'proxy-authorization', 'cookie', 'cookie2']) {
@@ -73,7 +81,7 @@ async function redirectRequest(request: Request, targetUrl: string): Promise<Req
     method: request.method,
     headers,
     body,
-    duplex: body ? 'half' : undefined,
+    duplex: preserveStreamingBody && body ? 'half' : undefined,
     credentials: request.credentials,
     mode: request.mode,
     cache: request.cache,
@@ -123,7 +131,11 @@ export function createV3Fetch(fetcher: V3Fetch, options: V3FetchOptions): V3Fetc
     const redirect = selection.rule.request
     if (redirect?.enabled) {
       try {
-        requestForResponse = await redirectRequest(originalRequest, redirect.redirect.url)
+        requestForResponse = await redirectRequest(
+          originalRequest,
+          redirect.redirect.url,
+          isReadableStreamBody(init?.body)
+        )
       } catch {
         // A construction/body replay failure can safely fall back before network dispatch.
         requestForResponse = originalRequest

@@ -218,19 +218,19 @@ describe('createV3Fetch', () => {
       return new Response('ok')
     })
     const fetch = createV3Fetch(fetcher, { getRules: () => [selectedRule] })
-    const request = new Request('https://example.test/api', {
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode('streamed payload'))
+        controller.close()
+      },
+    })
+
+    await fetch('https://example.test/api', {
       method: 'POST',
-      body: new ReadableStream<Uint8Array>({
-        start(controller) {
-          controller.enqueue(new TextEncoder().encode('streamed payload'))
-          controller.close()
-        },
-      }),
+      body,
       duplex: 'half',
       headers: { 'content-type': 'text/plain', 'x-stream': 'kept' },
     })
-
-    await fetch(request)
 
     expect(fetcher).toHaveBeenCalledOnce()
     expect(fetcher.mock.calls[0][0]).toBeInstanceOf(Request)
