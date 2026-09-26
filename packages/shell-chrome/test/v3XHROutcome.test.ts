@@ -156,4 +156,31 @@ describe('notifyV3XHROutcome', () => {
     expect(mocks.noticePanelsByServiceWorker).toHaveBeenCalledTimes(values.length)
     expect(mocks.noticePanelsByServiceWorker).toHaveBeenCalledWith('v3-fetch-outcome', values[0])
   })
+
+  it('propagates config storage failures without reading the diagnostic arm', async () => {
+    setup()
+    const storageError = new Error('config storage unavailable')
+    mocks.getRealStorage.mockRejectedValueOnce(storageError)
+
+    await expect(notifyV3XHROutcome(requestOutcome)).rejects.toBe(storageError)
+    expect(mocks.getRealStorage).toHaveBeenCalledTimes(1)
+    expect(mocks.getRealStorage).toHaveBeenCalledWith('v3-config', null)
+    expect(mocks.noticePanelsByServiceWorker).not.toHaveBeenCalled()
+  })
+
+  it('propagates diagnostic arm storage failures without forwarding an outcome', async () => {
+    setup()
+    const storageError = new Error('diagnostic arm storage unavailable')
+    mocks.getRealStorage.mockImplementation(async (key: string) => {
+      if (key === 'v3-config') return backup()
+      throw storageError
+    })
+
+    await expect(notifyV3XHROutcome(requestOutcome)).rejects.toBe(storageError)
+    expect(mocks.getRealStorage.mock.calls).toEqual([
+      ['v3-config', null],
+      ['outcomes-armed', false],
+    ])
+    expect(mocks.noticePanelsByServiceWorker).not.toHaveBeenCalled()
+  })
 })
