@@ -270,6 +270,7 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - [x] 为 V3 response function executor 覆盖 iframe `ready` / `result` 可信往返；错误 source 不得触发执行，正确 source 与 opaque origin 才能完成结果。
 - [x] 为 V3 response function executor 覆盖 sandbox 合法失败响应；协议校验通过的错误结果应 reject Promise 并保留错误信息。
 - [x] 为 V3 response function executor 覆盖硬超时与取消：5 秒后拒绝并发送 cancel，宽限期后移除 sandbox iframe。
+- [x] 为 V3 response function executor 覆盖源码长度保护；空白和超过 65,536 字符的代码须在 iframe 查找前被拒绝。
 - [ ] 完善 Service Worker 消息协议、V3 配置校验及导入 / 导出的边界与错误路径测试。
 - [ ] 为 Vue 组件和关键用户流程编写组件 / 集成测试。
 - [ ] 建立扩展端到端测试，覆盖安装、启停、规则编辑和真实页面请求行为。
@@ -544,4 +545,5 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - 2026-09-26：阶段 6 为 response function executor 增加可信 iframe 往返回归：忽略错误 source 的 `ready` / `result`，只接受 `origin='null'` 且 source 为已登记 sandbox iframe 的握手和匹配 ID 结果；验证 run 投递携带原始 code 与 request / response snapshot。全量 231 项 Vitest、workspace typecheck、改动文件零告警 ESLint 和 Prettier 通过。完成 156 / 222 项（70.3%）。
 - 2026-09-26：阶段 6 补齐 sandbox 合法错误结果路径：匹配 iframe / execution ID 的 `ok:false` 消息使 executor Promise 以经过校验的错误信息 reject。定向和全量测试、workspace typecheck、改动文件 ESLint / Prettier 通过。完成 157 / 223 项（70.4%）。
 - 2026-09-26：阶段 6 补齐 sandbox 硬超时与取消回归：执行达到 5 秒时 Promise reject 且向 sandbox 发送 cancel；100 ms 宽限期后移除 iframe，作为 worker 阻止取消时的终止后备。定向测试和全量验证通过。完成 158 / 224 项（70.5%）。
+- 2026-09-26：阶段 6 补齐 sandbox 源码长度边界：空白源码及 65,537 字符源码均以稳定错误拒绝，且不会查找或创建 iframe。定向与全量测试、workspace typecheck、改动文件 ESLint / Prettier 通过。完成 159 / 225 项（70.7%）。
 - GitHub 里程碑：[阶段 0](https://github.com/Nyakooo/ajax-proxy/milestone/1)、[阶段 1](https://github.com/Nyakooo/ajax-proxy/milestone/2)、[阶段 2](https://github.com/Nyakooo/ajax-proxy/milestone/3)、[阶段 3](https://github.com/Nyakooo/ajax-proxy/milestone/4)、[阶段 4](https://github.com/Nyakooo/ajax-proxy/milestone/5)、[阶段 5](https://github.com/Nyakooo/ajax-proxy/milestone/6)、[阶段 6](https://github.com/Nyakooo/ajax-proxy/milestone/7)、[阶段 7](https://github.com/Nyakooo/ajax-proxy/milestone/8)；已复现缺陷：[issue #56](https://github.com/Nyakooo/ajax-proxy/issues/56)。

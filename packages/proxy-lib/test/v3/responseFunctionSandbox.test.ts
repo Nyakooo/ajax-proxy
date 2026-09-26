@@ -162,4 +162,23 @@ describe('createV3ResponseFunctionExecutor', () => {
     await vi.advanceTimersByTimeAsync(100)
     expect(frame.remove).toHaveBeenCalledOnce()
   })
+
+  it('rejects empty or oversized source before looking up a sandbox frame', async () => {
+    const getElementById = vi.fn()
+    const host = {
+      document: { getElementById },
+      addEventListener: vi.fn(),
+    } as unknown as Window
+    const execute = createV3ResponseFunctionExecutor(host)
+    const request = { url: '/api', method: 'GET' }
+    const response = { status: 200, statusText: 'OK', headers: {}, body: '' }
+
+    await expect(execute('  ', request, response)).rejects.toThrow(
+      'Function source is empty or exceeds 65,536 characters.'
+    )
+    await expect(execute('x'.repeat(65_537), request, response)).rejects.toThrow(
+      'Function source is empty or exceeds 65,536 characters.'
+    )
+    expect(getElementById).not.toHaveBeenCalled()
+  })
 })
