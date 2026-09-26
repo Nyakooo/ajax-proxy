@@ -668,7 +668,7 @@ async function main() {
 
     const fetchOutcomeDiagnostics = v3Panel.locator('.fetch-outcome-diagnostics')
     const fetchOutcomeButton = fetchOutcomeDiagnostics.getByRole('button', {
-      name: 'Capture Fetch action outcomes',
+      name: 'Capture Fetch / XHR action outcomes',
     })
     assert.notEqual(
       await restartedWorker.evaluate(
@@ -678,6 +678,10 @@ async function main() {
       true,
       'Fetch action outcomes are off by default'
     )
+    const outcomeHitsBefore = await restartedWorker.evaluate(
+      async ({ key, ruleId }) => ((await chrome.storage.local.get(key))[key] || {})[ruleId] || 0,
+      { key: 'ajax-proxy:storage:v3-hits', ruleId: 'v3-extension-smoke' }
+    )
     await restartedPage.evaluate(async () => {
       await fetch('/api/echo', { method: 'POST', body: 'private-before-outcome-arm' })
     })
@@ -686,7 +690,7 @@ async function main() {
 
     await fetchOutcomeButton.click()
     const stopFetchOutcomeButton = fetchOutcomeDiagnostics.getByRole('button', {
-      name: 'Capturing Fetch outcomes · Click to stop',
+      name: 'Capturing action outcomes · Click to stop',
     })
     await stopFetchOutcomeButton.waitFor()
     // The panel's storage write must propagate through content.js to the page-world runtime.
@@ -715,9 +719,63 @@ async function main() {
     const secondCorrelationId = await outcomeItems.nth(1).locator('code').nth(1).innerText()
     assert.equal(firstCorrelationId, secondCorrelationId)
     assert.match(firstCorrelationId, /^[a-z0-9]+-[a-z0-9]+-\d+$/)
+
+    const outcomeXhrResult = await restartedPage.evaluate(
+      () =>
+        new Promise((resolve, reject) => {
+          const request = new XMLHttpRequest()
+          request.addEventListener('loadend', () =>
+            resolve({ status: request.status, body: JSON.parse(request.responseText) })
+          )
+          request.addEventListener('error', () => reject(new Error('XHR smoke request failed')))
+          request.open('POST', '/api/echo')
+          request.send('private-xhr-outcome')
+        })
+    )
+    assert.deepEqual(outcomeXhrResult, { status: 202, body: v3ResponseBody })
+    await v3Panel.waitForFunction(
+      () =>
+        document.querySelectorAll('.fetch-outcome-diagnostics .recent-matches-list li').length >= 4
+    )
+    const allOutcomeItems = fetchOutcomeDiagnostics.locator('.recent-matches-list li')
+    const xhrOutcomeItems = allOutcomeItems.filter({ hasText: 'XHR ·' })
+    assert.equal(await xhrOutcomeItems.count(), 2)
+    const xhrOutcomeTexts = await xhrOutcomeItems.allTextContents()
+    assert.ok(xhrOutcomeTexts.some((text) => /request · applied · redirect-applied/.test(text)))
+    assert.ok(
+      xhrOutcomeTexts.some((text) => /response · applied · response-replacement-applied/.test(text))
+    )
+    assert.ok(xhrOutcomeTexts.every((text) => !/private-xhr-outcome|\/api\/echo/.test(text)))
+    const xhrCorrelationId = await xhrOutcomeItems
+      .filter({ hasText: 'XHR · request' })
+      .first()
+      .locator('code')
+      .nth(1)
+      .innerText()
+    const xhrResponseCorrelationId = await xhrOutcomeItems
+      .filter({ hasText: 'XHR · response' })
+      .first()
+      .locator('code')
+      .nth(1)
+      .innerText()
+    assert.equal(xhrCorrelationId, xhrResponseCorrelationId)
+    let outcomeHitsAfter = 0
+    for (let attempt = 0; attempt < 20; attempt += 1) {
+      outcomeHitsAfter = await restartedWorker.evaluate(
+        async ({ key, ruleId }) => ((await chrome.storage.local.get(key))[key] || {})[ruleId] || 0,
+        { key: 'ajax-proxy:storage:v3-hits', ruleId: 'v3-extension-smoke' }
+      )
+      if (outcomeHitsAfter === outcomeHitsBefore + 3) break
+      await v3Panel.waitForTimeout(50)
+    }
+    assert.equal(
+      outcomeHitsAfter,
+      outcomeHitsBefore + 3,
+      'outcome diagnostics must not increment hits beyond the three matched requests'
+    )
     await stopFetchOutcomeButton.click()
     await fetchOutcomeDiagnostics
-      .getByRole('button', { name: 'Capture Fetch action outcomes' })
+      .getByRole('button', { name: 'Capture Fetch / XHR action outcomes' })
       .waitFor()
     assert.equal(
       await restartedWorker.evaluate(

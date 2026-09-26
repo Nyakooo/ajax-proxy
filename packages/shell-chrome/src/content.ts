@@ -15,7 +15,13 @@ import {
 import { CONNECT_NAME, INIT_CURRENT_TITLE, NOTICE_KEY_REFRESH_GLOBAL_STATE } from "./consts";
 import { onLoadForDataConversion } from "@proxy/v2-compatibility";
 import { isPageBadgeHit } from "./messageValidation";
-import { isV3FetchOutcome, isV3FunctionError, isV3Hit, isV3NoMatch } from '@proxy/protocol'
+import {
+    isV3FetchOutcome,
+    isV3FunctionError,
+    isV3Hit,
+    isV3NoMatch,
+    isV3XHROutcome,
+} from '@proxy/protocol'
 
 const V3_FUNCTION_SANDBOX_FRAME_ID = 'ajax-proxy-v3-function-sandbox'
 const V3_FUNCTION_SANDBOX_PATH = 'v3-sandbox/sandbox.html'
@@ -164,7 +170,7 @@ initStorage().then(async () => {
                 noticeServiceWorkerByContent(NoticeKey.V3_FUNCTION_ERROR, customEvent.detail)
             } else if (isV3NoMatch(customEvent.detail)) {
                 noticeServiceWorkerByContent(NoticeKey.V3_NO_MATCH, customEvent.detail)
-            } else if (isV3FetchOutcome(customEvent.detail)) {
+            } else if (isV3FetchOutcome(customEvent.detail) || isV3XHROutcome(customEvent.detail)) {
                 noticeServiceWorkerByContent(NoticeKey.V3_FETCH_OUTCOME, customEvent.detail)
             }
         },

@@ -13,6 +13,7 @@ import { useI18n } from 'vue-i18n'
 import {
   isV3FunctionError,
   isV3FetchOutcome,
+  isV3XHROutcome,
   isV3HitNotice,
   isV3NoMatch,
   NoticeFrom,
@@ -285,7 +286,10 @@ function receiveExtensionMessage(message) {
     return
   }
 
-  if (message.key === NoticeKey.V3_FETCH_OUTCOME && isV3FetchOutcome(message.value)) {
+  if (
+    message.key === NoticeKey.V3_FETCH_OUTCOME &&
+    (isV3FetchOutcome(message.value) || isV3XHROutcome(message.value))
+  ) {
     const rule = config.value.rules.find((candidate) => candidate.id === message.value.rule_id)
     if (!rule || !rule.enabled) return
     const actionEnabled =
@@ -1275,11 +1279,13 @@ async function moveRule(rule, targetRule) {
 
           <section class="recent-matches fetch-outcome-diagnostics" aria-live="polite">
             <header class="recent-matches-heading">
-              <strong>{{ locale === 'zh-CN' ? 'Fetch 动作结果' : 'Fetch action outcomes' }}</strong>
+              <strong>{{
+                locale === 'zh-CN' ? 'Fetch / XHR 动作结果' : 'Fetch / XHR action outcomes'
+              }}</strong>
               <small>{{
                 locale === 'zh-CN'
-                  ? '开启后临时显示任一 V3 标签页的 Fetch 动作结果；同一请求用关联 ID 标识。关闭或刷新面板后清空。'
-                  : 'Temporarily show Fetch action outcomes from any V3 tab. Correlation IDs link stages; closing or reloading this panel clears them.'
+                  ? '开启后临时显示任一 V3 标签页的 Fetch 与异步 XHR 动作结果；同一请求用关联 ID 标识。关闭或刷新面板后清空。'
+                  : 'Temporarily show Fetch and async XHR outcomes from any V3 tab. Correlation IDs link stages; closing or reloading this panel clears them.'
               }}</small>
             </header>
             <button
@@ -1291,11 +1297,11 @@ async function moveRule(rule, targetRule) {
               {{
                 fetchOutcomeCaptureArmed
                   ? locale === 'zh-CN'
-                    ? '正在捕获 Fetch 结果 · 点击关闭'
-                    : 'Capturing Fetch outcomes · Click to stop'
+                    ? '正在捕获动作结果 · 点击关闭'
+                    : 'Capturing action outcomes · Click to stop'
                   : locale === 'zh-CN'
-                    ? '捕获 Fetch 动作结果'
-                    : 'Capture Fetch action outcomes'
+                    ? '捕获 Fetch / XHR 动作结果'
+                    : 'Capture Fetch / XHR action outcomes'
               }}
             </button>
             <p v-if="!recentFetchOutcomes.length" class="diagnostic-summary">
@@ -1308,7 +1314,10 @@ async function moveRule(rule, targetRule) {
               >
                 <div class="recent-match-copy">
                   <code>{{ event.rule_id }}</code>
-                  <small> {{ event.stage }} · {{ event.outcome }} · {{ event.reason }} </small>
+                  <small>
+                    {{ event.kind === 'v3-xhr-outcome' ? 'XHR' : 'Fetch' }} · {{ event.stage }} ·
+                    {{ event.outcome }} · {{ event.reason }}
+                  </small>
                   <small>
                     {{ locale === 'zh-CN' ? '关联 ID' : 'Correlation ID' }}:
                     <code>{{ event.correlation_id.slice(-16) }}</code>
