@@ -335,6 +335,41 @@ describe('createV3RuntimeController', () => {
     expect(dispatchEvent).toHaveBeenCalledOnce()
   })
 
+  it('keeps a matched response replacement when dispatching its hit notification throws', async () => {
+    const dispatchEvent = vi.fn(() => {
+      throw new Error('content event dispatch unavailable')
+    })
+    const host = {
+      location: { origin: 'https://example.test' },
+      dispatchEvent,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    } as unknown as Window
+    const fetcher = vi.fn(async () => new Response('native'))
+    const controller = createV3RuntimeController(
+      host,
+      fetcher as typeof window.fetch,
+      class {} as unknown as typeof window.XMLHttpRequest
+    )
+    controller.update({
+      ...backup,
+      rules: [
+        {
+          id: 'response-rule',
+          enabled: true,
+          match: { url: '/api', method: 'GET' },
+          response: { enabled: true, replace: { body: { mocked: true } } },
+        },
+      ],
+    })
+
+    const response = await controller.fetch('https://example.test/api')
+
+    expect(await response.text()).toBe('{"mocked":true}')
+    expect(fetcher).toHaveBeenCalledOnce()
+    expect(dispatchEvent).toHaveBeenCalledOnce()
+  })
+
   it('truncates no-match diagnostics after 100 rules', async () => {
     const dispatchEvent = vi.fn()
     const fetcher = vi.fn(async () => new Response('native'))
