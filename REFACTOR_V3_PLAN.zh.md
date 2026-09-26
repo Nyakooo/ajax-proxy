@@ -261,7 +261,8 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - [ ] 为 Fetch 拦截与重定向覆盖 Request、init、body、headers、状态码和异常情况。
 - [ ] 为 XHR 生命周期、事件、方法匹配、请求头和对象复用编写测试。
 - [ ] 为自定义函数覆盖同步、异步、异常、未回调和超时场景。
-- [ ] 为 storage、消息协议、V3 配置校验和导入导出编写测试。
+- [x] 为 shared-utils Chrome storage 与网页 localStorage 缓存操作（初始化、读取、写入、删除、清空）覆盖成功和失败回归；删除 / 清空失败须拒绝、保留缓存并派发错误事件。
+- [ ] 完善 Service Worker 消息协议、V3 配置校验及导入 / 导出的边界与错误路径测试。
 - [ ] 为 Vue 组件和关键用户流程编写组件 / 集成测试。
 - [ ] 建立扩展端到端测试，覆盖安装、启停、规则编辑和真实页面请求行为。
 - [ ] 在 CI 中运行测试并生成覆盖率报告。
@@ -526,4 +527,5 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - 2026-09-26：完成规则模板切片：新增静态 JSON 响应、HTTP 重定向两个内置离线模板，仅使用 `.invalid` 占位 URL；模板默认停用、重建规则 ID、追加到末尾、不含函数代码，弹窗展示用途 / 动作预览，取消不改活动配置，保存失败可在弹窗内查看原因。全量 212 项 Vitest、类型检查、包边界 / Vue 3 面板隔离、生成声明、格式与改动文件 ESLint 通过；Vue 3 / Chrome 扩展生产构建和 staging 打包通过；Chromium 与 Edge Stable 扩展 smoke 通过，验证取消、重复创建 ID 唯一、停用状态和静态规则内容。Chrome Stable 的 Playwright Service Worker 启动限制仍待交互式方式补验。完成 132 / 213 项（62.0%）。
 - 2026-09-26：完成规则分组与站点级开关范围：规则继续使用既有多标签关联分组，不增加嵌套目录或改变首条命中优先级；新增按当前 frame 的精确 HTTP(S) origin（协议、主机名、端口）开关。站点关闭时 Fetch / XHR 走原生路径，不改变规则启停或顺序，也不产生误导性的未命中诊断；全局开关优先。备份升为 v5，规范化读入 v3 / v4 并迁移为空 `disabledOrigins`；v5 严格验证规范 origin。完成 219 项 Vitest、全量 build、typecheck、边界 / isolation、生成声明、格式和受影响文件零告警 ESLint；Chromium 与 Edge Stable 扩展 smoke 通过，覆盖 Fetch / XHR 原生回退、配置持久化和 service worker 重启。Chrome Stable 真实 `panels-v3/` 页面完成停用、回读和重新启用验证；手动复验发现并修复 MV3 冷启动时消息监听器延迟注册，新增启动期消息回归用例。用户命名的多套完整配置 profile 经评估暂缓，内置规则模板用于常见场景。阶段 5 剩余 GitHub 反馈已按维护成本完成评估：通用头改写、请求体改写、持久草稿、跨扩展自动协调与命中动画明确列入后续版本；请求诊断、组合规则和快捷创建等已交付功能同步标记。完成 145 / 215 项（67.4%）。
 - 2026-09-26：完成剩余用户反馈和维护成本审查：依据 GitHub open issues 核对 #55 / #56 及 #54 至 #22 历史反馈；已交付项同步关联到 V3 实现与回归记录。明确不纳入本期的功能为通用请求 / 响应头变换、请求体改写、持久化草稿、跨扩展自动协调、页面命中动画、多配置 profiles、嵌套规则组、链式规则和 V2 配置转换；README / V3 源码说明继续由阶段 7 完善。同步调整阶段 4 验收，移除页面光晕要求，保留面板与扩展图标的启用状态。阶段 5 其余功能评估项完成。完成 149 / 215 项（69.3%）。
+- 2026-09-26：阶段 6 首个测试切片补齐 shared-utils 的 Chrome storage 删除 / 清空成功及失败路径；失败时断言 Promise reject、原缓存保留和错误事件 detail。单测文件 12 项、全量 223 项 Vitest、受影响测试文件零告警 ESLint 和 `git diff --check` 通过。完成 150 / 216 项（69.4%）。
 - GitHub 里程碑：[阶段 0](https://github.com/Nyakooo/ajax-proxy/milestone/1)、[阶段 1](https://github.com/Nyakooo/ajax-proxy/milestone/2)、[阶段 2](https://github.com/Nyakooo/ajax-proxy/milestone/3)、[阶段 3](https://github.com/Nyakooo/ajax-proxy/milestone/4)、[阶段 4](https://github.com/Nyakooo/ajax-proxy/milestone/5)、[阶段 5](https://github.com/Nyakooo/ajax-proxy/milestone/6)、[阶段 6](https://github.com/Nyakooo/ajax-proxy/milestone/7)、[阶段 7](https://github.com/Nyakooo/ajax-proxy/milestone/8)；已复现缺陷：[issue #56](https://github.com/Nyakooo/ajax-proxy/issues/56)。
