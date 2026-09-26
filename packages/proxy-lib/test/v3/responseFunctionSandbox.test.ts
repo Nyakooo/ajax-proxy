@@ -357,4 +357,42 @@ describe('createV3ResponseFunctionExecutor', () => {
     await vi.advanceTimersByTimeAsync(100)
     expect(frame.remove).toHaveBeenCalledOnce()
   })
+
+  it('rejects and clears a pending call when posting to the sandbox throws', async () => {
+    vi.stubGlobal('HTMLIFrameElement', FakeIFrameElement)
+    const frame = new FakeIFrameElement()
+    const postMessage = vi.fn(() => {
+      throw new Error('sandbox message blocked')
+    })
+    Object.defineProperty(frame.contentWindow, 'postMessage', { value: postMessage })
+    let onMessage: ((event: MessageEvent) => void) | undefined
+    const host = {
+      document: { getElementById: vi.fn(() => frame) },
+      addEventListener: vi.fn((_type: string, listener: EventListenerOrEventListenerObject) => {
+        if (typeof listener === 'function') onMessage = listener as (event: MessageEvent) => void
+      }),
+      crypto: { randomUUID: () => 'posting-failure-id' },
+    } as unknown as Window
+    const execute = createV3ResponseFunctionExecutor(host)
+    const execution = execute(
+      'return response.body',
+      { url: '/api', method: 'GET' },
+      {
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+        body: 'native',
+      }
+    )
+    await Promise.resolve()
+    onMessage?.({
+      origin: 'null',
+      source: frame.contentWindow,
+      data: { channel: 'ajax-proxy-v3-function-sandbox', type: 'ready' },
+    } as MessageEvent)
+
+    await expect(execution).rejects.toThrow('sandbox message blocked')
+    expect(postMessage).toHaveBeenCalledOnce()
+    expect(frame.remove).not.toHaveBeenCalled()
+  })
 })
