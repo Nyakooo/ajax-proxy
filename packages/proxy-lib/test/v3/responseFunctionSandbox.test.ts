@@ -307,4 +307,54 @@ describe('createV3ResponseFunctionExecutor', () => {
     await vi.advanceTimersByTimeAsync(5000)
     await rejection
   })
+
+  it('removes the sandbox when a timed-out execution responds during cancellation grace', async () => {
+    vi.useFakeTimers()
+    vi.stubGlobal('HTMLIFrameElement', FakeIFrameElement)
+    const frame = new FakeIFrameElement()
+    let onMessage: ((event: MessageEvent) => void) | undefined
+    const host = {
+      document: { getElementById: vi.fn(() => frame) },
+      addEventListener: vi.fn((_type: string, listener: EventListenerOrEventListenerObject) => {
+        if (typeof listener === 'function') onMessage = listener as (event: MessageEvent) => void
+      }),
+      crypto: { randomUUID: () => 'late-execution-id' },
+    } as unknown as Window
+    const execute = createV3ResponseFunctionExecutor(host)
+    const execution = execute(
+      'return response.body',
+      { url: '/api', method: 'GET' },
+      {
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+        body: 'native',
+      }
+    )
+    const deliver = (data: unknown) =>
+      onMessage?.({ origin: 'null', source: frame.contentWindow, data } as MessageEvent)
+    await Promise.resolve()
+    deliver({ channel: 'ajax-proxy-v3-function-sandbox', type: 'ready' })
+    await Promise.resolve()
+    await Promise.resolve()
+    expect(frame.contentWindow.postMessage).toHaveBeenCalledOnce()
+
+    const rejection = expect(execution).rejects.toThrow(
+      'Function response timed out after 5 seconds.'
+    )
+    await vi.advanceTimersByTimeAsync(5000)
+    await rejection
+    expect(frame.remove).not.toHaveBeenCalled()
+
+    deliver({
+      channel: 'ajax-proxy-v3-function-sandbox',
+      type: 'result',
+      id: 'late-execution-id',
+      ok: true,
+      result: 'too late',
+    })
+    expect(frame.remove).toHaveBeenCalledOnce()
+    await vi.advanceTimersByTimeAsync(100)
+    expect(frame.remove).toHaveBeenCalledOnce()
+  })
 })
