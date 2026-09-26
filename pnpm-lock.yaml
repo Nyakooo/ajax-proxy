@@ -162,6 +162,21 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+overrides:
+  espree@6.1.2>acorn: 7.1.1
+  strip-ansi@4.0.0>ansi-regex: 3.0.1
+  strip-ansi@5.2.0>ansi-regex: 4.1.1
+  strip-ansi@6.0.0>ansi-regex: 5.0.1
+  css-select@4.1.3>css-what: 5.0.1
+  css-select@4.1.3>nth-check: 2.0.1
+  postcss-normalize-url@5.0.0>normalize-url: 4.5.1
+  make-dir@3.1.0>semver: 6.3.1
+  eslint@6.7.2>semver: 6.3.1
+  cross-spawn@6.0.6>semver: 5.7.2
+  eslint-plugin-vue@6.2.2>semver: 5.7.2
+  normalize-package-data@2.3.2>semver: 5.7.2
+  normalize-package-data@2.5.0>semver: 5.7.2
+
 packageExtensionsChecksum: sha256-MXCTF/AzFRZXAH858pncKOw7jlGhB/SkcoFklhSykEI=
 
 importers:
@@ -2183,8 +2198,8 @@ packages:
     resolution: {integrity: sha512-HEHNfbars9v4pgpW6SO1KSPkfoS0xVOM/9UzkJltjlsHZmJasxg8aXkuZa7SMf8vKGIBhpUsPluQSqhJFCqebw==}
     engines: {node: '>=0.4.0'}
 
-  acorn@7.1.0:
-    resolution: {integrity: sha512-kL5CuoXA/dgxlBbVrflsflzQ3PAas7RYZB52NOm/6839iVYJgKMJ3cQJD+t2i5+qFa8h3MDpEOJiS64E8JLnSQ==}
+  acorn@7.1.1:
+    resolution: {integrity: sha512-add7dgA5ppRPxCFJoAGfMDi7PIBXq1RtGo7BhbLaxwrXPOmw8gq48Y9ozT01hUKy9byMjlR20EJhu5zlkErEkg==}
     engines: {node: '>=0.4.0'}
     hasBin: true
 
@@ -2237,17 +2252,13 @@ packages:
     engines: {'0': node >= 0.8.0}
     hasBin: true
 
-  ansi-regex@3.0.0:
-    resolution: {integrity: sha512-wFUFA5bg5dviipbQQ32yOQhl6gcJaJXiHE7dvR8VYPG97+J/GNC5FKGepKdEDUFeXRzDxPF1X/Btc8L+v7oqIQ==}
+  ansi-regex@3.0.1:
+    resolution: {integrity: sha512-+O9Jct8wf++lXxxFc4hc8LsjaSq0HFzzL7cVsw8pRDIPdjKD2mT4ytDZlLuSBZ4cLKZFXIrMGO7DbQCtMJJMKw==}
     engines: {node: '>=4'}
 
-  ansi-regex@4.1.0:
-    resolution: {integrity: sha512-1apePfXM1UOSqw0o9IiFAovVz9M5S1Dg+4TrDwfMewQ6p/rmMueb7tWZjQ1rx4Loy1ArBggoqGpfqqdI4rondg==}
+  ansi-regex@4.1.1:
+    resolution: {integrity: sha512-ILlv4k/3f6vfQ4OoP2AGvirOktlQ98ZEL1k9FaQjxa3L1abBgbuTDAdPOpvbGncC0BTVQrl+OM8xZGK6tWXt7g==}
     engines: {node: '>=6'}
-
-  ansi-regex@5.0.0:
-    resolution: {integrity: sha512-bY6fj56OUQ0hU1KjFNDQuJFezqKdrAyFdIevADiqrWHwSlbmBNMHp5ak2f40Pm8JTFyM2mqxkG6ngkHO11f/lg==}
-    engines: {node: '>=8'}
 
   ansi-regex@5.0.1:
     resolution: {integrity: sha512-quJQXlTSUGL2LH9SUXo8VwsY4soanhgo6LNSm84E1LBcE8s3O0wpdiRzyR9z/ZZJMlMWv37qOOb9pdJlMUEKFQ==}
@@ -2980,8 +2991,8 @@ packages:
     resolution: {integrity: sha512-X7sjQzceUhu1u7Y/ylrRZFU2FS6LRiFVp6rKLPg23y3x3c3DOKAwuXGDp+PAGjh6CSnCjYeAul8pcT8bAl+lSA==}
     engines: {node: ^10 || ^12.20.0 || ^14.13.0 || >=15.0.0}
 
-  css-what@5.0.0:
-    resolution: {integrity: sha512-qxyKHQvgKwzwDWC/rGbT821eJalfupxYW2qbSJSAtdSTimsr/MlaGONoNLllaUPZWf8QnbcKM/kPVYUQuEKAFA==}
+  css-what@5.0.1:
+    resolution: {integrity: sha512-FYDTSHb/7KXsWICVsxdmiExPjCfRC4qRFBdVwv7Ax9hMnvMmEjP9RfxTEZ3qPZGmADDn2vAKSo9UcN1jKVYscg==}
     engines: {node: '>= 6'}
 
   cssesc@3.0.0:
@@ -4697,8 +4708,8 @@ packages:
     resolution: {integrity: sha512-6eZs5Ls3WtCisHWp9S2GUy8dqkpGi4BVSz3GaqiE6ezub0512ESztXUwUB6C6IKbQkY2Pnb/mD4WYojCRwcwLA==}
     engines: {node: '>=0.10.0'}
 
-  normalize-url@4.5.0:
-    resolution: {integrity: sha512-2s47yzUxdexf1OhyRi4Em83iQk0aPvwTddtFz4hnSSw9dCEsLEGf6SwIO8ss/19S9iBb5sJaOuTvTGDeZI00BQ==}
+  normalize-url@4.5.1:
+    resolution: {integrity: sha512-9UZCFRHQdNrfTpGg8+1INIg93B6zE0aXMVFkw1WFwvO4SlZywU6aLg5Of0Ap/PgcbSw4LNxvMWXMeugwMCX0AA==}
     engines: {node: '>=8'}
 
   normalize-url@6.0.1:
@@ -4721,8 +4732,8 @@ packages:
     resolution: {integrity: sha512-S48WzZW777zhNIrn7gxOlISNAqi9ZC/uQFnRdbeIHhZhCA6UqpkOT8T1G7BvfdgP4Er8gF4sUbaS0i7QvIfCWw==}
     engines: {node: '>=8'}
 
-  nth-check@2.0.0:
-    resolution: {integrity: sha512-i4sc/Kj8htBrAiH1viZ0TgU8Y5XqCaV/FziYK6TBczxmeKm3AEFWqqF3195yKudrarqy7Zu80Ra5dobFjn9X/Q==}
+  nth-check@2.0.1:
+    resolution: {integrity: sha512-it1vE95zF6dTT9lBsYbxvqh0Soy4SPowchj0UBGj/V6cTPnXXtQOPUbhZ6CmGzAD/rW22LQK6E96pcdJXk4A4w==}
 
   nth-check@2.1.1:
     resolution: {integrity: sha512-lqjrjmaOoAnWfMmBPL+XNnynZh2+swxiX3WUE0s4yEHI6m+AwrK2UZOimIRl3X/4QctVqS8AiZjFqyOGrMXb/w==}
@@ -5643,24 +5654,8 @@ packages:
     resolution: {integrity: sha512-GSL3aowiF7wa/WtSFwnUrludWFoNhftq8bUkH9pkzjpN2XSPOAYEgg6e0sS9s0rZwgJzJiQRPU18A6clnoW5wQ==}
     engines: {node: '>=10'}
 
-  semver@2.0.1:
-    resolution: {integrity: sha512-PtxXFO3N7+Hq3ZgjZ3kfX/d/rK7p+KzOXbRu1kHxiW7hmFKwOBkMAPy2v6iic9Dg1YcHrsoYFfwJfUgcm+hIcA==}
-    hasBin: true
-
-  semver@5.5.0:
-    resolution: {integrity: sha512-4SJ3dm0WAwWy/NVeioZh5AntkdJoWKxHxcmyP622fOkgHa4z3R0TdBJICINyaSDE6uNwVc8gZr+ZinwZAH4xIA==}
-    hasBin: true
-
-  semver@5.6.0:
-    resolution: {integrity: sha512-RS9R6R35NYgQn++fkDWaOmqGoj4Ek9gGs+DPxNUZKuwE183xjJroKvyo1IzVFeXvUrvmALy6FWD5xrdJT25gMg==}
-    hasBin: true
-
-  semver@6.0.0:
-    resolution: {integrity: sha512-0UewU+9rFapKFnlbirLi3byoOuhrSsli/z/ihNnvM24vgF+8sNBiI1LZPBSH9wJKUwaUbw+s3hToDLCXkrghrQ==}
-    hasBin: true
-
-  semver@6.1.2:
-    resolution: {integrity: sha512-z4PqiCpomGtWj8633oeAdXm1Kn1W++3T8epkZYnwiVgIYIJ0QHszhInYSJTYxebByQH7KVCEAn8R9duzZW2PhQ==}
+  semver@5.7.2:
+    resolution: {integrity: sha512-cBznnQ9KjJqU67B52RMC65CMarK2600WFnbkcaiwWq3xy/5haFJlshgnpjovMVJ+Hff49d8GEn0b87C5pDQ10g==}
     hasBin: true
 
   semver@6.3.1:
@@ -9109,9 +9104,9 @@ snapshots:
 
   ace-builds@1.44.0: {}
 
-  acorn-jsx@5.3.2(acorn@7.1.0):
+  acorn-jsx@5.3.2(acorn@7.1.1):
     dependencies:
-      acorn: 7.1.0
+      acorn: 7.1.1
 
   acorn-jsx@5.3.2(acorn@8.18.0):
     dependencies:
@@ -9121,7 +9116,7 @@ snapshots:
     dependencies:
       acorn: 8.18.0
 
-  acorn@7.1.0: {}
+  acorn@7.1.1: {}
 
   acorn@8.18.0: {}
 
@@ -9164,11 +9159,9 @@ snapshots:
 
   ansi-html-community@0.0.8: {}
 
-  ansi-regex@3.0.0: {}
+  ansi-regex@3.0.1: {}
 
-  ansi-regex@4.1.0: {}
-
-  ansi-regex@5.0.0: {}
+  ansi-regex@4.1.1: {}
 
   ansi-regex@5.0.1: {}
 
@@ -9761,7 +9754,7 @@ snapshots:
     dependencies:
       nice-try: 1.0.5
       path-key: 2.0.1
-      semver: 5.5.0
+      semver: 5.7.2
       shebang-command: 1.2.0
       which: 1.2.9
 
@@ -9814,10 +9807,10 @@ snapshots:
   css-select@4.1.3:
     dependencies:
       boolbase: 1.0.0
-      css-what: 5.0.0
+      css-what: 5.0.1
       domhandler: 4.2.0
       domutils: 2.6.0
-      nth-check: 2.0.0
+      nth-check: 2.0.1
 
   css-tree@1.1.2:
     dependencies:
@@ -9834,7 +9827,7 @@ snapshots:
       mdn-data: 2.27.1
       source-map-js: 1.2.1
 
-  css-what@5.0.0: {}
+  css-what@5.0.1: {}
 
   cssesc@3.0.0: {}
 
@@ -10368,7 +10361,7 @@ snapshots:
     dependencies:
       eslint: 6.7.2(supports-color@8.0.0)
       natural-compare: 1.4.0
-      semver: 5.6.0
+      semver: 5.7.2
       vue-eslint-parser: 7.0.0(eslint@6.7.2(supports-color@8.0.0))(supports-color@8.0.0)
     transitivePeerDependencies:
       - supports-color
@@ -10465,7 +10458,7 @@ snapshots:
       optionator: 0.8.3
       progress: 2.0.3
       regexpp: 2.0.1
-      semver: 6.1.2
+      semver: 6.3.1
       strip-ansi: 5.2.0
       strip-json-comments: 3.1.1
       table: 5.4.6
@@ -10482,8 +10475,8 @@ snapshots:
 
   espree@6.1.2:
     dependencies:
-      acorn: 7.1.0
-      acorn-jsx: 5.3.2(acorn@7.1.0)
+      acorn: 7.1.1
+      acorn-jsx: 5.3.2(acorn@7.1.1)
       eslint-visitor-keys: 1.1.0
 
   esprima@4.0.1: {}
@@ -11487,7 +11480,7 @@ snapshots:
 
   make-dir@3.1.0:
     dependencies:
-      semver: 6.0.0
+      semver: 6.3.1
 
   math-intrinsics@1.1.0: {}
 
@@ -11672,19 +11665,19 @@ snapshots:
   normalize-package-data@2.3.2:
     dependencies:
       hosted-git-info: 2.0.2
-      semver: 2.0.1
+      semver: 5.7.2
       validate-npm-package-license: 3.0.4
 
   normalize-package-data@2.5.0:
     dependencies:
       hosted-git-info: 2.1.4
       resolve: 1.22.12
-      semver: 2.0.1
+      semver: 5.7.2
       validate-npm-package-license: 3.0.4
 
   normalize-path@3.0.0: {}
 
-  normalize-url@4.5.0: {}
+  normalize-url@4.5.1: {}
 
   normalize-url@6.0.1: {}
 
@@ -11710,7 +11703,7 @@ snapshots:
     dependencies:
       path-key: 3.1.1
 
-  nth-check@2.0.0:
+  nth-check@2.0.1:
     dependencies:
       boolbase: 1.0.0
 
@@ -12193,7 +12186,7 @@ snapshots:
   postcss-normalize-url@5.0.0(postcss@8.5.28):
     dependencies:
       is-absolute-url: 3.0.3
-      normalize-url: 4.5.0
+      normalize-url: 4.5.1
       postcss: 8.5.28
       postcss-value-parser: 4.2.0
 
@@ -12662,15 +12655,7 @@ snapshots:
     dependencies:
       node-forge: 1.4.0
 
-  semver@2.0.1: {}
-
-  semver@5.5.0: {}
-
-  semver@5.6.0: {}
-
-  semver@6.0.0: {}
-
-  semver@6.1.2: {}
+  semver@5.7.2: {}
 
   semver@6.3.1: {}
 
@@ -12965,15 +12950,15 @@ snapshots:
 
   strip-ansi@4.0.0:
     dependencies:
-      ansi-regex: 3.0.0
+      ansi-regex: 3.0.1
 
   strip-ansi@5.2.0:
     dependencies:
-      ansi-regex: 4.1.0
+      ansi-regex: 4.1.1
 
   strip-ansi@6.0.0:
     dependencies:
-      ansi-regex: 5.0.0
+      ansi-regex: 5.0.1
 
   strip-ansi@6.0.1:
     dependencies:
