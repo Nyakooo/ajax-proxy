@@ -496,7 +496,7 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 
 - [ ] 测试面板关闭 / 重开、多标签切换和 storage 更新时规则与标签数据不会丢失。
 - [x] 测试页面使用 import map 等脚本功能时，扩展注入不破坏页面原有加载行为；扩展 smoke 实际加载映射模块并确认无 page error。
-- [ ] 测试快速或重复触发请求时不会因包装器引入请求循环、重复发送或递归拦截。
+- [x] 测试并发 / 快速触发的不同请求不会因包装器重复派发或串线；每个请求只调用一次底层 Fetch，响应及 outcome 关联彼此隔离。
 - [x] 评估命中视觉提示的跨 frame / SPA、滚动、视口、动画及可访问性测试成本；由于页面光晕不纳入 V3，相关视觉效果测试留待后续版本设计时制定。
 - [x] 测试与网页自身 Fetch / XHR 包装器的冲突表现，并明确第三方扩展互操作限制；测试覆盖注入前 / 后页面包装器和扩展启停，无法保证任意扩展组合。
 - [ ] 将函数式重定向、正则匹配、状态码自定义和函数式响应纳入回归测试与文档示例，避免已有能力在重构中退化。
@@ -763,4 +763,5 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - 2026-09-26：优化页面启动配置加载：`content.ts` 复用 `initStorage()` 后的完整缓存快照，去掉第二次 `chrome.storage.local.get(null)`；新增回归验证初始化期间的 storage change 被合并、快照深拷贝隔离且只读 storage 一次。35 个文件 / 328 项全量覆盖测试通过，语句 / 分支 / 函数 / 行覆盖为 83.14% / 81.48% / 84.35% / 84.93%；typecheck、包边界检查、完整 clean build、格式检查与 diff 检查通过，ESLint 无新增告警。首请求仍有异步初始化窗口，为保持浏览器原生请求时序暂不延迟页面请求，限制已写入问题清单。完成 303 / 355 项（85.4%）。
 - 2026-09-26：阶段 6 复核 Fetch / XHR 与页面脚本包装器的共存策略：现有 Vitest 覆盖注入前页面实现、代理关闭时恢复、页面后装外层包装器保留，以及同模式重新启用；文档明确第三方扩展注入顺序和包装方式差异，不能由通用 CI 保证任意组合互操作，隐藏代理的模式切换需重载页面。该计划项完成并保留边界说明。完成 304 / 355 项（85.6%）。
 - 2026-09-26：阶段 6 扩展 smoke 新增 import map 页面，验证扩展加载期间页面内的 import map 能解析本地模块、模块实际执行且无 page error。Node 语法 / Prettier / diff 检查通过，CI `36239686244` 对提交 `c1bd3c3` 全部通过。完成 305 / 355 项（85.9%）。
+- 2026-09-26：阶段 6 为 V3 Fetch 增加并发隔离回归：两个请求反序完成底层响应时仍各自返回匹配规则的替换 body；底层调用次数保持一对一，匹配通知和不同 `correlation_id` 正确。定向 Vitest 34 项及 CI `36239759288` 对提交 `b704090` 通过。完成 306 / 355 项（86.2%）。
 - GitHub 里程碑：[阶段 0](https://github.com/Nyakooo/ajax-proxy/milestone/1)、[阶段 1](https://github.com/Nyakooo/ajax-proxy/milestone/2)、[阶段 2](https://github.com/Nyakooo/ajax-proxy/milestone/3)、[阶段 3](https://github.com/Nyakooo/ajax-proxy/milestone/4)、[阶段 4](https://github.com/Nyakooo/ajax-proxy/milestone/5)、[阶段 5](https://github.com/Nyakooo/ajax-proxy/milestone/6)、[阶段 6](https://github.com/Nyakooo/ajax-proxy/milestone/7)、[阶段 7](https://github.com/Nyakooo/ajax-proxy/milestone/8)；已复现缺陷：[issue #56](https://github.com/Nyakooo/ajax-proxy/issues/56)。
