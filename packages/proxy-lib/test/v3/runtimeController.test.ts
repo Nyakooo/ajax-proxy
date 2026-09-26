@@ -275,6 +275,43 @@ describe('createV3RuntimeController', () => {
     expect(JSON.stringify(event.detail)).not.toContain('secret')
   })
 
+  it('keeps Fetch native when dispatching a no-match diagnostic throws', async () => {
+    const dispatchEvent = vi.fn(() => {
+      throw new Error('content event dispatch unavailable')
+    })
+    const host = {
+      location: { origin: 'https://example.test' },
+      dispatchEvent,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    } as unknown as Window
+    const nativeResponse = new Response('native')
+    const fetcher = vi.fn(async () => nativeResponse)
+    const controller = createV3RuntimeController(
+      host,
+      fetcher as typeof window.fetch,
+      class {} as unknown as typeof window.XMLHttpRequest
+    )
+    controller.update({
+      ...backup,
+      rules: [
+        {
+          id: 'expected-rule',
+          enabled: true,
+          match: { url: '/expected', method: 'GET' },
+          response: { enabled: true, replace: { body: { mocked: true } } },
+        },
+      ],
+    })
+    controller.setDiagnosticsArmed(true)
+
+    const response = await controller.fetch('https://example.test/private?token=secret')
+
+    expect(response).toBe(nativeResponse)
+    expect(fetcher).toHaveBeenCalledOnce()
+    expect(dispatchEvent).toHaveBeenCalledOnce()
+  })
+
   it('truncates no-match diagnostics after 100 rules', async () => {
     const dispatchEvent = vi.fn()
     const fetcher = vi.fn(async () => new Response('native'))
