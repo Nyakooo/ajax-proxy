@@ -406,7 +406,7 @@ async function main() {
             match: { url: '/api/stream-fallback', method: 'POST' },
             request: {
               enabled: true,
-              redirect: { url: 'javascript:invalid-target' },
+              redirect: { url: `http://127.0.0.1:${port}/mock/stream-fallback` },
             },
           },
           {
@@ -548,7 +548,7 @@ async function main() {
       },
     })
 
-    const streamedFallbackResult = await page.evaluate(async () => {
+    const streamedFallbackResult = await page.evaluate(async (redirectTarget) => {
       const body = new ReadableStream({
         start(controller) {
           controller.enqueue(new TextEncoder().encode('fallback streamed '))
@@ -556,14 +556,27 @@ async function main() {
           controller.close()
         },
       })
-      const response = await fetch('/api/stream-fallback', {
-        method: 'POST',
-        body,
-        duplex: 'half',
-        headers: { 'x-original': 'fallback-preserved' },
-      })
-      return { status: response.status, url: response.url, body: await response.json() }
-    })
+      const NativeRequest = window.Request
+      window.Request = class extends NativeRequest {
+        constructor(input, init) {
+          if (String(input) === redirectTarget) {
+            throw new TypeError('Simulated streaming Request construction failure')
+          }
+          super(input, init)
+        }
+      }
+      try {
+        const response = await fetch('/api/stream-fallback', {
+          method: 'POST',
+          body,
+          duplex: 'half',
+          headers: { 'x-original': 'fallback-preserved' },
+        })
+        return { status: response.status, url: response.url, body: await response.json() }
+      } finally {
+        window.Request = NativeRequest
+      }
+    }, `http://127.0.0.1:${port}/mock/stream-fallback`)
     assert.deepEqual(streamedFallbackResult, {
       status: 200,
       url: `http://127.0.0.1:${port}/api/stream-fallback`,
