@@ -20,6 +20,37 @@ V2 的响应覆写和重定向函数都通过 `window.eval()` 在网页主世界
 - 返回值只允许非空 `{ body?, status?, headers? }`，状态码为 200–599，结果最大 1 MiB。语法错误、拒绝、超时、无效结果和 sandbox 通信失败均 fail-open。失败不得静默改写响应，也不得让下一条规则接管该请求。
 - 含函数代码的规则默认关闭执行；启用前显示一次明确风险说明。导入备份时先标出带代码的规则及数量，不执行代码；用户确认恢复后仍保持这类规则停用，需单独启用。
 
+### 可复制的响应函数示例
+
+在响应函数编辑器中粘贴下面的函数体代码（不要再包一层函数声明）。它读取 request / response 快照，将 JSON 响应中的 `items` 数组数量写入 `meta.itemCount`，并为响应添加一个标记 header：
+
+```js
+const payload = JSON.parse(response.body)
+const data = payload && typeof payload === 'object' && !Array.isArray(payload) ? payload : {}
+const items = Array.isArray(data.items) ? data.items : []
+
+return {
+  status: response.status,
+  headers: {
+    'x-ajax-proxy': 'v3-function',
+  },
+  body: {
+    ...data,
+    meta: {
+      ...(data.meta && typeof data.meta === 'object' && !Array.isArray(data.meta) ? data.meta : {}),
+      itemCount: items.length,
+      requestMethod: request.method,
+    },
+  },
+}
+```
+
+输入快照的字段为 `request.url`、`request.method`、可选的文本 `request.body`，以及 `response.status`、`response.statusText`、`response.headers` 和文本 `response.body`。JSON 响应的 `response.body` 仍是字符串，因此示例先用 `JSON.parse` 解析；如果响应不是有效 JSON，解析错误会触发 fail-open，浏览器会收到原始响应。
+
+函数可同步返回，也可返回 Promise。结果必须是非空对象，只能包含 `body`、`status`、`headers`：`body` 仅允许 JSON 值，`status`（如果提供）必须为 200–599 的整数，`headers`（如果提供）必须是安全的 HTTP header 名和值。不要返回 `undefined`，也不要添加其他字段；无效结果会 fail-open。`body`、状态码和 headers 都可选，但至少需要返回其中一项。
+
+响应函数仅作用于 Fetch；XHR 保留原生响应。函数只能处理传入的快照，不能访问 DOM、页面全局对象或 `chrome.*`，也不能调用 `fetch`、发起其他网络请求或加载外部代码。每次执行最多 5 秒；抛错、Promise 拒绝、无效结果、超时或隔离环境故障都会 fail-open，使用原始响应。请求或响应不支持文本快照或超过大小限制时，同样使用原始响应。
+
 V3 domain 解析器会为每条导入函数规则返回警告路径，并停用其 response action。备份恢复界面汇总显示函数规则数量，要求用户确认后才执行恢复；恢复后的函数响应仍保持停用，必须逐条明确启用。
 
 ## 面板风险提示文案

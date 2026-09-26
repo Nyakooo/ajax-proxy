@@ -374,7 +374,7 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 ### 阶段 7：文档与发布
 
 - [ ] 更新中英文 README、安装、使用、规则配置和 FAQ。
-- [ ] 说明自定义函数能力与风险，补充可复制的示例。
+- [x] 说明自定义函数能力与风险，补充可复制的示例。
 - [x] 说明 V2 与 V3 配置 / 备份不兼容，并提供 V3 备份、恢复和重新配置指南；详见 `docs/V3-BACKUP-RESTORE.zh.md`。
 - [ ] 维护版本号策略、变更日志格式和发布检查表。
 - [ ] 从干净环境执行完整构建，并在目标浏览器加载验证扩展产物。
@@ -743,4 +743,5 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - 2026-09-26：在 macOS Chrome Stable 154.0.8037.58 加载已启用的本地生产扩展，使用 V3 面板创建 status `209` JSON 响应规则，确认真实页面 Fetch 和 XHR 都返回预期 status / body；完成后删除临时规则并关闭本地测试服务。扩展 API 权限未扩大。完成 281 / 342 项（82.2%）。
 - 2026-09-26：阶段 6 复核 Service Worker 消息协议、V3 配置校验 / 导入导出错误路径、Vue 3 组件与关键流程，以及按风险分级的覆盖率目标；相应计划项已由现有测试与配置满足。复跑 `pnpm test`（34 个文件 / 323 项）、`pnpm test:v3-ui`（7 个文件 / 32 项）、`pnpm extension:smoke` 均通过；`pnpm test:coverage` 整体语句 80.58%、分支 78.66%、函数 79.60%、行 82.16%，sandbox 分支 86.36%、runtime controller 89.65%，低于 95% 的例外仍有记录。完成 285 / 343 项（83.1%）。
 - 2026-09-26：阶段 6 为 sandbox ready 握手增加数组消息边界回归：正确 iframe source 与 opaque origin 发送可结构化克隆的数组 payload 时不接受为 ready；随后合法 ready / run / result 仍成功往返。定向测试 18 项，改动文件 ESLint / Prettier 通过；全量覆盖 34 个文件 / 323 项，整体语句 80.62%、分支 78.70%、函数 79.60%、行 82.16%，sandbox 分支 87.5%，runtime controller 89.65%。完成 286 / 344 项（83.1%）。
+- 2026-09-26：阶段 7 增加可复制的 V3 响应函数示例，说明 request / response 快照、合法返回字段、Fetch-only 范围和 fail-open 条件；并在 `README.func.md` 标注 V2 旧接口及 V3 指南链接，避免读者混用两代契约。源码与 validator 契约交叉核对，文档 Prettier / diff 检查通过。完成 288 / 345 项（83.5%）。
 - GitHub 里程碑：[阶段 0](https://github.com/Nyakooo/ajax-proxy/milestone/1)、[阶段 1](https://github.com/Nyakooo/ajax-proxy/milestone/2)、[阶段 2](https://github.com/Nyakooo/ajax-proxy/milestone/3)、[阶段 3](https://github.com/Nyakooo/ajax-proxy/milestone/4)、[阶段 4](https://github.com/Nyakooo/ajax-proxy/milestone/5)、[阶段 5](https://github.com/Nyakooo/ajax-proxy/milestone/6)、[阶段 6](https://github.com/Nyakooo/ajax-proxy/milestone/7)、[阶段 7](https://github.com/Nyakooo/ajax-proxy/milestone/8)；已复现缺陷：[issue #56](https://github.com/Nyakooo/ajax-proxy/issues/56)。

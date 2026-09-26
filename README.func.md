@@ -1,3 +1,7 @@
+> **版本提示：**本页仅描述 V2 的旧 `setup(req, res, next)` API，示例不适用于 V3。V3 自定义函数的能力和安全边界见 [V3 指南](docs/V3-USER-FUNCTIONS.zh.md)。
+>
+> **Version note:** This page describes Ajax Proxy V2's legacy API only. Its examples do not apply to V3. See the [V3 custom function guide](docs/V3-USER-FUNCTIONS.zh.md).
+
 ## 函数式响应
 
 **函数式响应**面向特殊需求。本质上也是通过代码片段方式注入到浏览器中，相比固定格式它可以更灵活，支持 Promise。你甚至可以直接在函数体内使用**XHR/Fetch**去发起独立请求。但需要注意的是，所有逻辑只能写在**setup**函数中。
