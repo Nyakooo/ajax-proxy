@@ -153,4 +153,30 @@ describe('notifyV3FetchOutcome', () => {
     )
     expect(mocks.getRealStorage).toHaveBeenCalledWith('fetch-outcomes-armed', false)
   })
+
+  it('forwards network failures for rules with only an enabled response action', async () => {
+    setup({
+      config: backup({
+        rules: [
+          {
+            id: 'rule-a',
+            enabled: true,
+            request: { enabled: false },
+            response: { enabled: true },
+          },
+        ],
+      }),
+    })
+    const networkFailure = {
+      ...requestOutcome,
+      outcome: 'failed',
+      reason: 'network-failed',
+    }
+
+    expect(await notifyV3FetchOutcome(networkFailure)).toBe(true)
+    expect(mocks.noticePanelsByServiceWorker).toHaveBeenCalledExactlyOnceWith(
+      'v3-fetch-outcome',
+      networkFailure
+    )
+  })
 })
