@@ -74,4 +74,42 @@ describe('createV3ResponseFunctionExecutor', () => {
 
     await expect(result).resolves.toEqual({ body: 'mock' })
   })
+
+  it('rejects with a validated sandbox error result', async () => {
+    vi.stubGlobal('HTMLIFrameElement', FakeIFrameElement)
+    const frame = new FakeIFrameElement()
+    let onMessage: ((event: MessageEvent) => void) | undefined
+    const host = {
+      document: { getElementById: vi.fn(() => frame) },
+      addEventListener: vi.fn((_type: string, listener: EventListenerOrEventListenerObject) => {
+        if (typeof listener === 'function') onMessage = listener as (event: MessageEvent) => void
+      }),
+      crypto: { randomUUID: () => 'failed-execution-id' },
+    } as unknown as Window
+    const execute = createV3ResponseFunctionExecutor(host)
+    const result = execute(
+      'throw new Error("expected")',
+      { url: '/api', method: 'GET' },
+      {
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+        body: 'native',
+      }
+    )
+    const sendMessage = (data: unknown) =>
+      onMessage?.({ origin: 'null', source: frame.contentWindow, data } as MessageEvent)
+
+    sendMessage({ channel: 'ajax-proxy-v3-function-sandbox', type: 'ready' })
+    await vi.waitFor(() => expect(frame.contentWindow.postMessage).toHaveBeenCalledOnce())
+    sendMessage({
+      channel: 'ajax-proxy-v3-function-sandbox',
+      type: 'result',
+      id: 'failed-execution-id',
+      ok: false,
+      error: 'Sandbox function failed.',
+    })
+
+    await expect(result).rejects.toThrow('Sandbox function failed.')
+  })
 })
