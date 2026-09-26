@@ -384,6 +384,30 @@ describe('createV3Fetch', () => {
     ])
   })
 
+  it('fails open with a fixed diagnostic when the response function sandbox is unavailable', async () => {
+    const selectedRule = rule('function', {
+      response: { enabled: true, replace: { code: 'return { body: "changed" }' } },
+    })
+    const response = new Response('native', { headers: { 'content-type': 'text/plain' } })
+    const onFunctionError = vi.fn()
+    const onFetchOutcome = vi.fn()
+    const fetch = createV3Fetch(async () => response, {
+      getRules: () => [selectedRule],
+      onFunctionError,
+      isFetchOutcomeDiagnosticsArmed: () => true,
+      onFetchOutcome,
+    })
+
+    const result = await fetch('https://example.test/api', { method: 'POST' })
+
+    expect(result).toBe(response)
+    expect(await result.text()).toBe('native')
+    expect(onFunctionError.mock.calls[0][2]).toBe('sandbox-unavailable')
+    expect(onFetchOutcome.mock.calls.map((call) => call.slice(2))).toEqual([
+      ['response', 'unsupported', 'response-replacement-unsupported'],
+    ])
+  })
+
   it('does not expose binary response bodies to response functions', async () => {
     const executeResponseFunction = vi.fn(async () => ({ body: 'changed' }))
     const onFunctionError = vi.fn()
