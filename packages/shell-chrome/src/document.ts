@@ -62,6 +62,9 @@ window.addEventListener(
       case NoticeKey.V3_CONFIG:
         lib.updateV3(data.value)
         break
+      case NoticeKey.V3_DIAGNOSTICS_ARMED:
+        if (typeof data.value === 'boolean') lib.updateV3DiagnosticsArmed(data.value)
+        break
     }
   },
   false

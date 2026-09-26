@@ -52,26 +52,47 @@ function rule(id: string, options: Partial<V3Rule> = {}): V3Rule {
 
 function makeXHR(
   rules: readonly V3Rule[],
-  onMatched?: (rule: V3Rule, index: number, request: { url: string; method: string }) => void
+  onMatched?: (rule: V3Rule, index: number, request: { url: string; method: string }) => void,
+  onNoMatch?: (request: { url: string; method: string }) => void
 ) {
   const Constructor = createV3XHR(FakeXHR as unknown as V3XHRConstructor, {
     getRules: () => rules,
     onMatched,
+    onNoMatch,
   })
   return new Constructor() as unknown as XMLHttpRequest & FakeXHR
 }
 
 describe('createV3XHR', () => {
   it('preserves synchronous open arguments without applying rules', () => {
-    const xhr = makeXHR([
-      rule('sync', {
-        request: { enabled: true, redirect: { url: 'https://target.test/' } },
-      }),
-    ])
+    const onNoMatch = vi.fn()
+    const xhr = makeXHR(
+      [
+        rule('sync', {
+          request: { enabled: true, redirect: { url: 'https://target.test/' } },
+        }),
+      ],
+      undefined,
+      onNoMatch
+    )
 
     xhr.open('POST', '/api', false, 'user', 'pass')
 
     expect(xhr.openArgs).toEqual(['POST', '/api', false, 'user', 'pass'])
+    expect(onNoMatch).not.toHaveBeenCalled()
+  })
+
+  it('reports only unmatched asynchronous opens without changing XHR open arguments', () => {
+    const onNoMatch = vi.fn()
+    const xhr = makeXHR([rule('other', { match: { url: '/else' } })], undefined, onNoMatch)
+
+    xhr.open('GET', 'https://example.test/api?private=value', true)
+
+    expect(xhr.openArgs).toEqual(['GET', 'https://example.test/api?private=value', true])
+    expect(onNoMatch).toHaveBeenCalledExactlyOnceWith({
+      url: 'https://example.test/api?private=value',
+      method: 'GET',
+    })
   })
 
   it('selects once against the original URL, redirects statically, and retains that rule for response replacement', () => {

@@ -146,14 +146,35 @@ describe('createV3Fetch', () => {
 
   it('passes through unmatched requests without rewriting the input', async () => {
     const fetcher = vi.fn(async () => new Response('ok'))
+    const onNoMatch = vi.fn()
     const fetch = createV3Fetch(fetcher, {
       getRules: () => [rule('other', { match: { url: '/else' } })],
+      onNoMatch,
     })
     const input = 'https://example.test/api'
     const init = { method: 'POST' }
 
     await fetch(input, init)
 
+    expect(fetcher).toHaveBeenCalledExactlyOnceWith(input, init)
+    expect(onNoMatch).toHaveBeenCalledExactlyOnceWith({
+      url: 'https://example.test/api',
+      method: 'POST',
+    })
+  })
+
+  it('does not let no-match diagnostics change native requests or leak when their callback throws', async () => {
+    const fetcher = vi.fn(async () => new Response('ok'))
+    const input = 'https://example.test/api?private=value'
+    const init = { method: 'POST', body: 'private body' }
+    const fetch = createV3Fetch(fetcher, {
+      getRules: () => [rule('other', { match: { url: '/else' } })],
+      onNoMatch: () => {
+        throw new Error('diagnostics unavailable')
+      },
+    })
+
+    await expect(fetch(input, init)).resolves.toBeInstanceOf(Response)
     expect(fetcher).toHaveBeenCalledExactlyOnceWith(input, init)
   })
 

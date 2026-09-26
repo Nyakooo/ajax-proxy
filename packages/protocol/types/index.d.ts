@@ -2,6 +2,7 @@
 export * from './validateState';
 export * from './v3Hit';
 export * from './v3FunctionError';
+export * from './v3NoMatch';
 export declare enum StorageKey {
     LANGUAGE = "ajax-proxy:storage:language",
     /**全局开关 */
@@ -17,7 +18,9 @@ export declare enum StorageKey {
     /**V3 composite rule configuration */
     V3_CONFIG = "ajax-proxy:storage:v3-config",
     /**V3 rule hit counters */
-    V3_HITS = "ajax-proxy:storage:v3-hits"
+    V3_HITS = "ajax-proxy:storage:v3-hits",
+    /** Temporary, one-shot request for a V3 no-match diagnostic */
+    V3_DIAGNOSTICS_ARMED = "ajax-proxy:storage:v3-diagnostics-armed"
 }
 /**通知-去向 */
 export declare enum NoticeTo {
@@ -59,7 +62,11 @@ export declare enum NoticeKey {
     V3_CONFIG = "ajax-proxy:notice:v3-config",
     /**V3 rule hit event */
     V3_HIT = "ajax-proxy:notice:v3-hit",
+    /** Temporary diagnostic capture toggle from content to document */
+    V3_DIAGNOSTICS_ARMED = "ajax-proxy:notice:v3-diagnostics-armed",
     /**V3 function response execution failure */
-    V3_FUNCTION_ERROR = "ajax-proxy:notice:v3-function-error"
+    V3_FUNCTION_ERROR = "ajax-proxy:notice:v3-function-error",
+    /** V3 no-match diagnostic, forwarded only while explicitly armed */
+    V3_NO_MATCH = "ajax-proxy:notice:v3-no-match"
 }
 export * from './v3Panel';

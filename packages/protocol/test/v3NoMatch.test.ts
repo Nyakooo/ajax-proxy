@@ -31,6 +31,11 @@ describe('V3 no-match guard', () => {
     expect(isV3NoMatch({ ...validNoMatch, truncated: 0 })).toBe(false)
   })
 
+  it('accepts uppercase extension method tokens', () => {
+    expect(isV3NoMatch({ ...validNoMatch, method: 'M-SEARCH' })).toBe(true)
+    expect(isV3NoMatch({ ...validNoMatch, method: 'X-CUSTOM_1' })).toBe(true)
+  })
+
   it('rejects URL, query, request data, unknown fields, and malformed shape', () => {
     for (const key of ['url', 'match_url', 'query', 'body', 'headers', 'extra']) {
       expect(isV3NoMatch({ ...validNoMatch, [key]: 'sensitive' })).toBe(false)
@@ -44,7 +49,7 @@ describe('V3 no-match guard', () => {
   })
 
   it('enforces method, rule id, reason, and list bounds', () => {
-    for (const method of ['', 'post', 'GET/POST', 'M'.repeat(17)]) {
+    for (const method of ['', 'post', 'GET/POST', 'M'.repeat(65)]) {
       expect(isV3NoMatch({ ...validNoMatch, method })).toBe(false)
     }
     for (const rule_id of ['', 'r'.repeat(257)]) {

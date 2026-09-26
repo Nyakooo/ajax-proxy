@@ -1202,7 +1202,9 @@ async function moveRule(rule, targetRule) {
                       v-for="(rule, ruleIndex) in event.rules"
                       :key="`${rule.rule_id}-${ruleIndex}`"
                     >
-                      <code>{{ rule.rule_id }}</code>: {{ rule.reason }}<span v-if="ruleIndex < event.rules.length - 1"> · </span>
+                      <code>{{ rule.rule_id }}</code>
+                      <span>: {{ rule.reason }}</span>
+                      <span v-if="ruleIndex < event.rules.length - 1"> · </span>
                     </span>
                   </small>
                   <small v-else>{{

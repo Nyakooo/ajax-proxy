@@ -5,6 +5,7 @@ import type { V3ResponseFunctionExecutor } from './responseFunctionSandbox'
 export interface V3RuntimeHostOptions {
   getRules: () => readonly V3Rule[]
   onMatched?: (rule: V3Rule, index: number, request: { url: string; method: string }) => void
+  onNoMatch?: (request: { url: string; method: string }) => void
   onFunctionError?: (
     rule: V3Rule,
     request: { url: string; method: string },

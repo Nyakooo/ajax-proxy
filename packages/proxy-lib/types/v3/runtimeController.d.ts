@@ -3,6 +3,8 @@ export interface V3RuntimeController {
     readonly fetch: typeof window.fetch;
     readonly xhr: typeof window.XMLHttpRequest;
     readonly backup: V3Backup | null;
+    readonly diagnosticsArmed: boolean;
+    setDiagnosticsArmed(armed: boolean): void;
     update(target: unknown): V3RuntimeUpdateResult;
 }
 export type V3RuntimeUpdateResult = {

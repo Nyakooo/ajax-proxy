@@ -603,6 +603,69 @@ async function main() {
         'Kept only while this panel is open; closing or reloading clears it. Misses are not recorded. Full URLs may contain sensitive query parameters; review before creating a rule.'
       )
       .waitFor()
+
+    const noMatchDiagnostics = v3Panel.locator('.no-match-diagnostics')
+    const noMatchButton = noMatchDiagnostics.getByRole('button', {
+      name: 'Capture the next unmatched request',
+    })
+    const v3HitsBeforeNoMatch = await restartedWorker.evaluate(
+      async (key) => (await chrome.storage.local.get(key))[key] || {},
+      'ajax-proxy:storage:v3-hits'
+    )
+    const legacyHitsBeforeNoMatch = await restartedWorker.evaluate(
+      async (key) => (await chrome.storage.local.get(key))[key],
+      'ajax-proxy:storage:intercept-list'
+    )
+    await restartedPage.evaluate(async () => {
+      await fetch('/api/diagnostic-unmatched?token=private-before-arm')
+    })
+    await v3Panel.waitForTimeout(150)
+    assert.equal(await noMatchDiagnostics.locator('.recent-matches-list li').count(), 0)
+
+    await noMatchButton.click()
+    await noMatchDiagnostics
+      .getByRole('button', { name: 'Waiting for an unmatched request · Cancel' })
+      .waitFor()
+    await restartedPage.evaluate(async () => {
+      await fetch('/api/diagnostic-unmatched?token=private-captured', {
+        method: 'GET',
+        headers: { 'x-private-header': 'must-not-be-recorded' },
+      })
+    })
+    const noMatchItem = noMatchDiagnostics.locator('.recent-matches-list li').first()
+    await noMatchItem.waitFor()
+    const noMatchText = await noMatchItem.innerText()
+    assert.match(noMatchText, /GET/)
+    assert.match(noMatchText, /url-mismatch|method-mismatch/)
+    assert.doesNotMatch(noMatchText, /diagnostic-unmatched|private-captured|must-not-be-recorded/)
+    await noMatchDiagnostics
+      .getByRole('button', { name: 'Capture the next unmatched request' })
+      .waitFor()
+    assert.deepEqual(
+      await restartedWorker.evaluate(
+        async (key) => (await chrome.storage.local.get(key))[key] || {},
+        'ajax-proxy:storage:v3-hits'
+      ),
+      v3HitsBeforeNoMatch,
+      'unmatched diagnostics must not increment V3 hit counters'
+    )
+    assert.deepEqual(
+      await restartedWorker.evaluate(
+        async (key) => (await chrome.storage.local.get(key))[key],
+        'ajax-proxy:storage:intercept-list'
+      ),
+      legacyHitsBeforeNoMatch,
+      'unmatched diagnostics must not change V2 hit statistics'
+    )
+    const diagnosticStorage = await restartedWorker.evaluate(async () =>
+      chrome.storage.local.get(null)
+    )
+    assert.equal(
+      Object.keys(diagnosticStorage).some((key) => key.includes('no-match')),
+      false,
+      'no-match records must not be persisted'
+    )
+
     const historyItem = v3Panel
       .locator('.recent-matches-list li')
       .filter({ hasText: '/api/v3-ui?token=smoke' })
@@ -709,9 +772,17 @@ async function main() {
       )
     })
     await v3Panel.waitForFunction(
-      () => document.querySelectorAll('.recent-matches-list li').length === 10
+      () =>
+        document.querySelectorAll(
+          '.recent-matches:not(.no-match-diagnostics) .recent-matches-list li'
+        ).length === 10
     )
-    assert.equal(await v3Panel.locator('.recent-matches-list li').count(), 10)
+    assert.equal(
+      await v3Panel
+        .locator('.recent-matches:not(.no-match-diagnostics) .recent-matches-list li')
+        .count(),
+      10
+    )
 
     v3Panel.on('dialog', (dialog) => dialog.accept())
     await v3Panel.getByRole('button', { name: 'Create intercept rule' }).click()

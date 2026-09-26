@@ -7,6 +7,10 @@ export interface V3RuntimeHostOptions {
         url: string;
         method: string;
     }) => void;
+    onNoMatch?: (request: {
+        url: string;
+        method: string;
+    }) => void;
     onFunctionError?: (rule: V3Rule, request: {
         url: string;
         method: string;

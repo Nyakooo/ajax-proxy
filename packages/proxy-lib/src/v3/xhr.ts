@@ -147,6 +147,12 @@ export function createV3XHR(NativeXHR: V3XHRConstructor, options: V3XHROptions):
                   } catch {
                     // Metrics/notification failures must not affect the request.
                   }
+                } else {
+                  try {
+                    options.onNoMatch?.({ url: originalUrl, method: method.toUpperCase() })
+                  } catch {
+                    // Diagnostics must not affect the native request.
+                  }
                 }
               } catch {
                 selected = undefined

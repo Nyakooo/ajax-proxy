@@ -44,7 +44,14 @@ export function createV3Fetch(fetcher: V3Fetch, options: V3FetchOptions): V3Fetc
       url: originalRequest.url,
       method: originalRequest.method,
     })
-    if (!selection) return fetcher(input, init)
+    if (!selection) {
+      try {
+        options.onNoMatch?.({ url: originalRequest.url, method: originalRequest.method })
+      } catch {
+        // Diagnostics must not affect the native request.
+      }
+      return fetcher(input, init)
+    }
 
     try {
       options.onMatched?.(selection.rule, selection.index, selection.originalRequest)

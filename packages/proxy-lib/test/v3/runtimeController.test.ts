@@ -42,4 +42,49 @@ describe('createV3RuntimeController', () => {
     expect(controller.update(null)).toEqual({ ok: true, status: 'cleared' })
     expect(controller.backup).toBeNull()
   })
+
+  it('emits privacy-limited diagnostics only while armed and leaves fetch native', async () => {
+    const dispatchEvent = vi.fn()
+    const host = {
+      dispatchEvent,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    } as unknown as Window
+    const fetcher = vi.fn(async () => new Response('native'))
+    const controller = createV3RuntimeController(
+      host,
+      fetcher as typeof window.fetch,
+      class {} as unknown as typeof window.XMLHttpRequest
+    )
+    const configuredBackup = {
+      ...backup,
+      rules: [
+        {
+          id: 'rule-a',
+          enabled: true,
+          match: { url: '/expected', method: 'GET' },
+          request: { enabled: false, redirect: { url: 'https://unused.test/' } },
+          response: { enabled: true, replace: { body: { mocked: true } } },
+        },
+      ],
+    }
+    controller.update(configuredBackup)
+
+    await controller.fetch('https://example.test/private?token=secret')
+    expect(dispatchEvent).not.toHaveBeenCalled()
+
+    controller.setDiagnosticsArmed(true)
+    await controller.fetch('https://example.test/private?token=secret')
+    expect(fetcher).toHaveBeenCalledTimes(2)
+    expect(dispatchEvent).toHaveBeenCalledOnce()
+    const event = dispatchEvent.mock.calls[0][0] as CustomEvent
+    expect(event.detail).toEqual({
+      kind: 'v3-no-match',
+      method: 'GET',
+      rules: [{ rule_id: 'rule-a', reason: 'url-mismatch' }],
+      truncated: false,
+    })
+    expect(JSON.stringify(event.detail)).not.toContain('private')
+    expect(JSON.stringify(event.detail)).not.toContain('secret')
+  })
 })

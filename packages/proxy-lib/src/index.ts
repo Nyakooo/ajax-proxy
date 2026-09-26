@@ -73,7 +73,7 @@ function mountInstance() {
   if (canManageXHR) window.XMLHttpRequest = OriginXHR
   if (canManageFetch) window.fetch = pageFetchAtLoad
   if (v3Runtime.backup) {
-    if (!v3Runtime.backup.settings.globalEnabled) return
+    if (!v3Runtime.backup.settings.globalEnabled && !v3Runtime.diagnosticsArmed) return
     if (canManageXHR) window.XMLHttpRequest = V3XHR
     if (canManageFetch) window.fetch = V3Fetch
     return
@@ -160,6 +160,12 @@ function updateV3(target: unknown) {
   return result
 }
 
+function updateV3DiagnosticsArmed(armed: boolean) {
+  if (typeof armed !== 'boolean') return
+  v3Runtime.setDiagnosticsArmed(armed)
+  mountInstance()
+}
+
 initState()
 
 export default {
@@ -167,6 +173,7 @@ export default {
   updateInterceptors,
   updateRedirectors,
   updateV3,
+  updateV3DiagnosticsArmed,
 }
 
 export {

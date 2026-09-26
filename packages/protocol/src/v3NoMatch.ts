@@ -61,7 +61,7 @@ export function isV3NoMatch(value: unknown): value is V3NoMatch {
     if (
       value.kind !== 'v3-no-match' ||
       typeof value.method !== 'string' ||
-      !/^[A-Z]{1,16}$/.test(value.method) ||
+      !/^[!#$%&'*+.^_`|~0-9A-Z-]{1,64}$/.test(value.method) ||
       typeof value.truncated !== 'boolean' ||
       !Array.isArray(value.rules) ||
       value.rules.length > MAX_RULES
