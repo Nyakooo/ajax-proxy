@@ -378,6 +378,18 @@ describe('createV3XHR', () => {
     expect(malformed.response).toBe('{"native":true}')
   })
 
+  it('preserves the native responseText error for JSON responseType', () => {
+    const selectedRule = rule('json-response-text', {
+      response: { enabled: true, replace: { body: { answer: 42 } } },
+    })
+    const xhr = makeXHR([selectedRule])
+    xhr.responseType = 'json'
+    xhr.open('POST', 'https://example.test/api', true)
+    xhr.complete('{"native":true}')
+
+    expect(() => xhr.responseText).toThrow(expect.objectContaining({ name: 'InvalidStateError' }))
+  })
+
   it('fails open when a response action requests header changes that XHR cannot expose', () => {
     const selectedRule = rule('headers', {
       response: {
