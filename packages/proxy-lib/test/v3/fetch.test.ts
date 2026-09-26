@@ -61,6 +61,22 @@ describe('createV3Fetch', () => {
     expect(await result.json()).toEqual({ ok: true })
   })
 
+  it('keeps the native body when response replacement changes only headers', async () => {
+    const selectedRule = rule('headers-only', {
+      response: { enabled: true, replace: { headers: { 'x-replaced': 'yes' } } },
+    })
+    const response = new Response('native body', { headers: { 'x-native': 'kept' } })
+    const fetch = createV3Fetch(async () => response, { getRules: () => [selectedRule] })
+
+    const result = await fetch('https://example.test/api', { method: 'POST' })
+
+    expect(result).not.toBe(response)
+    expect(result.headers.get('x-native')).toBe('kept')
+    expect(result.headers.get('x-replaced')).toBe('yes')
+    expect(await result.text()).toBe('native body')
+    expect(await response.text()).toBe('native body')
+  })
+
   it('preserves the effective Request properties and body while redirecting', async () => {
     const selectedRule = rule('redirect', {
       request: { enabled: true, redirect: { url: 'https://target.test/post' } },
