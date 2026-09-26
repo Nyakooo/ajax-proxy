@@ -446,6 +446,25 @@ describe('V3 backup schema', () => {
       ]),
     })
   })
+
+  it('rejects duplicate tag IDs and invalid tag labels or used flags', () => {
+    const backupWithInvalidTags = {
+      ...structuredClone(validBackup),
+      tags: [
+        { id: 'shared', name: 'First', used: true },
+        { id: 'shared', name: '  ', used: 'yes' },
+      ],
+    }
+
+    expect(validateV3Backup(backupWithInvalidTags)).toMatchObject({
+      ok: false,
+      issues: expect.arrayContaining([
+        expect.objectContaining({ path: 'tags[1].id', message: 'Tag IDs must be unique.' }),
+        expect.objectContaining({ path: 'tags[1].name' }),
+        expect.objectContaining({ path: 'tags[1].used' }),
+      ]),
+    })
+  })
 })
 
 describe('V3 response function result validation', () => {
