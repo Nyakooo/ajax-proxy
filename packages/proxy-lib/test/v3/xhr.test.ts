@@ -19,6 +19,8 @@ class FakeXHR extends EventTarget {
   statusText = 'OK'
   response: unknown = ''
   responseText = ''
+  onreadystatechange: ((this: XMLHttpRequest, event: Event) => unknown) | null = null
+  onload: ((this: XMLHttpRequest, event: Event) => unknown) | null = null
   openArgs: unknown[] = []
   requestHeaders: Array<[string, string]> = []
   sentBody: Document | XMLHttpRequestBodyInit | null | undefined
@@ -43,9 +45,16 @@ class FakeXHR extends EventTarget {
   })
 
   complete(body: string) {
+    this.readyState = 2
+    this.dispatchEvent(new Event('readystatechange'))
+    this.readyState = 3
+    this.dispatchEvent(new Event('readystatechange'))
     this.readyState = 4
     this.responseText = body
     this.response = body
+    this.dispatchEvent(new Event('readystatechange'))
+    this.dispatchEvent(new Event('progress'))
+    this.dispatchEvent(new Event('load'))
     this.dispatchEvent(new Event('loadend'))
   }
 }
@@ -180,6 +189,45 @@ describe('createV3XHR', () => {
 
     expect(seen).toEqual([{ thisIsProxy: true, targetIsProxy: true, currentTargetIsProxy: true }])
     expect(removedListener).not.toHaveBeenCalled()
+  })
+
+  it('applies response replacements before readyState 4 and load handlers observe the response', () => {
+    const selectedRule = rule('lifecycle', {
+      response: { enabled: true, replace: { status: 201, body: { source: 'mock' } } },
+    })
+    const xhr = makeXHR([selectedRule])
+    const observed: Array<[string, unknown, number]> = []
+    xhr.onreadystatechange = function () {
+      if (this.readyState === 4) {
+        observed.push(['readystatechange', this.responseText, this.status])
+      }
+    }
+    xhr.addEventListener('readystatechange', function (event) {
+      if ((event.currentTarget as XMLHttpRequest).readyState === 4) {
+        observed.push([
+          'readystatechange-listener',
+          (event.currentTarget as XMLHttpRequest).responseText,
+          (event.currentTarget as XMLHttpRequest).status,
+        ])
+      }
+    })
+    xhr.onload = function () {
+      observed.push(['load-handler', this.responseText, this.status])
+    }
+    xhr.addEventListener('load', function (event) {
+      const target = event.currentTarget as XMLHttpRequest
+      observed.push(['load-listener', target.responseText, target.status])
+    })
+
+    xhr.open('POST', 'https://example.test/api', true)
+    xhr.complete('native response')
+
+    expect(observed).toEqual([
+      ['readystatechange', '{"source":"mock"}', 201],
+      ['readystatechange-listener', '{"source":"mock"}', 201],
+      ['load-handler', '{"source":"mock"}', 201],
+      ['load-listener', '{"source":"mock"}', 201],
+    ])
   })
 
   it('supports JSON responseType and fails open for unsupported types or malformed JSON replacement', () => {
