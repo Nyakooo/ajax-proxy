@@ -218,4 +218,12 @@ describe('notifyV3FetchOutcome', () => {
     expect(mocks.getRealStorage).not.toHaveBeenCalledWith('fetch-outcomes-armed', false)
     expect(mocks.noticePanelsByServiceWorker).not.toHaveBeenCalled()
   })
+
+  it('does not arm or forward outcomes for an invalid stored V3 configuration', async () => {
+    setup({ config: { format: 'invalid' } })
+
+    expect(await notifyV3FetchOutcome(requestOutcome)).toBe(false)
+    expect(mocks.getRealStorage).not.toHaveBeenCalledWith('fetch-outcomes-armed', false)
+    expect(mocks.noticePanelsByServiceWorker).not.toHaveBeenCalled()
+  })
 })
