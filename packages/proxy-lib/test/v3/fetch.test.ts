@@ -402,4 +402,32 @@ describe('createV3Fetch', () => {
     expect([...new Uint8Array(await result.arrayBuffer())]).toEqual([1, 2, 3])
     expect(onFunctionError.mock.calls[0][2]).toBe('snapshot-unsupported')
   })
+
+  it('fails open with the complete response when a function snapshot exceeds its size limit', async () => {
+    const body = 'x'.repeat(512 * 1024 + 1)
+    const response = new Response(body, { headers: { 'content-type': 'text/plain' } })
+    const executeResponseFunction = vi.fn()
+    const onFunctionError = vi.fn()
+    const onFetchOutcome = vi.fn()
+    const selectedRule = rule('large-snapshot', {
+      response: { enabled: true, replace: { code: 'return { body: "changed" }' } },
+    })
+    const fetch = createV3Fetch(async () => response, {
+      getRules: () => [selectedRule],
+      executeResponseFunction,
+      onFunctionError,
+      isFetchOutcomeDiagnosticsArmed: () => true,
+      onFetchOutcome,
+    })
+
+    const result = await fetch('https://example.test/api', { method: 'POST' })
+
+    expect(result).toBe(response)
+    expect(await result.text()).toBe(body)
+    expect(executeResponseFunction).not.toHaveBeenCalled()
+    expect(onFunctionError.mock.calls[0][2]).toBe('snapshot-too-large')
+    expect(onFetchOutcome.mock.calls.map((call) => call.slice(2))).toEqual([
+      ['response', 'fallback', 'response-replacement-failed'],
+    ])
+  })
 })
