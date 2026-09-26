@@ -29,11 +29,12 @@ afterEach(() => {
 })
 
 describe('service worker message entry', () => {
-  it('isolates a rejected function notification and routes XHR outcomes', async () => {
+  it('rejects tab-less content messages, isolates rejection, and routes XHR outcomes', async () => {
     const storageReady = deferred<void>()
     const runtimeListeners: MessageListener[] = []
     const noticePanelsByServiceWorker = vi.fn()
     const notifyV3FunctionError = vi.fn().mockRejectedValue(new Error('notification failed'))
+    const notifyV3NoMatch = vi.fn().mockResolvedValue(undefined)
     const notifyV3FetchOutcome = vi.fn().mockResolvedValue(undefined)
     const notifyV3XHROutcome = vi.fn().mockResolvedValue(undefined)
     const chromeMock = {
@@ -65,7 +66,7 @@ describe('service worker message entry', () => {
     vi.doMock('../src/service-worker/badge', () => ({ chromeBadge: vi.fn() }))
     vi.doMock('../src/service-worker/v3Hit', () => ({ chromeBadgeV3: vi.fn() }))
     vi.doMock('../src/service-worker/v3FunctionError', () => ({ notifyV3FunctionError }))
-    vi.doMock('../src/service-worker/v3NoMatch', () => ({ notifyV3NoMatch: vi.fn() }))
+    vi.doMock('../src/service-worker/v3NoMatch', () => ({ notifyV3NoMatch }))
     vi.doMock('../src/service-worker/v3FetchOutcome', () => ({ notifyV3FetchOutcome }))
     vi.doMock('../src/service-worker/v3XHROutcome', () => ({ notifyV3XHROutcome }))
     vi.doMock('../src/service-worker/v3Panel', () => ({
@@ -84,6 +85,21 @@ describe('service worker message entry', () => {
       method: 'POST',
       code: 'execution-failed',
     }
+
+    listener(
+      {
+        from: NoticeFrom.CONTENT,
+        to: NoticeTo.SERVICE_WORKER,
+        key: NoticeKey.V3_FUNCTION_ERROR,
+        value: functionError,
+      },
+      { id: 'test-extension' } as chrome.runtime.MessageSender
+    )
+    expect(notifyV3FunctionError).not.toHaveBeenCalled()
+    expect(notifyV3NoMatch).not.toHaveBeenCalled()
+    expect(notifyV3FetchOutcome).not.toHaveBeenCalled()
+    expect(notifyV3XHROutcome).not.toHaveBeenCalled()
+    expect(noticePanelsByServiceWorker).not.toHaveBeenCalled()
 
     listener(
       {
