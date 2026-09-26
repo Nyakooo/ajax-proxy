@@ -17,6 +17,13 @@ export default defineConfig({
       include: ['packages/*/src/**/*.ts'],
       reporter: ['text', 'lcov'],
       reportsDirectory: 'coverage',
+      thresholds: {
+        'packages/v3-domain/src/backup.ts': { branches: 95, perFile: true },
+        'packages/v3-domain/src/ruleMatching.ts': { branches: 95, perFile: true },
+        'packages/proxy-lib/src/v3/fetch.ts': { branches: 95, perFile: true },
+        'packages/proxy-lib/src/v3/responseAction.ts': { branches: 95, perFile: true },
+        'packages/proxy-lib/src/v3/xhr.ts': { branches: 95, perFile: true },
+      },
     },
   },
 })

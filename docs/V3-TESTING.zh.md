@@ -28,7 +28,9 @@
 - 跨包 / 浏览器验证放在根目录 `tests/browser/`，以 `*-smoke.cjs` 命名；每项测试使用临时浏览器上下文，并在 `finally` 中关闭浏览器和本地服务。
 - 测试通过模块别名访问 workspace 源码，不依赖先前构建出的旧产物。
 - 测浏览器或扩展 API 时，优先注入 mock / adapter；不要让纯逻辑测试直接启动 Chrome API。
-- 新测试按包归属；coverage 首先用于记录当前风险分布，暂不设会阻塞重构的全局阈值。
+- 新测试按包归属；coverage 按风险分布逐步设门槛，不设会被低覆盖历史代码拖累的全局阈值。当前为 V3 backup 校验、规则匹配、Fetch / XHR 请求改写和 response action 文件单独设定 95% 分支覆盖门槛。
+
+V3 核心文件门槛位于 `vitest.config.mjs`，按文件分别检查，旧 V2 代码和其他包不会被纳入这些门槛。当前 `responseFunctionSandbox.ts`（77.27%）与 `runtimeController.ts`（84%）尚未达 95%，暂不设阻塞门槛；后续需补充高风险边界测试并另行启用。全量语句、分支、函数和行覆盖仍通过 CI 报告跟踪。
 
 ## 当前覆盖率基线
 
