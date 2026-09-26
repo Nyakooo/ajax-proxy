@@ -79,4 +79,11 @@ describe('notifyV3FunctionError', () => {
     }
     expect(mocks.noticePanelsByServiceWorker).not.toHaveBeenCalled()
   })
+
+  it('propagates a config storage rejection without forwarding a notice', async () => {
+    mocks.getRealStorage.mockRejectedValueOnce(new Error('storage unavailable'))
+
+    await expect(notifyV3FunctionError(errorNotice)).rejects.toThrow('storage unavailable')
+    expect(mocks.noticePanelsByServiceWorker).not.toHaveBeenCalled()
+  })
 })
