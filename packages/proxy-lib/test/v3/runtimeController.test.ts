@@ -112,6 +112,42 @@ describe('createV3RuntimeController', () => {
     expect(host.dispatchEvent).toHaveBeenCalledOnce()
   })
 
+  it('keeps Fetch native and skips diagnostics when the host origin cannot be read', async () => {
+    const dispatchEvent = vi.fn()
+    const fetcher = vi.fn(async () => new Response('native'))
+    const host = {
+      get location() {
+        throw new Error('origin unavailable')
+      },
+      dispatchEvent,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    } as unknown as Window
+    const controller = createV3RuntimeController(
+      host,
+      fetcher as typeof window.fetch,
+      class {} as unknown as typeof window.XMLHttpRequest
+    )
+    controller.update({
+      ...backup,
+      rules: [
+        {
+          id: 'matching-rule',
+          enabled: true,
+          match: { url: '/api', method: 'GET' },
+          response: { enabled: true, replace: { body: { mocked: true } } },
+        },
+      ],
+    })
+    controller.setDiagnosticsArmed(true)
+
+    const response = await controller.fetch('https://example.test/api')
+
+    expect(await response.text()).toBe('native')
+    expect(fetcher).toHaveBeenCalledOnce()
+    expect(dispatchEvent).not.toHaveBeenCalled()
+  })
+
   it('emits privacy-limited diagnostics only while armed and leaves fetch native', async () => {
     const dispatchEvent = vi.fn()
     const host = {

@@ -51,6 +51,16 @@ function notifyV3NoMatch(host: Window, backup: V3Backup, request: { url: string;
 export type V3RuntimeUpdateResult =
   { ok: true; status: 'updated' | 'cleared' } | { ok: false; issues: V3ValidationIssue[] }
 
+type HostOriginRead = { ok: true; origin: string } | { ok: false }
+
+function getHostOrigin(host: Window): HostOriginRead {
+  try {
+    return { ok: true, origin: host.location?.origin ?? '' }
+  } catch {
+    return { ok: false }
+  }
+}
+
 function notifyV3Match(host: Window, rule: V3Rule, request: { url: string; method: string }) {
   try {
     const detail: V3Hit = {
@@ -140,21 +150,19 @@ export function createV3RuntimeController(
   let diagnosticsArmed = false
   let fetchOutcomeDiagnosticsArmed = false
   const options = {
-    getRules: () =>
-      backup?.settings.globalEnabled &&
-      !isV3OriginDisabled(host.location?.origin ?? '', backup.disabledOrigins)
-        ? backup.rules
-        : [],
+    getRules: () => {
+      if (!backup?.settings.globalEnabled) return []
+      const origin = getHostOrigin(host)
+      if (!origin.ok || isV3OriginDisabled(origin.origin, backup.disabledOrigins)) return []
+      return backup.rules
+    },
     onMatched: (rule: V3Rule, _index: number, request: { url: string; method: string }) =>
       notifyV3Match(host, rule, request),
     onNoMatch: (request: { url: string; method: string }) => {
-      if (
-        diagnosticsArmed &&
-        backup &&
-        !isV3OriginDisabled(host.location?.origin ?? '', backup.disabledOrigins)
-      ) {
-        notifyV3NoMatch(host, backup, request)
-      }
+      if (!diagnosticsArmed || !backup) return
+      const origin = getHostOrigin(host)
+      if (!origin.ok || isV3OriginDisabled(origin.origin, backup.disabledOrigins)) return
+      notifyV3NoMatch(host, backup, request)
     },
     isFetchOutcomeDiagnosticsArmed: () => fetchOutcomeDiagnosticsArmed,
     onFetchOutcome: (
