@@ -35,6 +35,18 @@ class CustomXHR extends XMLHttpRequest {
     this.getMethod()
   }
 
+  private setResponseBody(body: string) {
+    this.responseText = body
+    if (this.responseType === 'json') {
+      try {
+        this.response = JSON.parse(body)
+      } catch {
+        // Native XHR with responseType=json exposes null for invalid JSON.
+        this.response = null
+      }
+    } else this.response = body
+  }
+
   // 获取请求协议
   private getMethod() {
     const { open, send } = this
@@ -105,8 +117,7 @@ class CustomXHR extends XMLHttpRequest {
               typeof payload.override === 'string'
                 ? payload.override
                 : JSON.stringify(payload.override)
-            this.responseText = _override
-            this.response = _override
+            this.setResponseBody(_override)
           }
           this.status = nextStatus
           this.statusText = payload.status + ''
@@ -114,8 +125,7 @@ class CustomXHR extends XMLHttpRequest {
           const nextStatus = Number(status_code)
           if (!Number.isInteger(nextStatus) || nextStatus < 200 || nextStatus > 599) return
           // 修改响应
-          this.responseText = override
-          this.response = override
+          this.setResponseBody(override)
           // 修改状态码
           this.status = nextStatus
           this.statusText = String(status_code)
@@ -148,9 +158,16 @@ class CustomXHR extends XMLHttpRequest {
       // responseText和response 属性只读
       // 缓存在对应 自定义 _[attr] 上
       Object.defineProperty(this, attr, {
-        get: () =>
+        get: () => {
+          if (attr === 'responseText' && this.responseType !== '' && this.responseType !== 'text') {
+            throw new DOMException(
+              `responseText is unavailable for responseType "${this.responseType}".`,
+              'InvalidStateError'
+            )
+          }
           // @ts-ignore
-          this[`_${attr}`] == undefined ? xhr[attr] : this[`_${attr}`],
+          return this[`_${attr}`] === undefined ? xhr[attr] : this[`_${attr}`]
+        },
         // @ts-ignore
         set: (val) => (this[`_${attr}`] = val),
         enumerable: true,

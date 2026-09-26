@@ -19,6 +19,7 @@ declare class CustomXHR extends XMLHttpRequest {
     private message_once_lock;
     private readyStateEvent;
     constructor();
+    private setResponseBody;
     private getMethod;
     private maybeNeedModifyRes;
     private overrideAttr;

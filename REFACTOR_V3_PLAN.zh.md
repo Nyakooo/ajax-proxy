@@ -260,6 +260,7 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - [x] 为 URL / 正则匹配、V2 规则忽略、method 匹配和规则优先级编写单元测试；V3 规则不包含 V2 ignore 列表。
 - [x] 为 Fetch 拦截与重定向覆盖 Request、init、body、headers、状态码和异常情况。
 - [x] 为 XHR 生命周期、事件、方法匹配、请求头和对象复用编写测试。
+- [x] 为 V2 XHR 覆盖 `responseType=json` 的 JSON 对象替换结果与 `responseText` `InvalidStateError` 语义。
 - [x] 为自定义函数覆盖同步、异步、异常、未回调和超时场景。
 - [x] 为 shared-utils Chrome storage 与网页 localStorage 缓存操作（初始化、读取、写入、删除、清空）覆盖成功和失败回归；删除 / 清空失败须拒绝、保留缓存并派发错误事件。
 - [x] 为 V2 旧全局状态和上传备份转换器覆盖字段映射、默认值、旧 key 清理列表及新格式原样保留。
@@ -757,4 +758,5 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - 2026-09-26：进一步覆盖旧 Service Worker 面板消息 sender 校验：错误扩展 ID 或网页 URL 不触发图标 / 徽章副作用，本扩展页面仍可更新全局开关图标和徽章。复跑全量覆盖测试后，34 个文件 / 324 项通过，整体语句 / 分支 / 函数 / 行覆盖为 80.90% / 79.40% / 79.85% / 82.48%；`service-worker/index.ts` 分支覆盖升至 63.63%。定向测试、改动文件 ESLint / Prettier 与 `git diff --check` 通过。完成 299 / 351 项（85.2%）。
 - 2026-09-26：将工具栏点击与快捷键监听从 storage 初始化 Promise 回调移至 Service Worker 初始执行路径；在 storage Promise 仍未完成时，回归测试已确认两个监听器均完成注册，首个工具栏点击和 `open_panel` 命令都能调用面板创建。依据 [Chrome Service Worker 事件注册要求](https://developer.chrome.com/docs/extensions/develop/concepts/service-workers/events)。34 个文件 / 324 项覆盖测试通过，整体语句 / 分支 / 函数 / 行覆盖为 81.38% / 79.49% / 81.57% / 83.02%；`pnpm typecheck`、`pnpm check:boundaries`、`pnpm check:generated-types` 及完整 clean build 通过，改动文件 ESLint / Prettier 通过。完成 300 / 352 项（85.2%）。
 - 2026-09-26：为仍在用的 V2 兼容包补直接转换回归，覆盖拦截 / 跳转规则字段、标签与忽略名单、导入默认值、旧 key 清理列表，以及新数据格式不变更；与 V2→V3 不兼容策略区分。全量覆盖测试 35 个文件 / 326 项通过，整体语句 / 分支 / 函数 / 行覆盖为 83.01% / 81.42% / 84.02% / 84.78%，V2 转换器对应数值为 83.67% / 84.00% / 100% / 95.12%；定向测试、改动文件 ESLint / Prettier 与 `git diff --check` 通过。完成 301 / 353 项（85.3%）。
+- 2026-09-26：修复 V2 XHR 在规则响应替换时忽略 `responseType=json` 的行为：合法 JSON 替换为对象，非法 JSON 返回 null，非文本 responseType 读取 `responseText` 抛出 `InvalidStateError`。35 个文件 / 327 项全量覆盖测试通过（语句 / 分支 / 函数 / 行覆盖 83.13% / 81.48% / 84.31% / 84.91%），`pnpm typecheck`、完整 clean build、定向回归、改动文件 ESLint / Prettier 与 `git diff --check` 通过。构建同步更新 `packages/proxy-lib/types/createXHR.d.ts`；生成声明一致性检查将在提交后对干净工作区复核。完成 302 / 354 项（85.3%）。
 - GitHub 里程碑：[阶段 0](https://github.com/Nyakooo/ajax-proxy/milestone/1)、[阶段 1](https://github.com/Nyakooo/ajax-proxy/milestone/2)、[阶段 2](https://github.com/Nyakooo/ajax-proxy/milestone/3)、[阶段 3](https://github.com/Nyakooo/ajax-proxy/milestone/4)、[阶段 4](https://github.com/Nyakooo/ajax-proxy/milestone/5)、[阶段 5](https://github.com/Nyakooo/ajax-proxy/milestone/6)、[阶段 6](https://github.com/Nyakooo/ajax-proxy/milestone/7)、[阶段 7](https://github.com/Nyakooo/ajax-proxy/milestone/8)；已复现缺陷：[issue #56](https://github.com/Nyakooo/ajax-proxy/issues/56)。

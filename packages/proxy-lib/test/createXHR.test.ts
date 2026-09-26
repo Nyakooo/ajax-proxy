@@ -193,6 +193,51 @@ describe('CustomXHR rule selection', () => {
     })
   })
 
+  it('preserves JSON responseType semantics when replacing a legacy XHR response', async () => {
+    vi.stubGlobal('XMLHttpRequest', FakeXMLHttpRequest)
+    const dispatchEvent = vi.fn()
+    vi.stubGlobal('window', {
+      XMLHttpRequest: FakeXMLHttpRequest,
+      dispatchEvent,
+      eval,
+    })
+    const { default: CustomXHR, initInterceptorXHRState } = await import('../src/createXHR')
+    const state: RefGlobalState = {
+      value: {
+        global_on: true,
+        mode: 'interceptor',
+        interceptor_matching_content: [
+          { switch_on: true, match_url: '/api', override: '{"ok":true}', status_code: '201' },
+        ],
+        redirector_matching_content: [],
+      },
+    }
+    initInterceptorXHRState(state)
+
+    const request = new CustomXHR()
+    request.responseType = 'json'
+    request.open('GET', 'https://example.test/api')
+    request.send()
+    await new Promise((resolve) => setTimeout(resolve, 0))
+
+    expect(request.response).toEqual({ ok: true })
+    expect(() => request.responseText).toThrow(
+      expect.objectContaining({ name: 'InvalidStateError' })
+    )
+
+    state.value.interceptor_matching_content[0].override = 'not valid JSON'
+    const invalidJsonRequest = new CustomXHR()
+    invalidJsonRequest.responseType = 'json'
+    invalidJsonRequest.open('GET', 'https://example.test/api')
+    invalidJsonRequest.send()
+    await new Promise((resolve) => setTimeout(resolve, 0))
+
+    expect(invalidJsonRequest.response).toBeNull()
+    expect(() => invalidJsonRequest.responseText).toThrow(
+      expect.objectContaining({ name: 'InvalidStateError' })
+    )
+  })
+
   it('continues past a redirect method mismatch and opens the first matching target', async () => {
     vi.stubGlobal('XMLHttpRequest', FakeXMLHttpRequest)
     vi.stubGlobal('window', { XMLHttpRequest: FakeXMLHttpRequest, eval })
