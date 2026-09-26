@@ -166,6 +166,11 @@ function updateV3DiagnosticsArmed(armed: boolean) {
   mountInstance()
 }
 
+function updateV3FetchOutcomeDiagnosticsArmed(armed: boolean) {
+  if (typeof armed !== 'boolean') return
+  v3Runtime.setFetchOutcomeDiagnosticsArmed(armed)
+}
+
 initState()
 
 export default {
@@ -174,6 +179,7 @@ export default {
   updateRedirectors,
   updateV3,
   updateV3DiagnosticsArmed,
+  updateV3FetchOutcomeDiagnosticsArmed,
 }
 
 export {

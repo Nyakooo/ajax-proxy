@@ -5,6 +5,8 @@ export interface V3RuntimeController {
     readonly backup: V3Backup | null;
     readonly diagnosticsArmed: boolean;
     setDiagnosticsArmed(armed: boolean): void;
+    readonly fetchOutcomeDiagnosticsArmed: boolean;
+    setFetchOutcomeDiagnosticsArmed(armed: boolean): void;
     update(target: unknown): V3RuntimeUpdateResult;
 }
 export type V3RuntimeUpdateResult = {

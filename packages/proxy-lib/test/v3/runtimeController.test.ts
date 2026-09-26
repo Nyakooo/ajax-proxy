@@ -87,4 +87,72 @@ describe('createV3RuntimeController', () => {
     expect(JSON.stringify(event.detail)).not.toContain('private')
     expect(JSON.stringify(event.detail)).not.toContain('secret')
   })
+
+  it('dispatches correlated Fetch outcomes only under their independent opt-in gate', async () => {
+    const dispatchEvent = vi.fn()
+    const host = {
+      dispatchEvent,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    } as unknown as Window
+    const fetcher = vi.fn(async () => new Response('native'))
+    const controller = createV3RuntimeController(
+      host,
+      fetcher as typeof window.fetch,
+      class {} as unknown as typeof window.XMLHttpRequest
+    )
+    const configuredBackup = {
+      ...backup,
+      rules: [
+        {
+          id: 'rule-a',
+          enabled: true,
+          match: { url: '/api', method: 'GET' },
+          request: { enabled: true, redirect: { url: 'https://target.test/api' } },
+          response: { enabled: true, replace: { body: { mocked: true } } },
+        },
+      ],
+    }
+    controller.update(configuredBackup)
+
+    await controller.fetch('https://example.test/api')
+    expect(
+      dispatchEvent.mock.calls.map(([event]) => (event as CustomEvent).detail.kind)
+    ).not.toContain('v3-fetch-outcome')
+    expect(controller.fetchOutcomeDiagnosticsArmed).toBe(false)
+
+    controller.setFetchOutcomeDiagnosticsArmed(true)
+    await controller.fetch('https://example.test/api')
+
+    const events = dispatchEvent.mock.calls
+      .map(([event]) => (event as CustomEvent).detail)
+      .filter(({ kind }) => kind === 'v3-fetch-outcome')
+    expect(events).toHaveLength(2)
+    expect(
+      events.map(({ kind, rule_id, stage, outcome, reason }) => ({
+        kind,
+        rule_id,
+        stage,
+        outcome,
+        reason,
+      }))
+    ).toEqual([
+      {
+        kind: 'v3-fetch-outcome',
+        rule_id: 'rule-a',
+        stage: 'request',
+        outcome: 'applied',
+        reason: 'redirect-applied',
+      },
+      {
+        kind: 'v3-fetch-outcome',
+        rule_id: 'rule-a',
+        stage: 'response',
+        outcome: 'applied',
+        reason: 'response-replacement-applied',
+      },
+    ])
+    expect(events[0].correlation_id).toBe(events[1].correlation_id)
+    expect(JSON.stringify(events)).not.toContain('https://example.test')
+  })
 })

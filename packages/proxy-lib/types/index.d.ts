@@ -19,12 +19,14 @@ declare function updateV3(target: unknown): {
     issues: import("@proxy/v3-domain").V3ValidationIssue[];
 };
 declare function updateV3DiagnosticsArmed(armed: boolean): void;
+declare function updateV3FetchOutcomeDiagnosticsArmed(armed: boolean): void;
 declare const _default: {
     update: typeof update;
     updateInterceptors: typeof updateInterceptors;
     updateRedirectors: typeof updateRedirectors;
     updateV3: typeof updateV3;
     updateV3DiagnosticsArmed: typeof updateV3DiagnosticsArmed;
+    updateV3FetchOutcomeDiagnosticsArmed: typeof updateV3FetchOutcomeDiagnosticsArmed;
 };
 export default _default;
 export { isRecord, isValidGlobalState, isValidInterceptors, isValidMode, isValidRedirectors, } from './validateState';

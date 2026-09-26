@@ -1,9 +1,36 @@
 import { selectV3Rule } from '@proxy/v3-domain'
+import type { V3Rule } from '@proxy/v3-domain'
+import type {
+  V3FetchOutcomeReason,
+  V3FetchOutcomeStage,
+  V3FetchOutcomeStatus,
+} from '@proxy/protocol'
 import type { V3RuntimeHostOptions } from './runtimeOptions'
 import { replaceFetchResponse } from './responseAction'
 
 export type V3Fetch = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>
 export type V3FetchOptions = V3RuntimeHostOptions
+let correlationSequence = 0
+
+function createCorrelationId(): string {
+  return `v3-fetch-${++correlationSequence}`
+}
+
+function reportOutcome(
+  options: V3FetchOptions,
+  rule: V3Rule,
+  correlationId: string | undefined,
+  stage: V3FetchOutcomeStage,
+  outcome: V3FetchOutcomeStatus,
+  reason: V3FetchOutcomeReason
+) {
+  if (!correlationId) return
+  try {
+    options.onFetchOutcome?.(rule, correlationId, stage, outcome, reason)
+  } catch {
+    // Outcome diagnostics must never change the native Fetch result.
+  }
+}
 
 async function redirectRequest(request: Request, targetUrl: string): Promise<Request> {
   const destination = new URL(targetUrl, request.url)
@@ -60,25 +87,74 @@ export function createV3Fetch(fetcher: V3Fetch, options: V3FetchOptions): V3Fetc
     }
 
     let requestForResponse = originalRequest
-    let requestSnapshot: Request
-    let networkResponse: Response
+    let requestSnapshot!: Request
+    let networkResponse!: Response
+    const outcomeArmed =
+      options.onFetchOutcome !== undefined && (options.isFetchOutcomeDiagnosticsArmed?.() ?? true)
+    const correlationId = outcomeArmed ? createCorrelationId() : undefined
     const redirect = selection.rule.request
     if (redirect?.enabled) {
       try {
         requestForResponse = await redirectRequest(originalRequest, redirect.redirect.url)
-        requestSnapshot = requestForResponse.clone()
-        networkResponse = await fetcher(requestForResponse)
-      } catch (error) {
+      } catch {
         // A construction/body replay failure can safely fall back before network dispatch.
-        // Once the redirected request is dispatched, preserve its native network error.
-        if (requestForResponse !== originalRequest) throw error
         requestForResponse = originalRequest
         requestSnapshot = originalRequest.clone()
-        networkResponse = await fetcher(input, init)
+        reportOutcome(
+          options,
+          selection.rule,
+          correlationId,
+          'request',
+          'fallback',
+          'redirect-construction-failed'
+        )
+        try {
+          networkResponse = await fetcher(input, init)
+        } catch (networkError) {
+          reportOutcome(
+            options,
+            selection.rule,
+            correlationId,
+            'request',
+            'failed',
+            'network-failed'
+          )
+          throw networkError
+        }
+      }
+      if (requestForResponse !== originalRequest) {
+        requestSnapshot = requestForResponse.clone()
+        try {
+          networkResponse = await fetcher(requestForResponse)
+        } catch (networkError) {
+          // Once the redirected request is dispatched, preserve its native network error.
+          reportOutcome(
+            options,
+            selection.rule,
+            correlationId,
+            'request',
+            'failed',
+            'network-failed'
+          )
+          throw networkError
+        }
+        reportOutcome(
+          options,
+          selection.rule,
+          correlationId,
+          'request',
+          'applied',
+          'redirect-applied'
+        )
       }
     } else {
       requestSnapshot = originalRequest.clone()
-      networkResponse = await fetcher(input, init)
+      try {
+        networkResponse = await fetcher(input, init)
+      } catch (networkError) {
+        reportOutcome(options, selection.rule, correlationId, 'request', 'failed', 'network-failed')
+        throw networkError
+      }
     }
     return replaceFetchResponse(
       networkResponse,
@@ -86,7 +162,9 @@ export function createV3Fetch(fetcher: V3Fetch, options: V3FetchOptions): V3Fetc
       selection.rule,
       options.executeResponseFunction,
       requestSnapshot,
-      (code) => options.onFunctionError?.(selection.rule, selection.originalRequest, code)
+      (code) => options.onFunctionError?.(selection.rule, selection.originalRequest, code),
+      (outcome, reason) =>
+        reportOutcome(options, selection.rule, correlationId, 'response', outcome, reason)
     )
   }
 }

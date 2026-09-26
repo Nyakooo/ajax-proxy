@@ -126,6 +126,134 @@ describe('createV3Fetch', () => {
     expect(fetcher).toHaveBeenCalledOnce()
   })
 
+  it('reports request fallback and response success with one temporary correlation ID', async () => {
+    const selectedRule = rule('redirect', {
+      request: { enabled: true, redirect: { url: 'javascript:alert(1)' } },
+      response: { enabled: true, replace: { body: { ok: true } } },
+    })
+    const fetcher = vi.fn(async () => new Response('native'))
+    const onFetchOutcome = vi.fn()
+    const fetch = createV3Fetch(fetcher, {
+      getRules: () => [selectedRule],
+      isFetchOutcomeDiagnosticsArmed: () => true,
+      onFetchOutcome,
+    })
+
+    const result = await fetch('https://example.test/api', { method: 'POST' })
+
+    expect(fetcher).toHaveBeenCalledOnce()
+    expect(await result.json()).toEqual({ ok: true })
+    expect(onFetchOutcome.mock.calls.map((call) => call.slice(2))).toEqual([
+      ['request', 'fallback', 'redirect-construction-failed'],
+      ['response', 'applied', 'response-replacement-applied'],
+    ])
+    expect(onFetchOutcome.mock.calls[0][1]).toBe(onFetchOutcome.mock.calls[1][1])
+  })
+
+  it('reports a dispatched network failure without retrying or calling it a rule fallback', async () => {
+    const selectedRule = rule('redirect', {
+      request: { enabled: true, redirect: { url: 'https://target.test/' } },
+    })
+    const fetcher = vi.fn(async () => {
+      throw new TypeError('network error')
+    })
+    const onFetchOutcome = vi.fn()
+    const fetch = createV3Fetch(fetcher, {
+      getRules: () => [selectedRule],
+      isFetchOutcomeDiagnosticsArmed: () => true,
+      onFetchOutcome,
+    })
+
+    await expect(fetch('https://example.test/api', { method: 'POST' })).rejects.toThrow(
+      'network error'
+    )
+    expect(fetcher).toHaveBeenCalledOnce()
+    expect(onFetchOutcome.mock.calls.map((call) => call.slice(2))).toEqual([
+      ['request', 'failed', 'network-failed'],
+    ])
+  })
+
+  it('reports response function fallback without including error text', async () => {
+    const selectedRule = rule('function', {
+      response: { enabled: true, replace: { code: 'return {}' } },
+    })
+    const onFetchOutcome = vi.fn()
+    const fetch = createV3Fetch(
+      async () => new Response('native', { headers: { 'content-type': 'text/plain' } }),
+      {
+        getRules: () => [selectedRule],
+        isFetchOutcomeDiagnosticsArmed: () => true,
+        onFetchOutcome,
+        executeResponseFunction: async () => {
+          throw new Error('private function failure')
+        },
+      }
+    )
+
+    await fetch('https://example.test/api', { method: 'POST' })
+
+    expect(onFetchOutcome.mock.calls.map((call) => call.slice(2))).toEqual([
+      ['response', 'fallback', 'response-replacement-failed'],
+    ])
+    expect(JSON.stringify(onFetchOutcome.mock.calls)).not.toContain('private function failure')
+  })
+
+  it('reports unsupported response snapshot formats with a fixed reason', async () => {
+    const selectedRule = rule('function', {
+      response: { enabled: true, replace: { code: 'return {}' } },
+    })
+    const onFetchOutcome = vi.fn()
+    const executeResponseFunction = vi.fn()
+    const fetch = createV3Fetch(
+      async () =>
+        new Response('binary', { headers: { 'content-type': 'application/octet-stream' } }),
+      {
+        getRules: () => [selectedRule],
+        isFetchOutcomeDiagnosticsArmed: () => true,
+        onFetchOutcome,
+        executeResponseFunction,
+      }
+    )
+
+    await fetch('https://example.test/api', { method: 'POST' })
+
+    expect(executeResponseFunction).not.toHaveBeenCalled()
+    expect(onFetchOutcome.mock.calls.map((call) => call.slice(2))).toEqual([
+      ['response', 'unsupported', 'response-replacement-unsupported'],
+    ])
+  })
+
+  it('does not generate or report outcomes while the opt-in gate is off', async () => {
+    const selectedRule = rule('redirect', {
+      request: { enabled: true, redirect: { url: 'https://target.test/' } },
+      response: { enabled: true, replace: { body: 'replacement' } },
+    })
+    const onFetchOutcome = vi.fn()
+    const fetch = createV3Fetch(async () => new Response('native'), {
+      getRules: () => [selectedRule],
+      isFetchOutcomeDiagnosticsArmed: () => false,
+      onFetchOutcome,
+    })
+
+    await fetch('https://example.test/api', { method: 'POST' })
+
+    expect(onFetchOutcome).not.toHaveBeenCalled()
+  })
+
+  it('does not emit an outcome for a successful request with no configured actions', async () => {
+    const selectedRule = rule('observe-only')
+    const onFetchOutcome = vi.fn()
+    const fetch = createV3Fetch(async () => new Response('native'), {
+      getRules: () => [selectedRule],
+      isFetchOutcomeDiagnosticsArmed: () => true,
+      onFetchOutcome,
+    })
+
+    await fetch('https://example.test/api', { method: 'POST' })
+
+    expect(onFetchOutcome).not.toHaveBeenCalled()
+  })
+
   it('preserves no-body status semantics and does not let statistics errors affect the request', async () => {
     const selectedRule = rule('no-body', {
       response: { enabled: true, replace: { status: 204, body: { ignored: true } } },

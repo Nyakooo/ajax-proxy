@@ -4,6 +4,12 @@ import { NoticeTo } from '@proxy/protocol'
 import type { V3Hit } from '@proxy/protocol'
 import type { V3FunctionError, V3FunctionErrorCode } from '@proxy/protocol'
 import type { V3NoMatch, V3NoMatchReason } from '@proxy/protocol'
+import type {
+  V3FetchOutcome,
+  V3FetchOutcomeReason,
+  V3FetchOutcomeStage,
+  V3FetchOutcomeStatus,
+} from '@proxy/protocol'
 import { createV3Fetch } from './fetch'
 import { createV3ResponseFunctionExecutor } from './responseFunctionSandbox'
 import { createV3XHR } from './xhr'
@@ -14,6 +20,8 @@ export interface V3RuntimeController {
   readonly backup: V3Backup | null
   readonly diagnosticsArmed: boolean
   setDiagnosticsArmed(armed: boolean): void
+  readonly fetchOutcomeDiagnosticsArmed: boolean
+  setFetchOutcomeDiagnosticsArmed(armed: boolean): void
   update(target: unknown): V3RuntimeUpdateResult
 }
 
@@ -76,6 +84,29 @@ function notifyV3FunctionError(
   }
 }
 
+function notifyV3FetchOutcome(
+  host: Window,
+  rule: V3Rule,
+  correlationId: string,
+  stage: V3FetchOutcomeStage,
+  outcome: V3FetchOutcomeStatus,
+  reason: V3FetchOutcomeReason
+) {
+  try {
+    const detail: V3FetchOutcome = {
+      kind: 'v3-fetch-outcome',
+      correlation_id: correlationId,
+      rule_id: rule.id,
+      stage,
+      outcome,
+      reason,
+    }
+    host.dispatchEvent(new CustomEvent(NoticeTo.CONTENT, { detail }))
+  } catch {
+    // Outcome diagnostics must not affect Fetch behavior.
+  }
+}
+
 export function createV3RuntimeController(
   host: Window,
   pageFetchAtLoad: typeof window.fetch,
@@ -83,12 +114,25 @@ export function createV3RuntimeController(
 ): V3RuntimeController {
   let backup: V3Backup | null = null
   let diagnosticsArmed = false
+  let fetchOutcomeDiagnosticsArmed = false
   const options = {
     getRules: () => (backup?.settings.globalEnabled ? backup.rules : []),
     onMatched: (rule: V3Rule, _index: number, request: { url: string; method: string }) =>
       notifyV3Match(host, rule, request),
     onNoMatch: (request: { url: string; method: string }) => {
       if (diagnosticsArmed && backup) notifyV3NoMatch(host, backup, request)
+    },
+    isFetchOutcomeDiagnosticsArmed: () => fetchOutcomeDiagnosticsArmed,
+    onFetchOutcome: (
+      rule: V3Rule,
+      correlationId: string,
+      stage: V3FetchOutcomeStage,
+      outcome: V3FetchOutcomeStatus,
+      reason: V3FetchOutcomeReason
+    ) => {
+      if (fetchOutcomeDiagnosticsArmed) {
+        notifyV3FetchOutcome(host, rule, correlationId, stage, outcome, reason)
+      }
     },
     onFunctionError: (
       rule: V3Rule,
@@ -111,6 +155,12 @@ export function createV3RuntimeController(
     },
     setDiagnosticsArmed(armed) {
       diagnosticsArmed = armed
+    },
+    get fetchOutcomeDiagnosticsArmed() {
+      return fetchOutcomeDiagnosticsArmed
+    },
+    setFetchOutcomeDiagnosticsArmed(armed) {
+      fetchOutcomeDiagnosticsArmed = armed
     },
     update(target) {
       if (target === null) {

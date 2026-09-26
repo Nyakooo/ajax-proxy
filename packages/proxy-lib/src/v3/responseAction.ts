@@ -1,5 +1,6 @@
 import { validateV3ResponseFunctionResult } from '@proxy/v3-domain'
 import type { V3FunctionErrorCode } from '@proxy/protocol'
+import type { V3FetchOutcomeReason, V3FetchOutcomeStatus } from '@proxy/protocol'
 import type { V3Rule } from '@proxy/v3-domain'
 import type {
   V3FunctionRequestSnapshot,
@@ -161,20 +162,36 @@ export async function replaceFetchResponse(
   rule: V3Rule,
   executeResponseFunction?: V3ResponseFunctionExecutor,
   requestSnapshot = request,
-  onFunctionError?: (code: V3FunctionErrorCode) => void
+  onFunctionError?: (code: V3FunctionErrorCode) => void,
+  onOutcome?: (outcome: V3FetchOutcomeStatus, reason: V3FetchOutcomeReason) => void
 ) {
+  const reportOutcome = (outcome: V3FetchOutcomeStatus, reason: V3FetchOutcomeReason) => {
+    try {
+      onOutcome?.(outcome, reason)
+    } catch {
+      // Outcome reporting must not alter the response path.
+    }
+  }
   const replace = rule.response?.replace
   if (!rule.response?.enabled || !replace) return response
   if (typeof replace.code === 'string' && replace.code.trim() !== '') {
     if (!executeResponseFunction) {
       reportFunctionError(onFunctionError, 'sandbox-unavailable')
+      reportOutcome('unsupported', 'response-replacement-unsupported')
       return response
     }
     let snapshots: Awaited<ReturnType<typeof createFunctionSnapshots>>
     try {
       snapshots = await createFunctionSnapshots(request, requestSnapshot, response)
     } catch (error) {
-      reportFunctionError(onFunctionError, snapshotFailureCode(error))
+      const code = snapshotFailureCode(error)
+      reportFunctionError(onFunctionError, code)
+      reportOutcome(
+        code === 'snapshot-unsupported' ? 'unsupported' : 'fallback',
+        code === 'snapshot-unsupported'
+          ? 'response-replacement-unsupported'
+          : 'response-replacement-failed'
+      )
       return response
     }
     let rawResult: unknown
@@ -182,25 +199,33 @@ export async function replaceFetchResponse(
       rawResult = await executeResponseFunction(replace.code, snapshots.request, snapshots.response)
     } catch (error) {
       reportFunctionError(onFunctionError, executionFailureCode(error))
+      reportOutcome('fallback', 'response-replacement-failed')
       return response
     }
     const validation = validateV3ResponseFunctionResult(rawResult)
     if (!validation.ok) {
       reportFunctionError(onFunctionError, 'invalid-result')
+      reportOutcome('fallback', 'response-replacement-failed')
       return response
     }
     try {
-      return applyResponseChanges(response, request, validation.data)
+      const updated = applyResponseChanges(response, request, validation.data)
+      reportOutcome('applied', 'response-replacement-applied')
+      return updated
     } catch {
       reportFunctionError(onFunctionError, 'response-construction-failed')
+      reportOutcome('fallback', 'response-replacement-failed')
       // Function failures fail open and preserve the native response.
       return response
     }
   }
 
   try {
-    return applyResponseChanges(response, request, replace)
+    const updated = applyResponseChanges(response, request, replace)
+    reportOutcome('applied', 'response-replacement-applied')
+    return updated
   } catch {
+    reportOutcome('fallback', 'response-replacement-failed')
     return response
   }
 }
