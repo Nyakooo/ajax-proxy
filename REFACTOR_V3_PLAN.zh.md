@@ -194,6 +194,7 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - [x] 减少动态效果、动画频率和页面边缘命中提示的评估已完成；该视觉反馈不纳入 V3。
 - [ ] 优化备份恢复、标签、搜索、筛选、排序和批量操作流程。
 - [ ] 国际化范围限定为简体中文与英文；清理繁体中文、日语、法语、韩语、俄语、爱尔兰语等非目标语言资源，以及 UI / JSON 编辑器相关的多余 locale 映射。
+- [x] 为简体中文与英文文案目录增加一致性回归，检查语言范围、键路径、插值参数和空文案；Fetch / XHR 诊断中的“关联 ID”标签也由当前语言文案提供。
 - [x] 将语言切换从下拉框改为始终可见的双选分段控件，明确显示“简体中文”和“English”；当前语言有清晰选中态，点击后立即切换并持久化，不需要额外确认。Vue 3 候选面板已通过 `vue-i18n` Composition API 实现，偏好保存在隔离的原型 localStorage 键中。
 - [ ] 统一应用文案、组件库、日期 / 数字格式和 JSON 编辑器语言为当前选择；检查中英文键值完整、术语一致、布局无截断，首次启动语言默认策略明确。
 - [ ] 检查键盘操作、焦点顺序、可读性和不同窗口尺寸下的布局。
@@ -804,4 +805,5 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - 2026-09-27：加固 V3 响应规则编辑器的 Tab / Shift+Tab 焦点循环：纳入 JSON 树的原生 `<summary>` disclosure，并排除隐藏、inert 与折叠 details 中不可达的后代控件。组件回归验证从树节点 summary 正向回绕到首项、反向回到 summary；响应规则编辑器定向组件测试 5 项、workspace typecheck、V3 面板生产构建、改动文件 ESLint / Prettier 通过，树编辑器仍独立为按需 chunk。整体完成 337 / 372 项（90.6%）。
 - 2026-09-27：补齐 V3 RuleTagsDialog 键盘与命名回归：打开弹窗后聚焦新建输入框，Tab / Shift+Tab 两端回绕，Escape 触发关闭，ARIA modal 与标题关联有组件断言。全量 Vue 3 UI 组件测试 8 文件 / 49 项通过，改动文件 ESLint / Prettier 和 diff 检查通过；上一代码提交 CI run [36279787533](https://github.com/Nyakooo/ajax-proxy/actions/runs/36279787533) 全部通过。整体完成 338 / 373 项（90.6%）。
 - 2026-09-27：统一临时 no-match 与 Fetch / 异步 XHR outcome 诊断的中英文文案：规则原因、请求 / 响应阶段、结果和固定失败原因均映射到用户可读标签；扩展 smoke 断言真实 Fetch / XHR 两阶段结果、关联 ID 与隐私过滤。更新规则模型文档，明确 action outcome 捕获范围及同步 XHR / 原生 XHR error、timeout、abort 的排除边界。Vue 3 UI 8 文件 / 50 项、V3 面板生产构建、`pnpm pkg`、`pnpm extension:smoke`、改动文件 ESLint / Prettier 与 diff 检查全部通过。整体完成 340 / 374 项（90.9%）。
+- 2026-09-27：补齐中英文 message tree 守卫，自动检查仅保留 zh-CN / en、键路径一致、插值参数一致且无空文案；将 Fetch / XHR 诊断中的“关联 ID”改为 catalog 文案，并在 App 组件回归中验证切换语言。全量 Vitest 36 个文件 / 367 项、Vue 3 UI 8 个文件 / 50 项、V3 面板生产构建、改动文件 ESLint / Prettier 通过。完成 341 / 375 项（90.9%）。
 - GitHub 里程碑：[阶段 0](https://github.com/Nyakooo/ajax-proxy/milestone/1)、[阶段 1](https://github.com/Nyakooo/ajax-proxy/milestone/2)、[阶段 2](https://github.com/Nyakooo/ajax-proxy/milestone/3)、[阶段 3](https://github.com/Nyakooo/ajax-proxy/milestone/4)、[阶段 4](https://github.com/Nyakooo/ajax-proxy/milestone/5)、[阶段 5](https://github.com/Nyakooo/ajax-proxy/milestone/6)、[阶段 6](https://github.com/Nyakooo/ajax-proxy/milestone/7)、[阶段 7](https://github.com/Nyakooo/ajax-proxy/milestone/8)；已复现缺陷：[issue #56](https://github.com/Nyakooo/ajax-proxy/issues/56)。

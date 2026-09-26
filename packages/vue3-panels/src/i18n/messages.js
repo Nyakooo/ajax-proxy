@@ -234,6 +234,7 @@ export const messages = {
         capture: '捕获 Fetch / XHR 动作结果',
         waiting: '正在捕获动作结果 · 点击关闭',
         empty: '尚无临时结果。',
+        correlationId: '关联 ID',
       },
     },
     action: {
@@ -632,6 +633,7 @@ export const messages = {
         capture: 'Capture Fetch / XHR action outcomes',
         waiting: 'Capturing action outcomes · Click to stop',
         empty: 'No temporary outcomes yet.',
+        correlationId: 'Correlation ID',
       },
     },
     action: {

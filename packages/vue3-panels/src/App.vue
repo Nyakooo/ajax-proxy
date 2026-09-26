@@ -1474,7 +1474,7 @@ async function moveRule(rule, targetRule) {
                     {{ t(`diagnostics.outcomes.reason.${event.reason}`) }}
                   </small>
                   <small>
-                    {{ locale === 'zh-CN' ? '关联 ID' : 'Correlation ID' }}:
+                    {{ t('diagnostics.actionOutcomes.correlationId') }}:
                     <code>{{ event.correlation_id.slice(-16) }}</code>
                   </small>
                 </div>
