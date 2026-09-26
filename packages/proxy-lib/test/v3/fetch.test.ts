@@ -510,4 +510,34 @@ describe('createV3Fetch', () => {
     expect(executeResponseFunction).not.toHaveBeenCalled()
     expect(onFunctionError.mock.calls[0][2]).toBe('snapshot-too-large')
   })
+
+  it('fails open when response snapshot headers exceed the combined byte limit', async () => {
+    const response = new Response('native', {
+      headers: {
+        'content-type': 'text/plain',
+        'x-first': 'a'.repeat(8192),
+        'x-second': 'b'.repeat(8192),
+        'x-third': 'c'.repeat(8192),
+        'x-fourth': 'd'.repeat(8192),
+        'x-fifth': 'e'.repeat(8192),
+      },
+    })
+    const executeResponseFunction = vi.fn()
+    const onFunctionError = vi.fn()
+    const selectedRule = rule('large-snapshot-headers', {
+      response: { enabled: true, replace: { code: 'return { body: "changed" }' } },
+    })
+    const fetch = createV3Fetch(async () => response, {
+      getRules: () => [selectedRule],
+      executeResponseFunction,
+      onFunctionError,
+    })
+
+    const result = await fetch('https://example.test/api', { method: 'POST' })
+
+    expect(result).toBe(response)
+    expect(await result.text()).toBe('native')
+    expect(executeResponseFunction).not.toHaveBeenCalled()
+    expect(onFunctionError.mock.calls[0][2]).toBe('snapshot-too-large')
+  })
 })
