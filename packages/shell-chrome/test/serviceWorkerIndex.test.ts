@@ -29,11 +29,13 @@ afterEach(() => {
 })
 
 describe('service worker message entry', () => {
-  it('isolates a rejected V3 function error notification and handles the next message', async () => {
+  it('isolates a rejected function notification and routes XHR outcomes', async () => {
     const storageReady = deferred<void>()
     const runtimeListeners: MessageListener[] = []
     const noticePanelsByServiceWorker = vi.fn()
     const notifyV3FunctionError = vi.fn().mockRejectedValue(new Error('notification failed'))
+    const notifyV3FetchOutcome = vi.fn().mockResolvedValue(undefined)
+    const notifyV3XHROutcome = vi.fn().mockResolvedValue(undefined)
     const chromeMock = {
       runtime: {
         id: 'test-extension',
@@ -64,8 +66,8 @@ describe('service worker message entry', () => {
     vi.doMock('../src/service-worker/v3Hit', () => ({ chromeBadgeV3: vi.fn() }))
     vi.doMock('../src/service-worker/v3FunctionError', () => ({ notifyV3FunctionError }))
     vi.doMock('../src/service-worker/v3NoMatch', () => ({ notifyV3NoMatch: vi.fn() }))
-    vi.doMock('../src/service-worker/v3FetchOutcome', () => ({ notifyV3FetchOutcome: vi.fn() }))
-    vi.doMock('../src/service-worker/v3XHROutcome', () => ({ notifyV3XHROutcome: vi.fn() }))
+    vi.doMock('../src/service-worker/v3FetchOutcome', () => ({ notifyV3FetchOutcome }))
+    vi.doMock('../src/service-worker/v3XHROutcome', () => ({ notifyV3XHROutcome }))
     vi.doMock('../src/service-worker/v3Panel', () => ({
       createV3PanelStartupMessageHandler: vi.fn(() => vi.fn(() => false)),
     }))
@@ -110,6 +112,26 @@ describe('service worker message entry', () => {
       NoticeKey.GET_CURRENT_TITLE,
       'After rejection'
     )
+
+    const xhrOutcome = {
+      kind: 'v3-xhr-outcome',
+      correlation_id: 'xhr-1',
+      rule_id: 'rule-a',
+      stage: 'request',
+      outcome: 'applied',
+      reason: 'redirect-applied',
+    }
+    listener(
+      {
+        from: NoticeFrom.CONTENT,
+        to: NoticeTo.SERVICE_WORKER,
+        key: NoticeKey.V3_FETCH_OUTCOME,
+        value: xhrOutcome,
+      },
+      contentSender
+    )
+    await vi.waitFor(() => expect(notifyV3XHROutcome).toHaveBeenCalledExactlyOnceWith(xhrOutcome))
+    expect(notifyV3FetchOutcome).not.toHaveBeenCalled()
     await Promise.resolve()
   })
 })
