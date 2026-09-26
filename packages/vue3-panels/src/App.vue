@@ -578,6 +578,77 @@ async function setSelectedRulesEnabled(value) {
   if (await persistConfig({ ...config.value, rules: nextRules })) selectedRuleIds.value = []
 }
 
+function exportSelectedRules() {
+  const selected = new Set(selectedRuleIds.value)
+  const rules = config.value.rules.filter((rule) => selected.has(rule.id))
+  if (!rules.length) return
+  const tagIds = new Set(rules.flatMap((rule) => rule.tagIds ?? []))
+  const backup = {
+    ...config.value,
+    tags: config.value.tags.filter((tag) => tagIds.has(tag.id)),
+    rules,
+  }
+  const url = URL.createObjectURL(
+    new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' })
+  )
+  const anchor = document.createElement('a')
+  anchor.href = url
+  anchor.download = `ajax-proxy-v3-rules-${new Date().toISOString().slice(0, 10)}.json`
+  anchor.click()
+  URL.revokeObjectURL(url)
+}
+
+async function importRules(backup) {
+  const existingRuleIds = new Set(config.value.rules.map((rule) => rule.id))
+  const incomingRules = backup.rules.filter((rule) => !existingRuleIds.has(rule.id))
+  const referencedTagIds = new Set(incomingRules.flatMap((rule) => rule.tagIds ?? []))
+  const mergedTags = [...config.value.tags]
+  const tagIdsByName = new Map(
+    mergedTags.map((tag) => [tag.name.trim().toLocaleLowerCase(), tag.id])
+  )
+  const importedTagIds = new Map()
+
+  for (const tag of backup.tags.filter((candidate) => referencedTagIds.has(candidate.id))) {
+    const existingById = mergedTags.find((current) => current.id === tag.id)
+    if (existingById) {
+      if (existingById.name !== tag.name) {
+        operationError.value = t('backup.tagIdConflict', { name: tag.name, id: tag.id })
+        return
+      }
+      importedTagIds.set(tag.id, existingById.id)
+      continue
+    }
+    const normalizedName = tag.name.trim().toLocaleLowerCase()
+    const existingByName = tagIdsByName.get(normalizedName)
+    if (existingByName) {
+      importedTagIds.set(tag.id, existingByName)
+      continue
+    }
+    mergedTags.push(tag)
+    tagIdsByName.set(normalizedName, tag.id)
+    importedTagIds.set(tag.id, tag.id)
+  }
+
+  const rulesToAppend = incomingRules.map((rule) => ({
+    ...rule,
+    ...(rule.tagIds
+      ? { tagIds: [...new Set(rule.tagIds.map((id) => importedTagIds.get(id) ?? id))] }
+      : {}),
+  }))
+  const nextConfig = {
+    ...config.value,
+    tags: mergedTags,
+    rules: [...config.value.rules, ...rulesToAppend],
+  }
+  const { formatV3ValidationIssues, validateV3Backup } = await import('@proxy/v3-domain')
+  const validation = validateV3Backup(nextConfig)
+  if (!validation.ok) {
+    operationError.value = formatV3ValidationIssues(validation.issues)[0] ?? t('editor.saveFailed')
+    return
+  }
+  if (await persistConfig(validation.data)) backupDialogOpen.value = false
+}
+
 async function duplicateRule(rule) {
   const current = config.value
   const sourceIndex = current.rules.findIndex((item) => item.id === rule.id)
@@ -828,6 +899,13 @@ async function moveRule(rule, targetRule) {
           >
             <span>{{ t('rules.selectedCount', { count: selectedRuleIds.length }) }}</span>
             <AppButton
+              :label="t('backup.exportSelectedRules')"
+              severity="secondary"
+              outlined
+              :disabled="saving || loading"
+              @click="exportSelectedRules"
+            />
+            <AppButton
               :label="t('rules.enableSelected')"
               severity="secondary"
               outlined
@@ -1073,6 +1151,7 @@ async function moveRule(rule, targetRule) {
       :issue="operationError"
       @close="backupDialogOpen = false"
       @restore="restoreBackup"
+      @import-rules="importRules"
     />
     <RuleTagsDialog
       :open="ruleTagsDialogOpen"

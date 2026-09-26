@@ -108,19 +108,26 @@ export const messages = {
     },
     backup: {
       title: '备份 / 恢复 V3 配置',
-      description: '导出的文件只包含规则与设置，不包含命中统计。恢复前会先验证文件格式。',
+      description: '导出的文件包含规则、引用标签和设置，不包含命中统计。恢复前会先验证文件格式。',
       export: '导出 JSON 备份',
+      exportSelectedRules: '导出所选规则',
       chooseFile: '选择 JSON 文件',
       jsonLabel: '或粘贴备份 JSON',
       jsonPlaceholder: '粘贴 ajax-proxy-backup v3 JSON',
       preview: '验证备份',
       restore: '确认恢复',
       valid: '备份有效，包含 {count} 条规则。确认后才会替换当前配置。',
+      ruleImportSummary:
+        '追加导入将新增 {add} 条规则，按 ID 跳过 {skip} 条；保留当前设置和规则，并将新增规则放在列表末尾。',
+      importRules: '追加 {count} 条规则',
+      tagIdConflict: '标签“{name}”与现有标签使用相同 ID（{id}）但名称不同，不能追加导入。',
       noFunctions: '未发现函数代码。预览不会更改当前配置。',
       functionWarningTitle: '发现 {count} 条函数响应规则',
       functionWarning:
         '导入的函数代码不可信。恢复后这些响应行为会保持停用，不会自动执行；请检查代码后逐条启用。',
       confirmFunctions: '确认恢复吗？其中 {count} 条函数响应规则将保持停用。导入代码不会自动执行。',
+      confirmImportFunctions:
+        '确认追加规则吗？其中 {count} 条函数响应规则将保持停用。导入代码不会自动执行。',
     },
     action: { responseJson: '响应 JSON', redirect: '重定向', responseFunction: '响应函数' },
     functionFailure: {
@@ -319,13 +326,19 @@ export const messages = {
     backup: {
       title: 'Back up / restore V3 configuration',
       description:
-        'The exported file contains rules and settings, not hit counts. The file is validated before restore.',
+        'The exported file contains rules, referenced tags, and settings, not hit counts. The file is validated before restore.',
       export: 'Export JSON backup',
+      exportSelectedRules: 'Export selected rules',
       chooseFile: 'Choose a JSON file',
       jsonLabel: 'Or paste backup JSON',
       jsonPlaceholder: 'Paste ajax-proxy-backup v3 JSON',
       preview: 'Validate backup',
       restore: 'Confirm restore',
+      ruleImportSummary:
+        'Append {add} rules and skip {skip} ID conflicts. Current settings and rules stay in place; new rules go at the end of the list.',
+      importRules: 'Append {count} rules',
+      tagIdConflict:
+        'Tag “{name}” uses the same ID ({id}) as an existing tag but has a different name. Rules cannot be appended.',
       valid:
         'Backup is valid and contains {count} rules. The current configuration changes only after confirmation.',
       noFunctions: 'No function code found. Preview does not change the current configuration.',
@@ -334,6 +347,8 @@ export const messages = {
         'Imported function code is untrusted. These response actions stay disabled after restore and never run automatically; review the code before enabling each rule.',
       confirmFunctions:
         'Restore this backup? Its {count} function response rules will remain disabled. Imported code will not run automatically.',
+      confirmImportFunctions:
+        'Append these rules? Their {count} function response actions will remain disabled. Imported code will not run automatically.',
     },
     action: {
       responseJson: 'JSON response',

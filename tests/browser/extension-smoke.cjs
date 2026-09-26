@@ -999,6 +999,86 @@ async function main() {
     }
     await v3Panel.getByRole('group', { name: 'Bulk rule actions' }).waitFor({ state: 'detached' })
 
+    await sourceRuleCheckbox.check()
+    const [selectedRulesDownload] = await Promise.all([
+      v3Panel.waitForEvent('download'),
+      v3Panel.getByRole('button', { name: 'Export selected rules', exact: true }).click(),
+    ])
+    const selectedRulesBackup = JSON.parse(
+      fs.readFileSync(await selectedRulesDownload.path(), 'utf8')
+    )
+    assert.deepEqual(
+      selectedRulesBackup.rules.map((rule) => rule.id),
+      [taggedRule.id]
+    )
+    assert.deepEqual(
+      selectedRulesBackup.tags.map((tag) => tag.id),
+      taggedRule.tagIds
+    )
+    assert.deepEqual(selectedRulesBackup.settings, configAfterBulkDisable.settings)
+    assert.equal('hitCounters' in selectedRulesBackup, false)
+
+    await v3Panel.getByRole('button', { name: 'Backup / Restore' }).click()
+    const ruleImportDialog = v3Panel.getByRole('dialog')
+    const ruleImportInput = ruleImportDialog.getByTestId('backup-json-input')
+    const importableRuleBackup = structuredClone(selectedRulesBackup)
+    importableRuleBackup.rules[0].id = 'imported-rule-smoke'
+    await ruleImportInput.fill(JSON.stringify(importableRuleBackup))
+    await ruleImportDialog.getByRole('button', { name: 'Validate backup' }).click()
+    await ruleImportDialog.getByText(/Append 1 rules and skip 0 ID conflicts/).waitFor()
+    await ruleImportDialog.getByRole('button', { name: 'Append 1 rules', exact: true }).click()
+    await ruleImportDialog.waitFor({ state: 'hidden' })
+    let configAfterRuleImport
+    for (let attempt = 0; attempt < 40; attempt += 1) {
+      configAfterRuleImport = await restartedWorker.evaluate(
+        async (key) => (await chrome.storage.local.get(key))[key],
+        'ajax-proxy:storage:v3-config'
+      )
+      if (configAfterRuleImport.rules.some((rule) => rule.id === 'imported-rule-smoke')) break
+      await new Promise((resolve) => setTimeout(resolve, 50))
+    }
+    const importedRule = configAfterRuleImport.rules.at(-1)
+    assert.equal(importedRule.id, 'imported-rule-smoke')
+    assert.deepEqual(importedRule.tagIds, taggedRule.tagIds)
+    assert.deepEqual(configAfterRuleImport.settings, configAfterBulkDisable.settings)
+    assert.deepEqual(
+      configAfterRuleImport.rules.slice(0, -1),
+      configAfterBulkDisable.rules,
+      'rule import keeps all existing rules and their order'
+    )
+
+    await v3Panel.getByRole('button', { name: 'Backup / Restore' }).click()
+    const duplicateImportDialog = v3Panel.getByRole('dialog')
+    const duplicateImportBackup = structuredClone(importableRuleBackup)
+    await duplicateImportDialog
+      .getByTestId('backup-json-input')
+      .fill(JSON.stringify(duplicateImportBackup))
+    await duplicateImportDialog.getByRole('button', { name: 'Validate backup' }).click()
+    await duplicateImportDialog.getByText(/Append 0 rules and skip 1 ID conflicts/).waitFor()
+    assert.equal(
+      await duplicateImportDialog.getByTestId('backup-import-rules-button').isDisabled(),
+      true,
+      'a repeated rule ID cannot overwrite an existing rule'
+    )
+    await duplicateImportDialog.getByRole('button', { name: 'Cancel', exact: true }).click()
+
+    await v3Panel.getByRole('button', { name: 'Backup / Restore' }).click()
+    const conflictingTagDialog = v3Panel.getByRole('dialog')
+    const conflictingTagBackup = structuredClone(importableRuleBackup)
+    conflictingTagBackup.rules[0].id = 'conflicting-tag-rule'
+    conflictingTagBackup.tags[0].name = 'Conflicting label'
+    await conflictingTagDialog
+      .getByTestId('backup-json-input')
+      .fill(JSON.stringify(conflictingTagBackup))
+    await conflictingTagDialog.getByRole('button', { name: 'Validate backup' }).click()
+    await conflictingTagDialog.getByRole('alert').waitFor()
+    assert.equal(
+      await conflictingTagDialog.getByTestId('backup-import-rules-button').isDisabled(),
+      true,
+      'a tag ID conflict blocks rule import'
+    )
+    await conflictingTagDialog.getByRole('button', { name: 'Cancel', exact: true }).click()
+
     await v3Panel.locator('.sidebar .nav-item').nth(1).click()
     await v3Panel.getByRole('button', { name: 'Create redirect rule' }).click()
     const taggedRedirectEditor = v3Panel.locator('.rule-editor[role="dialog"]')

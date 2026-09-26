@@ -15,6 +15,23 @@ const source = ref('')
 const candidate = ref(null)
 const parseIssue = ref('')
 const functionRuleCount = computed(() => candidate.value?.warnings.length ?? 0)
+const existingRuleIds = computed(() => new Set(props.backup.rules.map((rule) => rule.id)))
+const rulesToAdd = computed(
+  () => candidate.value?.data.rules.filter((rule) => !existingRuleIds.value.has(rule.id)) ?? []
+)
+const skippedRuleCount = computed(
+  () => (candidate.value?.data.rules.length ?? 0) - rulesToAdd.value.length
+)
+const referencedTagIds = computed(
+  () => new Set(rulesToAdd.value.flatMap((rule) => rule.tagIds ?? []))
+)
+const tagIdConflicts = computed(() =>
+  (candidate.value?.data.tags ?? []).filter(
+    (tag) =>
+      referencedTagIds.value.has(tag.id) &&
+      props.backup.tags.some((current) => current.id === tag.id && current.name !== tag.name)
+  )
+)
 
 watch(
   () => props.open,
@@ -69,6 +86,18 @@ function restore() {
     return
   }
   emit('restore', candidate.value.data)
+}
+
+function importRules() {
+  if (!candidate.value || !rulesToAdd.value.length || tagIdConflicts.value.length || props.saving)
+    return
+  if (
+    functionRuleCount.value > 0 &&
+    !window.confirm(t('backup.confirmImportFunctions', { count: functionRuleCount.value }))
+  ) {
+    return
+  }
+  emit('import-rules', candidate.value.data)
 }
 
 function trapFocus(event) {
@@ -146,6 +175,24 @@ function trapFocus(event) {
         <p v-if="candidate" class="backup-valid" role="status">
           {{ t('backup.valid', { count: candidate.data.rules.length }) }}
         </p>
+        <template v-if="candidate">
+          <p class="backup-safe" role="status">
+            {{
+              t('backup.ruleImportSummary', {
+                add: rulesToAdd.length,
+                skip: skippedRuleCount,
+              })
+            }}
+          </p>
+          <p v-if="tagIdConflicts.length" class="editor-error backup-message" role="alert">
+            {{
+              t('backup.tagIdConflict', {
+                name: tagIdConflicts[0].name,
+                id: tagIdConflicts[0].id,
+              })
+            }}
+          </p>
+        </template>
         <div v-if="candidate && functionRuleCount" class="backup-warning" role="alert">
           <strong>{{ t('backup.functionWarningTitle', { count: functionRuleCount }) }}</strong>
           <p>{{ t('backup.functionWarning') }}</p>
@@ -174,6 +221,15 @@ function trapFocus(event) {
             @click="restore"
           >
             {{ saving ? t('editor.saving') : t('backup.restore') }}
+          </button>
+          <button
+            type="button"
+            class="backup-primary"
+            data-testid="backup-import-rules-button"
+            :disabled="!candidate || !rulesToAdd.length || tagIdConflicts.length > 0 || saving"
+            @click="importRules"
+          >
+            {{ t('backup.importRules', { count: rulesToAdd.length }) }}
           </button>
         </footer>
       </div>
