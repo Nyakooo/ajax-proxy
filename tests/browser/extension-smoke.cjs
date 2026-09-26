@@ -150,6 +150,9 @@ async function main() {
         source: 'server',
         method: request.method,
         body: Buffer.concat(chunks).toString(),
+        ...(request.url === '/api/stream-fallback'
+          ? { originalHeader: request.headers['x-original'] }
+          : {}),
       })
       response.writeHead(200, {
         'content-type': 'application/json',
@@ -389,6 +392,24 @@ async function main() {
             },
           },
           {
+            id: 'v3-stream-redirect-extension-smoke',
+            enabled: true,
+            match: { url: '/api/stream', method: 'POST' },
+            request: {
+              enabled: true,
+              redirect: { url: `http://127.0.0.1:${port}/mock/echo` },
+            },
+          },
+          {
+            id: 'v3-stream-fallback-extension-smoke',
+            enabled: true,
+            match: { url: '/api/stream-fallback', method: 'POST' },
+            request: {
+              enabled: true,
+              redirect: { url: 'javascript:invalid-target' },
+            },
+          },
+          {
             id: 'v3-regex-extension-smoke',
             enabled: true,
             match: { url: '/api/(echo|items)$', type: 'regex', method: 'POST' },
@@ -498,6 +519,61 @@ async function main() {
       legacyHitState
     )
     assert.equal(await serviceWorker.evaluate(() => chrome.action.getBadgeText({})), '+2')
+
+    const streamedRedirectResult = await page.evaluate(async () => {
+      const body = new ReadableStream({
+        start(controller) {
+          controller.enqueue(new TextEncoder().encode('streamed '))
+          controller.enqueue(new TextEncoder().encode('request body'))
+          controller.close()
+        },
+      })
+      const response = await fetch('/api/stream', {
+        method: 'POST',
+        body,
+        duplex: 'half',
+        headers: { 'x-original': 'streamed-preserved' },
+      })
+      return { status: response.status, url: response.url, body: await response.json() }
+    })
+    assert.deepEqual(streamedRedirectResult, {
+      status: 200,
+      url: `http://127.0.0.1:${port}/mock/echo`,
+      body: {
+        source: 'server',
+        method: 'POST',
+        body: 'streamed request body',
+        path: '/mock/echo',
+        originalHeader: 'streamed-preserved',
+      },
+    })
+
+    const streamedFallbackResult = await page.evaluate(async () => {
+      const body = new ReadableStream({
+        start(controller) {
+          controller.enqueue(new TextEncoder().encode('fallback streamed '))
+          controller.enqueue(new TextEncoder().encode('body intact'))
+          controller.close()
+        },
+      })
+      const response = await fetch('/api/stream-fallback', {
+        method: 'POST',
+        body,
+        duplex: 'half',
+        headers: { 'x-original': 'fallback-preserved' },
+      })
+      return { status: response.status, url: response.url, body: await response.json() }
+    })
+    assert.deepEqual(streamedFallbackResult, {
+      status: 200,
+      url: `http://127.0.0.1:${port}/api/stream-fallback`,
+      body: {
+        source: 'server',
+        method: 'POST',
+        body: 'fallback streamed body intact',
+        originalHeader: 'fallback-preserved',
+      },
+    })
 
     const v3RegexFetchResult = await page.evaluate(async () => {
       const response = await fetch('/api/items', { method: 'POST', body: 'regex fetch' })

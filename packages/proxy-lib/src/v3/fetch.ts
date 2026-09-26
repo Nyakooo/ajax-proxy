@@ -33,22 +33,47 @@ function reportOutcome(
   }
 }
 
+function isRequestInput(input: RequestInfo | URL): input is Request {
+  return (
+    typeof input === 'object' &&
+    input !== null &&
+    'body' in input &&
+    typeof (input as Request).clone === 'function'
+  )
+}
+
+function isReadableStreamBody(body: BodyInit | null | undefined): boolean {
+  return (
+    typeof body === 'object' &&
+    body !== null &&
+    typeof (body as { getReader?: unknown }).getReader === 'function'
+  )
+}
+
+function needsRequestSnapshot(rule: V3Rule): boolean {
+  const replace = rule.response?.replace
+  return Boolean(
+    rule.response?.enabled && typeof replace?.code === 'string' && replace.code.trim() !== ''
+  )
+}
+
 async function redirectRequest(request: Request, targetUrl: string): Promise<Request> {
   const destination = new URL(targetUrl, request.url)
   if (destination.protocol !== 'http:' && destination.protocol !== 'https:') {
     throw new TypeError('V3 redirect targets must use HTTP or HTTPS.')
   }
-  const body = request.body ? await request.clone().arrayBuffer() : undefined
+  const body = request.body ? request.clone().body : undefined
   const headers = new Headers(request.headers)
   if (destination.origin !== new URL(request.url).origin) {
     for (const name of ['authorization', 'proxy-authorization', 'cookie', 'cookie2']) {
       headers.delete(name)
     }
   }
-  return new Request(destination, {
+  const redirectInit: RequestInit & { duplex?: 'half' } = {
     method: request.method,
     headers,
     body,
+    duplex: body ? 'half' : undefined,
     credentials: request.credentials,
     mode: request.mode,
     cache: request.cache,
@@ -58,7 +83,8 @@ async function redirectRequest(request: Request, targetUrl: string): Promise<Req
     integrity: request.integrity,
     keepalive: request.keepalive,
     signal: request.signal,
-  })
+  }
+  return new Request(destination, redirectInit)
 }
 
 /**
@@ -88,8 +114,9 @@ export function createV3Fetch(fetcher: V3Fetch, options: V3FetchOptions): V3Fetc
     }
 
     let requestForResponse = originalRequest
-    let requestSnapshot!: Request
+    let requestSnapshot: Request | undefined
     let networkResponse!: Response
+    const snapshotRequestBody = needsRequestSnapshot(selection.rule)
     const outcomeArmed =
       options.onFetchOutcome !== undefined && (options.isFetchOutcomeDiagnosticsArmed?.() ?? true)
     const correlationId = outcomeArmed ? createCorrelationId() : undefined
@@ -100,7 +127,7 @@ export function createV3Fetch(fetcher: V3Fetch, options: V3FetchOptions): V3Fetc
       } catch {
         // A construction/body replay failure can safely fall back before network dispatch.
         requestForResponse = originalRequest
-        requestSnapshot = originalRequest.clone()
+        if (snapshotRequestBody) requestSnapshot = originalRequest.clone()
         reportOutcome(
           options,
           selection.rule,
@@ -110,7 +137,10 @@ export function createV3Fetch(fetcher: V3Fetch, options: V3FetchOptions): V3Fetc
           'redirect-construction-failed'
         )
         try {
-          networkResponse = await fetcher(input, init)
+          const useNormalizedRequest = isRequestInput(input) || isReadableStreamBody(init?.body)
+          networkResponse = useNormalizedRequest
+            ? await fetcher(originalRequest)
+            : await fetcher(input, init)
         } catch (networkError) {
           reportOutcome(
             options,
@@ -124,7 +154,7 @@ export function createV3Fetch(fetcher: V3Fetch, options: V3FetchOptions): V3Fetc
         }
       }
       if (requestForResponse !== originalRequest) {
-        requestSnapshot = requestForResponse.clone()
+        if (snapshotRequestBody) requestSnapshot = requestForResponse.clone()
         try {
           networkResponse = await fetcher(requestForResponse)
         } catch (networkError) {
@@ -149,7 +179,7 @@ export function createV3Fetch(fetcher: V3Fetch, options: V3FetchOptions): V3Fetc
         )
       }
     } else {
-      requestSnapshot = originalRequest.clone()
+      if (snapshotRequestBody) requestSnapshot = originalRequest.clone()
       try {
         networkResponse = await fetcher(input, init)
       } catch (networkError) {
@@ -162,7 +192,7 @@ export function createV3Fetch(fetcher: V3Fetch, options: V3FetchOptions): V3Fetc
       requestForResponse,
       selection.rule,
       options.executeResponseFunction,
-      requestSnapshot,
+      requestSnapshot ?? requestForResponse,
       (code) => options.onFunctionError?.(selection.rule, selection.originalRequest, code),
       (outcome, reason) =>
         reportOutcome(options, selection.rule, correlationId, 'response', outcome, reason)

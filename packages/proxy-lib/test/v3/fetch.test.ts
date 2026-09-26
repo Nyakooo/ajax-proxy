@@ -205,6 +205,128 @@ describe('createV3Fetch', () => {
     expect(await redirected.text()).toBe('request body')
   })
 
+  it('redirects a streaming POST body with its effective headers', async () => {
+    const selectedRule = rule('stream-redirect', {
+      request: { enabled: true, redirect: { url: 'https://target.test/stream' } },
+    })
+    const fetcher = vi.fn(async (request: Request) => {
+      expect(request.url).toBe('https://target.test/stream')
+      expect(request.method).toBe('POST')
+      expect(request.headers.get('content-type')).toBe('text/plain')
+      expect(request.headers.get('x-stream')).toBe('kept')
+      await expect(request.text()).resolves.toBe('streamed payload')
+      return new Response('ok')
+    })
+    const fetch = createV3Fetch(fetcher, { getRules: () => [selectedRule] })
+    const request = new Request('https://example.test/api', {
+      method: 'POST',
+      body: new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.enqueue(new TextEncoder().encode('streamed payload'))
+          controller.close()
+        },
+      }),
+      duplex: 'half',
+      headers: { 'content-type': 'text/plain', 'x-stream': 'kept' },
+    })
+
+    await fetch(request)
+
+    expect(fetcher).toHaveBeenCalledOnce()
+    expect(fetcher.mock.calls[0][0]).toBeInstanceOf(Request)
+  })
+
+  it('fails open to the original streaming request if the redirected Request cannot be constructed', async () => {
+    const NativeRequest = globalThis.Request
+    const selectedRule = rule('stream-redirect-fallback', {
+      request: { enabled: true, redirect: { url: 'https://target.test/stream' } },
+    })
+    const fetcher = vi.fn(async (request: Request) => {
+      expect(request.url).toBe('https://example.test/api')
+      expect(request.method).toBe('POST')
+      expect(request.headers.get('x-stream')).toBe('original')
+      await expect(request.text()).resolves.toBe('fallback payload')
+      return new Response('ok')
+    })
+    const fetch = createV3Fetch(fetcher, { getRules: () => [selectedRule] })
+    const request = new NativeRequest('https://example.test/api', {
+      method: 'POST',
+      body: new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.enqueue(new TextEncoder().encode('fallback payload'))
+          controller.close()
+        },
+      }),
+      duplex: 'half',
+      headers: { 'x-stream': 'original' },
+    })
+    vi.stubGlobal(
+      'Request',
+      class extends NativeRequest {
+        constructor(input: RequestInfo | URL, init?: RequestInit) {
+          if (String(input).startsWith('https://target.test/')) {
+            throw new TypeError('Streaming request redirect unsupported')
+          }
+          super(input, init)
+        }
+      }
+    )
+
+    try {
+      await fetch(request)
+      expect(fetcher).toHaveBeenCalledOnce()
+      expect(fetcher.mock.calls[0][0]).toBeInstanceOf(NativeRequest)
+      expect(fetcher.mock.calls[0][0]).not.toBe(request)
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+
+  it('fails open to the normalized Request when RequestInit contains a streaming body', async () => {
+    const NativeRequest = globalThis.Request
+    const selectedRule = rule('init-stream-redirect-fallback', {
+      request: { enabled: true, redirect: { url: 'https://target.test/stream' } },
+    })
+    const fetcher = vi.fn(async (request: Request) => {
+      expect(request.url).toBe('https://example.test/api')
+      expect(request.method).toBe('POST')
+      expect(request.headers.get('x-stream')).toBe('init')
+      await expect(request.text()).resolves.toBe('init fallback payload')
+      return new Response('ok')
+    })
+    const fetch = createV3Fetch(fetcher, { getRules: () => [selectedRule] })
+    vi.stubGlobal(
+      'Request',
+      class extends NativeRequest {
+        constructor(input: RequestInfo | URL, init?: RequestInit) {
+          if (String(input).startsWith('https://target.test/')) {
+            throw new TypeError('Streaming request redirect unsupported')
+          }
+          super(input, init)
+        }
+      }
+    )
+
+    try {
+      await fetch('https://example.test/api', {
+        method: 'POST',
+        body: new ReadableStream<Uint8Array>({
+          start(controller) {
+            controller.enqueue(new TextEncoder().encode('init fallback payload'))
+            controller.close()
+          },
+        }),
+        duplex: 'half',
+        headers: { 'x-stream': 'init' },
+      })
+      expect(fetcher).toHaveBeenCalledOnce()
+      expect(fetcher.mock.calls[0][0]).toBeInstanceOf(NativeRequest)
+      expect(fetcher.mock.calls[0][1]).toBeUndefined()
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+
   it('uses init method and body overrides from a Request when matching and redirecting', async () => {
     const selectedRule = rule('init-override', {
       request: { enabled: true, redirect: { url: 'https://target.test/post' } },
@@ -286,6 +408,138 @@ describe('createV3Fetch', () => {
       fetch('https://example.test/api', { method: 'POST', body: 'data' })
     ).rejects.toThrow('network error')
     expect(fetcher).toHaveBeenCalledOnce()
+  })
+
+  it('preserves a network error after redirect construction falls back', async () => {
+    const selectedRule = rule('redirect-fallback-network-error', {
+      request: { enabled: true, redirect: { url: 'javascript:alert(1)' } },
+    })
+    const networkError = new TypeError('fallback network error')
+    const fetcher = vi.fn(async () => {
+      throw networkError
+    })
+    const onFetchOutcome = vi.fn()
+    const fetch = createV3Fetch(fetcher, {
+      getRules: () => [selectedRule],
+      isFetchOutcomeDiagnosticsArmed: () => true,
+      onFetchOutcome,
+    })
+
+    await expect(fetch('https://example.test/api', { method: 'POST' })).rejects.toBe(networkError)
+
+    expect(fetcher).toHaveBeenCalledOnce()
+    expect(onFetchOutcome.mock.calls.map((call) => call.slice(2))).toEqual([
+      ['request', 'fallback', 'redirect-construction-failed'],
+      ['request', 'failed', 'network-failed'],
+    ])
+  })
+
+  it('reports an undirected native network failure and preserves its error', async () => {
+    const selectedRule = rule('response-network-error', {
+      response: { enabled: true, replace: { body: 'replacement' } },
+    })
+    const networkError = new TypeError('native network error')
+    const fetcher = vi.fn(async () => {
+      throw networkError
+    })
+    const onFetchOutcome = vi.fn()
+    const fetch = createV3Fetch(fetcher, {
+      getRules: () => [selectedRule],
+      isFetchOutcomeDiagnosticsArmed: () => true,
+      onFetchOutcome,
+    })
+
+    await expect(fetch('https://example.test/api', { method: 'POST' })).rejects.toBe(networkError)
+
+    expect(fetcher).toHaveBeenCalledOnce()
+    expect(onFetchOutcome.mock.calls.map((call) => call.slice(2))).toEqual([
+      ['request', 'failed', 'network-failed'],
+    ])
+  })
+
+  it('snapshots a redirected request for response functions and defaults outcome diagnostics to armed', async () => {
+    const selectedRule = rule('redirect-function-snapshot', {
+      request: { enabled: true, redirect: { url: 'https://target.test/function' } },
+      response: { enabled: true, replace: { code: 'return { body: request }' } },
+    })
+    const fetcher = vi.fn(async (request: Request) => {
+      expect(request.url).toBe('https://target.test/function')
+      return new Response('native', { headers: { 'content-type': 'text/plain' } })
+    })
+    const executeResponseFunction = vi.fn(async (_code, request) => ({ body: request }))
+    const onFetchOutcome = vi.fn()
+    const fetch = createV3Fetch(fetcher, {
+      getRules: () => [selectedRule],
+      executeResponseFunction,
+      onFetchOutcome,
+    })
+
+    const result = await fetch('https://example.test/api', {
+      method: 'POST',
+      body: 'redirected snapshot body',
+    })
+
+    expect(executeResponseFunction).toHaveBeenCalledExactlyOnceWith(
+      'return { body: request }',
+      {
+        url: 'https://target.test/function',
+        method: 'POST',
+        body: 'redirected snapshot body',
+      },
+      expect.objectContaining({ body: 'native' })
+    )
+    expect(onFetchOutcome.mock.calls.map((call) => call.slice(2))).toEqual([
+      ['request', 'applied', 'redirect-applied'],
+      ['response', 'applied', 'response-replacement-applied'],
+    ])
+    await expect(result.json()).resolves.toEqual({
+      url: 'https://target.test/function',
+      method: 'POST',
+      body: 'redirected snapshot body',
+    })
+  })
+
+  it('snapshots the original request when redirect construction fails before a response function', async () => {
+    const selectedRule = rule('fallback-function-snapshot', {
+      request: { enabled: true, redirect: { url: 'javascript:invalid-target' } },
+      response: { enabled: true, replace: { code: 'return { body: request }' } },
+    })
+    const fetcher = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      expect(String(input)).toBe('https://example.test/api')
+      expect(init?.body).toBe('fallback snapshot body')
+      return new Response('native', { headers: { 'content-type': 'text/plain' } })
+    })
+    const executeResponseFunction = vi.fn(async (_code, request) => ({ body: request }))
+    const onFetchOutcome = vi.fn()
+    const fetch = createV3Fetch(fetcher, {
+      getRules: () => [selectedRule],
+      executeResponseFunction,
+      onFetchOutcome,
+    })
+
+    const result = await fetch('https://example.test/api', {
+      method: 'POST',
+      body: 'fallback snapshot body',
+    })
+
+    expect(executeResponseFunction).toHaveBeenCalledExactlyOnceWith(
+      'return { body: request }',
+      {
+        url: 'https://example.test/api',
+        method: 'POST',
+        body: 'fallback snapshot body',
+      },
+      expect.objectContaining({ body: 'native' })
+    )
+    expect(onFetchOutcome.mock.calls.map((call) => call.slice(2))).toEqual([
+      ['request', 'fallback', 'redirect-construction-failed'],
+      ['response', 'applied', 'response-replacement-applied'],
+    ])
+    await expect(result.json()).resolves.toEqual({
+      url: 'https://example.test/api',
+      method: 'POST',
+      body: 'fallback snapshot body',
+    })
   })
 
   it('fails open when a runtime response replacement cannot construct a Response', async () => {
