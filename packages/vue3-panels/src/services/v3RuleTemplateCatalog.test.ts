@@ -38,7 +38,6 @@ describe('V3 rule template catalog', () => {
     const response = V3_RULE_TEMPLATE_CATALOG[0].rule
     expect(response.response?.replace).toEqual({
       status: 200,
-      headers: { 'content-type': 'application/json; charset=utf-8' },
       body: { placeholder: true, message: 'Replace this example payload.' },
     })
     const serialized = JSON.stringify(V3_RULE_TEMPLATE_CATALOG)

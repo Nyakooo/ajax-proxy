@@ -113,6 +113,26 @@ export const messages = {
       tagLimit: '最多可以创建 500 个标签。',
       confirmRemove: '删除“{name}”并从 {count} 条规则中移除该标签？',
     },
+    ruleTemplates: {
+      open: '规则模板',
+      title: '选择规则模板',
+      close: '关闭规则模板',
+      intro:
+        '模板使用保留的 .invalid 示例域名，不会请求真实服务。添加后规则默认停用并追加到列表末尾；请先修改占位 URL 和响应内容，再手动启用。',
+      add: '添加为停用规则',
+      cancel: '取消',
+      disabledNotice: '添加后默认停用；编辑占位条件后再手动启用。',
+      redirectPreview: '静态重定向目标：{url}',
+      responsePreview: '静态响应替换（不含函数代码）',
+      'static-json-response': {
+        title: 'JSON API 静态响应',
+        description: '为 GET 接口返回占位 JSON，适合本地调试页面数据渲染。',
+      },
+      'static-http-redirect': {
+        title: 'HTTP 接口重定向',
+        description: '将 GET 请求转到另一个占位 HTTPS 地址，适合检查请求路由。',
+      },
+    },
     backup: {
       title: '备份 / 恢复 V3 配置',
       description: '导出的文件包含规则、引用标签和设置，不包含命中统计。恢复前会先验证文件格式。',
@@ -363,6 +383,27 @@ export const messages = {
       duplicateName: 'Tag names must be unique.',
       tagLimit: 'You can create up to 500 tags.',
       confirmRemove: 'Delete “{name}” and remove it from {count} rules?',
+    },
+    ruleTemplates: {
+      open: 'Rule templates',
+      title: 'Choose a rule template',
+      close: 'Close rule templates',
+      intro:
+        'Templates use reserved .invalid example hosts and never call a real service. Added rules are disabled and appended to the end. Edit the placeholder URL and response before enabling a rule.',
+      add: 'Add as disabled rule',
+      cancel: 'Cancel',
+      disabledNotice: 'Added disabled; edit the placeholder conditions before enabling.',
+      redirectPreview: 'Static redirect target: {url}',
+      responsePreview: 'Static response replacement (no function code)',
+      'static-json-response': {
+        title: 'Static JSON API response',
+        description: 'Return placeholder JSON for a GET API while checking local UI rendering.',
+      },
+      'static-http-redirect': {
+        title: 'HTTP endpoint redirect',
+        description:
+          'Redirect a GET request to another placeholder HTTPS address to inspect routing.',
+      },
     },
     backup: {
       title: 'Back up / restore V3 configuration',

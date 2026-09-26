@@ -1595,8 +1595,59 @@ async function main() {
       body: { source: 'server', method: 'POST', body: 'function request' },
     })
 
+    const templateConfigBefore = await restartedWorker.evaluate(
+      async (key) => (await chrome.storage.local.get(key))[key],
+      'ajax-proxy:storage:v3-config'
+    )
+    await v3Panel.getByRole('button', { name: 'Rule templates' }).click()
+    const templatesDialog = v3Panel.locator('.rule-templates-dialog')
+    await templatesDialog.waitFor()
+    assert.ok(await templatesDialog.getByText('api.example.invalid', { exact: false }).count())
+    assert.ok(
+      await templatesDialog.getByText(/Added disabled|Added as disabled/, { exact: false }).count()
+    )
+    await templatesDialog.getByRole('button', { name: 'Cancel' }).click()
+    assert.deepEqual(
+      await restartedWorker.evaluate(
+        async (key) => (await chrome.storage.local.get(key))[key],
+        'ajax-proxy:storage:v3-config'
+      ),
+      templateConfigBefore,
+      'closing the template picker must not change the active configuration'
+    )
+
+    await v3Panel.getByRole('button', { name: 'Rule templates' }).click()
+    await v3Panel.getByTestId('rule-template-apply-static-json-response').click()
+    const templateResponseEditor = v3Panel.locator('.response-rule-editor[role="dialog"]')
+    await templateResponseEditor.waitFor()
+    await v3Panel.keyboard.press('Escape')
+    await v3Panel.getByRole('button', { name: 'Rule templates' }).click()
+    await v3Panel.getByTestId('rule-template-apply-static-json-response').click()
+    await v3Panel.locator('.response-rule-editor[role="dialog"]').waitFor()
+    await v3Panel.keyboard.press('Escape')
+
+    await v3Panel.getByRole('button', { name: 'Rule templates' }).click()
+    await v3Panel.getByTestId('rule-template-apply-static-http-redirect').click()
+    await v3Panel.locator('.editor-backdrop .rule-editor[role="dialog"]').waitFor()
+    await v3Panel.keyboard.press('Escape')
+    const currentTemplateRules = await restartedWorker.evaluate(
+      async (key) => (await chrome.storage.local.get(key))[key].rules,
+      'ajax-proxy:storage:v3-config'
+    )
+    const addedTemplates = currentTemplateRules.filter((rule) =>
+      rule.match.url.includes('.example.invalid/placeholder')
+    )
+    assert.equal(addedTemplates.length, 3)
+    assert.equal(new Set(addedTemplates.map((rule) => rule.id)).size, 3)
+    assert.ok(addedTemplates.every((rule) => rule.enabled === false))
+    assert.ok(
+      addedTemplates.every((rule) =>
+        rule.response?.replace ? rule.response.replace.code === undefined : true
+      )
+    )
+
     console.log(
-      'Unpacked extension V2 and V3 panel persistence, JSON and function Fetch interception, XHR, iframe, redirect, and service worker restart smoke passed'
+      'Unpacked extension V2 and V3 panel persistence, safe rule templates, JSON and function Fetch interception, XHR, iframe, redirect, and service worker restart smoke passed'
     )
   } finally {
     await context?.close()

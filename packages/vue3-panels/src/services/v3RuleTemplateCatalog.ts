@@ -24,7 +24,6 @@ const catalog: readonly V3RuleTemplate[] = [
         enabled: true,
         replace: {
           status: 200,
-          headers: { 'content-type': 'application/json; charset=utf-8' },
           body: { placeholder: true, message: 'Replace this example payload.' },
         },
       },

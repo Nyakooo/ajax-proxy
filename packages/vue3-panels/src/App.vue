@@ -28,11 +28,15 @@ import RuleTagFilterPopover from './components/RuleTagFilterPopover.vue'
 import RuleTagsDialog from './components/RuleTagsDialog.vue'
 import { buildV3ResponseRule } from './services/v3ResponseDraft.js'
 import { validateFunctionResponseDraft } from './services/v3FunctionResponseDraft.js'
+import { cloneV3RuleTemplate } from './services/v3RuleTemplateCatalog.js'
 import lightMark from '../../shell-chrome/icons/128.png'
 import darkMark from '../../../docs/brand/ajax-proxy-mark-dark.png'
 
 const BackupRestoreDialog = defineAsyncComponent(
   () => import('./components/BackupRestoreDialog.vue')
+)
+const RuleTemplatesDialog = defineAsyncComponent(
+  () => import('./components/RuleTemplatesDialog.vue')
 )
 
 const darkMode = ref(false)
@@ -56,6 +60,7 @@ const responseEditorOpen = ref(false)
 const editingResponseRule = ref(null)
 const responseEditorIssue = ref('')
 const backupDialogOpen = ref(false)
+const ruleTemplatesDialogOpen = ref(false)
 const ruleFiltersOpen = ref(false)
 const ruleTagFilterOpen = ref(false)
 const ruleTagsDialogOpen = ref(false)
@@ -511,6 +516,25 @@ async function restoreBackup(backup) {
   recentFunctionErrors.value = []
   locale.value = backup.settings.language
   backupDialogOpen.value = false
+}
+
+async function addRuleTemplate(templateId) {
+  if (!ruleOperations || loading.value || saving.value) return
+  const template = cloneV3RuleTemplate(templateId)
+  if (!template) return
+  const rule = { ...template, id: createRuleId(config.value.rules), enabled: false }
+  const nextRules = ruleOperations.insertV3Rule(config.value.rules, rule, config.value.rules.length)
+  if (nextRules === config.value.rules) return
+  if (!(await persistConfig({ ...config.value, rules: [...nextRules] }))) return
+
+  ruleTemplatesDialogOpen.value = false
+  if (rule.request?.enabled) {
+    section.value = 'redirect'
+    showEditor(rule)
+  } else {
+    section.value = 'intercept'
+    showResponseEditor(rule)
+  }
 }
 
 function showEditor(rule = null) {
@@ -1094,6 +1118,13 @@ async function moveRule(rule, targetRule) {
             <div class="toolbar-spacer" />
             <span class="result-count">{{ loading ? t('editor.loading') : resultCount }}</span>
             <AppButton
+              :label="t('ruleTemplates.open')"
+              severity="secondary"
+              text
+              :disabled="loading || saving"
+              @click="ruleTemplatesDialogOpen = true"
+            />
+            <AppButton
               :label="t('rules.backup')"
               severity="secondary"
               text
@@ -1593,6 +1624,13 @@ async function moveRule(rule, targetRule) {
       @close="backupDialogOpen = false"
       @restore="restoreBackup"
       @import-rules="importRules"
+    />
+    <RuleTemplatesDialog
+      :open="ruleTemplatesDialogOpen"
+      :saving="saving"
+      :issue="operationError"
+      @close="ruleTemplatesDialogOpen = false"
+      @apply="addRuleTemplate"
     />
     <RuleTagsDialog
       :open="ruleTagsDialogOpen"
