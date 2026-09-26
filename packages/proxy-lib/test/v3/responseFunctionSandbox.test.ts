@@ -83,6 +83,45 @@ describe('createV3ResponseFunctionExecutor', () => {
     await expect(result).resolves.toEqual({ body: 'mock' })
   })
 
+  it('uses a fallback execution id when crypto.randomUUID throws', async () => {
+    vi.stubGlobal('HTMLIFrameElement', FakeIFrameElement)
+    const frame = new FakeIFrameElement()
+    let onMessage: ((event: MessageEvent) => void) | undefined
+    const randomUUID = vi.fn(() => {
+      throw new Error('randomUUID unavailable')
+    })
+    const host = {
+      document: { getElementById: vi.fn(() => frame) },
+      addEventListener: vi.fn((_type: string, listener: EventListenerOrEventListenerObject) => {
+        if (typeof listener === 'function') onMessage = listener as (event: MessageEvent) => void
+      }),
+      crypto: { randomUUID },
+    } as unknown as Window
+    const execute = createV3ResponseFunctionExecutor(host)
+    const result = execute(
+      'return response.body',
+      { url: '/api', method: 'GET' },
+      { status: 200, statusText: 'OK', headers: {}, body: 'native' }
+    )
+    const sendMessage = (data: unknown) =>
+      onMessage?.({ origin: 'null', source: frame.contentWindow, data } as MessageEvent)
+
+    sendMessage({ channel: 'ajax-proxy-v3-function-sandbox', type: 'ready' })
+    await vi.waitFor(() => expect(frame.contentWindow.postMessage).toHaveBeenCalledOnce())
+    const [runMessage] = vi.mocked(frame.contentWindow.postMessage).mock.calls[0] ?? []
+    expect(randomUUID).toHaveBeenCalledOnce()
+    expect(runMessage.id).toMatch(/^v3-[a-z0-9]+-[a-z0-9]+$/)
+
+    sendMessage({
+      channel: 'ajax-proxy-v3-function-sandbox',
+      type: 'result',
+      id: runMessage.id,
+      ok: true,
+      result: { body: 'fallback' },
+    })
+    await expect(result).resolves.toEqual({ body: 'fallback' })
+  })
+
   it('rejects with a validated sandbox error result', async () => {
     vi.stubGlobal('HTMLIFrameElement', FakeIFrameElement)
     const frame = new FakeIFrameElement()
