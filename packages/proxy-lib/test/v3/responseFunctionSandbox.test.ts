@@ -384,6 +384,69 @@ describe('createV3ResponseFunctionExecutor', () => {
     expect(frame.remove).toHaveBeenCalledOnce()
   })
 
+  it('rejects sibling executions and clears their timers when a timed-out sandbox is reset', async () => {
+    vi.useFakeTimers()
+    vi.stubGlobal('HTMLIFrameElement', FakeIFrameElement)
+    const frame = new FakeIFrameElement()
+    let onMessage: ((event: MessageEvent) => void) | undefined
+    let nextId = 0
+    const host = {
+      document: { getElementById: vi.fn(() => frame) },
+      addEventListener: vi.fn((_type: string, listener: EventListenerOrEventListenerObject) => {
+        if (typeof listener === 'function') onMessage = listener as (event: MessageEvent) => void
+      }),
+      crypto: { randomUUID: () => `reset-execution-${++nextId}` },
+    } as unknown as Window
+    const execute = createV3ResponseFunctionExecutor(host)
+    const request = { url: '/api', method: 'GET' }
+    const response = { status: 200, statusText: 'OK', headers: {}, body: 'native' }
+    const firstExecution = execute('return response.body', request, response)
+
+    onMessage?.({
+      origin: 'null',
+      source: frame.contentWindow,
+      data: { channel: 'ajax-proxy-v3-function-sandbox', type: 'ready' },
+    } as MessageEvent)
+    await Promise.resolve()
+    await Promise.resolve()
+    expect(frame.contentWindow.postMessage).toHaveBeenCalledOnce()
+
+    await vi.advanceTimersByTimeAsync(1000)
+    const siblingExecution = execute('return response.status', request, response)
+    await Promise.resolve()
+    await Promise.resolve()
+    expect(frame.contentWindow.postMessage).toHaveBeenCalledTimes(2)
+
+    const firstRejection = expect(firstExecution).rejects.toThrow(
+      'Function response timed out after 5 seconds.'
+    )
+    const siblingRejection = expect(siblingExecution).rejects.toThrow(
+      'Function sandbox was reset after a timeout.'
+    )
+    await vi.advanceTimersByTimeAsync(4000)
+    await firstRejection
+    expect(frame.contentWindow.postMessage).toHaveBeenLastCalledWith(
+      {
+        channel: 'ajax-proxy-v3-function-sandbox',
+        type: 'cancel',
+        id: 'reset-execution-1',
+      },
+      '*'
+    )
+
+    await vi.advanceTimersByTimeAsync(100)
+    await siblingRejection
+    expect(frame.remove).toHaveBeenCalledOnce()
+    expect(frame.contentWindow.postMessage).toHaveBeenCalledTimes(3)
+
+    await vi.advanceTimersByTimeAsync(1000)
+    expect(frame.contentWindow.postMessage).toHaveBeenCalledTimes(3)
+    expect(frame.contentWindow.postMessage).not.toHaveBeenLastCalledWith(
+      expect.objectContaining({ type: 'cancel', id: 'reset-execution-2' }),
+      '*'
+    )
+  })
+
   it('rejects empty or oversized source before looking up a sandbox frame', async () => {
     const getElementById = vi.fn()
     const host = {
