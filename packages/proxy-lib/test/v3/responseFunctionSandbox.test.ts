@@ -121,6 +121,41 @@ describe('createV3ResponseFunctionExecutor', () => {
     await expect(result).rejects.toThrow('Sandbox function failed.')
   })
 
+  it('rejects when the ready sandbox cannot receive the run message', async () => {
+    vi.stubGlobal('HTMLIFrameElement', FakeIFrameElement)
+    const frame = new FakeIFrameElement()
+    const sendError = new Error('sandbox message channel unavailable')
+    frame.contentWindow.postMessage = vi.fn(() => {
+      throw sendError
+    }) as unknown as typeof frame.contentWindow.postMessage
+    let onMessage: ((event: MessageEvent) => void) | undefined
+    const host = {
+      document: { getElementById: vi.fn(() => frame) },
+      addEventListener: vi.fn((_type: string, listener: EventListenerOrEventListenerObject) => {
+        if (typeof listener === 'function') onMessage = listener as (event: MessageEvent) => void
+      }),
+      crypto: { randomUUID: () => 'message-failure-id' },
+    } as unknown as Window
+    const execute = createV3ResponseFunctionExecutor(host)
+    const result = execute(
+      'return response.body',
+      { url: '/api', method: 'GET' },
+      { status: 200, statusText: 'OK', headers: {}, body: 'native' }
+    )
+
+    onMessage?.({
+      origin: 'null',
+      source: frame.contentWindow,
+      data: { channel: 'ajax-proxy-v3-function-sandbox', type: 'ready' },
+    } as MessageEvent)
+
+    await expect(result).rejects.toBe(sendError)
+    expect(frame.contentWindow.postMessage).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({ type: 'run', id: 'message-failure-id' }),
+      '*'
+    )
+  })
+
   it('cancels a timed-out execution and removes the sandbox frame after the grace period', async () => {
     vi.useFakeTimers()
     vi.stubGlobal('HTMLIFrameElement', FakeIFrameElement)
