@@ -14,6 +14,30 @@ const AppButton = defineComponent({
   },
 })
 
+const ToggleSwitch = defineComponent({
+  props: {
+    modelValue: { type: Boolean, default: false },
+    ariaLabel: { type: String, default: '' },
+    disabled: { type: Boolean, default: false },
+  },
+  emits: ['update:modelValue'],
+  setup(props, { emit }) {
+    return () =>
+      h(
+        'button',
+        {
+          type: 'button',
+          role: 'switch',
+          'aria-label': props.ariaLabel,
+          'aria-checked': String(props.modelValue),
+          disabled: props.disabled,
+          onClick: () => emit('update:modelValue', !props.modelValue),
+        },
+        String(props.modelValue)
+      )
+  },
+})
+
 const passthrough = defineComponent({
   inheritAttrs: false,
   setup(_, { attrs, slots }) {
@@ -70,7 +94,7 @@ async function mountApp(saveResponses = []) {
       components: {
         AppButton,
         AppTag: passthrough,
-        ToggleSwitch: passthrough,
+        ToggleSwitch,
         InputText: passthrough,
       },
     },
@@ -131,5 +155,44 @@ describe('App site switch persistence flow', () => {
     expect(wrapper.find('[role="dialog"]').exists()).toBe(true)
     expect(wrapper.get('.operation-alert').text()).toContain('storage-write-failed')
     expect(wrapper.find('.disabled-origin-list').exists()).toBe(false)
+  })
+})
+
+describe('App global switch persistence flow', () => {
+  it('sends a disabled global setting and keeps the enabled UI after save failure', async () => {
+    const { wrapper, sentMessages } = await mountApp([{ ok: false, error: 'storage-write-failed' }])
+    const globalSwitch = wrapper.get('[role="switch"][aria-label="全局启用 Ajax Proxy"]')
+
+    expect(globalSwitch.attributes('aria-checked')).toBe('true')
+    expect(wrapper.find('.sidebar-footer').text()).toContain('正在监视当前页面')
+    await globalSwitch.trigger('click')
+    await flushPromises()
+
+    const saves = sentMessages.filter((message) => message.key === V3PanelMessageKey.SAVE_CONFIG)
+    expect(saves).toHaveLength(1)
+    expect(saves[0].value.config.settings.globalEnabled).toBe(false)
+    expect(
+      wrapper.get('[role="switch"][aria-label="全局启用 Ajax Proxy"]').attributes('aria-checked')
+    ).toBe('true')
+    expect(wrapper.get('.enable-control').text()).toContain('代理已启用')
+    expect(wrapper.find('.sidebar-footer').text()).toContain('正在监视当前页面')
+    expect(wrapper.get('.operation-alert').text()).toContain('storage-write-failed')
+  })
+
+  it('updates the global switch and sidebar status after a successful save', async () => {
+    const { wrapper, sentMessages } = await mountApp()
+    const globalSwitch = wrapper.get('[role="switch"][aria-label="全局启用 Ajax Proxy"]')
+
+    await globalSwitch.trigger('click')
+    await flushPromises()
+
+    const saves = sentMessages.filter((message) => message.key === V3PanelMessageKey.SAVE_CONFIG)
+    expect(saves).toHaveLength(1)
+    expect(saves[0].value.config.settings.globalEnabled).toBe(false)
+    expect(
+      wrapper.get('[role="switch"][aria-label="全局启用 Ajax Proxy"]').attributes('aria-checked')
+    ).toBe('false')
+    expect(wrapper.get('.enable-control').text()).toContain('代理已停用')
+    expect(wrapper.find('.sidebar-footer').text()).toContain('规则暂不作用于页面')
   })
 })
