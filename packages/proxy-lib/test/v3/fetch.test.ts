@@ -77,6 +77,19 @@ describe('createV3Fetch', () => {
     expect(await response.text()).toBe('native body')
   })
 
+  it('keeps a null response body when response replacement changes only headers', async () => {
+    const selectedRule = rule('headers-only-null-body', {
+      response: { enabled: true, replace: { headers: { 'x-replaced': 'yes' } } },
+    })
+    const response = new Response(null)
+    const fetch = createV3Fetch(async () => response, { getRules: () => [selectedRule] })
+
+    const result = await fetch('https://example.test/api', { method: 'POST' })
+
+    expect(result.body).toBeNull()
+    expect(result.headers.get('x-replaced')).toBe('yes')
+  })
+
   it('preserves the effective Request properties and body while redirecting', async () => {
     const selectedRule = rule('redirect', {
       request: { enabled: true, redirect: { url: 'https://target.test/post' } },
