@@ -49,5 +49,7 @@ overrides:
   'normalize-package-data@2.5.0>hosted-git-info': 2.8.9
   # GHSA-67mh-4wv8-2f99: use the existing fixed esbuild across optional peers.
   esbuild: 0.25.12
+  # GHSA-9jgg-88mc-972h and related WDS advisories; keep Vue CLI on patched v5.
+  webpack-dev-server: 5.2.6
   # GHSA-w5hq-g745-h8pq: SockJS only uses uuid.v4; verify its live connection path.
   'sockjs@0.3.24>uuid': 11.1.1
