@@ -310,6 +310,49 @@ describe('V3 backup schema', () => {
     ;(tooMuchCode.rules[0].response.replace as Record<string, unknown>).code = 'x'.repeat(65537)
     expect(validateV3Backup(tooMuchCode)).toMatchObject({ ok: false })
   })
+
+  it('enforces regex, header, and disabled-origin collection limits', () => {
+    const tooManyRegexRules = structuredClone(validBackup)
+    tooManyRegexRules.rules = Array.from({ length: 101 }, (_, index) => ({
+      ...validBackup.rules[0],
+      id: `regex-${index}`,
+      match: { url: `^/resource/${index}$`, type: 'regex' as const },
+    }))
+    expect(validateV3Backup(tooManyRegexRules)).toMatchObject({
+      ok: false,
+      issues: expect.arrayContaining([
+        expect.objectContaining({
+          path: 'rules',
+          message: 'At most 100 regular expression rules are allowed.',
+        }),
+      ]),
+    })
+
+    const tooManyHeaders = structuredClone(validBackup)
+    ;(tooManyHeaders.rules[0].response.replace as Record<string, unknown>).headers =
+      Object.fromEntries(Array.from({ length: 101 }, (_, index) => [`x-header-${index}`, 'ok']))
+    expect(validateV3Backup(tooManyHeaders)).toMatchObject({ ok: false })
+
+    const tooManyHeaderBytes = structuredClone(validBackup)
+    ;(tooManyHeaderBytes.rules[0].response.replace as Record<string, unknown>).headers = {
+      'x-first': 'a'.repeat(8192),
+      'x-second': 'b'.repeat(8192),
+      'x-third': 'c'.repeat(8192),
+      'x-fourth': 'd'.repeat(8192),
+      'x-fifth': 'e'.repeat(8192),
+    }
+    expect(validateV3Backup(tooManyHeaderBytes)).toMatchObject({ ok: false })
+
+    const tooManyDisabledOrigins = {
+      ...structuredClone(validBackup),
+      formatVersion: 5,
+      disabledOrigins: Array.from(
+        { length: 1001 },
+        (_, index) => `https://site-${index}.example.test`
+      ),
+    }
+    expect(validateV3Backup(tooManyDisabledOrigins)).toMatchObject({ ok: false })
+  })
 })
 
 describe('V3 response function result validation', () => {
