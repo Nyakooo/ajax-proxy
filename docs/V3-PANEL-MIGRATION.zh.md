@@ -33,4 +33,4 @@ V3 staging 已加入根 `pnpm build`，把 Vue 3 build 复制到 `build/panels-v
 - staging extension 使用不同输出目录，不清理、覆盖或打包为生产目录。
 - 每个可独立验证的迁移切片在 `refactor/v3` 单独提交、推送；正式切换是后续单独提交，不能和功能迁移混在一起。
 
-迁移前现状盘点和 V2 / Vue 3 风险热点见 Codex 执行记录及 `docs/V3-PANEL-IA.zh.md`。V3 消息与配置 adapter、redirect CRUD、JSON response CRUD、Fetch 函数响应编辑、备份恢复、独立 staging 打包和扩展内请求验证已接入；标签关联、V2 专有高级 redirect 能力和默认面板切换仍待实施。Chrome Stable 品牌浏览器的扩展验收仍在进行。
+迁移前现状盘点和 V2 / Vue 3 风险热点见 Codex 执行记录及 `docs/V3-PANEL-IA.zh.md`。V3 消息与配置 adapter、redirect CRUD、JSON response CRUD、Fetch 函数响应编辑、备份恢复、标签管理与关联、独立 staging 打包和扩展内请求验证已接入；V2 专有高级 redirect 能力和默认面板切换仍待实施。Chrome Stable 品牌浏览器的扩展验收仍在进行。

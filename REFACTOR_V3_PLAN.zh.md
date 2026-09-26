@@ -169,7 +169,7 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - [x] 建立 Vue 3 面板与 service worker 的独立消息协议及配置 snapshot adapter；读取前校验 V3 配置、清理已知规则命中计数，保存仅写 V3 专属键，并拒绝非 V3 面板页面来源。UI service 校验请求和响应；redirector CRUD 已接入该 adapter。
 - [x] 为 V3 `V3Rule[]` 提供不可变的追加 / 插入 / 替换 / 删除 / 启停 / 调序操作；重复 ID、未知 ID 与边界索引行为有测试，规则数组顺序作为首条命中优先级。
 - [x] 将 V3 候选面板的重定向列表接入 snapshot 和保存流程，实现创建、编辑、删除重定向行为、启停和调序；中英界面显示匹配条件 / 目标地址，删除组合规则中的 redirect action 会保留 response action。Chrome 与 Edge Stable production preview 交互验证通过；V2 substring replacement 和专有 redirect 字段不作隐式映射。
-- [x] 将 V3 拦截列表接入 JSON 响应规则创建、编辑、删除、启停和首条优先级；校验状态码和 JSON，编辑组合规则时保留 request action 与未编辑响应字段，删除响应 action 时保留 redirect。Chrome 与 Edge Stable production preview 验证通过；函数响应编辑、V2 数据兼容及标签关联仍待后续设计。
+- [x] 将 V3 拦截列表接入 JSON 响应规则创建、编辑、删除、启停和首条优先级；校验状态码和 JSON，编辑组合规则时保留 request action 与未编辑响应字段，删除响应 action 时保留 redirect。Chrome 与 Edge Stable production preview 验证通过；函数响应编辑和标签关联已接入；V2 配置自动迁移不在范围内。
 - [x] 将 Vue 3 候选面板独立暂存到扩展 `panels-v3/`，保留 Vue 2 默认 `panels/`；真实扩展中通过 V3 消息保存并重载读取 JSON 响应规则，验证 Fetch 状态 / body 替换、V3 hit 增长及 V2 storage 不变。Chrome for Testing 154 与 Edge Stable 153 真实扩展 smoke 通过；service worker 鉴权按 extension ID + V3 页面 URL 验证，允许真实扩展标签页携带 `sender.tab`。
 - [x] 增强 JSON response 编辑器的语法反馈和示例：解析器能提供准确位置时显示 1-based 行 / 列，不能定位时保留通用错误；支持对象 / 数组 / 字符串 / null 一键插入，输入修正后清除过期语法错误。Chrome for Testing 154 与 Edge Stable 153 的真实扩展 smoke 验证行列、示例、保存和请求响应闭环。
 - [x] 以 PrimeVue 4 作为首选组件层，先试用其主题化（styled）模式和自定义设计 token，利用成熟交互组件，同时建立 Ajax Proxy 自己的品牌视觉；独立 Vue 3 / Vite 原型使用 PrimeVue 4.5.5 Aura 派生 token，并通过 Chrome Stable 与 Edge Stable 检查桌面 / 窄布局、搜索空态和浅 / 深主题。实现仍未替换 V2 面板。见 `docs/V3-UI-PROTOTYPE.zh.md`。
@@ -215,7 +215,7 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - [x] 按规则启用状态和普通 / 正则匹配类型筛选列表；可清除筛选，应用筛选时禁用调序按钮以避免改变隐藏规则的相对位置。
 - [x] 使用列表上移 / 下移调整首条匹配优先级；搜索或筛选期间暂禁调序。
 - [x] V3 规则支持可选多标签关联；备份 / 保存校验关联必须引用现有唯一标签，缺省关联兼容既有 V3 规则。
-- [ ] 面板提供标签管理、规则关联、列表标签显示和组合筛选。
+- [x] 面板支持创建 / 改名 / 删除标签、规则多标签关联、列表展示和与搜索 / 状态 / 匹配类型组合筛选；删除标签前确认并清理引用。
 - [ ] 规则复制、批量启停、批量导入导出。
 - [ ] 命中历史或诊断视图，解释规则未命中的原因。
 - [ ] 评估从实际请求或命中记录快捷创建规则的能力。
@@ -476,4 +476,5 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - 2026-09-26：完成 V3 规则列表基础筛选切片：按规则启用状态及普通 / 正则匹配类型过滤；搜索仍覆盖 ID、URL、method、跳转目标和 action，并让导入后停用的函数 response action 可见、可编辑。分类按 action 配置存在性统计；移除一个 action 时保留同规则中的另一个（即使其停用），搜索 / 筛选时禁用调序。Playwright 扩展 smoke 验证导入函数规则仍显示、打开编辑器后函数响应保持未启用、删除 action 保留同规则的请求 action、状态筛选、匹配类型空态、清除筛选、搜索和调序限制；Playwright Chromium 与 Edge Stable 153.0.4234.48 扩展 smoke、165 项 Vitest、Vue 3 面板构建 / staging 打包、typecheck、包边界、改动文件 ESLint / Prettier 通过。Chrome Stable 154.0.8037.58 真实本地扩展面板验证筛选弹层、无结果态和清除筛选；当前 profile 规则仍为空。将原“搜索、筛选、排序、标签”综合项拆为独立进度项。完成 115 / 202 项（56.9%）。
 - 2026-09-26：完成 V3 规则列表基础筛选切片：按规则启用状态及普通 / 正则匹配类型过滤；搜索仍覆盖 ID、URL、method、跳转目标和 action，并让导入后停用的函数 response action 可见、可编辑。分类按 action 配置存在性统计；移除一个 action 时保留同规则中的另一个（即使其停用），搜索 / 筛选时禁用调序。Playwright 扩展 smoke 验证导入函数规则仍显示、打开编辑器后函数响应保持未启用、删除 action 保留同规则的请求 action、状态筛选、匹配类型空态、清除筛选、搜索和调序限制；Playwright Chromium 与 Edge Stable 153.0.4234.48 扩展 smoke、165 项 Vitest、Vue 3 面板构建 / staging 打包、typecheck、包边界、改动文件 ESLint / Prettier 通过。Chrome Stable 154.0.8037.58 真实本地扩展面板验证筛选弹层、无结果态和清除筛选；当前 profile 规则仍为空。将原“搜索、筛选、排序、标签”综合项拆为独立进度项。完成 115 / 202 项（56.9%）。
 - 2026-09-26：V3 标签数据契约支持可选多标签 `rule.tagIds`；严格校验非空、唯一 ID 且每个引用必须对应备份内已定义标签，缺省字段继续接受既有 V3 配置。新增 domain 校验回归用例，定向 18 项测试、domain 构建、ESLint、Prettier 通过。面板标签管理、关联与筛选交互仍待完成。完成 116 / 203 项（57.1%）。
+- 2026-09-26：完成 V3 标签管理与关联切片：工具栏可创建、改名、删除标签；拦截与重定向编辑器均支持多标签；列表显示标签并将标签名纳入搜索；单标签筛选可与启用状态、普通 / 正则条件组合。删除标签先确认，再从所有相关规则解除该引用。扩展 smoke 验证两个 editor 各保存两个标签、重载后显示、筛选与清空、删除单个关联时保留其他标签并最终清除关联；Chromium 与 Edge Stable 153.0.4234.48 扩展 smoke、167 项 Vitest、Vue 3 / Chrome extension build 与 staging packaging、typecheck、包边界、生成声明、ESLint、Prettier 通过。标签数据契约与面板阶段分别提交。完成 117 / 203 项（57.6%）。
 - GitHub 里程碑：[阶段 0](https://github.com/Nyakooo/ajax-proxy/milestone/1)、[阶段 1](https://github.com/Nyakooo/ajax-proxy/milestone/2)、[阶段 2](https://github.com/Nyakooo/ajax-proxy/milestone/3)、[阶段 3](https://github.com/Nyakooo/ajax-proxy/milestone/4)、[阶段 4](https://github.com/Nyakooo/ajax-proxy/milestone/5)、[阶段 5](https://github.com/Nyakooo/ajax-proxy/milestone/6)、[阶段 6](https://github.com/Nyakooo/ajax-proxy/milestone/7)、[阶段 7](https://github.com/Nyakooo/ajax-proxy/milestone/8)；已复现缺陷：[issue #56](https://github.com/Nyakooo/ajax-proxy/issues/56)。

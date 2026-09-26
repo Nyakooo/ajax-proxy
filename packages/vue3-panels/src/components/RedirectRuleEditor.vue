@@ -1,12 +1,14 @@
 <script setup>
 import { nextTick, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import RuleTagPicker from './RuleTagPicker.vue'
 
 const props = defineProps({
   open: { type: Boolean, default: false },
   rule: { type: Object, default: null },
   saving: { type: Boolean, default: false },
   issue: { type: String, default: '' },
+  tags: { type: Array, default: () => [] },
 })
 
 const emit = defineEmits(['close', 'save'])
@@ -23,6 +25,7 @@ function createForm(rule = null) {
     method: rule?.match?.method ?? 'ANY',
     targetUrl: rule?.request?.redirect?.url ?? '',
     enabled: rule?.enabled ?? true,
+    tagIds: [...(rule?.tagIds ?? [])],
   }
 }
 
@@ -59,6 +62,7 @@ function submit() {
       method: form.value.method,
     },
     redirectUrl: form.value.targetUrl,
+    tagIds: [...form.value.tagIds],
   })
 }
 
@@ -146,6 +150,8 @@ function trapFocus(event) {
           <input v-model="form.enabled" type="checkbox" />
           <span>{{ t('editor.enableRule') }}</span>
         </label>
+
+        <RuleTagPicker v-model="form.tagIds" :tags="tags" />
 
         <p v-if="localIssue || issue" class="editor-error" role="alert">
           {{ localIssue || issue }}

@@ -3,6 +3,7 @@ import { defineAsyncComponent, nextTick, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { formatResponseBodyDraft, parseResponseBodyDraft } from '../services/v3ResponseDraft.js'
 import { validateFunctionResponseDraft } from '../services/v3FunctionResponseDraft.js'
+import RuleTagPicker from './RuleTagPicker.vue'
 
 const CodeMirrorJsonEditor = defineAsyncComponent(
   () => import('./editors/CodeMirrorJsonEditor.vue')
@@ -13,6 +14,7 @@ const props = defineProps({
   rule: { type: Object, default: null },
   saving: { type: Boolean, default: false },
   issue: { type: String, default: '' },
+  tags: { type: Array, default: () => [] },
 })
 
 const emit = defineEmits(['close', 'save'])
@@ -36,6 +38,7 @@ function createForm(rule = null) {
     code: replace.code ?? DEFAULT_FUNCTION_EXAMPLE,
     functionEnabled: false,
     enabled: rule?.enabled ?? true,
+    tagIds: [...(rule?.tagIds ?? [])],
   }
 }
 
@@ -86,6 +89,7 @@ function submit() {
       mode: 'function',
       code: form.value.code,
       responseEnabled: form.value.functionEnabled,
+      tagIds: [...form.value.tagIds],
     })
     return
   }
@@ -109,6 +113,7 @@ function submit() {
     body: parsedBody.body,
     mode: 'json',
     responseEnabled: true,
+    tagIds: [...form.value.tagIds],
   })
 }
 
@@ -323,6 +328,8 @@ function trapFocus(event) {
           <input v-model="form.enabled" type="checkbox" />
           <span>{{ t('editor.enableRule') }}</span>
         </label>
+
+        <RuleTagPicker v-model="form.tagIds" :tags="tags" />
 
         <p v-if="localIssue || issue" id="response-editor-error" class="editor-error" role="alert">
           {{ localIssue || issue }}

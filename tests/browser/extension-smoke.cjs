@@ -533,7 +533,14 @@ async function main() {
       'ajax-proxy:storage:intercept-list'
     )
     await responseEditor.getByRole('button', { name: 'Save' }).click()
-    await v3Panel.getByText('/api/v3-ui', { exact: true }).waitFor()
+    await v3Panel
+      .getByText('/api/v3-ui', { exact: true })
+      .waitFor()
+      .catch(async (error) => {
+        console.error('V3 response rule save UI:', await v3Panel.locator('body').innerText())
+        await v3Panel.screenshot({ path: '/tmp/ajax-proxy-v3-tag-debug.png' })
+        throw error
+      })
 
     let v3UiConfig
     let v3UiRule
@@ -821,6 +828,155 @@ async function main() {
       configAfterDelete.rules.filter((rule) => rule.response).length
     )
     await ruleFilterPopover.getByRole('button', { name: 'Close filters' }).click()
+
+    await v3Panel.getByRole('button', { name: 'Tags', exact: true }).click()
+    const ruleTagPopover = v3Panel.locator('.rule-tag-filter-popover')
+    await ruleTagPopover.getByRole('button', { name: 'Manage tags' }).click()
+    const ruleTagsDialog = v3Panel.getByRole('dialog', { name: 'Manage rule tags' })
+    await ruleTagsDialog.getByLabel('New tag name').fill('Smoke label')
+    await ruleTagsDialog.getByRole('button', { name: 'Add tag' }).click()
+    const tagNameInputs = ruleTagsDialog.locator('.rule-tags-list input')
+    await tagNameInputs.first().waitFor()
+    assert.equal(await tagNameInputs.first().inputValue(), 'Smoke label')
+    await ruleTagsDialog.getByLabel('New tag name').fill('Secondary label')
+    await ruleTagsDialog.getByRole('button', { name: 'Add tag' }).click()
+    await tagNameInputs.nth(1).waitFor()
+    assert.equal(await tagNameInputs.nth(1).inputValue(), 'Secondary label')
+    await ruleTagsDialog.getByRole('button', { name: 'Done', exact: true }).click()
+
+    const taggedRuleRow = v3Panel.locator('.rule-row').filter({ hasText: '/api/v3-ui' })
+    await taggedRuleRow.getByRole('button', { name: 'Edit' }).click()
+    const taggedRuleEditor = v3Panel.locator('.response-rule-editor[role="dialog"]')
+    await taggedRuleEditor
+      .locator('.rule-tag-picker label')
+      .filter({ hasText: 'Smoke label' })
+      .locator('input')
+      .check()
+    await taggedRuleEditor
+      .locator('.rule-tag-picker label')
+      .filter({ hasText: 'Secondary label' })
+      .locator('input')
+      .check()
+    await taggedRuleEditor.getByRole('button', { name: 'Save' }).click()
+    let taggedRule
+    for (let attempt = 0; attempt < 40; attempt += 1) {
+      const currentConfig = await restartedWorker.evaluate(
+        async (key) => (await chrome.storage.local.get(key))[key],
+        'ajax-proxy:storage:v3-config'
+      )
+      taggedRule = currentConfig.rules.find((rule) => rule.match.url === '/api/v3-ui')
+      if (taggedRule?.tagIds?.length) break
+      await new Promise((resolve) => setTimeout(resolve, 50))
+    }
+    assert.equal(taggedRule.tagIds.length, 2, 'the editor persists both selected tag references')
+    await v3Panel.reload()
+    await taggedRuleRow.locator('.rule-tag-chip').getByText('Smoke label').waitFor()
+    await taggedRuleRow.locator('.rule-tag-chip').getByText('Secondary label').waitFor()
+
+    await v3Panel.getByRole('button', { name: 'Tags', exact: true }).click()
+    await ruleTagPopover
+      .locator('label')
+      .filter({ hasText: 'Smoke label' })
+      .locator('input')
+      .check()
+    assert.equal(await v3Panel.locator('.rule-row').count(), 1)
+    await v3Panel.getByText('/api/v3-ui', { exact: true }).waitFor()
+    await v3Panel.getByRole('button', { name: 'Tag: Smoke label' }).click()
+    await v3Panel.getByRole('button', { name: 'Filter', exact: true }).click()
+    await v3Panel
+      .locator('.rule-filter-popover')
+      .getByRole('button', { name: 'Clear filters' })
+      .click()
+    assert.ok((await v3Panel.locator('.rule-row').count()) > 1)
+    await v3Panel
+      .locator('.rule-filter-popover')
+      .getByRole('button', { name: 'Close filters' })
+      .click()
+
+    await v3Panel.locator('.sidebar .nav-item').nth(1).click()
+    await v3Panel.getByRole('button', { name: 'Create redirect rule' }).click()
+    const taggedRedirectEditor = v3Panel.locator('.rule-editor[role="dialog"]')
+    await taggedRedirectEditor
+      .locator('label.editor-field')
+      .nth(0)
+      .locator('input')
+      .fill('/api/tagged-redirect')
+    await taggedRedirectEditor
+      .locator('label.editor-field')
+      .nth(3)
+      .locator('input')
+      .fill('/mock/echo')
+    await taggedRedirectEditor
+      .locator('.rule-tag-picker label')
+      .filter({ hasText: 'Smoke label' })
+      .locator('input')
+      .check()
+    await taggedRedirectEditor
+      .locator('.rule-tag-picker label')
+      .filter({ hasText: 'Secondary label' })
+      .locator('input')
+      .check()
+    await taggedRedirectEditor.getByRole('button', { name: 'Save' }).click()
+    let taggedRedirectRule
+    for (let attempt = 0; attempt < 40; attempt += 1) {
+      const currentConfig = await restartedWorker.evaluate(
+        async (key) => (await chrome.storage.local.get(key))[key],
+        'ajax-proxy:storage:v3-config'
+      )
+      taggedRedirectRule = currentConfig.rules.find(
+        (rule) => rule.match.url === '/api/tagged-redirect'
+      )
+      if (taggedRedirectRule?.tagIds?.length) break
+      await new Promise((resolve) => setTimeout(resolve, 50))
+    }
+    assert.equal(
+      taggedRedirectRule.tagIds.length,
+      2,
+      'the redirect editor persists both selected tag references'
+    )
+
+    await v3Panel.getByRole('button', { name: 'Tags', exact: true }).click()
+    await v3Panel
+      .locator('.rule-tag-filter-popover')
+      .getByRole('button', { name: 'Manage tags' })
+      .click()
+    const manageTagsDialog = v3Panel.getByRole('dialog', { name: 'Manage rule tags' })
+    const smokeTagRow = manageTagsDialog.locator('li').filter({ hasText: 'Smoke label' })
+    await smokeTagRow.getByRole('button', { name: 'Delete' }).click()
+    await manageTagsDialog.getByRole('button', { name: 'Done', exact: true }).click()
+    const configAfterTagDelete = await restartedWorker.evaluate(
+      async (key) => (await chrome.storage.local.get(key))[key],
+      'ajax-proxy:storage:v3-config'
+    )
+    assert.equal(configAfterTagDelete.tags.length, 1)
+    assert.ok(
+      configAfterTagDelete.rules
+        .filter((rule) => [taggedRule.id, taggedRedirectRule.id].includes(rule.id))
+        .every(
+          (rule) => rule.tagIds?.length === 1 && ![taggedRule.tagIds[0]].includes(rule.tagIds[0])
+        ),
+      "deleting one tag preserves every rule's remaining association"
+    )
+    await v3Panel.getByRole('button', { name: 'Tags', exact: true }).click()
+    await v3Panel
+      .locator('.rule-tag-filter-popover')
+      .getByRole('button', { name: 'Manage tags' })
+      .click()
+    const lastTagDialog = v3Panel.getByRole('dialog', { name: 'Manage rule tags' })
+    await lastTagDialog.locator('li').getByRole('button', { name: 'Delete' }).click()
+    await lastTagDialog.getByRole('button', { name: 'Done', exact: true }).click()
+    const configAfterAllTagsDelete = await restartedWorker.evaluate(
+      async (key) => (await chrome.storage.local.get(key))[key],
+      'ajax-proxy:storage:v3-config'
+    )
+    assert.equal(configAfterAllTagsDelete.tags.length, 0)
+    assert.equal(
+      configAfterAllTagsDelete.rules.some((rule) =>
+        rule.tagIds?.some((id) => [taggedRule.tagIds[0], taggedRedirectRule.tagIds[0]].includes(id))
+      ),
+      false,
+      'deleting a tag removes its references from all rules'
+    )
 
     await restartedPage.reload()
     await restartedPage.waitForFunction(

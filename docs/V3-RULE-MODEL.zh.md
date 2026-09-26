@@ -64,7 +64,7 @@ V3 备份使用独立标识，不通过字段猜测把旧文件转换成新格�
 - 顶层必须且只能包含 `format`、`formatVersion`、`settings`、`tags`、`rules`。格式标识固定为 `ajax-proxy-backup`，版本固定为整数 `3`；未知格式 / 版本拒绝，检测到 V2 字段时返回明确的不兼容提示。
 - `settings` 必须包含布尔值 `globalEnabled`、`interceptor` / `redirector` 模式和 `zh-CN` / `en` 语言。未知字段拒绝，避免输入拼错后被静默忽略。
 - `tags` 必须是数组；每个 tag 包含唯一非空字符串 `id`、非空 `name` 和布尔 `used`，不允许未知字段。空数组合法。
-- `rules` 必须是数组；每条规则包含唯一非空 `id`、布尔 `enabled`、非空 URL `match`，可选 `request` 重定向 action 和 `response` 替换 action。未知规则和 matcher 字段拒绝。
+- `rules` 必须是数组；每条规则包含唯一非空 `id`、布尔 `enabled`、非空 URL `match`，可选 `tagIds`、`request` 重定向 action 和 `response` 替换 action。`tagIds` 缺省表示无标签；提供时必须是唯一标签 ID 数组，且每个 ID 都必须指向顶层 `tags`。未知规则和 matcher 字段拒绝。
 - URL matcher 的 `method` 是可选字符串，`type` 可选 `normal` 或 `regex`。正则采用 RE2 语法，以避免灾难性回溯；lookahead、backreference 等 RE2 不支持的语法在保存 / 导入时拒绝，具体输入上限见 `docs/V3-INPUT-VALIDATION.zh.md`。重定向 payload 必须含非空目标 `url`；响应替换可选 `status`（200–599 整数）、字符串 header map、JSON `body` 和字符串 `code`。未知 action / payload 字段拒绝。
 - 校验结果携带字段路径和可读原因，不通过部分修复或丢弃字段来“尽量导入”。整个备份校验成功后才允许替换当前配置。
 

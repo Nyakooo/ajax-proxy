@@ -622,6 +622,19 @@ input {
   font-size: 9px;
 }
 
+.rule-tag-chip {
+  max-width: 140px;
+  overflow: hidden;
+  padding: 3px 7px;
+  border: 1px solid color-mix(in srgb, var(--ap-teal), transparent 75%);
+  border-radius: 99px;
+  background: color-mix(in srgb, var(--ap-teal), transparent 93%);
+  color: var(--ap-teal);
+  font-size: 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .rule-meta {
   flex-wrap: wrap;
   gap: 9px;

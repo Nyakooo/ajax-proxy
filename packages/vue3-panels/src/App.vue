@@ -1,10 +1,20 @@
 <script setup>
-import { computed, defineAsyncComponent, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import {
+  computed,
+  defineAsyncComponent,
+  nextTick,
+  onBeforeUnmount,
+  onMounted,
+  ref,
+  watch,
+} from 'vue'
 import { useI18n } from 'vue-i18n'
 import { isV3FunctionError, isV3HitNotice, NoticeFrom, NoticeKey, NoticeTo } from '@proxy/protocol'
 import RedirectRuleEditor from './components/RedirectRuleEditor.vue'
 import ResponseRuleEditor from './components/ResponseRuleEditor.vue'
 import RuleFilterPopover from './components/RuleFilterPopover.vue'
+import RuleTagFilterPopover from './components/RuleTagFilterPopover.vue'
+import RuleTagsDialog from './components/RuleTagsDialog.vue'
 import { buildV3ResponseRule } from './services/v3ResponseDraft.js'
 import { validateFunctionResponseDraft } from './services/v3FunctionResponseDraft.js'
 import lightMark from '../../shell-chrome/icons/128.png'
@@ -34,8 +44,11 @@ const editingResponseRule = ref(null)
 const responseEditorIssue = ref('')
 const backupDialogOpen = ref(false)
 const ruleFiltersOpen = ref(false)
+const ruleTagFilterOpen = ref(false)
+const ruleTagsDialogOpen = ref(false)
 const ruleStatusFilter = ref('all')
 const ruleMatchTypeFilter = ref('all')
+const selectedTagId = ref('')
 const config = ref(createEmptyConfig())
 const hitCounters = ref({})
 const recentMatch = ref(null)
@@ -95,8 +108,21 @@ const enabled = computed(() => config.value.settings.globalEnabled)
 const redirectRuleCount = computed(() => rules.value.filter((rule) => rule.request).length)
 const interceptRuleCount = computed(() => rules.value.filter((rule) => rule.response).length)
 const ruleFiltersActive = computed(
-  () => ruleStatusFilter.value !== 'all' || ruleMatchTypeFilter.value !== 'all'
+  () =>
+    ruleStatusFilter.value !== 'all' ||
+    ruleMatchTypeFilter.value !== 'all' ||
+    selectedTagId.value !== ''
 )
+
+const selectedTagName = computed(
+  () => config.value.tags.find((tag) => tag.id === selectedTagId.value)?.name ?? ''
+)
+const ruleTagsControl = ref(null)
+
+function ruleTagNames(rule) {
+  const selected = new Set(rule.tagIds ?? [])
+  return config.value.tags.filter((tag) => selected.has(tag.id)).map((tag) => tag.name)
+}
 
 function ruleActions(rule) {
   const actions = []
@@ -128,6 +154,7 @@ const visibleRules = computed(() => {
       rule.match.method ?? 'ANY',
       rule.request?.redirect.url ?? '',
       ...actions.map((action) => t(`action.${action.key}`)),
+      ...ruleTagNames(rule),
     ]
     const matchesSearch = !query || searchable.join(' ').toLowerCase().includes(query)
     const matchesSection = section.value === 'redirect' ? rule.request : rule.response
@@ -137,13 +164,31 @@ const visibleRules = computed(() => {
     const matchType = rule.match.type ?? 'normal'
     const matchesType =
       ruleMatchTypeFilter.value === 'all' || ruleMatchTypeFilter.value === matchType
-    return matchesSearch && matchesSection && matchesStatus && matchesType
+    const matchesTag =
+      selectedTagId.value === '' || (rule.tagIds ?? []).includes(selectedTagId.value)
+    return matchesSearch && matchesSection && matchesStatus && matchesType && matchesTag
   })
 })
 
 function clearRuleFilters() {
   ruleStatusFilter.value = 'all'
   ruleMatchTypeFilter.value = 'all'
+  selectedTagId.value = ''
+}
+
+function openRuleTagManager() {
+  ruleTagFilterOpen.value = false
+  ruleTagsDialogOpen.value = true
+}
+
+function closeRuleTagFilter() {
+  ruleTagFilterOpen.value = false
+  nextTick(() => ruleTagsControl.value?.querySelector('button')?.focus())
+}
+
+function closeRuleTagManager() {
+  ruleTagsDialogOpen.value = false
+  nextTick(() => ruleTagsControl.value?.querySelector('button')?.focus())
 }
 const resultCount = computed(() => {
   if (locale.value === 'zh-CN') return t('rules.count', { count: visibleRules.value.length })
@@ -322,6 +367,7 @@ async function saveRedirectRule(fields) {
     ...(editingRule.value ?? {}),
     id,
     enabled: fields.enabled,
+    tagIds: [...(fields.tagIds ?? [])],
     match: fields.match,
     request: { enabled: true, redirect: { url: fields.redirectUrl } },
   }
@@ -353,6 +399,7 @@ async function saveResponseRule(fields) {
       ...(existing ?? {}),
       id,
       enabled: fields.enabled,
+      tagIds: [...(fields.tagIds ?? [])],
       match: fields.match ?? existing?.match,
       response: {
         enabled: fields.responseEnabled,
@@ -385,6 +432,7 @@ async function saveResponseRule(fields) {
     return
   }
   const rule = result.rule
+  rule.tagIds = [...(fields.tagIds ?? [])]
   const nextRules = existing
     ? ruleOperations.replaceV3Rule(current.rules, id, rule)
     : ruleOperations.insertV3Rule(current.rules, rule, 0)
@@ -401,6 +449,77 @@ function createRuleId(existingRules) {
     id = `rule-${globalThis.crypto?.randomUUID?.() ?? `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`}`
   } while (existingRules.some((rule) => rule.id === id))
   return id
+}
+
+function createTagId(existingTags) {
+  let id
+  do {
+    id = `tag-${globalThis.crypto?.randomUUID?.() ?? `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`}`
+  } while (existingTags.some((tag) => tag.id === id))
+  return id
+}
+
+async function createTag(name) {
+  const cleanName = name.trim()
+  if (!cleanName || cleanName.length > 512) return
+  if (config.value.tags.length >= 500) {
+    operationError.value = t('ruleTags.tagLimit')
+    return
+  }
+  if (
+    config.value.tags.some(
+      (tag) => tag.name.trim().toLocaleLowerCase() === cleanName.toLocaleLowerCase()
+    )
+  ) {
+    operationError.value = t('ruleTags.duplicateName')
+    return
+  }
+  await persistConfig({
+    ...config.value,
+    tags: [
+      ...config.value.tags,
+      { id: createTagId(config.value.tags), name: cleanName, used: false },
+    ],
+  })
+}
+
+async function renameTag(id, name) {
+  const cleanName = name.trim()
+  if (!cleanName || cleanName.length > 512) return
+  if (
+    config.value.tags.some(
+      (tag) =>
+        tag.id !== id && tag.name.trim().toLocaleLowerCase() === cleanName.toLocaleLowerCase()
+    )
+  ) {
+    operationError.value = t('ruleTags.duplicateName')
+    return
+  }
+  await persistConfig({
+    ...config.value,
+    tags: config.value.tags.map((tag) => (tag.id === id ? { ...tag, name: cleanName } : tag)),
+  })
+}
+
+async function removeTag(tag) {
+  const affectedRules = config.value.rules.filter((rule) => rule.tagIds?.includes(tag.id))
+  if (!window.confirm(t('ruleTags.confirmRemove', { name: tag.name, count: affectedRules.length })))
+    return
+  const nextRules = config.value.rules.map((rule) => {
+    if (!rule.tagIds?.includes(tag.id)) return rule
+    const nextRule = { ...rule, tagIds: rule.tagIds.filter((id) => id !== tag.id) }
+    if (nextRule.tagIds.length === 0) delete nextRule.tagIds
+    return nextRule
+  })
+  if (
+    await persistConfig({
+      ...config.value,
+      tags: config.value.tags.filter((item) => item.id !== tag.id),
+      rules: nextRules,
+    })
+  ) {
+    if (selectedTagId.value === tag.id) selectedTagId.value = ''
+  }
 }
 
 async function setGlobalEnabled(value) {
@@ -581,7 +700,29 @@ async function moveRule(rule, targetRule) {
               <InputText v-model="search" :placeholder="t('rules.searchPlaceholder')" />
               <kbd>⌘ K</kbd>
             </label>
-            <AppButton :label="t('rules.tags')" severity="secondary" outlined />
+            <div ref="ruleTagsControl" class="filter-control">
+              <AppButton
+                :label="
+                  selectedTagName
+                    ? t('ruleTags.filterButton', { name: selectedTagName })
+                    : t('rules.tags')
+                "
+                severity="secondary"
+                outlined
+                :aria-expanded="ruleTagFilterOpen"
+                aria-controls="rule-tag-filter-popover"
+                @click="ruleTagFilterOpen = !ruleTagFilterOpen"
+                @keydown.esc.stop.prevent="closeRuleTagFilter"
+              />
+              <RuleTagFilterPopover
+                :open="ruleTagFilterOpen"
+                :tags="config.tags"
+                :selected-tag-id="selectedTagId"
+                @close="closeRuleTagFilter"
+                @update:selected-tag-id="selectedTagId = $event"
+                @manage="openRuleTagManager"
+              />
+            </div>
             <div class="filter-control">
               <AppButton
                 :label="t('rules.filter')"
@@ -675,6 +816,9 @@ async function moveRule(rule, targetRule) {
                   <span v-if="isFirstActiveRule(rule)" class="priority-pill">{{
                     t('rules.priority')
                   }}</span>
+                  <span v-for="tag in ruleTagNames(rule)" :key="tag" class="rule-tag-chip">
+                    {{ tag }}
+                  </span>
                 </div>
                 <div class="rule-meta">
                   <span
@@ -801,6 +945,7 @@ async function moveRule(rule, targetRule) {
     <RedirectRuleEditor
       :open="editorOpen"
       :rule="editingRule"
+      :tags="config.tags"
       :saving="saving"
       :issue="editorIssue"
       @close="editorOpen = false"
@@ -809,6 +954,7 @@ async function moveRule(rule, targetRule) {
     <ResponseRuleEditor
       :open="responseEditorOpen"
       :rule="editingResponseRule"
+      :tags="config.tags"
       :saving="saving"
       :issue="responseEditorIssue"
       @close="responseEditorOpen = false"
@@ -821,6 +967,15 @@ async function moveRule(rule, targetRule) {
       :issue="operationError"
       @close="backupDialogOpen = false"
       @restore="restoreBackup"
+    />
+    <RuleTagsDialog
+      :open="ruleTagsDialogOpen"
+      :tags="config.tags"
+      :saving="saving"
+      @close="closeRuleTagManager"
+      @create="createTag"
+      @rename="renameTag"
+      @remove="removeTag"
     />
   </div>
 </template>
