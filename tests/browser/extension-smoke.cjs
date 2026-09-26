@@ -666,6 +666,68 @@ async function main() {
       'no-match records must not be persisted'
     )
 
+    const fetchOutcomeDiagnostics = v3Panel.locator('.fetch-outcome-diagnostics')
+    const fetchOutcomeButton = fetchOutcomeDiagnostics.getByRole('button', {
+      name: 'Capture Fetch action outcomes',
+    })
+    assert.notEqual(
+      await restartedWorker.evaluate(
+        async (key) => (await chrome.storage.local.get(key))[key],
+        'ajax-proxy:storage:v3-fetch-outcomes-armed'
+      ),
+      true,
+      'Fetch action outcomes are off by default'
+    )
+    await restartedPage.evaluate(async () => {
+      await fetch('/api/echo', { method: 'POST', body: 'private-before-outcome-arm' })
+    })
+    await v3Panel.waitForTimeout(150)
+    assert.equal(await fetchOutcomeDiagnostics.locator('.recent-matches-list li').count(), 0)
+
+    await fetchOutcomeButton.click()
+    const stopFetchOutcomeButton = fetchOutcomeDiagnostics.getByRole('button', {
+      name: 'Capturing Fetch outcomes · Click to stop',
+    })
+    await stopFetchOutcomeButton.waitFor()
+    // The panel's storage write must propagate through content.js to the page-world runtime.
+    await restartedPage.waitForTimeout(200)
+    const outcomeFetchResult = await restartedPage.evaluate(async () => {
+      const response = await fetch('/api/echo', { method: 'POST', body: 'outcome smoke' })
+      return { status: response.status, body: await response.json() }
+    })
+    assert.deepEqual(outcomeFetchResult, {
+      status: 202,
+      body: v3ResponseBody,
+    })
+    await v3Panel.waitForFunction(
+      () =>
+        document.querySelectorAll('.fetch-outcome-diagnostics .recent-matches-list li').length >= 2
+    )
+    const outcomeItems = fetchOutcomeDiagnostics.locator('.recent-matches-list li')
+    const outcomeTexts = await outcomeItems.allTextContents()
+    assert.equal(outcomeTexts.length, 2)
+    assert.ok(outcomeTexts.some((text) => /request · applied · redirect-applied/.test(text)))
+    assert.ok(
+      outcomeTexts.some((text) => /response · applied · response-replacement-applied/.test(text))
+    )
+    assert.ok(outcomeTexts.every((text) => !/outcome smoke|\/api\/echo|private/.test(text)))
+    const firstCorrelationId = await outcomeItems.nth(0).locator('code').nth(1).innerText()
+    const secondCorrelationId = await outcomeItems.nth(1).locator('code').nth(1).innerText()
+    assert.equal(firstCorrelationId, secondCorrelationId)
+    assert.match(firstCorrelationId, /^[a-z0-9]+-[a-z0-9]+-\d+$/)
+    await stopFetchOutcomeButton.click()
+    await fetchOutcomeDiagnostics
+      .getByRole('button', { name: 'Capture Fetch action outcomes' })
+      .waitFor()
+    assert.equal(
+      await restartedWorker.evaluate(
+        async (key) => (await chrome.storage.local.get(key))[key],
+        'ajax-proxy:storage:v3-fetch-outcomes-armed'
+      ),
+      undefined,
+      'stopping Fetch outcome capture removes the temporary storage flag'
+    )
+
     const historyItem = v3Panel
       .locator('.recent-matches-list li')
       .filter({ hasText: '/api/v3-ui?token=smoke' })
@@ -774,12 +836,14 @@ async function main() {
     await v3Panel.waitForFunction(
       () =>
         document.querySelectorAll(
-          '.recent-matches:not(.no-match-diagnostics) .recent-matches-list li'
+          '.recent-matches:not(.no-match-diagnostics):not(.fetch-outcome-diagnostics) .recent-matches-list li'
         ).length === 10
     )
     assert.equal(
       await v3Panel
-        .locator('.recent-matches:not(.no-match-diagnostics) .recent-matches-list li')
+        .locator(
+          '.recent-matches:not(.no-match-diagnostics):not(.fetch-outcome-diagnostics) .recent-matches-list li'
+        )
         .count(),
       10
     )

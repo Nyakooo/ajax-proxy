@@ -12,6 +12,7 @@ import {
 import { useI18n } from 'vue-i18n'
 import {
   isV3FunctionError,
+  isV3FetchOutcome,
   isV3HitNotice,
   isV3NoMatch,
   NoticeFrom,
@@ -71,6 +72,8 @@ const recentMatches = ref([])
 const recentFunctionErrors = ref([])
 const noMatchCaptureArmed = ref(false)
 const recentNoMatches = ref([])
+const fetchOutcomeCaptureArmed = ref(false)
+const recentFetchOutcomes = ref([])
 const languages = [
   { code: 'zh-CN', label: '简体中文', shortLabel: '中' },
   { code: 'en', label: 'English', shortLabel: 'EN' },
@@ -282,6 +285,23 @@ function receiveExtensionMessage(message) {
     return
   }
 
+  if (message.key === NoticeKey.V3_FETCH_OUTCOME && isV3FetchOutcome(message.value)) {
+    const rule = config.value.rules.find((candidate) => candidate.id === message.value.rule_id)
+    if (!rule || !rule.enabled) return
+    const actionEnabled =
+      message.value.stage === 'request'
+        ? message.value.reason === 'network-failed'
+          ? Boolean(rule.request?.enabled || rule.response?.enabled)
+          : Boolean(rule.request?.enabled)
+        : Boolean(rule.response?.enabled)
+    if (!actionEnabled) return
+    recentFetchOutcomes.value = [
+      { ...message.value, receivedAt: Date.now() },
+      ...recentFetchOutcomes.value,
+    ].slice(0, 10)
+    return
+  }
+
   if (message.key !== NoticeKey.V3_HIT || !isV3HitNotice(message.value)) return
 
   const { rule_id: ruleId, count } = message.value
@@ -332,12 +352,33 @@ async function setNoMatchCapture(armed) {
 }
 
 function handleDiagnosticsStorageChange(changes, areaName) {
-  if (areaName !== 'local' || !Object.hasOwn(changes, StorageKey.V3_DIAGNOSTICS_ARMED)) return
-  noMatchCaptureArmed.value = changes[StorageKey.V3_DIAGNOSTICS_ARMED].newValue === true
+  if (areaName !== 'local') return
+  if (Object.hasOwn(changes, StorageKey.V3_DIAGNOSTICS_ARMED)) {
+    noMatchCaptureArmed.value = changes[StorageKey.V3_DIAGNOSTICS_ARMED].newValue === true
+  }
+  if (Object.hasOwn(changes, StorageKey.V3_FETCH_OUTCOMES_ARMED)) {
+    fetchOutcomeCaptureArmed.value = changes[StorageKey.V3_FETCH_OUTCOMES_ARMED].newValue === true
+  }
 }
 
 function cancelNoMatchCapture() {
   if (noMatchCaptureArmed.value) void setNoMatchCapture(false)
+}
+
+async function setFetchOutcomeCapture(armed) {
+  if (memoryOnly.value || !globalThis.chrome?.storage?.local) return
+  const storageKey = StorageKey.V3_FETCH_OUTCOMES_ARMED
+  try {
+    if (armed) await chrome.storage.local.set({ [storageKey]: true })
+    else await chrome.storage.local.remove(storageKey)
+    fetchOutcomeCaptureArmed.value = armed
+  } catch {
+    operationError.value = t('editor.saveFailed', { error: 'storage-unavailable' })
+  }
+}
+
+function cancelFetchOutcomeCapture() {
+  if (fetchOutcomeCaptureArmed.value) void setFetchOutcomeCapture(false)
 }
 
 watch(darkMode, (dark) => {
@@ -407,13 +448,18 @@ onMounted(async () => {
         extensionRuntime.onMessage?.removeListener(receiveExtensionMessage)
       const storage = globalThis.chrome?.storage
       if (storage?.local && storage?.onChanged) {
-        const state = await storage.local.get(StorageKey.V3_DIAGNOSTICS_ARMED)
+        const state = await storage.local.get([
+          StorageKey.V3_DIAGNOSTICS_ARMED,
+          StorageKey.V3_FETCH_OUTCOMES_ARMED,
+        ])
         noMatchCaptureArmed.value = state[StorageKey.V3_DIAGNOSTICS_ARMED] === true
+        fetchOutcomeCaptureArmed.value = state[StorageKey.V3_FETCH_OUTCOMES_ARMED] === true
         storage.onChanged.addListener(handleDiagnosticsStorageChange)
         removeDiagnosticsStorageListener = () =>
           storage.onChanged.removeListener(handleDiagnosticsStorageChange)
       }
       window.addEventListener('pagehide', cancelNoMatchCapture)
+      window.addEventListener('pagehide', cancelFetchOutcomeCapture)
     } else {
       operationError.value = t('editor.loadFailed', { error: result.error ?? 'invalid-data' })
     }
@@ -426,9 +472,11 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
   cancelNoMatchCapture()
+  cancelFetchOutcomeCapture()
   removeExtensionMessageListener?.()
   removeDiagnosticsStorageListener?.()
   window.removeEventListener('pagehide', cancelNoMatchCapture)
+  window.removeEventListener('pagehide', cancelFetchOutcomeCapture)
 })
 
 async function persistConfig(nextConfig) {
@@ -1221,6 +1269,54 @@ async function moveRule(rule, targetRule) {
                 <time :datetime="new Date(event.receivedAt).toISOString()">{{
                   formatMatchTime(event.receivedAt)
                 }}</time>
+              </li>
+            </ol>
+          </section>
+
+          <section class="recent-matches fetch-outcome-diagnostics" aria-live="polite">
+            <header class="recent-matches-heading">
+              <strong>{{ locale === 'zh-CN' ? 'Fetch 动作结果' : 'Fetch action outcomes' }}</strong>
+              <small>{{
+                locale === 'zh-CN'
+                  ? '开启后临时显示任一 V3 标签页的 Fetch 动作结果；同一请求用关联 ID 标识。关闭或刷新面板后清空。'
+                  : 'Temporarily show Fetch action outcomes from any V3 tab. Correlation IDs link stages; closing or reloading this panel clears them.'
+              }}</small>
+            </header>
+            <button
+              type="button"
+              :aria-pressed="fetchOutcomeCaptureArmed"
+              :disabled="memoryOnly || loading"
+              @click="setFetchOutcomeCapture(!fetchOutcomeCaptureArmed)"
+            >
+              {{
+                fetchOutcomeCaptureArmed
+                  ? locale === 'zh-CN'
+                    ? '正在捕获 Fetch 结果 · 点击关闭'
+                    : 'Capturing Fetch outcomes · Click to stop'
+                  : locale === 'zh-CN'
+                    ? '捕获 Fetch 动作结果'
+                    : 'Capture Fetch action outcomes'
+              }}
+            </button>
+            <p v-if="!recentFetchOutcomes.length" class="diagnostic-summary">
+              {{ locale === 'zh-CN' ? '尚无临时结果。' : 'No temporary outcomes yet.' }}
+            </p>
+            <ol v-else class="recent-matches-list">
+              <li
+                v-for="(event, index) in recentFetchOutcomes"
+                :key="`${event.correlation_id}-${event.stage}-${index}`"
+              >
+                <div class="recent-match-copy">
+                  <code>{{ event.rule_id }}</code>
+                  <small> {{ event.stage }} · {{ event.outcome }} · {{ event.reason }} </small>
+                  <small>
+                    {{ locale === 'zh-CN' ? '关联 ID' : 'Correlation ID' }}:
+                    <code>{{ event.correlation_id.slice(-16) }}</code>
+                  </small>
+                </div>
+                <time :datetime="new Date(event.receivedAt).toISOString()">
+                  {{ formatMatchTime(event.receivedAt) }}
+                </time>
               </li>
             </ol>
           </section>

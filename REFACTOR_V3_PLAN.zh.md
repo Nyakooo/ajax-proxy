@@ -223,7 +223,7 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - [x] 按当前 V3 完整规则顺序离线试算 URL / method，逐条说明首条匹配、优先级遮蔽、禁用状态、method / URL 不匹配及无效正则；不发请求、不保存输入或改动运行状态。
 - [x] 评估实际请求的未命中原因与 action 最终结果诊断：不得把模拟结果或“匹配”通知当作执行结果；只在用户主动开启临时诊断时记录，不持久化、不采集 body / headers。
 - [x] 增加临时真实请求诊断：默认关闭，由用户主动开启；当前会话内最多保留 10 条真实未命中原因，不记录 URL / query、body 或 headers，面板关闭 / 刷新后清空。
-- [ ] 记录 Fetch 请求 / 响应 action 的实际执行结果与安全失败分类；用临时关联 ID 关联阶段，不改变请求回退策略或命中计数。
+- [x] 记录 Fetch 请求 / 响应 action 的实际执行结果与安全失败分类；用临时关联 ID 关联阶段，不改变请求回退策略或命中计数。
 - [ ] 记录异步 XHR action 的实际结果；在响应值可确认的时点报告成功 / native fallback / unsupported，不把 `open()` 时的匹配误报成结果。
 - [x] 提供离线规则匹配试算：按当前 V3 完整规则顺序复用 domain matcher，逐条说明首条匹配、优先级遮蔽、停用状态、method / URL 不匹配及无效正则；不发请求、不保存输入或改动运行状态。
 - [x] 评估快捷创建规则：限定从面板内存的最近命中记录发起，预填实际 URL / method，用户编辑审核；默认停用、不复制响应数据或函数代码。
@@ -501,4 +501,5 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - 2026-09-26：评估静态响应 header 编辑能力。Fetch 可以应用 header 覆盖；XHR 无法忠实重写网络响应头，当前策略会让配置了响应 header 的 XHR action 整体 fail-open。为避免新增一个在 XHR 上不生效且易被误解的编辑入口，本期暂缓该 UI，待确认可接受的能力降级后再决定。完成 127 / 210 项（60.5%）。
 - 2026-09-26：并行审计实际运行时诊断的 Fetch / XHR 生命周期、消息边界和隐私风险后，将宽泛诊断项拆分：用户主动开启、默认关闭的临时未命中原因；Fetch action outcome；异步 XHR action outcome。诊断仅保存在面板内存、不写 storage，不携带 URL / query、body、headers 或函数代码；真实事件按 best-effort 提示处理，不作为安全证据。命中通知仍只代表规则选择，必须等动作确认点再报告 outcome。完成 128 / 213 项（60.1%）。
 - 2026-09-26：完成用户主动开启的一次性真实未命中诊断：Fetch 与异步 XHR 共用 domain matcher 生成逐规则原因；事件只含 method、rule ID、reason 和截断标志，面板内存最多保留 10 条，取消 / 捕获后消费 arm，关闭 / 刷新清空，不写诊断事件或请求数据到 storage，也不改变 V2 / V3 命中计数。Service Worker 串行消费全局一次性标志，并校验当前配置、完整规则 ID 顺序和截断状态；真实页面主世界事件仍按 best-effort 提示处理。单测、全量 184 项 Vitest、workspace typecheck、包边界 / isolation、format、改动文件零告警 ESLint、Chrome 扩展 Fetch/XHR 与未命中隐私 smoke、Edge Stable 同一扩展 smoke 均通过。完成 129 / 213 项（60.6%）。
+- 2026-09-26：完成 opt-in Fetch 请求 / 响应 action outcome 诊断。固定分类区分重定向应用、构造失败后回退、网络失败、响应替换成功 / 回退 / 不支持；同一请求两阶段共用随机运行时片段 + 序号关联 ID，不改变 Fetch 回退及命中计数。只有开启临时捕获后才生成 / 转发诊断，Service Worker 校验活动 V3 配置、规则、动作与结果类型；面板只保留最近 10 条内存记录，关闭后清除开关，不持久化请求 / 响应内容。扩展 smoke 在 Chromium 与 Edge Stable 通过；全量 198 项 Vitest、typecheck、包边界 / isolation、格式和改动文件 ESLint 通过。完成 130 / 213 项（61.0%）。
 - GitHub 里程碑：[阶段 0](https://github.com/Nyakooo/ajax-proxy/milestone/1)、[阶段 1](https://github.com/Nyakooo/ajax-proxy/milestone/2)、[阶段 2](https://github.com/Nyakooo/ajax-proxy/milestone/3)、[阶段 3](https://github.com/Nyakooo/ajax-proxy/milestone/4)、[阶段 4](https://github.com/Nyakooo/ajax-proxy/milestone/5)、[阶段 5](https://github.com/Nyakooo/ajax-proxy/milestone/6)、[阶段 6](https://github.com/Nyakooo/ajax-proxy/milestone/7)、[阶段 7](https://github.com/Nyakooo/ajax-proxy/milestone/8)；已复现缺陷：[issue #56](https://github.com/Nyakooo/ajax-proxy/issues/56)。

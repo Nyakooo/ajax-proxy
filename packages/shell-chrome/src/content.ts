@@ -15,7 +15,7 @@ import {
 import { CONNECT_NAME, INIT_CURRENT_TITLE, NOTICE_KEY_REFRESH_GLOBAL_STATE } from "./consts";
 import { onLoadForDataConversion } from "@proxy/v2-compatibility";
 import { isPageBadgeHit } from "./messageValidation";
-import { isV3FunctionError, isV3Hit, isV3NoMatch } from '@proxy/protocol'
+import { isV3FetchOutcome, isV3FunctionError, isV3Hit, isV3NoMatch } from '@proxy/protocol'
 
 const V3_FUNCTION_SANDBOX_FRAME_ID = 'ajax-proxy-v3-function-sandbox'
 const V3_FUNCTION_SANDBOX_PATH = 'v3-sandbox/sandbox.html'
@@ -106,6 +106,12 @@ initStorage().then(async () => {
                 getStorage(StorageKey.V3_DIAGNOSTICS_ARMED, false) === true
             )
         }
+        if (changedKeys.has(StorageKey.V3_FETCH_OUTCOMES_ARMED)) {
+            noticeDocumentByContent(
+                NoticeKey.V3_FETCH_OUTCOMES_ARMED,
+                getStorage(StorageKey.V3_FETCH_OUTCOMES_ARMED, false) === true
+            )
+        }
     })
 
     // 发送当前tab页 title
@@ -136,6 +142,10 @@ initStorage().then(async () => {
         NoticeKey.V3_DIAGNOSTICS_ARMED,
         getData[StorageKey.V3_DIAGNOSTICS_ARMED] === true
     )
+    noticeDocumentByContent(
+        NoticeKey.V3_FETCH_OUTCOMES_ARMED,
+        getData[StorageKey.V3_FETCH_OUTCOMES_ARMED] === true
+    )
 
     // 长链接通信接收 service-worker -> document
     chrome.runtime.connect({ name: CONNECT_NAME });
@@ -154,6 +164,8 @@ initStorage().then(async () => {
                 noticeServiceWorkerByContent(NoticeKey.V3_FUNCTION_ERROR, customEvent.detail)
             } else if (isV3NoMatch(customEvent.detail)) {
                 noticeServiceWorkerByContent(NoticeKey.V3_NO_MATCH, customEvent.detail)
+            } else if (isV3FetchOutcome(customEvent.detail)) {
+                noticeServiceWorkerByContent(NoticeKey.V3_FETCH_OUTCOME, customEvent.detail)
             }
         },
         false

@@ -10,10 +10,11 @@ import { replaceFetchResponse } from './responseAction'
 
 export type V3Fetch = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>
 export type V3FetchOptions = V3RuntimeHostOptions
+const correlationNonce = Math.random().toString(36).slice(2, 10)
 let correlationSequence = 0
 
 function createCorrelationId(): string {
-  return `v3-fetch-${++correlationSequence}`
+  return `v3-fetch-${Date.now().toString(36)}-${correlationNonce}-${++correlationSequence}`
 }
 
 function reportOutcome(

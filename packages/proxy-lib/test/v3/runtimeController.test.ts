@@ -153,6 +153,13 @@ describe('createV3RuntimeController', () => {
       },
     ])
     expect(events[0].correlation_id).toBe(events[1].correlation_id)
+    expect(events[0].correlation_id).toMatch(/^v3-fetch-[a-z0-9]+-[a-z0-9]+-\d+$/)
+    await controller.fetch('https://example.test/api')
+    const laterEvents = dispatchEvent.mock.calls
+      .map(([event]) => (event as CustomEvent).detail)
+      .filter(({ kind }) => kind === 'v3-fetch-outcome')
+    expect(laterEvents).toHaveLength(4)
+    expect(laterEvents[2].correlation_id).not.toBe(events[0].correlation_id)
     expect(JSON.stringify(events)).not.toContain('https://example.test')
   })
 })

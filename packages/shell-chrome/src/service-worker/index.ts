@@ -12,7 +12,7 @@ import {
   isValidMode,
   isValidRedirectors,
 } from '@proxy/shared-utils'
-import { isV3FunctionError, isV3Hit, isV3NoMatch } from '@proxy/protocol'
+import { isV3FetchOutcome, isV3FunctionError, isV3Hit, isV3NoMatch } from '@proxy/protocol'
 import { injectEventListener } from './event'
 import { useCurrentTitle } from './notice'
 import { initDefaultSth } from './init'
@@ -20,6 +20,7 @@ import { chromeBadge } from './badge'
 import { chromeBadgeV3 } from './v3Hit'
 import { notifyV3FunctionError } from './v3FunctionError'
 import { notifyV3NoMatch } from './v3NoMatch'
+import { notifyV3FetchOutcome } from './v3FetchOutcome'
 import { createV3PanelMessageHandler } from './v3Panel'
 import { INIT_CURRENT_TITLE } from '../consts'
 import { isPageBadgeHit } from '../messageValidation'
@@ -56,6 +57,9 @@ initStorage()
         }
         if (key === NoticeKey.V3_NO_MATCH && isV3NoMatch(value)) {
           void notifyV3NoMatch(value).catch(() => {})
+        }
+        if (key === NoticeKey.V3_FETCH_OUTCOME && isV3FetchOutcome(value)) {
+          void notifyV3FetchOutcome(value).catch(() => {})
         }
         return
       }
