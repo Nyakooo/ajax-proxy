@@ -410,6 +410,28 @@ describe('createV3Fetch', () => {
     })
   })
 
+  it('provides empty response snapshots when request and response have no body', async () => {
+    const selectedRule = rule('empty-function-snapshot', {
+      match: { url: '/api', method: 'GET' },
+      response: { enabled: true, replace: { code: 'return { status: 201 }' } },
+    })
+    const executeResponseFunction = vi.fn(async () => ({ status: 201 }))
+    const fetch = createV3Fetch(async () => new Response(null), {
+      getRules: () => [selectedRule],
+      executeResponseFunction,
+    })
+
+    const result = await fetch('https://example.test/api', { method: 'GET' })
+
+    expect(executeResponseFunction).toHaveBeenCalledWith(
+      'return { status: 201 }',
+      { url: 'https://example.test/api', method: 'GET' },
+      expect.objectContaining({ status: 200, body: '' })
+    )
+    expect(result.status).toBe(201)
+    expect(result.body).toBeNull()
+  })
+
   it('fails open when a function rejects or returns an invalid result', async () => {
     const selectedRule = rule('function', {
       response: { enabled: true, replace: { code: 'throw new Error("no")' } },
