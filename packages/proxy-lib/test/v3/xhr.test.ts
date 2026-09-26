@@ -117,6 +117,19 @@ describe('createV3XHR', () => {
     expect(onNoMatch).not.toHaveBeenCalled()
   })
 
+  it('fails open with the original open arguments when rule selection throws', () => {
+    const Constructor = createV3XHR(FakeXHR as unknown as V3XHRConstructor, {
+      getRules: () => {
+        throw new Error('configuration unavailable')
+      },
+    })
+    const xhr = new Constructor() as unknown as XMLHttpRequest & FakeXHR
+
+    xhr.open('POST', 'https://example.test/api', true, 'user', 'pass')
+
+    expect(xhr.openArgs).toEqual(['POST', 'https://example.test/api', true, 'user', 'pass'])
+  })
+
   it('reports only unmatched asynchronous opens without changing XHR open arguments', () => {
     const onNoMatch = vi.fn()
     const xhr = makeXHR([rule('other', { match: { url: '/else' } })], undefined, onNoMatch)
