@@ -224,6 +224,32 @@ describe('V3 panel configuration adapter', () => {
     })
   })
 
+  it('forwards a trusted SAVE storage rejection as a stable asynchronous error', async () => {
+    const storage = createStorage()
+    vi.mocked(storage.write).mockRejectedValueOnce(new Error('storage unavailable'))
+    const { handler, sendResponse } = createMessageHandler(storage)
+    const message = {
+      from: NoticeFrom.PANELS,
+      to: NoticeTo.SERVICE_WORKER,
+      key: V3PanelMessageKey.SAVE_CONFIG,
+      value: { config: backup },
+    }
+
+    expect(handler(message, trustedPanelSender)).toBe(true)
+    await vi.waitFor(() =>
+      expect(sendResponse).toHaveBeenCalledExactlyOnceWith({
+        ok: false,
+        error: 'storage-write-failed',
+      })
+    )
+    expect(storage.write).toHaveBeenCalledExactlyOnceWith(StorageKey.V3_CONFIG, {
+      ...backup,
+      formatVersion: 5,
+      disabledOrigins: [],
+    })
+    expect(storage.read).not.toHaveBeenCalled()
+  })
+
   it('registers V3 requests before storage is ready and handles them after initialization', async () => {
     const storage = createStorage()
     let resolveStorageReady!: () => void
