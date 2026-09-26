@@ -449,18 +449,21 @@ describe('V3 rule selection', () => {
     expect(selectV3Rule([regexRule], { url: '/API/123', method: 'GET' })?.rule).toBe(regexRule)
   })
 
-  it('reuses regexes and remains correct after evicting the oldest cache entry', () => {
+  it('refreshes cached regexes and remains correct after evicting the oldest entry', () => {
     const rules = Array.from({ length: 257 }, (_, index) => ({
       ...requestRule(`cached-${index}`, `^/cache/${index}$`),
       match: { url: `^/cache/${index}$`, type: 'regex' as const },
     }))
 
-    for (let index = 0; index < rules.length; index += 1) {
+    expect(selectV3Rule([rules[0]], { url: '/cache/0', method: 'GET' })?.rule).toBe(rules[0])
+    expect(selectV3Rule([rules[0]], { url: '/cache/0', method: 'GET' })?.rule).toBe(rules[0])
+    for (let index = 1; index < rules.length; index += 1) {
       expect(selectV3Rule([rules[index]], { url: `/cache/${index}`, method: 'GET' })?.rule).toBe(
         rules[index]
       )
     }
     expect(selectV3Rule([rules[0]], { url: '/cache/0', method: 'GET' })?.rule).toBe(rules[0])
+    expect(selectV3Rule([rules[1]], { url: '/cache/1', method: 'GET' })?.rule).toBe(rules[1])
   })
 
   it('matches exact URLs by case-sensitive full-string equality in runtime and preview', () => {
