@@ -122,6 +122,8 @@ jobs:
         run: pnpm build:protocol
       - name: Run unit tests and coverage
         run: pnpm test:coverage
+      - name: Run Vue 3 component tests
+        run: pnpm test:v3-ui
       - name: Build production extension
         run: pnpm build
       - name: Verify generated type declarations
