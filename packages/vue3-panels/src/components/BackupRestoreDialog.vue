@@ -9,7 +9,7 @@ const props = defineProps({
   saving: { type: Boolean, default: false },
   issue: { type: String, default: '' },
 })
-const emit = defineEmits(['close', 'restore'])
+const emit = defineEmits(['close', 'restore', 'import-rules'])
 const { t } = useI18n({ useScope: 'global' })
 const source = ref('')
 const candidate = ref(null)

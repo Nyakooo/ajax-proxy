@@ -67,9 +67,10 @@ afterEach(() => {
   document.body.innerHTML = ''
 })
 
-async function mountApp(saveResponses = []) {
+async function mountApp(saveResponses = [], startingConfig = initialConfig()) {
+  i18n.global.locale.value = 'zh-CN'
   previousChrome = globalThis.chrome
-  let storedConfig = initialConfig()
+  let storedConfig = structuredClone(startingConfig)
   const sentMessages = []
   const sendMessage = vi.fn(async (message) => {
     sentMessages.push(message)
@@ -268,5 +269,85 @@ describe('App backup restore persistence flow', () => {
       wrapper.get('[aria-label="Interface language"]').find('[aria-pressed="true"]').text()
     ).toBe('EN')
     expect(wrapper.get('.rule-row').text()).toContain('/restored')
+  })
+
+  it('retries an append import without replacing config and remaps same-name tags', async () => {
+    const existingConfig = {
+      ...initialConfig(),
+      settings: { globalEnabled: true, mode: 'interceptor', language: 'zh-CN' },
+      tags: [{ id: 'current-tag', name: 'Shared', used: true }],
+      rules: [
+        {
+          id: 'existing-rule',
+          enabled: true,
+          match: { url: '/existing', method: 'GET', type: 'normal' },
+          response: { enabled: true, replace: { body: '{"existing":true}' } },
+        },
+      ],
+      disabledOrigins: ['https://existing-block.example'],
+    }
+    const { wrapper, sentMessages } = await mountApp(
+      [{ ok: false, error: 'storage-write-failed' }, { ok: true }],
+      existingConfig
+    )
+    const backup = {
+      format: 'ajax-proxy-backup',
+      formatVersion: V3_BACKUP_VERSION,
+      settings: { globalEnabled: false, mode: 'redirector', language: 'en' },
+      tags: [{ id: 'imported-tag', name: 'shared', used: true }],
+      rules: [
+        {
+          ...existingConfig.rules[0],
+          response: { enabled: true, replace: { body: '{"overwritten":true}' } },
+        },
+        {
+          id: 'imported-rule',
+          enabled: true,
+          tagIds: ['imported-tag'],
+          match: { url: '/imported', method: 'GET', type: 'normal' },
+          response: { enabled: true, replace: { body: '{"imported":true}' } },
+        },
+      ],
+      disabledOrigins: ['https://imported-block.example'],
+    }
+    const expectedConfig = {
+      ...existingConfig,
+      tags: [{ id: 'current-tag', name: 'Shared', used: true }],
+      rules: [existingConfig.rules[0], { ...backup.rules[1], tagIds: ['current-tag'] }],
+    }
+
+    await buttonByText(wrapper, '备份 / 恢复').trigger('click')
+    await wrapper.get('[data-testid="backup-json-input"]').setValue(JSON.stringify(backup))
+    await buttonByText(wrapper, '验证备份').trigger('click')
+    await flushPromises()
+    expect(wrapper.find('.backup-valid').exists()).toBe(true)
+    expect(
+      wrapper.get('[data-testid="backup-import-rules-button"]').attributes('disabled')
+    ).toBeUndefined()
+
+    await wrapper.get('[data-testid="backup-import-rules-button"]').trigger('click')
+    await flushPromises()
+
+    const saves = () =>
+      sentMessages.filter((message) => message.key === V3PanelMessageKey.SAVE_CONFIG)
+    expect(saves()).toHaveLength(1)
+    expect(saves()[0].value.config).toEqual(expectedConfig)
+    expect(wrapper.get('[role="dialog"]').exists()).toBe(true)
+    expect(
+      wrapper.get('[role="switch"][aria-label="全局启用 Ajax Proxy"]').attributes('aria-checked')
+    ).toBe('true')
+    expect(wrapper.get('[aria-label="界面语言"]').find('[aria-pressed="true"]').text()).toBe('中')
+    expect(wrapper.findAll('.rule-row')).toHaveLength(1)
+    expect(wrapper.get('.rule-row').text()).toContain('/existing')
+    expect(wrapper.get('.operation-alert').text()).toContain('storage-write-failed')
+
+    await wrapper.get('[data-testid="backup-import-rules-button"]').trigger('click')
+    await flushPromises()
+
+    expect(saves()).toHaveLength(2)
+    expect(saves()[1].value.config).toEqual(expectedConfig)
+    expect(wrapper.find('[role="dialog"]').exists()).toBe(false)
+    expect(wrapper.findAll('.rule-row')).toHaveLength(2)
+    expect(wrapper.findAll('.rule-row').some((row) => row.text().includes('/imported'))).toBe(true)
   })
 })
