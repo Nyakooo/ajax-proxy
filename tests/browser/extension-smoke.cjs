@@ -524,6 +524,33 @@ async function main() {
       `http://127.0.0.1:${port}/mock/echo`
     )
 
+    const functionRuleAfterRestart = await restartedWorker.evaluate(
+      async (key) =>
+        (await chrome.storage.local.get(key))[key].rules.find(
+          (rule) => rule.id === 'v3-function-extension-smoke'
+        ),
+      'ajax-proxy:storage:v3-config'
+    )
+    assert.ok(functionRuleAfterRestart, 'V3 function response rule must persist across restart')
+    assert.equal(functionRuleAfterRestart.enabled, true)
+    assert.equal(functionRuleAfterRestart.response.enabled, true)
+    assert.deepEqual(functionRuleAfterRestart.response.replace, { code: runtimeFunctionCode })
+    await restartedPage.waitForFunction(() =>
+      Boolean(document.getElementById('ajax-proxy-v3-function-sandbox'))
+    )
+    const restartedFunctionFetchResult = await restartedPage.evaluate(async () => {
+      const response = await fetch('/api/function', { method: 'POST', body: 'after restart' })
+      return { status: response.status, body: await response.json() }
+    })
+    assert.deepEqual(restartedFunctionFetchResult, {
+      status: 209,
+      body: {
+        source: 'v3-function',
+        requestBody: 'after restart',
+        response: { source: 'server', method: 'POST', body: 'after restart' },
+      },
+    })
+
     const v3Panel = await context.newPage()
     v3Panel.setDefaultTimeout(10000)
     v3Panel.on('pageerror', (error) => console.error('V3 panel smoke page error:', error))
