@@ -499,7 +499,7 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - [x] 测试并发 / 快速触发的不同请求不会因包装器重复派发或串线；每个请求只调用一次底层 Fetch，响应及 outcome 关联彼此隔离。
 - [x] 评估命中视觉提示的跨 frame / SPA、滚动、视口、动画及可访问性测试成本；由于页面光晕不纳入 V3，相关视觉效果测试留待后续版本设计时制定。
 - [x] 测试与网页自身 Fetch / XHR 包装器的冲突表现，并明确第三方扩展互操作限制；测试覆盖注入前 / 后页面包装器和扩展启停，无法保证任意扩展组合。
-- [ ] 将函数式重定向、正则匹配、状态码自定义和函数式响应纳入回归测试与文档示例，避免已有能力在重构中退化。
+- [x] 为保留能力补齐回归与文档示例：V3 正则 URL 匹配、状态码自定义和 Fetch 函数响应沿用现有覆盖；V2 旧函数重定向补成功路径测试和用法示例，并注明未迁移到 V3。
 
 ### Issue 来源
 
@@ -765,4 +765,5 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - 2026-09-26：阶段 6 扩展 smoke 新增 import map 页面，验证扩展加载期间页面内的 import map 能解析本地模块、模块实际执行且无 page error。Node 语法 / Prettier / diff 检查通过，CI `36239686244` 对提交 `c1bd3c3` 全部通过。完成 305 / 355 项（85.9%）。
 - 2026-09-26：阶段 6 为 V3 Fetch 增加并发隔离回归：两个请求反序完成底层响应时仍各自返回匹配规则的替换 body；底层调用次数保持一对一，匹配通知和不同 `correlation_id` 正确。定向 Vitest 34 项及 CI `36239759288` 对提交 `b704090` 通过。完成 306 / 355 项（86.2%）。
 - 2026-09-26：阶段 6 修复多个 V3 面板以旧完整快照覆盖新配置的风险：面板快照带 canonical SHA-256 revision，保存通过 Service Worker 队列进行比较后写入；旧 revision 返回当前配置，界面保留未保存修改并要求用户确认后加载最新值。新增协议、存储队列、组件和双面板扩展 smoke 回归；35 个测试文件 / 334 项通过，覆盖率 83.26% / 81.61% / 84.41% / 85.04%，typecheck、边界、clean build、改动文件 lint / format、声明校验通过。CI `36240623085` 全部通过，含双面板 smoke。完成 307 / 355 项（86.5%）。
+- 2026-09-26：阶段 6 / 7 补齐旧版函数重定向成功路径测试与 `README.func.md` 用法示例，并说明该 V2 能力没有迁移至 V3；V3 正则 URL 匹配、自定义状态码和 Fetch 函数响应已有回归 / 文档覆盖。全量覆盖测试 35 个文件 / 337 项通过，CI `36240935866` 全部通过，包含 Chrome / Edge Stable 与最低版本扩展 smoke。完成 308 / 355 项（86.8%）。
 - GitHub 里程碑：[阶段 0](https://github.com/Nyakooo/ajax-proxy/milestone/1)、[阶段 1](https://github.com/Nyakooo/ajax-proxy/milestone/2)、[阶段 2](https://github.com/Nyakooo/ajax-proxy/milestone/3)、[阶段 3](https://github.com/Nyakooo/ajax-proxy/milestone/4)、[阶段 4](https://github.com/Nyakooo/ajax-proxy/milestone/5)、[阶段 5](https://github.com/Nyakooo/ajax-proxy/milestone/6)、[阶段 6](https://github.com/Nyakooo/ajax-proxy/milestone/7)、[阶段 7](https://github.com/Nyakooo/ajax-proxy/milestone/8)；已复现缺陷：[issue #56](https://github.com/Nyakooo/ajax-proxy/issues/56)。
