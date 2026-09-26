@@ -19,7 +19,7 @@
 
 ## 工具选择
 
-- **纯逻辑 / TypeScript 单元测试：Vitest 5 + V8 coverage**。当前 Node 24.21.0 符合 Vitest 5 运行要求；项目根单独提供 Vite 6.4.3 作为 Vitest peer，proxy-lib 仍保留自己的 Vite 2 构建环境。参考 [Vitest 安装要求](https://vitest.dev/guide/) 和 [覆盖率配置](https://vitest.dev/config/coverage)。
+- **纯逻辑 / TypeScript 单元测试：Vitest 5 + V8 coverage**。当前 Node 24.21.0 符合 Vitest 5 运行要求；项目根通过 Vite 6.4.3 满足 Vitest peer，`@proxy/lib` 也使用 Vite 6.4.3 构建，锁文件解析为同一 Vite 版本。参考 [Vitest 安装要求](https://vitest.dev/guide/) 和 [覆盖率配置](https://vitest.dev/config/coverage)。
 - **Lint：ESLint 10 flat config + `typescript-eslint` + `eslint-plugin-vue`**。Vue 2 源码盘点使用 Vue 2 推荐规则；新代码先在 CI 阻塞检查，旧业务源码通过 `pnpm lint:all` 报告并逐步迁入。参考 [ESLint flat config](https://eslint.org/docs/latest/use/configure/configuration-files) 与 [eslint-plugin-vue Vue 2 配置](https://eslint.vuejs.org/user-guide/)。
 - **Vue 组件测试：Vue Test Utils + jsdom**。当前 Vue 2 面板如需新增组件测试，使用与 Vue 2 匹配的版本；Vue 3 迁移时升级到对应版本，并继续由 Vitest 承载。首批先覆盖不依赖 DOM 的规则逻辑。
 - **扩展集成 / E2E：Playwright**。扩展加载与 service worker / content script 测试使用 Playwright 配套 Chromium 的 persistent context。Playwright 文档指出，Chrome 与 Edge 已移除命令行侧载扩展所需的 flags；品牌浏览器 job 验证网页运行时能力，扩展 E2E 在配套 Chromium 验证。参考 [Playwright 扩展测试说明](https://playwright.dev/docs/chrome-extensions) 和 [浏览器通道说明](https://playwright.dev/docs/browsers)。

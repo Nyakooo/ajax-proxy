@@ -1,11 +1,13 @@
 # 依赖安全审查与修复流程
 
-## 审查结果（2026-09-25）
+## 审查结果（截至 2026-09-26）
 
 - `re2js@2.8.6` 从 npm 官方 registry 获取的元数据声明 MIT 许可，仓库地址为 `le0pard/re2js`。npm registry 返回的 SHA-512 integrity 与 `pnpm-lock.yaml` 一致；`pnpm why re2js` 确认仅由 `@proxy/protocol` 与 `@proxy/lib` 直接依赖。当前最新版本也是 2.8.6。
-- 使用 npm 官方 registry 执行 `pnpm audit --json` 得到 50 个公告：20 高、26 中、4 低。除下述生产依赖外，其余 49 个公告均属于开发依赖，集中在旧版 Vue CLI / Webpack / Vite / lint 工具链。该结果作为旧工具链升级的跟踪基线，不以批量覆盖版本的方式处理。
+- 使用 npm 官方 registry 执行 `pnpm audit --json`：当前 `refactor/v3` 锁文件有 33 个公告（16 高、15 中、2 低、0 严重）；其中 32 个属于开发依赖，生产依赖只有下述一个低危 Vue 公告。相较 2026-09-25 的 50 个公告基线，工具链修复后当前总数减少 17；该结果用于跟踪当前分支，不以批量覆盖版本的方式处理。
 - `pnpm audit --prod --json` 得到一个低危 Vue 2 公告 [GHSA-5j4c-8p2g-v4jx](https://github.com/advisories/GHSA-5j4c-8p2g-v4jx)：当前安装 `vue@2.6.11`，公告修复版本为 Vue 3。源码检查未发现 `Vue.compile` 或动态模板调用；当前组件模板通过单文件组件构建。将 Vue 3 迁移完成前保留该低危项并在生产依赖审计中持续报告；如引入动态模板或公告影响范围发生变化，应提前重新评估。
-- `pnpm audit signatures --registry=https://registry.npmjs.org --json` 验证 1,276 个已安装包，invalid / missing 均为 0。
+- 为修复 `@proxy/lib` 构建工具链中的 Vite 公告，将其 Vite 从 2.9.13 升级至 6.4.3（GHSA [fx2h-pf6j-xcff](https://github.com/advisories/GHSA-fx2h-pf6j-xcff) 的修复版本）。Vite 6 的 UMD 输出要求显式声明 `output.name`，并将 sourcemap 配置移至 build 层；本地构建与 CI 全量构建、测试及 Chrome / Edge 浏览器矩阵均通过（CI run [36245512243](https://github.com/Nyakooo/ajax-proxy/actions/runs/36245512243)）。当前分支审计已无 Vite 公告。
+- GitHub push 提示的 133 个 Dependabot 告警来自默认分支 `master` 的旧依赖图，不代表 `refactor/v3` 的告警总数；两条分支分别按自身锁文件审查。当前 V3 分支以 npm 官方 registry 的 `pnpm audit` / `pnpm audit --prod` 结果为准，`master` 告警另行处理。
+- `pnpm audit signatures --registry=https://registry.npmjs.org --json` 验证 1,367 个已安装包，invalid / missing 均为 0。
 - 默认 registry `https://registry.npmmirror.com` 不提供 pnpm 12 的 bulk audit endpoint，安全审计命令显式使用 `https://registry.npmjs.org`。pnpm 12 通过该 endpoint 查询 GHSA 公告；参考 [pnpm audit 文档](https://pnpm.io/cli/audit)。
 
 ## 日常流程

@@ -474,7 +474,8 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - [x] **Fetch / XHR 页面包装器共存**：启停时保留注入前 wrapper，并在扩展外层 wrapper 存在时关闭内层代理而不覆盖页面引用；生命周期由 Vitest 和互操作说明覆盖。不能保证任意第三方扩展组合。
 - [x] **测试与 CI 自动化**：已建立全包测试、覆盖率、lint、typecheck、边界、构建、声明和 Chrome / Edge Stable 与最低版本 smoke 工作流。
 - [x] **非扩展环境 localStorage**：初始化快照、localStorage 变更同步和缓存读写 / 删除 / 清空 / 失败路径均有测试。
-- [ ] **依赖安全告警处置**：对 GitHub 默认分支当前 Dependabot 告警按生产 / 开发依赖、严重级别和 fixed version 分组，并分批修复；2026-09-26 push 提示汇总 133 条，升级需单独验证构建和浏览器兼容性。
+- [ ] **依赖安全告警处置**：按分支锁文件分别审计生产 / 开发依赖、严重级别和 fixed version 并分批修复。GitHub push 提示的 133 条 Dependabot 告警属于默认分支 `master`，不代表当前 V3 分支；`refactor/v3` 的官方 registry 完整审计现为 33 条（16 高、15 中、2 低），生产审计为一个低危 Vue 2 公告。各项升级单独验证构建和浏览器兼容性，见 `docs/DEPENDENCY-SECURITY.zh.md`。
+  - [x] **Vite 安全升级**：`@proxy/lib` 从 Vite 2.9.13 升级到 6.4.3；同步修复 UMD `output.name` / sourcemap 配置，Vite 公告从当前分支审计中消失。全量本地验证和 CI run [36245512243](https://github.com/Nyakooo/ajax-proxy/actions/runs/36245512243) 通过。
 - [x] **流式 Fetch 重定向兼容性**：扩展 smoke 在 Chrome 141、Edge 140 和 bundled Chromium 上验证同源 HTTPS / HTTP/2 下 `ReadableStream` POST body、header、cookie 重定向保留，以及 `Request` 构造失败后回退原请求；HTTP/1.x 不支持浏览器流式请求体，跨源 CORS 场景未纳入本轮范围。兼容边界和验证证据见 `docs/V3-RULE-MODEL.zh.md` 与 `docs/V3-TESTING.zh.md`。
 
 ## 8. GitHub Issues 需求回顾
@@ -774,4 +775,5 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - 2026-09-26：阶段 6 扩展 smoke 验证 V3 正则规则的真实请求路径：Fetch 与 XHR 对 `/api/items` 命中替换响应；同为 POST 的 `/api/nope` 保持服务端响应。CI `36241422200` 的 Chrome / Edge Stable、Chrome 141 / Edge 140 最低版本、构建与扩展 smoke 全部通过；作为已完成规则回归项的端到端补强，完成度保持 309 / 356（86.8%）。
 - 2026-09-26：复核第 7 节既有问题的实现 / 测试证据后，完成 V3 Fetch / XHR 生命周期、storage 缓存、V3 backup、函数 sandbox 和 CI 自动化等风险项；对首请求配置窗口保留明确限制。另拆出 Dependabot 依赖安全处置和流式 `duplex` 重定向验证作为独立后续项。完成 322 / 358 项（89.9%）。
 - 2026-09-26：完成流式 Fetch 重定向兼容验证：同源 HTTPS / HTTP/2 上的流式 POST body、原始 header 与 cookie 均随重定向保留；`Request` 构造失败后原请求成功 fail-open，且请求只走 HTTP/2。CI `36244734696` 的 Chrome 141、Edge 140 扩展 smoke，Chrome / Edge Stable V3 runtime smoke，以及 bundled Chromium 扩展 smoke 全部通过。浏览器 HTTP/1.x 不接受流式请求体；跨源 CORS 场景仍未覆盖，已在能力说明中标注。完成 323 / 358 项（90.2%）。
+- 2026-09-26：完成 `@proxy/lib` 的 Vite 安全升级：Vite 2.9.13 → 6.4.3，并修正 UMD `output.name` 与 sourcemap 配置；全量审计由 50 条降至 33 条（16 高 / 15 中 / 2 低），Vite 公告清零，生产审计仍仅有计划中 Vue 3 迁移覆盖的 Vue 2 低危项。全量构建、345 项 Vitest、typecheck、声明检查、安全审计与 CI run `36245512243` 全部通过。默认分支 `master` 的 133 条 Dependabot 告警另行追踪；V3 依赖告警总项保持进行中。完成 324 / 359 项（90.3%）。
 - GitHub 里程碑：[阶段 0](https://github.com/Nyakooo/ajax-proxy/milestone/1)、[阶段 1](https://github.com/Nyakooo/ajax-proxy/milestone/2)、[阶段 2](https://github.com/Nyakooo/ajax-proxy/milestone/3)、[阶段 3](https://github.com/Nyakooo/ajax-proxy/milestone/4)、[阶段 4](https://github.com/Nyakooo/ajax-proxy/milestone/5)、[阶段 5](https://github.com/Nyakooo/ajax-proxy/milestone/6)、[阶段 6](https://github.com/Nyakooo/ajax-proxy/milestone/7)、[阶段 7](https://github.com/Nyakooo/ajax-proxy/milestone/8)；已复现缺陷：[issue #56](https://github.com/Nyakooo/ajax-proxy/issues/56)。
