@@ -426,6 +426,28 @@ describe('V3 backup schema', () => {
     })
   })
 
+  it('returns validation issues when untrusted backup accessors or proxy traps throw', () => {
+    const formatGetter = { ...validBackup }
+    Object.defineProperty(formatGetter, 'format', {
+      configurable: true,
+      get() {
+        throw new Error('format access blocked')
+      },
+    })
+    const throwingOwnKeys = new Proxy(validBackup, {
+      ownKeys() {
+        throw new Error('key enumeration blocked')
+      },
+    })
+
+    for (const value of [formatGetter, throwingOwnKeys]) {
+      expect(validateV3Backup(value)).toEqual({
+        ok: false,
+        issues: [{ path: '$', message: 'Backup must be safely readable.' }],
+      })
+    }
+  })
+
   it('rejects invalid rule identity, enabled flags, matcher URLs, and action flags', () => {
     const invalidFields = structuredClone(validBackup)
     const rule = invalidFields.rules[0] as unknown as Record<string, unknown>

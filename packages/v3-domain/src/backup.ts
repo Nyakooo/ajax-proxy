@@ -334,7 +334,7 @@ function validateRule(
   }
 }
 
-export function validateV3Backup(value: unknown): V3BackupValidation {
+function validateV3BackupUnchecked(value: unknown): V3BackupValidation {
   const issues: V3ValidationIssue[] = []
   const availableTagIds = new Set<string>()
   if (!isObject(value))
@@ -487,6 +487,17 @@ export function validateV3Backup(value: unknown): V3BackupValidation {
         } as unknown as V3Backup,
       }
     : { ok: false, issues }
+}
+
+export function validateV3Backup(value: unknown): V3BackupValidation {
+  try {
+    return validateV3BackupUnchecked(value)
+  } catch {
+    return {
+      ok: false,
+      issues: [{ path: '$', message: 'Backup must be safely readable.' }],
+    }
+  }
 }
 
 export function parseV3BackupJson(text: string): V3BackupParseResult {
