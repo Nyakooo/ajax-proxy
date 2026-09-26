@@ -244,6 +244,58 @@ describe('createV3ResponseFunctionExecutor', () => {
     expect(frame.remove).toHaveBeenCalledOnce()
   })
 
+  it('removes the sandbox after timeout even when sending cancel fails', async () => {
+    vi.useFakeTimers()
+    vi.stubGlobal('HTMLIFrameElement', FakeIFrameElement)
+    const frame = new FakeIFrameElement()
+    const cancelError = new Error('sandbox cancel channel unavailable')
+    frame.contentWindow.postMessage = vi.fn((message: { type: string }) => {
+      if (message.type === 'cancel') throw cancelError
+    }) as unknown as typeof frame.contentWindow.postMessage
+    let onMessage: ((event: MessageEvent) => void) | undefined
+    const host = {
+      document: { getElementById: vi.fn(() => frame) },
+      addEventListener: vi.fn((_type: string, listener: EventListenerOrEventListenerObject) => {
+        if (typeof listener === 'function') onMessage = listener as (event: MessageEvent) => void
+      }),
+      crypto: { randomUUID: () => 'cancel-failure-timeout-id' },
+    } as unknown as Window
+    const execute = createV3ResponseFunctionExecutor(host)
+    const result = execute(
+      'while (true) {}',
+      { url: '/api', method: 'GET' },
+      { status: 200, statusText: 'OK', headers: {}, body: 'native' }
+    )
+
+    await Promise.resolve()
+    onMessage?.({
+      origin: 'null',
+      source: frame.contentWindow,
+      data: { channel: 'ajax-proxy-v3-function-sandbox', type: 'ready' },
+    } as MessageEvent)
+    await Promise.resolve()
+    await Promise.resolve()
+    expect(frame.contentWindow.postMessage).toHaveBeenCalledOnce()
+
+    const rejection = expect(result).rejects.toThrow('Function response timed out after 5 seconds.')
+    await vi.advanceTimersByTimeAsync(5000)
+    await rejection
+    expect(frame.contentWindow.postMessage).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({ type: 'run', id: 'cancel-failure-timeout-id' }),
+      '*'
+    )
+    expect(frame.contentWindow.postMessage).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({ type: 'cancel', id: 'cancel-failure-timeout-id' }),
+      '*'
+    )
+    expect(frame.remove).not.toHaveBeenCalled()
+
+    await vi.advanceTimersByTimeAsync(100)
+    expect(frame.remove).toHaveBeenCalledOnce()
+  })
+
   it('rejects empty or oversized source before looking up a sandbox frame', async () => {
     const getElementById = vi.fn()
     const host = {
