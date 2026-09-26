@@ -34,3 +34,5 @@ overrides:
   'eslint-plugin-vue@6.2.2>semver': 5.7.2
   'normalize-package-data@2.3.2>semver': 5.7.2
   'normalize-package-data@2.5.0>semver': 5.7.2
+  # GHSA-25h7-pfq9-p65f and GHSA-rf6f-7fwh-wjgh: ESLint cache only; API smoke follows.
+  'flat-cache@2.0.1>flatted': 3.4.4

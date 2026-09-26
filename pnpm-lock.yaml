@@ -176,6 +176,7 @@ overrides:
   eslint-plugin-vue@6.2.2>semver: 5.7.2
   normalize-package-data@2.3.2>semver: 5.7.2
   normalize-package-data@2.5.0>semver: 5.7.2
+  flat-cache@2.0.1>flatted: 3.4.4
 
 packageExtensionsChecksum: sha256-MXCTF/AzFRZXAH858pncKOw7jlGhB/SkcoFklhSykEI=
 
@@ -3658,9 +3659,6 @@ packages:
   flat@5.0.2:
     resolution: {integrity: sha512-b6suED+5/3rTpUBdG1gupIl8MPFCAMA0QXwmljLhvCUKcUvdE4gWky9zpuGCcXHOsz4J9wPGNWq6OKpmIzz3hQ==}
     hasBin: true
-
-  flatted@2.0.0:
-    resolution: {integrity: sha512-R+H8IZclI8AAkSBRQJLVOsxwAoHd6WC40b4QTNWIjzAa6BXOBfQcM587MXDTVPeYaopFNWHUFLx7eNmHDSxMWg==}
 
   flatted@3.4.4:
     resolution: {integrity: sha512-5+ybhBZANEJxaH3X5evAFatUxLfEHSr7n6kYJ+1Qd0mUqr4eu9gIf6GDbWHf8RJijHrjjO8G+la14SlL2SeS1Q==}
@@ -10665,7 +10663,7 @@ snapshots:
 
   flat-cache@2.0.1:
     dependencies:
-      flatted: 2.0.0
+      flatted: 3.4.4
       rimraf: 2.6.3
       write: 1.0.3
 
@@ -10676,8 +10674,6 @@ snapshots:
       hookified: 1.15.1
 
   flat@5.0.2: {}
-
-  flatted@2.0.0: {}
 
   flatted@3.4.4: {}
 
