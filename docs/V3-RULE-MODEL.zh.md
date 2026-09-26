@@ -103,7 +103,7 @@ V3 备份使用独立标识，不通过字段猜测把旧文件转换成新格�
 - **XHR 响应替换**：XHR 的 `response`、`responseText`、`status` 等原生状态并非可任意写入。需用原型验证能否在不破坏事件顺序、`responseType` 和同步请求语义的条件下实现替换；若不能，应缩小 XHR 支持范围并在 UI 明示，不能宣称与 Fetch 完全一致。
 - **共同场景**：验证多条规则命中、规则禁用、重定向失败、函数异常 / 超时、请求循环风险、其他包装器共存、iframe、多标签和 service worker 状态更新。
 
-当前扩展 XHR runtime 对异步请求按原 URL / method 选择首条规则，支持静态 HTTP(S) 重定向，以及空 / `text` / `json` responseType 下的静态 body / status 替换；同步 XHR、函数 `code`、其他 responseType 和带 response headers 覆盖的 action 均 fail-open。它不重写响应头，也不合成原生网络事件；代理给事件监听器包装代理 `this`、`target` 和 `currentTarget`。FakeXHR 单测与 Chrome / Edge Stable、最低 Chrome 141 / Edge 140 扩展 smoke 已覆盖组合 Fetch / XHR 路径，但两者的原生能力仍不完全等价，UI 需要标明受限 action。
+当前扩展 XHR runtime 对异步请求按原 URL / method 选择首条规则，支持静态 HTTP(S) 重定向，以及空 / `text` / `json` responseType 下的静态 body / status 替换；同步 XHR、函数 `code`、其他 responseType 和带 response headers 覆盖的 action 均 fail-open。它不重写响应头，也不合成原生网络事件；代理给事件监听器包装代理 `this`、`target` 和 `currentTarget`。FakeXHR 单测与 Chrome / Edge Stable、最低 Chrome 141 / Edge 140 扩展 smoke 已覆盖组合 Fetch / XHR 路径。由于 Fetch / XHR 在响应头写入能力上无法等价，本期暂缓为静态 response headers 增加编辑入口，待确定用户可理解且可接受的降级方式后再评估。
 
 ## 扩展运行时接入边界
 
