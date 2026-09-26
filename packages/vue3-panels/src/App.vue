@@ -53,7 +53,7 @@ const selectedTagId = ref('')
 const selectedRuleIds = ref([])
 const config = ref(createEmptyConfig())
 const hitCounters = ref({})
-const recentMatch = ref(null)
+const recentMatches = ref([])
 const recentFunctionErrors = ref([])
 const languages = [
   { code: 'zh-CN', label: '简体中文', shortLabel: '中' },
@@ -258,7 +258,18 @@ function receiveExtensionMessage(message) {
   if (count <= (hitCounters.value[ruleId] ?? 0)) return
 
   hitCounters.value = { ...hitCounters.value, [ruleId]: count }
-  recentMatch.value = message.value
+  recentMatches.value = [
+    { ...message.value, receivedAt: Date.now() },
+    ...recentMatches.value,
+  ].slice(0, 10)
+}
+
+function formatMatchTime(timestamp) {
+  return new Intl.DateTimeFormat(locale.value, {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  }).format(timestamp)
 }
 
 let removeExtensionMessageListener
@@ -346,7 +357,7 @@ async function persistConfig(nextConfig) {
 
 async function restoreBackup(backup) {
   if (!(await persistConfig(backup))) return
-  recentMatch.value = null
+  recentMatches.value = []
   recentFunctionErrors.value = []
   locale.value = backup.settings.language
   backupDialogOpen.value = false
@@ -932,18 +943,29 @@ async function moveRule(rule, targetRule) {
             {{ t('proxy.disabledNotice') }}
           </div>
 
-          <div v-if="recentMatch" class="recent-match" role="status" aria-live="polite">
-            <div class="recent-match-copy">
-              <strong>{{ t('rules.recentMatch') }}</strong>
-              <code>
-                {{
-                  t('rules.matchedRequest', { method: recentMatch.method, url: recentMatch.url })
-                }}
-              </code>
-              <small>{{ t('rules.matchCondition', { url: recentMatch.match_url }) }}</small>
-            </div>
-            <AppTag :value="t('rules.matched')" severity="info" />
-          </div>
+          <section
+            v-if="recentMatches.length"
+            class="recent-matches"
+            :aria-label="t('rules.recentMatches')"
+          >
+            <header class="recent-matches-heading">
+              <strong>{{ t('rules.recentMatches') }}</strong>
+              <small>{{ t('rules.recentMatchesScope') }}</small>
+            </header>
+            <ol class="recent-matches-list">
+              <li v-for="match in recentMatches" :key="`${match.rule_id}-${match.count}`">
+                <div class="recent-match-copy">
+                  <code>{{
+                    t('rules.matchedRequest', { method: match.method, url: match.url })
+                  }}</code>
+                  <small>{{ t('rules.matchCondition', { url: match.match_url }) }}</small>
+                </div>
+                <time :datetime="new Date(match.receivedAt).toISOString()">
+                  {{ formatMatchTime(match.receivedAt) }}
+                </time>
+              </li>
+            </ol>
+          </section>
 
           <section
             v-if="recentFunctionErrors.length"

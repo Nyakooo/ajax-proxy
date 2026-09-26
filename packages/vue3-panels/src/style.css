@@ -499,28 +499,55 @@ input {
   padding-top: 9px;
 }
 
-.recent-match {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
+.recent-matches {
   margin-top: 14px;
-  padding: 11px 13px;
+  padding: 11px 13px 6px;
   border: 1px solid color-mix(in srgb, var(--ap-teal), var(--ap-border) 72%);
   border-radius: 9px;
   background: color-mix(in srgb, var(--ap-teal), var(--ap-raised) 96%);
 }
 
+.recent-matches-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 5px 12px;
+}
+
+.recent-matches-heading strong {
+  color: var(--ap-ink);
+  font-size: 11px;
+}
+
+.recent-matches-heading small {
+  color: var(--ap-muted);
+  font-size: 10px;
+}
+
+.recent-matches-list {
+  max-height: 240px;
+  overflow-y: auto;
+  margin: 7px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.recent-matches-list li {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px 12px;
+  padding: 7px 0;
+  border-top: 1px solid var(--ap-border);
+}
+
 .recent-match-copy {
   display: flex;
   min-width: 0;
+  flex: 1;
   flex-direction: column;
   gap: 5px;
-}
-
-.recent-match-copy strong {
-  color: var(--ap-ink);
-  font-size: 11px;
 }
 
 .recent-match-copy code,
@@ -534,6 +561,13 @@ input {
 
 .recent-match-copy small {
   font-family: var(--ap-font-ui);
+}
+
+.recent-matches-list time {
+  flex: 0 0 auto;
+  color: var(--ap-muted);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
 }
 
 .function-errors {

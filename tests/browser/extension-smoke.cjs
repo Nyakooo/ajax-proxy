@@ -592,9 +592,25 @@ async function main() {
     }
     assert.equal(v3UiHitCount, beforeV3UiHit + 1)
 
-    await v3Panel.getByText('Most recent match across tabs').waitFor()
+    await v3Panel.getByText('Recent 10 matches').waitFor()
     await v3Panel.getByText(/Matched request: POST http:\/\/127\.0\.0\.1:\d+\/api\/v3-ui/).waitFor()
-    await v3Panel.getByText('Matched', { exact: true }).waitFor()
+    assert.equal(await v3Panel.locator('.recent-matches-list li').count(), 1)
+    await v3Panel
+      .getByText(
+        'Matches received while this panel is open; misses are not recorded. Closing or reloading clears this list.'
+      )
+      .waitFor()
+    await restartedPage.evaluate(async () => {
+      await Promise.all(
+        Array.from({ length: 11 }, (_, index) =>
+          fetch('/api/v3-ui', { method: 'POST', body: `history ${index}` })
+        )
+      )
+    })
+    await v3Panel.waitForFunction(
+      () => document.querySelectorAll('.recent-matches-list li').length === 10
+    )
+    assert.equal(await v3Panel.locator('.recent-matches-list li').count(), 10)
     const v3UiRuleRow = v3Panel.locator('.rule-row').filter({ hasText: '/api/v3-ui' })
     await v3UiRuleRow
       .locator('.hit-count strong')
@@ -870,6 +886,12 @@ async function main() {
     }
     assert.equal(taggedRule.tagIds.length, 2, 'the editor persists both selected tag references')
     await v3Panel.reload()
+    await v3Panel.getByText('/api/v3-ui', { exact: true }).waitFor()
+    assert.equal(
+      await v3Panel.locator('.recent-matches-list li').count(),
+      0,
+      'recent match history is cleared when the panel reloads'
+    )
     await taggedRuleRow.locator('.rule-tag-chip').getByText('Smoke label').waitFor()
     await taggedRuleRow.locator('.rule-tag-chip').getByText('Secondary label').waitFor()
 
