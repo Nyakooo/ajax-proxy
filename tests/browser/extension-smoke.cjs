@@ -497,7 +497,7 @@ async function main() {
           {
             id: 'v3-stream-redirect-extension-smoke',
             enabled: true,
-            match: { url: '/api/stream', method: 'POST' },
+            match: { url: '/api/stream$', type: 'regex', method: 'POST' },
             request: {
               enabled: true,
               redirect: { url: `${streamOrigin}/mock/echo` },
