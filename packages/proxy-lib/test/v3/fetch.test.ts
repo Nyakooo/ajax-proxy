@@ -16,6 +16,88 @@ function rule(id: string, options: Partial<V3Rule> = {}): V3Rule {
 }
 
 describe('createV3Fetch', () => {
+  it('isolates concurrent requests, responses, and outcome correlation IDs', async () => {
+    const firstRule = rule('first-concurrent', {
+      match: { url: '/api/first', method: 'POST' },
+      response: { enabled: true, replace: { body: { response: 'first' } } },
+    })
+    const secondRule = rule('second-concurrent', {
+      match: { url: '/api/second', method: 'POST' },
+      response: { enabled: true, replace: { body: { response: 'second' } } },
+    })
+    const deferred = <T>() => {
+      let resolve!: (value: T) => void
+      const promise = new Promise<T>((done) => {
+        resolve = done
+      })
+      return { promise, resolve }
+    }
+    const firstNetwork = deferred<Response>()
+    const secondNetwork = deferred<Response>()
+    const fetcher = vi.fn((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.endsWith('/api/first')) return firstNetwork.promise
+      if (url.endsWith('/api/second')) return secondNetwork.promise
+      throw new Error(`Unexpected request: ${url}`)
+    })
+    const onMatched = vi.fn()
+    const onFetchOutcome = vi.fn()
+    const fetch = createV3Fetch(fetcher, {
+      getRules: () => [firstRule, secondRule],
+      onMatched,
+      isFetchOutcomeDiagnosticsArmed: () => true,
+      onFetchOutcome,
+    })
+
+    const firstResultPromise = fetch('https://example.test/api/first', { method: 'POST' })
+    const secondResultPromise = fetch('https://example.test/api/second', { method: 'POST' })
+
+    expect(fetcher).toHaveBeenCalledTimes(2)
+    expect(fetcher.mock.calls.map(([input]) => String(input))).toEqual([
+      'https://example.test/api/first',
+      'https://example.test/api/second',
+    ])
+    expect(onMatched.mock.calls).toEqual([
+      [firstRule, 0, { url: 'https://example.test/api/first', method: 'POST' }],
+      [secondRule, 1, { url: 'https://example.test/api/second', method: 'POST' }],
+    ])
+
+    secondNetwork.resolve(new Response('second native'))
+    firstNetwork.resolve(new Response('first native'))
+    const [firstResult, secondResult] = await Promise.all([firstResultPromise, secondResultPromise])
+
+    expect(fetcher).toHaveBeenCalledTimes(2)
+    await expect(firstResult.json()).resolves.toEqual({ response: 'first' })
+    await expect(secondResult.json()).resolves.toEqual({ response: 'second' })
+    expect(onFetchOutcome).toHaveBeenCalledTimes(2)
+    const outcomes = onFetchOutcome.mock.calls.map(
+      ([matchedRule, correlationId, stage, outcome, reason]) => ({
+        ruleId: matchedRule.id,
+        correlationId,
+        stage,
+        outcome,
+        reason,
+      })
+    )
+    expect(outcomes).toEqual([
+      {
+        ruleId: 'second-concurrent',
+        correlationId: expect.any(String),
+        stage: 'response',
+        outcome: 'applied',
+        reason: 'response-replacement-applied',
+      },
+      {
+        ruleId: 'first-concurrent',
+        correlationId: expect.any(String),
+        stage: 'response',
+        outcome: 'applied',
+        reason: 'response-replacement-applied',
+      },
+    ])
+    expect(outcomes[0].correlationId).not.toBe(outcomes[1].correlationId)
+  })
+
   it('uses the first rule selected on the original URL for redirect and response replacement', async () => {
     const selectedRule = rule('first', {
       request: { enabled: true, redirect: { url: '/redirected' } },
