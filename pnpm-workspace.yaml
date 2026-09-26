@@ -36,3 +36,5 @@ overrides:
   'normalize-package-data@2.5.0>semver': 5.7.2
   # GHSA-25h7-pfq9-p65f and GHSA-rf6f-7fwh-wjgh: ESLint cache only; API smoke follows.
   'flat-cache@2.0.1>flatted': 3.4.4
+  # GHSA-ph9p-34f9-6g65 and GHSA-7c78-jf6q-g5cm: use tmp after the bypass fix.
+  'external-editor@3.1.0>tmp': 0.2.7
