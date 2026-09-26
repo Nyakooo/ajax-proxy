@@ -26,6 +26,26 @@ assert.ok(
 
 async function main() {
   const server = http.createServer((request, response) => {
+    if (request.url === '/import-map') {
+      response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' })
+      response.end(`<!doctype html>
+        <title>Import Map Smoke Page</title>
+        <script type="importmap">
+          { "imports": { "smoke-fixture": "/module-fixture.js" } }
+        </script>
+        <script type="module">
+          import { value } from 'smoke-fixture'
+          document.documentElement.dataset.importMapResult = value
+        </script>`)
+      return
+    }
+
+    if (request.url === '/module-fixture.js') {
+      response.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8' })
+      response.end(`export const value = 'import-map-module-executed'`)
+      return
+    }
+
     if (request.url === '/') {
       response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' })
       response.end(`<!doctype html>
@@ -171,6 +191,15 @@ async function main() {
     })
     await page.goto(`http://127.0.0.1:${port}/`)
     await secondPage.goto(`http://127.0.0.1:${port}/`)
+    const importMapPage = await context.newPage()
+    const importMapPageErrors = []
+    importMapPage.on('pageerror', (error) => importMapPageErrors.push(error.message))
+    await importMapPage.goto(`http://127.0.0.1:${port}/import-map`)
+    await importMapPage.waitForFunction(
+      () => document.documentElement.dataset.importMapResult === 'import-map-module-executed'
+    )
+    assert.deepEqual(importMapPageErrors, [], 'import map module must execute without page errors')
+    await importMapPage.close()
     const activeTab = await panel.evaluate(() =>
       chrome.tabs.query({ active: true, lastFocusedWindow: true }).then((tabs) => tabs[0])
     )
