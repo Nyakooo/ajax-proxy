@@ -264,6 +264,7 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - [x] 为 shared-utils Chrome storage 与网页 localStorage 缓存操作（初始化、读取、写入、删除、清空）覆盖成功和失败回归；删除 / 清空失败须拒绝、保留缓存并派发错误事件。
 - [x] 为 V3 XHR 响应完成时序增加回归：`readystatechange` 到 readyState 4 及 `load` 回调 / 监听器读取响应时，替换后的 body 与 status 已就绪。
 - [x] 为 V3 XHR 网络失败增加回归：网络错误下的 `status=0` 不得被响应替换伪装成成功状态，`readystatechange` 与 `error` 处理器读取到原生失败结果。
+- [x] 将 V3 XHR 原生失败保留断言扩展至 `abort` 与 `timeout` 终态。
 - [x] 为 service worker 启动期 V3 面板消息入口覆盖发送方与 envelope 拒绝路径；错误扩展 ID、非 V3 面板 URL 和畸形消息均不得访问 storage 或调用响应回调。
 - [x] 为 V3 XHR `on*` 属性处理器覆盖重复赋值及设为 `null` 的移除语义，避免旧回调跨事件 / 请求残留。
 - [x] 为 V3 面板启动期 GET 快照覆盖 storage 初始化失败分支；返回稳定 `storage-read-failed`，且初始化失败时不访问 storage。
@@ -548,4 +549,5 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - 2026-09-26：阶段 6 补齐 sandbox 硬超时与取消回归：执行达到 5 秒时 Promise reject 且向 sandbox 发送 cancel；100 ms 宽限期后移除 iframe，作为 worker 阻止取消时的终止后备。定向测试和全量验证通过。完成 158 / 224 项（70.5%）。
 - 2026-09-26：阶段 6 补齐 sandbox 源码长度边界：空白源码及 65,537 字符源码均以稳定错误拒绝，且不会查找或创建 iframe。定向与全量测试、workspace typecheck、改动文件 ESLint / Prettier 通过。完成 159 / 225 项（70.7%）。
 - 2026-09-26：阶段 6 补齐 sandbox 最大并发回归：四个等待执行的调用均能完成，第五个调用在投递前被稳定拒绝，不影响已接受请求。定向与全量测试、workspace typecheck、改动文件 ESLint / Prettier 通过。完成 160 / 226 项（70.8%）。
+- 2026-09-26：阶段 6 将 XHR `status=0` 保留回归扩展到网络 `error`、`abort` 和 `timeout`，确认 readyState 4 与各终止事件的监听器读取到原生失败响应，不应用 configured success replacement。全量 237 项 Vitest、workspace typecheck、改动文件零告警 ESLint / Prettier 通过。完成 161 / 227 项（71.0%）。
 - GitHub 里程碑：[阶段 0](https://github.com/Nyakooo/ajax-proxy/milestone/1)、[阶段 1](https://github.com/Nyakooo/ajax-proxy/milestone/2)、[阶段 2](https://github.com/Nyakooo/ajax-proxy/milestone/3)、[阶段 3](https://github.com/Nyakooo/ajax-proxy/milestone/4)、[阶段 4](https://github.com/Nyakooo/ajax-proxy/milestone/5)、[阶段 5](https://github.com/Nyakooo/ajax-proxy/milestone/6)、[阶段 6](https://github.com/Nyakooo/ajax-proxy/milestone/7)、[阶段 7](https://github.com/Nyakooo/ajax-proxy/milestone/8)；已复现缺陷：[issue #56](https://github.com/Nyakooo/ajax-proxy/issues/56)。

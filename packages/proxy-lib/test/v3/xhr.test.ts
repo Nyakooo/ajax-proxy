@@ -58,14 +58,14 @@ class FakeXHR extends EventTarget {
     this.dispatchEvent(new Event('loadend'))
   }
 
-  fail() {
+  fail(type: 'abort' | 'error' | 'timeout' = 'error') {
     this.readyState = 4
     this.status = 0
     this.statusText = ''
     this.responseText = ''
     this.response = ''
     this.dispatchEvent(new Event('readystatechange'))
-    this.dispatchEvent(new Event('error'))
+    this.dispatchEvent(new Event(type))
     this.dispatchEvent(new Event('loadend'))
   }
 }
@@ -264,28 +264,32 @@ describe('createV3XHR', () => {
     expect(replacementHandler).toHaveBeenCalledOnce()
   })
 
-  it('preserves native failure status and response when an XHR request errors', () => {
-    const xhr = makeXHR([
-      rule('failure', {
-        response: { enabled: true, replace: { status: 200, body: { fake: true } } },
-      }),
-    ])
-    const observed: Array<[string, number, string]> = []
-    xhr.onreadystatechange = function () {
-      if (this.readyState === 4) observed.push(['readystatechange', this.status, this.responseText])
+  it.each(['error', 'abort', 'timeout'] as const)(
+    'preserves native failure status and response when an XHR request ends with %s',
+    (eventType) => {
+      const xhr = makeXHR([
+        rule('failure', {
+          response: { enabled: true, replace: { status: 200, body: { fake: true } } },
+        }),
+      ])
+      const observed: Array<[string, number, string]> = []
+      xhr.onreadystatechange = function () {
+        if (this.readyState === 4)
+          observed.push(['readystatechange', this.status, this.responseText])
+      }
+      xhr.addEventListener(eventType, function () {
+        observed.push([eventType, this.status, this.responseText])
+      })
+
+      xhr.open('POST', 'https://example.test/api', true)
+      xhr.fail(eventType)
+
+      expect(observed).toEqual([
+        ['readystatechange', 0, ''],
+        [eventType, 0, ''],
+      ])
     }
-    xhr.addEventListener('error', function () {
-      observed.push(['error', this.status, this.responseText])
-    })
-
-    xhr.open('POST', 'https://example.test/api', true)
-    xhr.fail()
-
-    expect(observed).toEqual([
-      ['readystatechange', 0, ''],
-      ['error', 0, ''],
-    ])
-  })
+  )
 
   it('supports JSON responseType and fails open for unsupported types or malformed JSON replacement', () => {
     const selectedRule = rule('json', {
