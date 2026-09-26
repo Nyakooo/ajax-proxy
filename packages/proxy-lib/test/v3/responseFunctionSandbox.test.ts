@@ -72,6 +72,25 @@ describe('createV3ResponseFunctionExecutor', () => {
       ok: true,
       result: { body: 'stale' },
     })
+    let resultSettled = false
+    void result.then(
+      () => {
+        resultSettled = true
+      },
+      () => {
+        resultSettled = true
+      }
+    )
+    sendMessage('null', frame.contentWindow, {
+      channel: 'ajax-proxy-v3-function-sandbox',
+      type: 'result',
+      id: 'test-execution-id',
+      ok: true,
+      result: { body: 'malformed' },
+      debug: true,
+    })
+    await Promise.resolve()
+    expect(resultSettled).toBe(false)
     sendMessage('null', frame.contentWindow, {
       channel: 'ajax-proxy-v3-function-sandbox',
       type: 'result',
