@@ -264,7 +264,7 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - [x] 为自定义函数覆盖同步、异步、异常、未回调和超时场景。
 - [x] 为 shared-utils Chrome storage 与网页 localStorage 缓存操作（初始化、读取、写入、删除、清空）覆盖成功和失败回归；删除 / 清空失败须拒绝、保留缓存并派发错误事件。
 - [x] 为页面启动配置快照复用覆盖初始化期间 storage 变更合并与快照隔离；content script 复用 `initStorage()` 已填充的深拷贝缓存，避免重复发起 Chrome storage 全量读取。
-- [x] 为 V2 旧全局状态和上传备份转换器覆盖字段映射、默认值、旧 key 清理列表及新格式原样保留。
+- [x] 为 V2 旧全局状态和上传备份转换器覆盖字段映射、默认值、旧 key 清理列表、新格式原样保留，以及旧顶层状态下非旧结构规则列表原样透传。
 - [x] 为 V3 XHR 响应完成时序增加回归：`readystatechange` 到 readyState 4 及 `load` 回调 / 监听器读取响应时，替换后的 body 与 status 已就绪。
 - [x] 为 V3 XHR 网络失败增加回归：网络错误下的 `status=0` 不得被响应替换伪装成成功状态，`readystatechange` 与 `error` 处理器读取到原生失败结果。
 - [x] 将 V3 XHR 原生失败保留断言扩展至 `abort` 与 `timeout` 终态。
@@ -768,4 +768,5 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - 2026-09-26：阶段 6 修复多个 V3 面板以旧完整快照覆盖新配置的风险：面板快照带 canonical SHA-256 revision，保存通过 Service Worker 队列进行比较后写入；旧 revision 返回当前配置，界面保留未保存修改并要求用户确认后加载最新值。新增协议、存储队列、组件和双面板扩展 smoke 回归；35 个测试文件 / 334 项通过，覆盖率 83.26% / 81.61% / 84.41% / 85.04%，typecheck、边界、clean build、改动文件 lint / format、声明校验通过。CI `36240623085` 全部通过，含双面板 smoke。完成 307 / 355 项（86.5%）。
 - 2026-09-26：阶段 6 / 7 补齐旧版函数重定向成功路径测试与 `README.func.md` 用法示例，并说明该 V2 能力没有迁移至 V3；V3 正则 URL 匹配、自定义状态码和 Fetch 函数响应已有回归 / 文档覆盖。全量覆盖测试 35 个文件 / 337 项通过，CI `36240935866` 全部通过，包含 Chrome / Edge Stable 与最低版本扩展 smoke。完成 308 / 355 项（86.8%）。
 - 2026-09-26：阶段 6 为隐私诊断开关增加在途请求回归：Fetch native response 挂起期间、XHR `send()` 后关闭诊断开关，响应仍按规则完成但不再派发迟到的 outcome 事件。35 个测试文件 / 337 项全量覆盖测试通过，总体语句 / 分支 / 函数 / 行覆盖 83.65% / 82.15% / 84.41% / 85.35%，`runtimeController.ts` 分支覆盖由 89.65% 升至 93.10%；定向测试、ESLint、Prettier 和 diff 检查通过。完成 309 / 356 项（86.8%）。
+- 2026-09-26：阶段 6 扩展 V2 转换器兼容回归，验证旧顶层状态下已经使用新结构的拦截 / 重定向列表会原样保留，不会被清空。全量覆盖测试 35 个文件 / 338 项通过，总体语句 / 分支 / 函数 / 行覆盖 83.81% / 82.33% / 84.41% / 85.44%；转换器覆盖 91.83% / 92% / 100% / 100%，剩余未覆盖路径是空值 / 非数组类型守卫。定向测试、ESLint、Prettier 和 diff 检查通过；此回归补强阶段 6 已完成的 V2 转换测试项，整体完成度保持 309 / 356（86.8%）。
 - GitHub 里程碑：[阶段 0](https://github.com/Nyakooo/ajax-proxy/milestone/1)、[阶段 1](https://github.com/Nyakooo/ajax-proxy/milestone/2)、[阶段 2](https://github.com/Nyakooo/ajax-proxy/milestone/3)、[阶段 3](https://github.com/Nyakooo/ajax-proxy/milestone/4)、[阶段 4](https://github.com/Nyakooo/ajax-proxy/milestone/5)、[阶段 5](https://github.com/Nyakooo/ajax-proxy/milestone/6)、[阶段 6](https://github.com/Nyakooo/ajax-proxy/milestone/7)、[阶段 7](https://github.com/Nyakooo/ajax-proxy/milestone/8)；已复现缺陷：[issue #56](https://github.com/Nyakooo/ajax-proxy/issues/56)。

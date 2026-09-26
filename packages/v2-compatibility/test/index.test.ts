@@ -116,4 +116,29 @@ describe('V2 data compatibility', () => {
     expect(loadResult).toEqual({ changed: false, data: currentState, changeKeywords: [] })
     expect(loadResult.data).toBe(currentState)
   })
+
+  it('preserves interceptor and redirect lists that are not in the legacy shape', () => {
+    const interceptors = [{ match_url: '/already-current' }]
+    const redirectors = [{ redirect_url: 'https://target.test' }]
+
+    const result = onLoadForDataConversion({
+      globalSwitchOn: true,
+      mode: 'interceptor',
+      proxy_routes: interceptors,
+      redirect: redirectors,
+    })
+
+    expect(result).toEqual({
+      changed: true,
+      data: {
+        global_on: true,
+        mode: 'interceptor',
+        interceptor_matching_content: interceptors,
+        redirector_matching_content: redirectors,
+      },
+      changeKeywords: ['globalSwitchOn', 'mode', 'proxy_routes', 'redirect'],
+    })
+    expect(result.data.interceptor_matching_content).toBe(interceptors)
+    expect(result.data.redirector_matching_content).toBe(redirectors)
+  })
 })
