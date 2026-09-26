@@ -345,19 +345,19 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - [x] 为 V3 XHR 覆盖同 URL 但 method 不匹配时原样发出 native 请求 / 响应且不报告命中。
 - [x] 为 legacy V2 interceptor 函数覆盖 Promise reject 后返回配置 fallback、设置 fail-open 标记并记录拒绝错误。
 - [x] 为 V3 扩展 E2E 覆盖通过 await 完成的异步函数响应，并验证实际 Fetch 替换 status / body。
-- [ ] 完善 Service Worker 消息协议、V3 配置校验及导入 / 导出的边界与错误路径测试。
+- [x] 完善 Service Worker 消息协议、V3 配置校验及导入 / 导出的边界与错误路径测试。
 - [x] V3 hit / hit notice 只从精确的 own data property 描述符读取字段；拒绝 getter、symbol 和隐藏扩展字段，并验证校验不会触发 getter 或 proxy get trap。
 - [x] 为 V3 response function result validator 覆盖字段 getter 抛错时的安全、稳定错误结果。
 - [x] 为 Service Worker no-match 转发覆盖 100 条规则截断边界、truncated 标志和前 100 条规则顺序 / ID 校验。
 - [x] response function sandbox 在 `crypto.randomUUID()` 抛错时使用 fallback execution ID 并完成有效消息往返。
-- [ ] 为 Vue 组件和关键用户流程编写组件 / 集成测试。
+- [x] 为 Vue 组件和关键用户流程编写组件 / 集成测试。
 - [x] BackupRestoreDialog 在规则引用的标签 ID 与当前同 ID 标签名称冲突时禁用追加导入并显示原因；名称一致后可恢复导入。
 - [x] ResponseRuleEditor 函数响应保存必须经过明确安全确认；取消时不保存，确认后 payload 默认保持函数响应停用。
 - [x] RedirectRuleEditor 在编辑同一对话框切换规则时重新加载 match / redirect URL / method / tags，清除旧校验错误，并保存新的规范 payload。
 - [x] 建立扩展端到端测试，覆盖安装、启停、规则编辑和真实页面请求行为。
 - [x] 扩展 E2E 覆盖快速创建的精确响应规则被停用并重新加载页面后，原通用规则继续处理匹配请求。
 - [x] 在 CI 中运行测试并生成覆盖率报告。
-- [ ] 按包和风险级别设定覆盖率目标；核心规则匹配、请求改写和配置校验模块以分支覆盖率至少 95% 为目标，并持续向 100% 提升。
+- [x] 按包和风险级别设定覆盖率目标；核心规则匹配、请求改写和配置校验模块以分支覆盖率至少 95% 为目标，并持续向 100% 提升。
 - [x] 先对已达到 95% 的 V3 backup、规则匹配、Fetch、response action 和 XHR 文件启用逐文件分支门槛；未达标的 responseFunctionSandbox 与 runtimeController 已记录，暂不阻塞。
 - [x] 报告语句、分支、函数和行覆盖率，关注趋势及关键未覆盖路径，不以整体单一百分比替代风险评估。
 - [x] 对无法合理测试的生成代码、静态资源入口等内容，记录原因并在覆盖率报告中可追踪。
@@ -741,4 +741,5 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - 2026-09-26：阶段 6 根据现有 CI 证据完成扩展端到端测试验收：`extension:smoke` 在隔离持久化 Chromium profile 加载生产扩展，覆盖启停、规则编辑、Fetch / XHR 真实请求、面板与站点状态同步和 Service Worker 重启；CI 对该 smoke 已通过。品牌 Chrome / Edge Stable 另由 runtime smoke 验证，Playwright 扩展自动化使用配套 Chromium。完成 277 / 339 项（81.7%）。
 - 2026-09-26：阶段 6 补齐自定义函数异步 / 失败场景：legacy interceptor Promise reject 返回配置 fallback 并标记 fail-open；真实扩展 smoke 使用 V3 sandbox `await Promise.resolve()` 函数，通过 Fetch 验证异步替换响应。定向函数测试 5 项、`pnpm build` 与 `pnpm extension:smoke` 通过，改动文件 ESLint / Prettier 通过。完成 280 / 341 项（82.1%）。
 - 2026-09-26：在 macOS Chrome Stable 154.0.8037.58 加载已启用的本地生产扩展，使用 V3 面板创建 status `209` JSON 响应规则，确认真实页面 Fetch 和 XHR 都返回预期 status / body；完成后删除临时规则并关闭本地测试服务。扩展 API 权限未扩大。完成 281 / 342 项（82.2%）。
+- 2026-09-26：阶段 6 复核 Service Worker 消息协议、V3 配置校验 / 导入导出错误路径、Vue 3 组件与关键流程，以及按风险分级的覆盖率目标；相应计划项已由现有测试与配置满足。复跑 `pnpm test`（34 个文件 / 323 项）、`pnpm test:v3-ui`（7 个文件 / 32 项）、`pnpm extension:smoke` 均通过；`pnpm test:coverage` 整体语句 80.58%、分支 78.66%、函数 79.60%、行 82.16%，sandbox 分支 86.36%、runtime controller 89.65%，低于 95% 的例外仍有记录。完成 285 / 343 项（83.1%）。
 - GitHub 里程碑：[阶段 0](https://github.com/Nyakooo/ajax-proxy/milestone/1)、[阶段 1](https://github.com/Nyakooo/ajax-proxy/milestone/2)、[阶段 2](https://github.com/Nyakooo/ajax-proxy/milestone/3)、[阶段 3](https://github.com/Nyakooo/ajax-proxy/milestone/4)、[阶段 4](https://github.com/Nyakooo/ajax-proxy/milestone/5)、[阶段 5](https://github.com/Nyakooo/ajax-proxy/milestone/6)、[阶段 6](https://github.com/Nyakooo/ajax-proxy/milestone/7)、[阶段 7](https://github.com/Nyakooo/ajax-proxy/milestone/8)；已复现缺陷：[issue #56](https://github.com/Nyakooo/ajax-proxy/issues/56)。
