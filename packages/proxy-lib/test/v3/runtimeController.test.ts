@@ -75,6 +75,29 @@ describe('createV3RuntimeController', () => {
     expect(controller.backup).toBeNull()
   })
 
+  it('keeps Fetch native before a V3 backup is configured', async () => {
+    const dispatchEvent = vi.fn()
+    const nativeResponse = new Response('native')
+    const fetcher = vi.fn(async () => nativeResponse)
+    const host = {
+      location: { origin: 'https://example.test' },
+      dispatchEvent,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    } as unknown as Window
+    const controller = createV3RuntimeController(
+      host,
+      fetcher as typeof window.fetch,
+      class {} as unknown as typeof window.XMLHttpRequest
+    )
+
+    const response = await controller.fetch('https://example.test/api')
+
+    expect(response).toBe(nativeResponse)
+    expect(fetcher).toHaveBeenCalledOnce()
+    expect(dispatchEvent).not.toHaveBeenCalled()
+  })
+
   it('leaves a disabled exact origin native without changing the configured rules', async () => {
     const host = {
       location: { origin: 'https://example.test' },
