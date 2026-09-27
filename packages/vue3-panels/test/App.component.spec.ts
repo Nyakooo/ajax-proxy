@@ -575,6 +575,67 @@ describe('App filtered rule priority ordering', () => {
   })
 })
 
+describe('App rule deletion persistence', () => {
+  const makeRule = (id: string, url: string) => ({
+    id,
+    enabled: true,
+    match: { url, method: 'GET', type: 'normal' },
+    response: { enabled: true, replace: { body: { id } } },
+  })
+
+  it('persists deletion of the selected rule while preserving the remaining order', async () => {
+    const startingConfig = {
+      ...initialConfig(),
+      rules: [
+        makeRule('first-rule', '/api/first'),
+        makeRule('selected-rule', '/api/selected'),
+        makeRule('last-rule', '/api/last'),
+      ],
+    }
+    const { wrapper, sentMessages } = await mountApp([], startingConfig)
+    vi.spyOn(globalThis, 'confirm').mockReturnValue(true)
+
+    const selectedRow = wrapper
+      .findAll('.rule-row')
+      .find((row) => row.text().includes('/api/selected'))
+    if (!selectedRow) throw new Error('Could not find the selected rule row')
+    await buttonByText(selectedRow, '删除').trigger('click')
+    await flushPromises()
+
+    const saves = sentMessages.filter((message) => message.key === V3PanelMessageKey.SAVE_CONFIG)
+    expect(saves).toHaveLength(1)
+    expect(saves[0].value.config.rules.map(({ id }) => id)).toEqual(['first-rule', 'last-rule'])
+    expect(wrapper.findAll('.rule-row').map((row) => row.text())).toEqual([
+      expect.stringContaining('/api/first'),
+      expect.stringContaining('/api/last'),
+    ])
+  })
+
+  it('keeps the selected rule visible when persistence fails', async () => {
+    const startingConfig = {
+      ...initialConfig(),
+      rules: [makeRule('selected-rule', '/api/selected')],
+    }
+    const { wrapper, sentMessages, getStoredConfig } = await mountApp(
+      [{ ok: false, error: 'storage-write-failed' }],
+      startingConfig
+    )
+    vi.spyOn(globalThis, 'confirm').mockReturnValue(true)
+
+    await buttonByText(wrapper.get('.rule-row'), '删除').trigger('click')
+    await flushPromises()
+
+    const saves = sentMessages.filter((message) => message.key === V3PanelMessageKey.SAVE_CONFIG)
+    expect(saves).toHaveLength(1)
+    expect(saves[0].value.config.rules).toEqual([])
+    expect(getStoredConfig()).toEqual(startingConfig)
+    expect(wrapper.findAll('.rule-row').map((row) => row.text())).toEqual([
+      expect.stringContaining('/api/selected'),
+    ])
+    expect(wrapper.get('.operation-alert').text()).toContain('storage-write-failed')
+  })
+})
+
 describe('App rule tag management persistence', () => {
   it('normalizes new tags, rejects duplicates, and returns focus to the tag filter', async () => {
     const { wrapper, sentMessages } = await mountApp()
