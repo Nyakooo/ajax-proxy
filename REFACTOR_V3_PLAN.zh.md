@@ -295,6 +295,7 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - [x] 将 V3 XHR 原生失败保留断言扩展至 `abort` 与 `timeout` 终态。
 - [x] 为 service worker 启动期 V3 面板消息入口覆盖发送方与 envelope 拒绝路径；错误扩展 ID、非 V3 面板 URL 和畸形消息均不得访问 storage 或调用响应回调。
 - [x] 为旧面板消息入口覆盖扩展 ID 与 sender URL 校验；仅本扩展页面可触发图标和徽章操作。
+- [x] 为 Service Worker 默认初始化覆盖 storage 成功 / 失败：按全局开关设置 active / inactive toolbar icon，并在读取成功后初始化徽章。
 - [x] 在存储初始化 Promise 完成前同步注册工具栏点击和快捷键监听，避免 MV3 Service Worker 冷启动漏掉首个事件。
 - [x] 为 Service Worker 的 storage change 入口覆盖 local 区域 V3 config / hit counter 刷新 badge，并确认 sync 区域与无关 key 不触发刷新。
 - [x] 为 V3 XHR `on*` 属性处理器覆盖重复赋值及设为 `null` 的移除语义，避免旧回调跨事件 / 请求残留。
@@ -856,4 +857,5 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - 2026-09-27：为 content script storage-change listener 增加同步 / sandbox 生命周期回归：忽略 sync 区域，local V2 key 刷新主世界状态；V3 函数规则按需创建 sandbox，清空配置移除 iframe，并同步诊断开关。全量覆盖测试 38 个文件 / 375 项、Vue 3 UI 8 个文件 / 65 项通过；总体覆盖率语句 89.30%、分支 87.08%、函数 87.75%、行 91.01%，`content.ts` 为 86.45% / 80.95% / 100% / 93.02%；改动文件 ESLint / Prettier 与 diff 检查通过。完成 363 / 397 项（91.4%）。
 - 2026-09-27：为 content script 启动期 V2 状态转换增加集成回归：转换器输出被写入新的 global/mode/intercept/redirect storage key，且只请求清理转换器标记的旧 key。全量覆盖测试 38 个文件 / 376 项、Vue 3 UI 8 个文件 / 66 项、V3 面板生产构建通过；总体覆盖率语句 89.48%、分支 87.12%、函数 87.75%、行 91.23%，`content.ts` 为 91.66% / 82.53% / 100% / 98.83%；改动文件 ESLint / Prettier 与 diff 检查通过。完成 364 / 398 项（91.5%）。
 - 2026-09-27：补备份规则追加导入遇 revision conflict 的 App 恢复回归：首次 stale payload 不改写本地视图；取消加载确认不 GET；确认后读取远端快照并关闭 dialog；重开并重新验证备份后，重试 payload 使用远端 revision / settings / disabled origins 并只追加新规则。App 定向组件测试 26 项、全量 Vue 3 UI 8 个文件 / 66 项、全量 Vitest 38 个文件 / 376 项通过。完成 365 / 399 项（91.5%）。
+- 2026-09-27：为 Service Worker 默认初始化增加成功 / 失败回归：读取 global switch 为 true / false 时设置对应 active / inactive 图标并初始化 badge；storage reject 时不展示错误启用状态且不初始化 badge。全量 coverage 39 个文件 / 378 项通过；总体覆盖率语句 89.67%、分支 87.21%、函数 87.99%、行 91.40%，`init.ts` 全分支覆盖；改动文件 ESLint / Prettier 与 diff 检查通过。完成 366 / 400 项（91.5%）。
 - GitHub 里程碑：[阶段 0](https://github.com/Nyakooo/ajax-proxy/milestone/1)、[阶段 1](https://github.com/Nyakooo/ajax-proxy/milestone/2)、[阶段 2](https://github.com/Nyakooo/ajax-proxy/milestone/3)、[阶段 3](https://github.com/Nyakooo/ajax-proxy/milestone/4)、[阶段 4](https://github.com/Nyakooo/ajax-proxy/milestone/5)、[阶段 5](https://github.com/Nyakooo/ajax-proxy/milestone/6)、[阶段 6](https://github.com/Nyakooo/ajax-proxy/milestone/7)、[阶段 7](https://github.com/Nyakooo/ajax-proxy/milestone/8)；已复现缺陷：[issue #56](https://github.com/Nyakooo/ajax-proxy/issues/56)。
