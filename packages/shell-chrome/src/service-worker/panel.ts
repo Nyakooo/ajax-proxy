@@ -82,8 +82,9 @@ export async function resizeWindow() {
                 maximized: "fullscreen",
                 fullscreen: "normal",
             };
-            if (current.id && current.state && current.id === current_window_id)
-                chrome.windows.update(current.id, { state: conf[current.state] });
+            const nextState = current.state ? conf[current.state] : undefined;
+            if (current.id && current.id === current_window_id && nextState)
+                chrome.windows.update(current.id, { state: nextState });
         });
     }
 }

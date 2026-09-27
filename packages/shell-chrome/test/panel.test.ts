@@ -135,4 +135,16 @@ describe('service worker panel window controls', () => {
 
     expect(windows.update).toHaveBeenCalledTimes(3)
   })
+
+  it('ignores the resize shortcut while the current panel window is minimized', async () => {
+    const windows = installWindowsMock()
+    windows.create.mockImplementation((_options, callback) => callback({ id: 41 }))
+    windows.getCurrent.mockImplementation((callback) => callback({ id: 41, state: 'minimized' }))
+    const panel = await loadPanel()
+
+    await panel.createPanel()
+    await panel.resizeWindow()
+
+    expect(windows.update).not.toHaveBeenCalled()
+  })
 })
