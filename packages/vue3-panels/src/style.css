@@ -1031,10 +1031,15 @@ input {
   display: inline-flex;
   align-items: center;
   gap: 5px;
+  white-space: nowrap;
   cursor: pointer;
 }
 
 .json-editor-mode-picker input {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 14px;
+  margin: 0;
   accent-color: var(--ap-teal);
 }
 
@@ -1075,7 +1080,7 @@ input {
   font-weight: 600;
 }
 
-.editor-field input,
+.editor-field input:not([type='radio']):not([type='checkbox']),
 .editor-field select,
 .editor-field textarea {
   width: 100%;
