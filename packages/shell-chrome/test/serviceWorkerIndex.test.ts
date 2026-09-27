@@ -2,7 +2,11 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { NoticeFrom, NoticeKey, NoticeTo, StorageKey } from '@proxy/shared-utils'
 import { INIT_CURRENT_TITLE } from '../src/consts'
 
-type MessageListener = (message: unknown, sender: chrome.runtime.MessageSender) => unknown
+type MessageListener = (
+  message: unknown,
+  sender: chrome.runtime.MessageSender,
+  sendResponse?: (response?: unknown) => void
+) => unknown
 type ActionClickListener = (tab: chrome.tabs.Tab) => void
 type CommandListener = (command: string) => void
 type StorageChangeListener = (
@@ -35,6 +39,117 @@ afterEach(() => {
 })
 
 describe('service worker message entry', () => {
+  it('returns the V3 panel startup handler result from the first runtime listener', async () => {
+    const storageReady = deferred<void>()
+    const runtimeListeners: MessageListener[] = []
+    const storageChangeListeners: StorageChangeListener[] = []
+    const startupHandler = vi.fn(() => true)
+    const createStartupHandler = vi.fn(() => startupHandler)
+    vi.stubGlobal('chrome', {
+      runtime: {
+        id: 'test-extension',
+        getURL: vi.fn(() => 'chrome-extension://test-extension/'),
+        onMessage: {
+          addListener: vi.fn((listener: MessageListener) => runtimeListeners.push(listener)),
+        },
+      },
+      storage: {
+        onChanged: {
+          addListener: vi.fn((listener: StorageChangeListener) =>
+            storageChangeListeners.push(listener)
+          ),
+        },
+      },
+      action: { onClicked: { addListener: vi.fn() } },
+      commands: { onCommand: { addListener: vi.fn() } },
+    })
+    vi.doMock('@proxy/shared-utils', async (importOriginal) => {
+      const actual = await importOriginal<typeof import('@proxy/shared-utils')>()
+      return { ...actual, initStorage: vi.fn(() => storageReady.promise) }
+    })
+    vi.doMock('../src/service-worker/event', () => ({ injectEventListener: vi.fn() }))
+    vi.doMock('../src/service-worker/notice', () => ({ useCurrentTitle: vi.fn() }))
+    vi.doMock('../src/service-worker/init', () => ({ initDefaultSth: vi.fn() }))
+    vi.doMock('../src/service-worker/badge', () => ({ chromeBadge: vi.fn() }))
+    vi.doMock('../src/service-worker/v3Hit', () => ({ chromeBadgeV3: vi.fn() }))
+    vi.doMock('../src/service-worker/v3FunctionError', () => ({ notifyV3FunctionError: vi.fn() }))
+    vi.doMock('../src/service-worker/v3NoMatch', () => ({ notifyV3NoMatch: vi.fn() }))
+    vi.doMock('../src/service-worker/v3FetchOutcome', () => ({ notifyV3FetchOutcome: vi.fn() }))
+    vi.doMock('../src/service-worker/v3XHROutcome', () => ({ notifyV3XHROutcome: vi.fn() }))
+    vi.doMock('../src/service-worker/v3Panel', () => ({
+      createV3PanelStartupMessageHandler: createStartupHandler,
+    }))
+
+    await import('../src/service-worker/index')
+    expect(runtimeListeners).toHaveLength(1)
+    const message = { type: 'v3-panel-startup' }
+    const sender = { id: 'test-extension' } as chrome.runtime.MessageSender
+    const sendResponse = vi.fn()
+    expect(runtimeListeners[0](message, sender, sendResponse)).toBe(true)
+    expect(startupHandler).toHaveBeenCalledExactlyOnceWith(message, sender, sendResponse)
+
+    startupHandler.mockReturnValue(false)
+    expect(runtimeListeners[0](message, sender, sendResponse)).toBe(false)
+    expect(startupHandler).toHaveBeenCalledTimes(2)
+
+    storageReady.resolve()
+    await vi.waitFor(() => {
+      expect(runtimeListeners).toHaveLength(2)
+      expect(storageChangeListeners).toHaveLength(1)
+    })
+  })
+
+  it('logs storage initialization rejection without running successful initialization', async () => {
+    const storageFailure = new Error('storage unavailable')
+    const runtimeListeners: MessageListener[] = []
+    const storageChangeListeners: StorageChangeListener[] = []
+    const initDefaultSth = vi.fn()
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+    vi.stubGlobal('chrome', {
+      runtime: {
+        id: 'test-extension',
+        getURL: vi.fn(() => 'chrome-extension://test-extension/'),
+        onMessage: {
+          addListener: vi.fn((listener: MessageListener) => runtimeListeners.push(listener)),
+        },
+      },
+      storage: {
+        onChanged: {
+          addListener: vi.fn((listener: StorageChangeListener) =>
+            storageChangeListeners.push(listener)
+          ),
+        },
+      },
+      action: { onClicked: { addListener: vi.fn() } },
+      commands: { onCommand: { addListener: vi.fn() } },
+    })
+    vi.doMock('@proxy/shared-utils', async (importOriginal) => {
+      const actual = await importOriginal<typeof import('@proxy/shared-utils')>()
+      return { ...actual, initStorage: vi.fn().mockRejectedValue(storageFailure) }
+    })
+    vi.doMock('../src/service-worker/event', () => ({ injectEventListener: vi.fn() }))
+    vi.doMock('../src/service-worker/notice', () => ({ useCurrentTitle: vi.fn() }))
+    vi.doMock('../src/service-worker/init', () => ({ initDefaultSth }))
+    vi.doMock('../src/service-worker/badge', () => ({ chromeBadge: vi.fn() }))
+    vi.doMock('../src/service-worker/v3Hit', () => ({ chromeBadgeV3: vi.fn() }))
+    vi.doMock('../src/service-worker/v3FunctionError', () => ({ notifyV3FunctionError: vi.fn() }))
+    vi.doMock('../src/service-worker/v3NoMatch', () => ({ notifyV3NoMatch: vi.fn() }))
+    vi.doMock('../src/service-worker/v3FetchOutcome', () => ({ notifyV3FetchOutcome: vi.fn() }))
+    vi.doMock('../src/service-worker/v3XHROutcome', () => ({ notifyV3XHROutcome: vi.fn() }))
+
+    await import('../src/service-worker/index')
+    await vi.waitFor(() =>
+      expect(consoleError).toHaveBeenCalledExactlyOnceWith(
+        '[AjaxProxy] Service worker storage initialization failed',
+        storageFailure
+      )
+    )
+    expect(runtimeListeners).toHaveLength(1)
+    expect(storageChangeListeners).toHaveLength(0)
+    expect(initDefaultSth).not.toHaveBeenCalled()
+    consoleError.mockRestore()
+  })
+
   it('validates and routes content hit and outcome messages', async () => {
     const storageReady = deferred<void>()
     const runtimeListeners: MessageListener[] = []
