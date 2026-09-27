@@ -238,6 +238,51 @@ describe('createV3ResponseFunctionExecutor', () => {
     expect(frame.remove).not.toHaveBeenCalled()
   })
 
+  it('handles the ready message arriving as the loading waiter is registered', async () => {
+    vi.stubGlobal('HTMLIFrameElement', FakeIFrameElement)
+    const frame = new FakeIFrameElement()
+    let onMessage: ((event: MessageEvent) => void) | undefined
+    const host = {
+      document: { getElementById: vi.fn(() => frame) },
+      addEventListener: vi.fn((_type: string, listener: EventListenerOrEventListenerObject) => {
+        if (typeof listener === 'function') onMessage = listener as (event: MessageEvent) => void
+      }),
+      crypto: { randomUUID: () => 'waiter-registration-execution' },
+    } as unknown as Window
+    const execute = createV3ResponseFunctionExecutor(host)
+    const deliver = (data: unknown) =>
+      onMessage?.({ origin: 'null', source: frame.contentWindow, data } as MessageEvent)
+    const originalSetTimeout = globalThis.setTimeout
+    const setTimeoutSpy = vi
+      .spyOn(globalThis, 'setTimeout')
+      .mockImplementationOnce((callback, delay, ...args) => {
+        deliver({ channel: 'ajax-proxy-v3-function-sandbox', type: 'ready' })
+        return originalSetTimeout(callback, delay, ...args)
+      })
+
+    const result = execute(
+      'return response.body',
+      { url: '/api', method: 'GET' },
+      { status: 200, statusText: 'OK', headers: {}, body: 'native' }
+    )
+    setTimeoutSpy.mockRestore()
+
+    await vi.waitFor(() => expect(frame.contentWindow.postMessage).toHaveBeenCalledOnce())
+    expect(frame.contentWindow.postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'run', id: 'waiter-registration-execution' }),
+      '*'
+    )
+    deliver({
+      channel: 'ajax-proxy-v3-function-sandbox',
+      type: 'result',
+      id: 'waiter-registration-execution',
+      ok: true,
+      result: 'native',
+    })
+
+    await expect(result).resolves.toBe('native')
+  })
+
   it('reuses a ready sandbox frame and accepts round trips only from it', async () => {
     vi.stubGlobal('HTMLIFrameElement', FakeIFrameElement)
     const frame = new FakeIFrameElement()
