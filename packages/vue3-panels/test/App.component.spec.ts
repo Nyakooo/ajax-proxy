@@ -1250,4 +1250,121 @@ describe('App backup restore persistence flow', () => {
     expect(wrapper.findAll('.rule-row')).toHaveLength(2)
     expect(wrapper.findAll('.rule-row').some((row) => row.text().includes('/imported'))).toBe(true)
   })
+
+  it('reloads a conflicting remote snapshot before retrying an append import', async () => {
+    const localRule = {
+      id: 'local-rule',
+      enabled: true,
+      match: { url: '/local', method: 'GET', type: 'normal' },
+      response: { enabled: true, replace: { body: { source: 'local' } } },
+    }
+    const startingConfig = { ...initialConfig(), rules: [localRule] }
+    const remoteRule = {
+      id: 'remote-rule',
+      enabled: true,
+      match: { url: '/remote', method: 'GET', type: 'normal' },
+      response: { enabled: true, replace: { body: { source: 'remote' } } },
+    }
+    const remoteConfig = {
+      ...initialConfig(),
+      settings: { globalEnabled: false, mode: 'redirector', language: 'en' },
+      rules: [localRule, remoteRule],
+      disabledOrigins: ['https://remote.example'],
+    }
+    const remoteRevision = `sha256:${'d'.repeat(64)}`
+    const backup = {
+      ...initialConfig(),
+      settings: { globalEnabled: true, mode: 'interceptor', language: 'zh-CN' },
+      rules: [
+        {
+          id: 'imported-rule',
+          enabled: true,
+          match: { url: '/imported', method: 'POST', type: 'normal' },
+          response: { enabled: true, replace: { body: { source: 'imported' } } },
+        },
+      ],
+      disabledOrigins: ['https://imported.example'],
+    }
+    const { wrapper, sentMessages } = await mountApp(
+      [
+        {
+          ok: false,
+          error: 'config-conflict',
+          current: { config: remoteConfig, revision: remoteRevision },
+        },
+        { ok: true },
+      ],
+      startingConfig
+    )
+    const confirm = vi
+      .spyOn(globalThis, 'confirm')
+      .mockReturnValueOnce(false)
+      .mockReturnValueOnce(true)
+
+    const openAndValidateBackup = async (backupLabel, validateLabel) => {
+      await buttonByText(wrapper, backupLabel).trigger('click')
+      await wrapper.get('[data-testid="backup-json-input"]').setValue(JSON.stringify(backup))
+      await buttonByText(wrapper, validateLabel).trigger('click')
+      await flushPromises()
+      expect(wrapper.find('.backup-valid').exists()).toBe(true)
+    }
+
+    await openAndValidateBackup('备份 / 恢复', '验证备份')
+    await wrapper.get('[data-testid="backup-import-rules-button"]').trigger('click')
+    await flushPromises()
+
+    const saves = () =>
+      sentMessages.filter((message) => message.key === V3PanelMessageKey.SAVE_CONFIG)
+    const snapshots = () =>
+      sentMessages.filter((message) => message.key === V3PanelMessageKey.GET_SNAPSHOT)
+    expect(saves()).toHaveLength(1)
+    expect(saves()[0].value.config).toEqual({
+      ...startingConfig,
+      rules: [localRule, backup.rules[0]],
+    })
+    expect(wrapper.findAll('.rule-row')).toHaveLength(1)
+    expect(wrapper.get('.rule-row').text()).toContain('/local')
+    expect(
+      wrapper.get('[role="switch"][aria-label="全局启用 Ajax Proxy"]').attributes('aria-checked')
+    ).toBe('true')
+    expect(wrapper.get('.operation-alert').text()).toContain('配置已在其他面板中更新')
+
+    await buttonByText(wrapper, '加载最新配置').trigger('click')
+    await flushPromises()
+    expect(confirm).toHaveBeenCalledOnce()
+    expect(snapshots()).toHaveLength(1)
+    expect(wrapper.find('[role="dialog"]').exists()).toBe(true)
+    expect(wrapper.findAll('.rule-row')).toHaveLength(1)
+
+    confirm.mockReturnValueOnce(true)
+    await buttonByText(wrapper, '加载最新配置').trigger('click')
+    await flushPromises()
+    expect(confirm).toHaveBeenCalledTimes(2)
+    expect(snapshots()).toHaveLength(2)
+    expect(wrapper.find('[role="dialog"]').exists()).toBe(false)
+    expect(wrapper.findAll('.rule-row')).toHaveLength(2)
+    expect(wrapper.findAll('.rule-row').some((row) => row.text().includes('/remote'))).toBe(true)
+    expect(
+      wrapper
+        .get('[role="switch"][aria-label="Enable Ajax Proxy globally"]')
+        .attributes('aria-checked')
+    ).toBe('false')
+
+    await openAndValidateBackup('Backup / Restore', 'Validate backup')
+    await wrapper.get('[data-testid="backup-import-rules-button"]').trigger('click')
+    await flushPromises()
+
+    expect(saves()).toHaveLength(2)
+    expect(saves()[1].value.expectedRevision).toBe(remoteRevision)
+    expect(saves()[1].value.config).toEqual({
+      ...remoteConfig,
+      rules: [localRule, remoteRule, backup.rules[0]],
+    })
+    expect(wrapper.find('[role="dialog"]').exists()).toBe(false)
+    expect(wrapper.findAll('.rule-row')).toHaveLength(3)
+    expect(wrapper.findAll('.rule-row').some((row) => row.text().includes('/imported'))).toBe(true)
+    expect(
+      wrapper.get('[aria-label="Interface language"]').find('[aria-pressed="true"]').text()
+    ).toBe('EN')
+  })
 })
