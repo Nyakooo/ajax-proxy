@@ -9,6 +9,7 @@ let storageChangeListenerRegistered = false
 let localStorageChangeListenerRegistered = false
 type StorageChanges = Record<string, chrome.storage.StorageChange>
 let pendingStorageChanges: StorageChanges[] = []
+const activeStorageReadChanges = new Set<StorageChanges[]>()
 const STORAGE_ERROR_EVENT = 'ajax-proxy:storage-error'
 
 function getStorageApiError(operation: string, key?: string) {
@@ -39,15 +40,20 @@ function reportRejectedStorageOperation<T>(
   return operationPromise
 }
 
-function applyStorageChanges(changes: StorageChanges) {
+function applyStorageChangesTo(data: Record<string, unknown>, changes: StorageChanges) {
   for (const [key, change] of Object.entries(changes)) {
-    if (change.newValue === undefined) delete storageData[key]
-    else storageData[key] = change.newValue
+    if (change.newValue === undefined) delete data[key]
+    else data[key] = change.newValue
   }
+}
+
+function applyStorageChanges(changes: StorageChanges) {
+  applyStorageChangesTo(storageData, changes)
 }
 
 function handleStorageChanged(changes: StorageChanges, areaName: string) {
   if (areaName !== 'local') return
+  for (const readChanges of activeStorageReadChanges) readChanges.push(changes)
   if (!storageData) {
     pendingStorageChanges.push(changes)
     return
@@ -265,15 +271,25 @@ function getDefaultValue(value, defaultValue) {
 export function getStorageAll(): Promise<{ [key: string]: any }> {
   if (useStorage) {
     const operation = new Promise<{ [key: string]: any }>((resolve, reject) => {
-      chrome.storage.local.get(null, (result) => {
-        const error = getStorageApiError('read')
-        if (error) {
-          reject(error)
-          return
-        }
-        storageData = result || {}
-        resolve(result)
-      })
+      const changesDuringRead: StorageChanges[] = []
+      activeStorageReadChanges.add(changesDuringRead)
+      try {
+        chrome.storage.local.get(null, (result) => {
+          activeStorageReadChanges.delete(changesDuringRead)
+          const error = getStorageApiError('read')
+          if (error) {
+            reject(error)
+            return
+          }
+          const snapshot = { ...(result || {}) }
+          for (const changes of changesDuringRead) applyStorageChangesTo(snapshot, changes)
+          storageData = snapshot
+          resolve(snapshot)
+        })
+      } catch (error) {
+        activeStorageReadChanges.delete(changesDuringRead)
+        reject(error)
+      }
     })
     return reportRejectedStorageOperation(operation, 'read')
   } else {

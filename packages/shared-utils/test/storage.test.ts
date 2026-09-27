@@ -110,6 +110,61 @@ describe('shared storage cache', () => {
     expect(getStorage('mode')).toBe('redirector')
   })
 
+  it('replays storage changes that arrive while getStorageAll is reading', async () => {
+    const listeners: Array<
+      (changes: Record<string, { newValue?: unknown }>, area: string) => void
+    > = []
+    let finishFullRead: ((data: Record<string, unknown>) => void) | undefined
+    let readCount = 0
+    vi.stubGlobal('chrome', {
+      runtime: {},
+      storage: {
+        onChanged: { addListener: (listener) => listeners.push(listener) },
+        local: {
+          get: (_key: unknown, callback: (data: Record<string, unknown>) => void) => {
+            readCount += 1
+            if (readCount === 1) callback({ mode: 'interceptor' })
+            else finishFullRead = callback
+          },
+        },
+      },
+    })
+    const { getStorage, getStorageAll, initStorage } = await import('../src/storage')
+    await initStorage()
+
+    const snapshot = getStorageAll()
+    listeners[0]({ mode: { oldValue: 'interceptor', newValue: 'redirector' } }, 'local')
+    finishFullRead?.({ mode: 'interceptor', theme: 'dark' })
+
+    await expect(snapshot).resolves.toEqual({ mode: 'redirector', theme: 'dark' })
+    expect(getStorage('mode')).toBe('redirector')
+    expect(getStorage('theme')).toBe('dark')
+  })
+
+  it('cleans up a getStorageAll read when Chrome throws synchronously', async () => {
+    let readCount = 0
+    const errorLog = vi.spyOn(console, 'error').mockImplementation(() => {})
+    vi.stubGlobal('chrome', {
+      runtime: {},
+      storage: {
+        onChanged: { addListener: vi.fn() },
+        local: {
+          get: (_key: unknown, callback: (data: Record<string, unknown>) => void) => {
+            readCount += 1
+            if (readCount === 2) throw new Error('storage API threw')
+            callback(readCount === 1 ? { mode: 'interceptor' } : { mode: 'redirector' })
+          },
+        },
+      },
+    })
+    const { getStorageAll, initStorage } = await import('../src/storage')
+    await initStorage()
+
+    await expect(getStorageAll()).rejects.toThrow('storage API threw')
+    await expect(getStorageAll()).resolves.toEqual({ mode: 'redirector' })
+    expect(errorLog).toHaveBeenCalled()
+  })
+
   it('reports a failed Chrome getStorageAll read and preserves the initialized cache', async () => {
     let inCallback = false
     let fullReadCount = 0
