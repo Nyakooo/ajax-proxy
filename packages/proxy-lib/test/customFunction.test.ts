@@ -155,6 +155,16 @@ describe('custom function completion', () => {
     ).resolves.toEqual({ override: 'synchronous', status: '201' })
   })
 
+  it('normalizes a status-only object returned by an interceptor function', async () => {
+    setupWindow()
+    const { execSetup } = await import('../src/overrideFunc')
+
+    await expect(execSetup(context, 'function() { return { status: 204 } }')).resolves.toEqual({
+      override: '',
+      status: 204,
+    })
+  })
+
   it('returns the configured interceptor fallback when evaluation does not produce a function', async () => {
     setupWindow()
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
