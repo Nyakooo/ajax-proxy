@@ -20,7 +20,6 @@ import {
   NoticeFrom,
   NoticeKey,
   NoticeTo,
-  StorageKey,
 } from '@proxy/protocol'
 import RedirectRuleEditor from './components/RedirectRuleEditor.vue'
 import ResponseRuleEditor from './components/ResponseRuleEditor.vue'
@@ -30,6 +29,7 @@ import RuleTagsDialog from './components/RuleTagsDialog.vue'
 import { buildV3ResponseRule } from './services/v3ResponseDraft.js'
 import { validateFunctionResponseDraft } from './services/v3FunctionResponseDraft.js'
 import { cloneV3RuleTemplate } from './services/v3RuleTemplateCatalog.js'
+import { createV3DiagnosticsCaptureStorage } from './services/v3DiagnosticsCaptureStorage.js'
 import lightMark from '../../shell-chrome/icons/128.png'
 import darkMark from '../../../docs/brand/ajax-proxy-mark-dark.png'
 
@@ -49,6 +49,7 @@ const { locale, t } = useI18n({ useScope: 'global' })
 const extensionRuntime = globalThis.chrome?.runtime
 const browserTabs = globalThis.chrome?.tabs
 let configService
+let diagnosticsCaptureStorage
 let ruleOperations
 let quickCreateReturnSection = null
 let v3BackupVersion = 4
@@ -429,23 +430,12 @@ let removeDiagnosticsStorageListener
 
 async function setNoMatchCapture(armed) {
   if (memoryOnly.value || !globalThis.chrome?.storage?.local) return
-  const storageKey = StorageKey.V3_DIAGNOSTICS_ARMED
   try {
-    if (armed) await chrome.storage.local.set({ [storageKey]: true })
-    else await chrome.storage.local.remove(storageKey)
+    diagnosticsCaptureStorage ??= createV3DiagnosticsCaptureStorage()
+    await diagnosticsCaptureStorage.setNoMatchCaptureArmed(armed)
     noMatchCaptureArmed.value = armed
   } catch {
     operationError.value = t('editor.saveFailed', { error: 'storage-unavailable' })
-  }
-}
-
-function handleDiagnosticsStorageChange(changes, areaName) {
-  if (areaName !== 'local') return
-  if (Object.hasOwn(changes, StorageKey.V3_DIAGNOSTICS_ARMED)) {
-    noMatchCaptureArmed.value = changes[StorageKey.V3_DIAGNOSTICS_ARMED].newValue === true
-  }
-  if (Object.hasOwn(changes, StorageKey.V3_FETCH_OUTCOMES_ARMED)) {
-    fetchOutcomeCaptureArmed.value = changes[StorageKey.V3_FETCH_OUTCOMES_ARMED].newValue === true
   }
 }
 
@@ -455,10 +445,9 @@ function cancelNoMatchCapture() {
 
 async function setFetchOutcomeCapture(armed) {
   if (memoryOnly.value || !globalThis.chrome?.storage?.local) return
-  const storageKey = StorageKey.V3_FETCH_OUTCOMES_ARMED
   try {
-    if (armed) await chrome.storage.local.set({ [storageKey]: true })
-    else await chrome.storage.local.remove(storageKey)
+    diagnosticsCaptureStorage ??= createV3DiagnosticsCaptureStorage()
+    await diagnosticsCaptureStorage.setFetchOutcomeCaptureArmed(armed)
     fetchOutcomeCaptureArmed.value = armed
   } catch {
     operationError.value = t('editor.saveFailed', { error: 'storage-unavailable' })
@@ -552,15 +541,18 @@ onMounted(async () => {
         extensionRuntime.onMessage?.removeListener(receiveExtensionMessage)
       const storage = globalThis.chrome?.storage
       if (storage?.local && storage?.onChanged) {
-        const state = await storage.local.get([
-          StorageKey.V3_DIAGNOSTICS_ARMED,
-          StorageKey.V3_FETCH_OUTCOMES_ARMED,
-        ])
-        noMatchCaptureArmed.value = state[StorageKey.V3_DIAGNOSTICS_ARMED] === true
-        fetchOutcomeCaptureArmed.value = state[StorageKey.V3_FETCH_OUTCOMES_ARMED] === true
-        storage.onChanged.addListener(handleDiagnosticsStorageChange)
-        removeDiagnosticsStorageListener = () =>
-          storage.onChanged.removeListener(handleDiagnosticsStorageChange)
+        diagnosticsCaptureStorage = createV3DiagnosticsCaptureStorage(storage)
+        const state = await diagnosticsCaptureStorage.getState()
+        noMatchCaptureArmed.value = state.noMatchCaptureArmed
+        fetchOutcomeCaptureArmed.value = state.fetchOutcomeCaptureArmed
+        removeDiagnosticsStorageListener = diagnosticsCaptureStorage.subscribe((changed) => {
+          if (Object.hasOwn(changed, 'noMatchCaptureArmed')) {
+            noMatchCaptureArmed.value = changed.noMatchCaptureArmed
+          }
+          if (Object.hasOwn(changed, 'fetchOutcomeCaptureArmed')) {
+            fetchOutcomeCaptureArmed.value = changed.fetchOutcomeCaptureArmed
+          }
+        })
       }
       window.addEventListener('pagehide', cancelNoMatchCapture)
       window.addEventListener('pagehide', cancelFetchOutcomeCapture)

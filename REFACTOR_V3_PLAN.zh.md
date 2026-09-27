@@ -118,6 +118,7 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - [x] 将 V3 backup schema / validation 放到 domain package 的 `backup.ts`，通过 `index.ts` 稳定导出入口；规则 matcher 从 `backup.ts` 单向依赖规则类型，避免 barrel 与匹配器互相导入。
 - [x] 将纯 V3 规则模型类型从 backup 校验实现拆到 `rules.ts`；backup validator 与 matcher 直接依赖领域类型，包根入口继续导出原有类型 API。
 - [x] 将 V3 命中规则复核、counter sanitize、总计和安全递增等纯领域逻辑放入 `v3-domain/hitCounters.ts`；service worker 只负责串行队列、storage、徽章和 panel notification。
+- [x] 将 V3 面板临时诊断与 Fetch / XHR outcome 采集偏好的 Chrome storage 读写和 `onChanged` 订阅封装到 service；App 只同步视图状态，适配器单测覆盖读取、启停、区域过滤和清理。
 - [ ] 统一模块命名、公共接口、类型定义和错误处理方式，减少重复实现及跨层耦合。
 - [x] 绘制并维护项目架构图、包依赖图和关键运行链路说明：`docs/V3-ARCHITECTURE-ASSESSMENT.zh.md` 现覆盖全部 9 个 workspace 包，以及面板→storage→content→MAIN proxy 配置同步、代理命中→content→service worker→badge 两条关键链路，并记录消息信任边界。
 - [x] 在修改核心行为前，为 Fetch Request method / URL 缺陷补充可复现回归测试；先确认测试失败，再实现修复并保留测试。
@@ -962,4 +963,5 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - 2026-09-27：覆盖 legacy XHR 函数返回对象响应的序列化路径：对象 body 被 JSON 序列化后替换原响应，状态码更新且命中通知只发送一次。定向 createXHR 测试 19 项、全量 Vitest 43 个文件 / 481 项通过；总体语句 / 分支 / 函数 / 行覆盖率为 97.63% / 94.36% / 98.61% / 99.06%，proxy-lib 分支覆盖率升至 88.88%、createXHR 分支覆盖率升至 84.5%。ESLint、Prettier 与 diff 检查通过。完成 432 / 466 项（92.7%）。
 - 2026-09-27：修复无关扩展端口断开时误清除当前 content 长连接的问题：断开回调携带端口身份，只有当前端口断开时才清除页面标题和通知目标；补共享连接 helper 与 Service Worker 集成回归。全量 Vitest 43 个文件 / 481 项通过，整体语句 / 分支 / 函数 / 行覆盖率为 97.63% / 94.36% / 98.61% / 99.06%，service-worker notice 分支覆盖率升至 87.5%。共享声明生成、shared-utils / shell-chrome TypeScript 检查、ESLint、Prettier 与 diff 检查通过。完成 433 / 467 项（92.7%）。
 - 2026-09-27：修复 panels resize 快捷键遇到最小化窗口时向 Chrome API 传入 `state: undefined` 的边界：最小化不属于既有的 normal / maximized / fullscreen 循环，因此安全忽略；新增无操作回归。定向 panel 测试 6 项、全量 Vitest 43 个文件 / 482 项通过；整体语句 / 分支 / 函数 / 行覆盖率为 97.63% / 94.32% / 98.61% / 99.06%。TypeScript、ESLint、Prettier 与 diff 检查通过。完成 434 / 468 项（92.7%）。
+- 2026-09-27：将 V3 面板诊断采集偏好的 Chrome storage 读写和变化订阅移入独立 service，App 不再直接依赖该 storage API；新增适配器测试，并更新架构评估。定向测试 4 项、全量 Vitest 44 个文件 / 486 项及 Vue 3 组件测试 8 个文件 / 72 项通过；V3 面板生产构建、包依赖边界和面板隔离检查、改动文件 ESLint / Prettier 通过。`pnpm` shim 因当前镜像找不到 `@pnpm/macos-arm64@12.6.0` 未启动，等价边界脚本直接执行通过。完成 435 / 469 项（92.8%）。
 - GitHub 里程碑：[阶段 0](https://github.com/Nyakooo/ajax-proxy/milestone/1)、[阶段 1](https://github.com/Nyakooo/ajax-proxy/milestone/2)、[阶段 2](https://github.com/Nyakooo/ajax-proxy/milestone/3)、[阶段 3](https://github.com/Nyakooo/ajax-proxy/milestone/4)、[阶段 4](https://github.com/Nyakooo/ajax-proxy/milestone/5)、[阶段 5](https://github.com/Nyakooo/ajax-proxy/milestone/6)、[阶段 6](https://github.com/Nyakooo/ajax-proxy/milestone/7)、[阶段 7](https://github.com/Nyakooo/ajax-proxy/milestone/8)；已复现缺陷：[issue #56](https://github.com/Nyakooo/ajax-proxy/issues/56)。
