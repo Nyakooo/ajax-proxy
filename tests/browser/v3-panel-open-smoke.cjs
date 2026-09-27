@@ -27,7 +27,14 @@ async function main() {
           settings: { globalEnabled: true, mode: 'interceptor', language: 'en' },
           disabledOrigins: [],
           tags: [],
-          rules: [],
+          rules: [
+            {
+              id: 'open-panel-rule',
+              enabled: true,
+              match: { url: '/verify/panel-open', method: 'GET' },
+              response: { enabled: true, replace: { body: { ok: true } } },
+            },
+          ],
         },
       })
     })
@@ -41,27 +48,57 @@ async function main() {
     await panel.locator('h1').waitFor({ timeout: 8000 })
     assert.equal(panel.url(), panelUrl)
 
-    async function assertVisiblePanel() {
-      await worker.evaluate(async (url) => {
-        for (let attempt = 0; attempt < 100; attempt++) {
-          const tabs = (await chrome.tabs.query({})).filter((tab) => tab.url === url)
-          if (tabs.length > 1) throw new Error('Duplicate V3 panel tabs')
-          if (tabs[0]?.active) {
-            const window = await chrome.windows.get(tabs[0].windowId)
-            if (window.type === 'normal' && window.focused && window.state !== 'minimized') return
+    async function assertVisiblePanel(type) {
+      await worker.evaluate(
+        async ({ url, type: windowType }) => {
+          for (let attempt = 0; attempt < 100; attempt++) {
+            const windows = await chrome.windows.getAll({})
+            const tabs = (await chrome.tabs.query({})).filter(
+              (tab) =>
+                tab.url?.split('?')[0] === url &&
+                windows.some((window) => window.id === tab.windowId && window.type === windowType)
+            )
+            if (tabs.length > 1) throw new Error(`Duplicate V3 ${windowType} panels`)
+            if (tabs[0]?.active) {
+              const window = windows.find((target) => target.id === tabs[0].windowId)
+              if (
+                window.focused &&
+                window.state === 'normal' &&
+                window.width > 0 &&
+                window.height > 0
+              )
+                return
+            }
+            await new Promise((resolve) => setTimeout(resolve, 20))
           }
-          await new Promise((resolve) => setTimeout(resolve, 20))
-        }
-        throw new Error('V3 panel was not activated in a visible normal browser window')
-      }, panelUrl)
+          throw new Error(`V3 ${windowType} panel was not activated in a visible window`)
+        },
+        { url: panelUrl, type }
+      )
     }
-    await assertVisiblePanel()
+    await assertVisiblePanel('popup')
     const pageCount = context.pages().length
     await popup.bringToFront()
     await openButton.click()
-    await assertVisiblePanel()
+    await assertVisiblePanel('popup')
     assert.equal(context.pages().length, pageCount)
-    console.log('V3 popup opens, activates and reuses a panel tab in a focused normal window')
+    const [tabPanel] = await Promise.all([
+      context.waitForEvent('page', { timeout: 8000 }),
+      popup.getByRole('button', { name: 'Open in tab', exact: true }).click(),
+    ])
+    await tabPanel.locator('h1').waitFor({ timeout: 8000 })
+    await assertVisiblePanel('normal')
+    await popup.getByRole('button', { name: 'Open in tab', exact: true }).click()
+    await assertVisiblePanel('normal')
+    assert.equal(context.pages().length, pageCount + 1)
+
+    await popup.getByRole('button', { name: 'Edit rule: /verify/panel-open', exact: true }).click()
+    await panel.locator('.response-rule-editor').waitFor({ timeout: 8000 })
+    await assertVisiblePanel('popup')
+    assert.equal(await tabPanel.locator('.response-rule-editor').count(), 0)
+    console.log(
+      'Independent V3 popup creation/reuse, explicit tab backup and isolated editor handoff passed'
+    )
   } finally {
     await context?.close()
     fs.rmSync(profile, { recursive: true, force: true })

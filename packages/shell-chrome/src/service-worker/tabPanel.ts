@@ -89,6 +89,7 @@ export function openTabPanel(path: string, ruleId?: string, action?: PanelAction
               .sendMessage({
                 type: 'ajax-proxy:edit-rule',
                 ruleId,
+                targetTabId: existing.tab.id,
                 ...(action ? { action } : {}),
               })
               .catch(() => {})

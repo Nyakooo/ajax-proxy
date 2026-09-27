@@ -36,7 +36,19 @@ describe('quick popup panel requests', () => {
       )
     ).toBe(true)
     await vi.waitFor(() => expect(reply).toHaveBeenCalledWith({ ok: true }))
-    expect(createPanel).toHaveBeenCalledWith('rule-1', 'redirect')
+    expect(createPanel).toHaveBeenCalledWith('rule-1', 'redirect', 'window', undefined)
+  })
+
+  it('forwards an explicit target and display rectangle', async () => {
+    installRuntime()
+    createPanel.mockResolvedValue(undefined)
+    const screen = { left: -1920, top: 0, width: 1920, height: 1080 }
+    const reply = vi.fn()
+    expect(
+      handlePopupMessage({ type: 'ajax-proxy:open-panel', target: 'tab', screen }, sender, reply)
+    ).toBe(true)
+    await vi.waitFor(() => expect(reply).toHaveBeenCalledWith({ ok: true }))
+    expect(createPanel).toHaveBeenCalledWith(undefined, undefined, 'tab', screen)
   })
 
   it('rejects web content, other extensions, invalid IDs and extra fields', () => {
@@ -54,6 +66,40 @@ describe('quick popup panel requests', () => {
       handlePopupMessage({ ...request, ruleId: 'rule-1', action: 'other' }, sender, reply)
     ).toBe(false)
     expect(handlePopupMessage({ ...request, unexpected: true }, sender, reply)).toBe(false)
+    expect(handlePopupMessage({ ...request, target: 'other' }, sender, reply)).toBe(false)
+    expect(handlePopupMessage({ ...request, target: 1 }, sender, reply)).toBe(false)
+    expect(handlePopupMessage({ ...request, screen: null }, sender, reply)).toBe(false)
+    expect(
+      handlePopupMessage(
+        { ...request, screen: { left: 0, top: 0, width: 300, height: 900 } },
+        sender,
+        reply
+      )
+    ).toBe(false)
+    expect(
+      handlePopupMessage(
+        { ...request, screen: { left: 0, top: 0, width: 800, height: 20000.1 } },
+        sender,
+        reply
+      )
+    ).toBe(false)
+    expect(
+      handlePopupMessage(
+        { ...request, screen: { left: 0, top: 0, width: 800, height: 600, extra: 1 } },
+        sender,
+        reply
+      )
+    ).toBe(false)
+    const inheritedScreen = Object.create({ left: 0 })
+    Object.assign(inheritedScreen, { top: 0, width: 800, height: 600 })
+    expect(handlePopupMessage({ ...request, screen: inheritedScreen }, sender, reply)).toBe(false)
+    expect(
+      handlePopupMessage(
+        { ...request, screen: { left: 0, top: 0, width: Infinity, height: 600 } },
+        sender,
+        reply
+      )
+    ).toBe(false)
     expect(createPanel).not.toHaveBeenCalled()
   })
 

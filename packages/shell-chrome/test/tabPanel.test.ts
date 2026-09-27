@@ -191,6 +191,7 @@ describe('V3 tab panel', () => {
     expect(mock.sendMessage).toHaveBeenCalledWith({
       type: 'ajax-proxy:edit-rule',
       ruleId: 'rule /?1',
+      targetTabId: 7,
       action: 'redirect',
     })
   })
