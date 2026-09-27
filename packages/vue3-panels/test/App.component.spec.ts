@@ -1056,6 +1056,113 @@ describe('App function response persistence flow', () => {
   })
 })
 
+describe('App JSON response persistence flow', () => {
+  const editorStubs = {
+    CodeMirrorJsonEditor: {
+      props: ['modelValue', 'ariaLabel'],
+      emits: ['update:modelValue'],
+      template:
+        '<textarea :aria-label="ariaLabel" :value="modelValue" @input="$emit(\'update:modelValue\', $event.target.value)" />',
+    },
+  }
+
+  it('creates a JSON response rule with the editor values in the saved config', async () => {
+    const { wrapper, sentMessages } = await mountApp([], initialConfig(), editorStubs)
+
+    await buttonByText(wrapper, '创建拦截规则').trigger('click')
+    await flushPromises()
+    await wrapper.get('.rule-editor input[autocomplete="off"]').setValue('/api/json')
+    await wrapper.findAll('.rule-editor select')[1].setValue('POST')
+    await wrapper.get('.rule-editor input[type="number"]').setValue(202)
+    await wrapper.get('textarea[aria-label="响应 JSON"]').setValue('{"ok":true,"items":[1,2]}')
+    await wrapper.get('.editor-form').trigger('submit')
+    await flushPromises()
+
+    const saves = sentMessages.filter((message) => message.key === V3PanelMessageKey.SAVE_CONFIG)
+    expect(saves).toHaveLength(1)
+    expect(saves[0].value.config.rules).toEqual([
+      expect.objectContaining({
+        id: expect.stringMatching(/^rule-/),
+        enabled: true,
+        tagIds: [],
+        match: { url: '/api/json', type: 'normal', method: 'POST' },
+        response: {
+          enabled: true,
+          replace: { status: 202, body: { ok: true, items: [1, 2] } },
+        },
+      }),
+    ])
+    expect(wrapper.find('.rule-editor').exists()).toBe(false)
+  })
+
+  it('edits a composite response while preserving its redirect, tags, and custom headers', async () => {
+    const tag = { id: 'tag-json', name: 'JSON', used: true }
+    const existingRule = {
+      id: 'composite-json-rule',
+      enabled: true,
+      tagIds: [tag.id],
+      match: { url: '/api/composite', method: 'POST', type: 'normal' },
+      request: { enabled: true, redirect: { url: '/api/target' } },
+      response: {
+        enabled: false,
+        replace: { status: 201, headers: { 'x-debug': 'kept' }, body: { old: true } },
+      },
+    }
+    const startingConfig = { ...initialConfig(), tags: [tag], rules: [existingRule] }
+    const { wrapper, sentMessages } = await mountApp([], startingConfig, editorStubs)
+
+    await buttonByText(wrapper.get('.rule-row'), '编辑').trigger('click')
+    await flushPromises()
+    await wrapper.get('.rule-editor input[type="number"]').setValue(206)
+    await wrapper.get('textarea[aria-label="响应 JSON"]').setValue('{"updated":true}')
+    await wrapper.get('.editor-form').trigger('submit')
+    await flushPromises()
+
+    const saves = sentMessages.filter((message) => message.key === V3PanelMessageKey.SAVE_CONFIG)
+    expect(saves).toHaveLength(1)
+    expect(saves[0].value.config.rules).toEqual([
+      {
+        ...existingRule,
+        response: {
+          enabled: true,
+          replace: { status: 206, headers: { 'x-debug': 'kept' }, body: { updated: true } },
+        },
+      },
+    ])
+    expect(saves[0].value.config.tags).toEqual([tag])
+    expect(wrapper.find('.rule-editor').exists()).toBe(false)
+  })
+
+  it('does not apply a JSON edit locally when config persistence fails', async () => {
+    const existingRule = {
+      id: 'json-rule',
+      enabled: true,
+      match: { url: '/api/json', method: 'POST', type: 'normal' },
+      response: { enabled: true, replace: { status: 200, body: { old: true } } },
+    }
+    const startingConfig = { ...initialConfig(), rules: [existingRule] }
+    const { wrapper, sentMessages, getStoredConfig } = await mountApp(
+      [{ ok: false, error: 'storage-write-failed' }],
+      startingConfig,
+      editorStubs
+    )
+
+    await buttonByText(wrapper.get('.rule-row'), '编辑').trigger('click')
+    await flushPromises()
+    await wrapper.get('textarea[aria-label="响应 JSON"]').setValue('{"changed":true}')
+    await wrapper.get('.editor-form').trigger('submit')
+    await flushPromises()
+
+    const saves = sentMessages.filter((message) => message.key === V3PanelMessageKey.SAVE_CONFIG)
+    expect(saves).toHaveLength(1)
+    expect(saves[0].value.config.rules[0].response.replace.body).toEqual({ changed: true })
+    expect(getStoredConfig()).toEqual(startingConfig)
+    expect(wrapper.find('.rule-editor').exists()).toBe(true)
+    expect(wrapper.get('.operation-alert').text()).toContain('storage-write-failed')
+    expect(wrapper.get('.rule-row').text()).toContain('/api/json')
+  })
+})
+
 describe('App concurrent configuration conflict flow', () => {
   it('requires confirmation before loading the latest config after a conflict', async () => {
     const remoteConfig = {
