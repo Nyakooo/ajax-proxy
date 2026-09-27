@@ -454,6 +454,46 @@ describe('App filtered rule priority ordering', () => {
   })
 })
 
+describe('App rule tag management persistence', () => {
+  it('normalizes new tags, rejects duplicates, and returns focus to the tag filter', async () => {
+    const { wrapper, sentMessages } = await mountApp()
+    const tagFilterTrigger = buttonByText(wrapper, '标签')
+
+    await tagFilterTrigger.trigger('click')
+    await buttonByText(wrapper, '管理标签').trigger('click')
+    await flushPromises()
+    expect(wrapper.get('[role="dialog"]').text()).toContain('管理规则标签')
+
+    const createInput = wrapper.get('.tag-create-form input')
+    await createInput.setValue('  Platform  ')
+    await wrapper.get('.tag-create-form').trigger('submit')
+    await flushPromises()
+
+    const saves = () =>
+      sentMessages.filter((message) => message.key === V3PanelMessageKey.SAVE_CONFIG)
+    expect(saves()).toHaveLength(1)
+    expect(saves()[0].value.config.tags).toEqual([
+      expect.objectContaining({
+        id: expect.stringMatching(/^tag-/),
+        name: 'Platform',
+        used: false,
+      }),
+    ])
+
+    await createInput.setValue('platform')
+    await wrapper.get('.tag-create-form').trigger('submit')
+    await flushPromises()
+
+    expect(saves()).toHaveLength(1)
+    expect(wrapper.get('[role="dialog"]').exists()).toBe(true)
+    expect(wrapper.get('.operation-alert').text()).toContain('标签名称不能重复')
+
+    await buttonByText(wrapper, '完成').trigger('click')
+    await flushPromises()
+    expect(document.activeElement).toBe(tagFilterTrigger.element)
+  })
+})
+
 describe('App no-match diagnostics localization', () => {
   it('localizes no-match controls and reason labels in the selected language', async () => {
     const startingConfig = {
