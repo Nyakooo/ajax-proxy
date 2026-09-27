@@ -457,6 +457,51 @@ describe('proxy lifecycle and page wrappers', () => {
     expect(pageFetch).toHaveBeenCalledOnce()
   })
 
+  it('warns on invalid interceptor and redirector updates without replacing active rules', async () => {
+    vi.stubGlobal('XMLHttpRequest', ExistingXMLHttpRequest)
+    const pageFetch = vi.fn(async (input: RequestInfo | URL) => {
+      return new Response(input instanceof Request ? input.url : input.toString())
+    })
+    vi.stubGlobal('window', {
+      XMLHttpRequest: ExistingXMLHttpRequest,
+      fetch: pageFetch,
+      dispatchEvent: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      eval,
+    })
+    const { default: lib } = await import('../src/index')
+    lib.update({
+      global_on: true,
+      mode: 'interceptor',
+      interceptor_matching_content: [
+        {
+          switch_on: true,
+          match_url: '/intercept',
+          override: 'still active',
+          status_code: '200',
+        },
+      ],
+      redirector_matching_content: [
+        { switch_on: true, domain: '/redirect', redirect_url: '/still-redirected' },
+      ],
+    })
+
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    lib.updateInterceptors([null])
+    expect(warn).toHaveBeenLastCalledWith('invalid interceptor list')
+    expect(await (await window.fetch(new Request('https://example.test/intercept'))).text()).toBe(
+      'still active'
+    )
+
+    lib.update('redirector')
+    lib.updateRedirectors([null])
+    expect(warn).toHaveBeenLastCalledWith('invalid redirector list')
+    const response = await window.fetch(new Request('https://example.test/redirect'))
+    expect(await response.text()).toBe('https://example.test/still-redirected')
+    expect(pageFetch).toHaveBeenCalledTimes(2)
+  })
+
   it('preserves page wrappers installed outside the proxy and disables the inner proxy', async () => {
     vi.stubGlobal('XMLHttpRequest', ExistingXMLHttpRequest)
     const originFetch = vi.fn(async () => new Response('page response'))
