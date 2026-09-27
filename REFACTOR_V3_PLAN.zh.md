@@ -71,6 +71,7 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
   - [x] 对原型 ZIP 执行本机 `unzip -t`，所有条目完整性检查通过；同一 ZIP 完整性检查已加入 CI。
   - [x] 将 Vite 产物扩展 smoke 接入 Chrome 141 / Edge 140 最低版本矩阵，复用对应的 browser-for-testing 可执行文件；CI run [36293505492](https://github.com/Nyakooo/ajax-proxy/actions/runs/36293505492) 全部通过。
   - [x] 提供独立 `build-vite-dev` Vite watch 输出和重载验收脚本：shell 源变化会重建对应 classic bundle；通过重载扩展、重新打开页面后验证 Fetch / XHR smoke。全流程在本机 Chromium 通过并已加入 CI；页面内无刷新 HMR 不适用于当前 classic service worker / `document_start` MAIN 注入约束。
+  - [x] Vite 预览扩展点击图标默认打开 Vue 3 面板，Webpack 构建保留 Vue 2 默认路径；本机 shell panel 单测 6 项、Vite 产物扩展功能 smoke 和 ZIP 完整性检查通过。
 - [x] 验证 workspace 全量构建的依赖顺序；各包独立入口仍需后续梳理。
 - [x] 为 TypeScript 包、测试和生产构建提供统一命令（`pnpm typecheck`、`pnpm test`、`pnpm test:coverage`、`pnpm build`）；Vue SFC 类型检查尚未覆盖。
 - [x] 为 lint 和格式检查提供统一命令：Prettier 3.9.9 `pnpm format:check`、ESLint 10.11.0 `pnpm lint` 已接入 CI 并覆盖全包。现有 Vue / JS 源码零 error，保留 378 条告警预算；50 个历史格式文件登记基线且门禁禁止债务增加，新增脚本 / 测试 / 配置严格零告警并严格格式检查。
@@ -1007,4 +1008,6 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - 2026-09-27：将 disabled-origin 的规范化与精确判定拆至独立 `siteSettings.ts`，保持 package root 和 `backup` 导出兼容；domain 测试 46 项、TypeScript 构建 / 类型检查、声明提交后的 `check-generated-types`、严格 ESLint 和格式检查通过，提交 `d4b61f0`。为 RuleTagsDialog 的移除按钮补上包含标签名的本地化可访问名称，并覆盖正确事件参数与保存中禁用；定向组件测试 4 项及严格 ESLint / Prettier 通过，提交 `657f8c1`。计划核对项为 456 / 491（92.9%）；Vite clean-build CI 门禁仍在运行。
 - 2026-09-27：Vite clean-build CI run [36303386599](https://github.com/Nyakooo/ajax-proxy/actions/runs/36303386599) 全部 jobs 通过，包括清理后原型构建、原型 ZIP 检查、后续正式构建、watch 重建及 Stable / 最低版本浏览器 smoke。Vite 清洁构建验收子项完成，计划核对项为 457 / 491（93.1%）。
 - 2026-09-27：从当前已提交源码重建 Vue 3 面板和 shell Vite 原型，刷新 `zip/ajax-proxy-vite-prototype.zip`；`unzip -t` 与本机 Playwright extension smoke 通过，覆盖 V2 / V3 面板持久化、静态重定向 header、站点开关、Fetch / XHR、sandbox 和 Service Worker 重启。预览包包含两套面板，默认窗口仍打开 Vue 2；V3 预览通过扩展的 `panels-v3/index.html` 路径打开。当前代码头完整 CI run [36303810972](https://github.com/Nyakooo/ajax-proxy/actions/runs/36303810972) 全部通过。
+- 2026-09-27：将 Vite prototype 扩展的 toolbar action 默认面板切换为 Vue 3，同时保留 Webpack runtime 的 Vue 2 默认路径；构建脚本验证产出的 service worker 确实指向 V3。Vue 3 Vite 生产构建、shell panel 单测 6 项、本机 Chromium 扩展 smoke（V2 / V3 持久化、重定向 header、站点开关、Fetch / XHR、sandbox、SW restart）和 ZIP 完整性检查通过。固定 pnpm 12.6.0 无法从当前 registry mirror 获取，因此本机直接调用已安装 Vite / Vitest 完成编译和测试；品牌浏览器手动安装仍待验收。
+- 当前计划核对项为 458 / 492（93.1%）；本条仅完成 Vite 原型扩展的 V3 默认入口，不代表正式 Vite 切换或品牌浏览器人工验收完成。
 - GitHub 里程碑：[阶段 0](https://github.com/Nyakooo/ajax-proxy/milestone/1)、[阶段 1](https://github.com/Nyakooo/ajax-proxy/milestone/2)、[阶段 2](https://github.com/Nyakooo/ajax-proxy/milestone/3)、[阶段 3](https://github.com/Nyakooo/ajax-proxy/milestone/4)、[阶段 4](https://github.com/Nyakooo/ajax-proxy/milestone/5)、[阶段 5](https://github.com/Nyakooo/ajax-proxy/milestone/6)、[阶段 6](https://github.com/Nyakooo/ajax-proxy/milestone/7)、[阶段 7](https://github.com/Nyakooo/ajax-proxy/milestone/8)；已复现缺陷：[issue #56](https://github.com/Nyakooo/ajax-proxy/issues/56)。

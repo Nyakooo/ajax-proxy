@@ -102,6 +102,14 @@ function validateManifestAssets() {
     }
   }
 
+  const serviceWorker = fs.readFileSync(
+    path.join(outputDir, manifest.background.service_worker),
+    'utf8'
+  )
+  if (!serviceWorker.includes('panels-v3/index.html')) {
+    throw new Error('Vite service worker must open the V3 panel by default')
+  }
+
   for (const htmlFile of ['v3-sandbox/sandbox.html', 'panels/index.html', 'panels-v3/index.html']) {
     const htmlPath = path.join(outputDir, htmlFile)
     const html = fs.readFileSync(htmlPath, 'utf8')
@@ -162,6 +170,10 @@ async function main() {
       base: './',
       publicDir: false,
       logLevel: 'info',
+      define:
+        entry.file === 'service_worker'
+          ? { __AJAX_PROXY_PANEL_PATH__: JSON.stringify('panels-v3/index.html') }
+          : {},
       plugins: [
         {
           name: `verify-${entry.file}-classic-bundle`,

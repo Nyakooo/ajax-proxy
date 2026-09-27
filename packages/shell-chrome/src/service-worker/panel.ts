@@ -1,5 +1,11 @@
 
+declare const __AJAX_PROXY_PANEL_PATH__: string | undefined
+
 let current_window_id: number | undefined
+const panelPath =
+    typeof __AJAX_PROXY_PANEL_PATH__ === "undefined"
+        ? "panels/index.html"
+        : __AJAX_PROXY_PANEL_PATH__
 
 /**获取所有windowId */
 async function getAllWindowIds(): Promise<(number | undefined)[]> {
@@ -17,7 +23,7 @@ export async function createPanel() {
         // https://developer.chrome.com/docs/extensions/reference/windows/
         chrome.windows.create(
             {
-                url: "panels/index.html",
+                url: panelPath,
                 type: "popup",
                 width: 1300,
                 height: 750,
