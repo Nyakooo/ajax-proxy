@@ -445,6 +445,27 @@ describe('shared storage cache', () => {
     expect(getStorage('mode')).toBe('redirector')
   })
 
+  it('clears ordinary webpage cache after a localStorage clear event', async () => {
+    let storageListener: ((event: StorageEvent) => void) | undefined
+    const values = { mode: '"interceptor"', rules: '[1,2]' }
+    vi.stubGlobal('chrome', undefined)
+    vi.stubGlobal('localStorage', {
+      mode: true,
+      rules: true,
+      getItem: (key: string) => values[key as keyof typeof values] ?? null,
+    })
+    vi.stubGlobal('addEventListener', (type: string, listener: (event: StorageEvent) => void) => {
+      if (type === 'storage') storageListener = listener
+    })
+    const { getStorage, getStorageSnapshot, initStorage } = await import('../src/storage')
+    await initStorage()
+
+    storageListener?.({ key: null, newValue: null, storageArea: localStorage } as StorageEvent)
+
+    expect(getStorage('mode', 'missing')).toBe('missing')
+    expect(getStorageSnapshot()).toEqual({})
+  })
+
   it('rejects and reports ordinary webpage storage initialization failures', async () => {
     const errorLog = vi.spyOn(console, 'error').mockImplementation(() => {})
     vi.stubGlobal('chrome', undefined)

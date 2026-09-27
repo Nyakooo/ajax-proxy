@@ -402,7 +402,7 @@ describe('CustomXHR rule selection', () => {
             method: 'POST',
             redirect_type: 'function',
             redirect_func:
-              'function(req, next) { next({ url: req.url.replace("/api", "/mock") }) }',
+              'function(req, next) { next({ url: req.url.replace("/api", "/mock"), headers: { "x-rule": "from-function" } }) }',
           },
         ],
       },
@@ -410,8 +410,15 @@ describe('CustomXHR rule selection', () => {
     const request = new CustomRedirectXHR()
 
     request.open('POST', 'https://example.test/api/users')
+    request.setRequestHeader('x-rule', 'from-page')
+    request.setRequestHeader('x-extra', 'preserved')
+    request.send('request body')
 
     expect(request.responseURL).toBe('https://example.test/mock/users')
+    expect(request.requestHeaders).toEqual({
+      'x-rule': ['from-function'],
+      'x-extra': ['preserved'],
+    })
   })
 
   it('does not leak redirect headers when an XHR instance is reused', async () => {
