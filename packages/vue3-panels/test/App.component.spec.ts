@@ -192,6 +192,62 @@ describe('App rule filter focus return', () => {
   })
 })
 
+describe('App visible selection and bulk rule actions', () => {
+  it('clears selection hidden by a filter and updates only the selected visible rule', async () => {
+    const makeRule = (id: string, url: string, enabled: boolean) => ({
+      id,
+      enabled,
+      match: { url, method: 'POST', type: 'normal' },
+      response: { enabled: true, replace: { body: { id } } },
+    })
+    const startingConfig = {
+      ...initialConfig(),
+      rules: [
+        makeRule('enabled-rule', '/api/enabled', true),
+        makeRule('selected-rule', '/api/selected', false),
+        makeRule('hidden-rule', '/api/hidden', false),
+      ],
+    }
+    const { wrapper, sentMessages } = await mountApp([], startingConfig)
+    const filterTrigger = buttonByText(wrapper, '筛选')
+
+    await filterTrigger.trigger('click')
+    await wrapper.get('input[name="rule-status-filter"][value="disabled"]').trigger('change')
+    await flushPromises()
+    expect(wrapper.findAll('.rule-row').map((row) => row.text())).toHaveLength(2)
+
+    const selectedRow = wrapper
+      .findAll('.rule-row')
+      .find((row) => row.text().includes('/api/selected'))
+    await selectedRow.get('.rule-selection input').setValue(true)
+    await flushPromises()
+    expect(wrapper.get('.bulk-actions').text()).toContain('已选 1 条规则')
+
+    await wrapper.get('input[name="rule-status-filter"][value="enabled"]').trigger('change')
+    await flushPromises()
+    expect(wrapper.findAll('.rule-row').map((row) => row.text())).toHaveLength(1)
+    expect(wrapper.find('.bulk-actions').exists()).toBe(false)
+
+    await wrapper.get('input[name="rule-status-filter"][value="disabled"]').trigger('change')
+    await flushPromises()
+    const selectedAgain = wrapper
+      .findAll('.rule-row')
+      .find((row) => row.text().includes('/api/selected'))
+    await selectedAgain.get('.rule-selection input').setValue(true)
+    await buttonByText(wrapper, '启用所选').trigger('click')
+    await flushPromises()
+
+    const saves = sentMessages.filter((message) => message.key === V3PanelMessageKey.SAVE_CONFIG)
+    expect(saves).toHaveLength(1)
+    expect(saves[0].value.config.rules.map(({ id, enabled }) => [id, enabled])).toEqual([
+      ['enabled-rule', true],
+      ['selected-rule', true],
+      ['hidden-rule', false],
+    ])
+    expect(wrapper.find('.bulk-actions').exists()).toBe(false)
+  })
+})
+
 describe('App no-match diagnostics localization', () => {
   it('localizes no-match controls and reason labels in the selected language', async () => {
     const startingConfig = {
