@@ -35,6 +35,78 @@ afterEach(() => {
 })
 
 describe('proxy lifecycle and page wrappers', () => {
+  it('arms Fetch outcome diagnostics through the public API', async () => {
+    vi.stubGlobal('XMLHttpRequest', ExistingXMLHttpRequest)
+    const dispatchEvent = vi.fn()
+    const pageFetch = vi.fn(async () => new Response('native'))
+    vi.stubGlobal('window', {
+      XMLHttpRequest: ExistingXMLHttpRequest,
+      fetch: pageFetch,
+      dispatchEvent,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      eval,
+    })
+    const { default: lib } = await import('../src/index')
+    expect(
+      lib.updateV3({
+        format: 'ajax-proxy-backup',
+        formatVersion: 3,
+        settings: { globalEnabled: true, mode: 'interceptor', language: 'en' },
+        tags: [],
+        rules: [
+          {
+            id: 'fetch-outcome',
+            enabled: true,
+            match: { url: '/api', method: 'GET' },
+            request: { enabled: true, redirect: { url: 'https://target.test/api' } },
+            response: { enabled: true, replace: { body: { mocked: true } } },
+          },
+        ],
+      })
+    ).toEqual({ ok: true, status: 'updated' })
+
+    const outcomeDetails = () =>
+      dispatchEvent.mock.calls
+        .map(([event]) => (event as CustomEvent).detail)
+        .filter(({ kind }) => kind === 'v3-fetch-outcome')
+
+    lib.updateV3FetchOutcomeDiagnosticsArmed(false)
+    expect(await (await window.fetch('https://example.test/api')).json()).toEqual({ mocked: true })
+    expect(pageFetch).toHaveBeenCalledOnce()
+    expect(outcomeDetails()).toEqual([])
+
+    lib.updateV3FetchOutcomeDiagnosticsArmed(true)
+    expect(await (await window.fetch('https://example.test/api')).json()).toEqual({ mocked: true })
+    expect(pageFetch).toHaveBeenCalledTimes(2)
+    expect(
+      outcomeDetails().map(({ rule_id, stage, outcome, reason }) => ({
+        rule_id,
+        stage,
+        outcome,
+        reason,
+      }))
+    ).toEqual([
+      {
+        rule_id: 'fetch-outcome',
+        stage: 'request',
+        outcome: 'applied',
+        reason: 'redirect-applied',
+      },
+      {
+        rule_id: 'fetch-outcome',
+        stage: 'response',
+        outcome: 'applied',
+        reason: 'response-replacement-applied',
+      },
+    ])
+
+    lib.updateV3FetchOutcomeDiagnosticsArmed(false)
+    expect(await (await window.fetch('https://example.test/api')).json()).toEqual({ mocked: true })
+    expect(pageFetch).toHaveBeenCalledTimes(3)
+    expect(outcomeDetails()).toHaveLength(2)
+  })
+
   it('emits no-match diagnostics only while V3 diagnostics are armed for Fetch', async () => {
     vi.stubGlobal('XMLHttpRequest', ExistingXMLHttpRequest)
     const dispatchedRequests: string[] = []
