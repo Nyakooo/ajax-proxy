@@ -492,6 +492,65 @@ describe('App rule tag management persistence', () => {
     await flushPromises()
     expect(document.activeElement).toBe(tagFilterTrigger.element)
   })
+
+  it('confirms tag removal, preserves other references, and clears the deleted tag filter', async () => {
+    const tagA = { id: 'tag-a', name: 'Payments', used: true }
+    const tagB = { id: 'tag-b', name: 'Platform', used: true }
+    const makeRule = (id: string, url: string, tagIds: string[]) => ({
+      id,
+      enabled: true,
+      tagIds,
+      match: { url, method: 'POST', type: 'normal' },
+      response: { enabled: true, replace: { body: { id } } },
+    })
+    const startingConfig = {
+      ...initialConfig(),
+      tags: [tagA, tagB],
+      rules: [
+        makeRule('both-tags-rule', '/api/both', ['tag-a', 'tag-b']),
+        makeRule('payments-only-rule', '/api/payments', ['tag-a']),
+        makeRule('platform-only-rule', '/api/platform', ['tag-b']),
+      ],
+    }
+    const { wrapper, sentMessages } = await mountApp([], startingConfig)
+    const confirm = vi
+      .spyOn(globalThis, 'confirm')
+      .mockReturnValueOnce(false)
+      .mockReturnValueOnce(true)
+
+    await buttonByText(wrapper, '标签').trigger('click')
+    await wrapper.get('input[name="rule-tag-filter"][value="tag-a"]').trigger('change')
+    await flushPromises()
+    expect(wrapper.findAll('.rule-row')).toHaveLength(2)
+
+    await buttonByText(wrapper, '管理标签').trigger('click')
+    await flushPromises()
+    const paymentTagRow = wrapper.findAll('.rule-tags-list li')[0]
+    const removePaymentTag = () => buttonByText(paymentTagRow, '删除')
+
+    await removePaymentTag().trigger('click')
+    await flushPromises()
+    expect(confirm).toHaveBeenCalledOnce()
+    expect(sentMessages.filter((message) => message.key === V3PanelMessageKey.SAVE_CONFIG)).toEqual(
+      []
+    )
+    expect(wrapper.findAll('.rule-row')).toHaveLength(2)
+
+    await removePaymentTag().trigger('click')
+    await flushPromises()
+
+    const saves = sentMessages.filter((message) => message.key === V3PanelMessageKey.SAVE_CONFIG)
+    expect(confirm).toHaveBeenCalledTimes(2)
+    expect(saves).toHaveLength(1)
+    expect(saves[0].value.config.tags).toEqual([tagB])
+    expect(saves[0].value.config.rules.map(({ id, tagIds }) => [id, tagIds])).toEqual([
+      ['both-tags-rule', ['tag-b']],
+      ['payments-only-rule', undefined],
+      ['platform-only-rule', ['tag-b']],
+    ])
+    expect(wrapper.findAll('.rule-row')).toHaveLength(3)
+    expect(buttonByText(wrapper, '标签').exists()).toBe(true)
+  })
 })
 
 describe('App no-match diagnostics localization', () => {
