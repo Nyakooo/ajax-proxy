@@ -457,6 +457,54 @@ describe('proxy lifecycle and page wrappers', () => {
     expect(pageFetch).toHaveBeenCalledOnce()
   })
 
+  it('updates legacy redirector arrays without replacing interceptor rules or remounting', async () => {
+    vi.stubGlobal('XMLHttpRequest', ExistingXMLHttpRequest)
+    const requests: string[] = []
+    const pageFetch = vi.fn(async (input: RequestInfo | URL) => {
+      requests.push(input instanceof Request ? input.url : input.toString())
+      return new Response('page response')
+    })
+    vi.stubGlobal('window', {
+      XMLHttpRequest: ExistingXMLHttpRequest,
+      fetch: pageFetch,
+      dispatchEvent: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      eval,
+    })
+    const { default: lib } = await import('../src/index')
+    lib.update({
+      global_on: true,
+      mode: 'interceptor',
+      interceptor_matching_content: [
+        {
+          switch_on: true,
+          match_url: '/intercept',
+          override: 'intercepted',
+          status_code: '200',
+        },
+      ],
+      redirector_matching_content: [],
+    })
+    const proxyFetch = window.fetch
+
+    lib.update([{ switch_on: true, domain: '/redirect', redirect_url: '/redirected' }])
+
+    expect(window.fetch).toBe(proxyFetch)
+    expect(await (await window.fetch(new Request('https://example.test/intercept'))).text()).toBe(
+      'intercepted'
+    )
+
+    lib.update('redirector')
+    await window.fetch(new Request('https://example.test/redirect'))
+    expect(requests.at(-1)).toBe('https://example.test/redirected')
+
+    lib.update('interceptor')
+    expect(await (await window.fetch(new Request('https://example.test/intercept'))).text()).toBe(
+      'intercepted'
+    )
+  })
+
   it('warns on invalid interceptor and redirector updates without replacing active rules', async () => {
     vi.stubGlobal('XMLHttpRequest', ExistingXMLHttpRequest)
     const pageFetch = vi.fn(async (input: RequestInfo | URL) => {
