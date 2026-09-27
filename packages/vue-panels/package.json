@@ -9,9 +9,9 @@
   },
   "dependencies": {
     "@proxy/code-editor": "workspace:^1.0.0",
-    "@proxy/v2-compatibility": "workspace:^1.0.0",
     "@proxy/json-editor": "workspace:^1.0.0",
     "@proxy/shared-utils": "workspace:^1.0.0",
+    "@proxy/v2-compatibility": "workspace:^1.0.0",
     "core-js": "^3.6.5",
     "element-ui": "~2.15.1",
     "export-from-json": "^1.7.0",
@@ -20,8 +20,6 @@
   },
   "devDependencies": {
     "@vue/cli-plugin-babel": "~5.0.9",
-    "@vue/cli-plugin-router": "~5.0.9",
-    "@vue/cli-plugin-vuex": "~5.0.9",
     "@vue/cli-service": "~5.0.9",
     "babel-plugin-component": "^1.1.1",
     "sass": "^1.90.0",
