@@ -305,6 +305,46 @@ describe('App visible selection and bulk rule actions', () => {
     expect(wrapper.get('.bulk-actions').text()).toContain('已选 1 条规则')
     expect(wrapper.get('.operation-alert').text()).toContain('storage-write-failed')
   })
+
+  it('selects and clears only the rules currently visible under a filter', async () => {
+    const makeRule = (id: string, url: string, enabled: boolean) => ({
+      id,
+      enabled,
+      match: { url, method: 'POST', type: 'normal' },
+      response: { enabled: true, replace: { body: { id } } },
+    })
+    const startingConfig = {
+      ...initialConfig(),
+      rules: [
+        makeRule('enabled-rule', '/api/enabled', true),
+        makeRule('first-disabled-rule', '/api/first-disabled', false),
+        makeRule('second-disabled-rule', '/api/second-disabled', false),
+      ],
+    }
+    const { wrapper, sentMessages } = await mountApp([], startingConfig)
+
+    await buttonByText(wrapper, '筛选').trigger('click')
+    await wrapper.get('input[name="rule-status-filter"][value="disabled"]').trigger('change')
+    await flushPromises()
+    await buttonByText(wrapper, '选择当前显示项').trigger('click')
+    await flushPromises()
+
+    const visibleSelections = wrapper.findAll('.rule-selection input')
+    expect(visibleSelections).toHaveLength(2)
+    expect(visibleSelections.every((input) => input.element.checked)).toBe(true)
+    expect(wrapper.find('.bulk-actions').text()).toContain('已选 2 条规则')
+
+    await buttonByText(wrapper, '清除当前显示项选择').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.findAll('.rule-selection input').every((input) => !input.element.checked)).toBe(
+      true
+    )
+    expect(wrapper.find('.bulk-actions').exists()).toBe(false)
+    expect(sentMessages.filter((message) => message.key === V3PanelMessageKey.SAVE_CONFIG)).toEqual(
+      []
+    )
+  })
 })
 
 describe('App filtered rule priority ordering', () => {
