@@ -143,6 +143,16 @@ describe('V3 panel configuration adapter', () => {
     expect(storage.write).not.toHaveBeenCalled()
   })
 
+  it('fails closed when the currently stored V3 config is invalid', async () => {
+    const storage = createStorage({ [StorageKey.V3_CONFIG]: { format: 'old-or-invalid' } })
+
+    await expect(saveV3PanelConfig(backup, 'empty-v3-config', storage)).resolves.toEqual({
+      ok: false,
+      issues: [{ path: 'format', message: expect.any(String) }],
+    })
+    expect(storage.write).not.toHaveBeenCalled()
+  })
+
   it('writes a validated V3 snapshot only to its dedicated storage key', async () => {
     const storage = createStorage()
 
