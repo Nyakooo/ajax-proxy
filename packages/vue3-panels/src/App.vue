@@ -44,6 +44,7 @@ const SiteSwitchesDialog = defineAsyncComponent(() => import('./components/SiteS
 const darkMode = ref(false)
 const section = ref('intercept')
 const search = ref('')
+const searchBox = ref(null)
 const { locale, t } = useI18n({ useScope: 'global' })
 const extensionRuntime = globalThis.chrome?.runtime
 const browserTabs = globalThis.chrome?.tabs
@@ -387,6 +388,29 @@ function formatHitCount(count) {
   return new Intl.NumberFormat(locale.value).format(count)
 }
 
+function focusSearchWithShortcut(event) {
+  if (
+    (!event.metaKey && !event.ctrlKey) ||
+    event.altKey ||
+    event.shiftKey ||
+    event.key.toLowerCase() !== 'k'
+  ) {
+    return
+  }
+
+  const target = event.target
+  const isEditingField =
+    target instanceof HTMLElement &&
+    target.closest('input, textarea, select, [contenteditable="true"]')
+  if (isEditingField && !searchBox.value?.contains(target)) return
+
+  const input = searchBox.value?.querySelector('input')
+  if (!input) return
+  event.preventDefault()
+  input.focus()
+  input.select()
+}
+
 function runRuleDiagnostics() {
   const url = diagnosticUrl.value.trim()
   if (!url || !ruleOperations) {
@@ -473,6 +497,7 @@ watch(
 )
 
 onMounted(async () => {
+  window.addEventListener('keydown', focusSearchWithShortcut)
   void refreshCurrentSiteOrigin()
   tabActivatedListener = () => void refreshCurrentSiteOrigin()
   tabUpdatedListener = (_tabId, _changeInfo, tab) => {
@@ -550,6 +575,7 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => {
+  window.removeEventListener('keydown', focusSearchWithShortcut)
   cancelNoMatchCapture()
   cancelFetchOutcomeCapture()
   removeExtensionMessageListener?.()
@@ -1230,10 +1256,10 @@ async function moveRule(rule, targetRule) {
           </div>
 
           <div class="toolbar">
-            <label class="search-box">
+            <label ref="searchBox" class="search-box">
               <span class="search-glyph">⌕</span>
               <InputText v-model="search" :placeholder="t('rules.searchPlaceholder')" />
-              <kbd>⌘ K</kbd>
+              <kbd>{{ t('rules.searchShortcut') }}</kbd>
             </label>
             <AppButton
               :label="

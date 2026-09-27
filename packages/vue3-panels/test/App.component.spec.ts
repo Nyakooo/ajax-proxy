@@ -207,6 +207,51 @@ describe('App rule filter focus return', () => {
   })
 })
 
+describe('App search keyboard shortcut', () => {
+  it('focuses search with either platform modifier and leaves other editors alone', async () => {
+    const { wrapper } = await mountApp()
+    const searchInput = wrapper.get('input[placeholder="搜索 URL、method 或备注"]')
+    const metaShortcut = new KeyboardEvent('keydown', {
+      key: 'k',
+      metaKey: true,
+      bubbles: true,
+      cancelable: true,
+    })
+
+    window.dispatchEvent(metaShortcut)
+
+    expect(metaShortcut.defaultPrevented).toBe(true)
+    expect(document.activeElement).toBe(searchInput.element)
+    expect(wrapper.get('.search-box kbd').text()).toBe('Ctrl / ⌘ K')
+
+    const nativeSearchInput = searchInput.element as HTMLInputElement
+    nativeSearchInput.blur()
+    const controlShortcut = new KeyboardEvent('keydown', {
+      key: 'k',
+      ctrlKey: true,
+      bubbles: true,
+      cancelable: true,
+    })
+    window.dispatchEvent(controlShortcut)
+    expect(controlShortcut.defaultPrevented).toBe(true)
+    expect(document.activeElement).toBe(searchInput.element)
+
+    await buttonByText(wrapper, '站点开关').trigger('click')
+    await flushPromises()
+    const siteInput = wrapper.get('.site-switches-dialog input')
+    const editorShortcut = new KeyboardEvent('keydown', {
+      key: 'k',
+      ctrlKey: true,
+      bubbles: true,
+      cancelable: true,
+    })
+    siteInput.element.dispatchEvent(editorShortcut)
+
+    expect(editorShortcut.defaultPrevented).toBe(false)
+    expect(document.activeElement).toBe(siteInput.element)
+  })
+})
+
 describe('App visible selection and bulk rule actions', () => {
   it('clears selection hidden by a filter and updates only the selected visible rule', async () => {
     const makeRule = (id: string, url: string, enabled: boolean) => ({
