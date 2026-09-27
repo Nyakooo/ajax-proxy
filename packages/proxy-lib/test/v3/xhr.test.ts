@@ -50,6 +50,7 @@ class FakeXHR extends EventTarget {
     if (FakeXHR.sendFailure) throw FakeXHR.sendFailure
     this.sentBody = body
   })
+  abort = vi.fn()
 
   complete(body: string) {
     this.readyState = 2
@@ -153,6 +154,180 @@ describe('createV3XHR', () => {
     expect(xhr.getResponseHeader('x-MOCK')).toBe('yes')
     expect(xhr.getResponseHeader('content-type')).toBe('application/json')
     expect(xhr.getAllResponseHeaders()).toContain('X-Mock: yes\r\n')
+  })
+
+  it('covers mock response metadata, duplicate headers, and sends only once', async () => {
+    vi.useFakeTimers()
+    const xhr = makeXHR([
+      rule('xhr-mock-metadata', {
+        response: {
+          enabled: true,
+          mode: 'mock',
+          replace: {
+            status: 299,
+            headers: { 'X-Repeat': 'first', 'x-repeat': 'second', 'Content-Type': 'text/plain' },
+            body: 'payload',
+          },
+        },
+      }),
+    ])
+    xhr.open('POST', 'https://example.test/api', true)
+
+    expect(xhr.readyState).toBe(1)
+    expect(xhr.status).toBe(0)
+    expect(xhr.statusText).toBe('')
+    expect(xhr.responseURL).toBe('')
+    expect(xhr.response).toBeNull()
+    expect(xhr.responseText).toBe('')
+    expect(xhr.getResponseHeader('x-repeat')).toBeNull()
+    expect(xhr.getAllResponseHeaders()).toBe('')
+    expect(() => xhr.send()).not.toThrow()
+    expect(() => xhr.send()).toThrowError(expect.objectContaining({ name: 'InvalidStateError' }))
+
+    await vi.runAllTimersAsync()
+
+    expect(xhr.status).toBe(299)
+    expect(xhr.statusText).toBe('')
+    expect(xhr.responseURL).toBe('https://example.test/api')
+    expect(xhr.response).toBe('"payload"')
+    expect(xhr.responseText).toBe('"payload"')
+    expect(xhr.getResponseHeader('x-repeat')).toBe('first, second')
+    expect(xhr.getResponseHeader('missing')).toBeNull()
+    expect(xhr.getAllResponseHeaders()).toContain('X-Repeat: first, second\r\n')
+    expect(xhr.getAllResponseHeaders()).toContain('Content-Type: text/plain\r\n')
+    expect(FakeXHR.sendCalls).toBe(0)
+  })
+
+  it.each([
+    ['', ''],
+    ['json', null],
+    ['arraybuffer', 0],
+    ['blob', 0],
+    ['document', null],
+  ] as const)(
+    'returns the right empty mock value for responseType %s',
+    async (responseType, expected) => {
+      vi.useFakeTimers()
+      const xhr = makeXHR([
+        rule(`xhr-empty-value-${responseType || 'default'}`, {
+          response: { enabled: true, mode: 'mock', replace: {} },
+        }),
+      ])
+      xhr.open('POST', 'https://example.test/api', true)
+      xhr.responseType = responseType
+      xhr.send()
+      await vi.runAllTimersAsync()
+
+      if (responseType === 'arraybuffer') {
+        expect((xhr.response as ArrayBuffer).byteLength).toBe(expected)
+      } else if (responseType === 'blob') {
+        expect((xhr.response as Blob).size).toBe(expected)
+      } else {
+        expect(xhr.response).toBe(expected)
+      }
+    }
+  )
+
+  it('creates mock blobs and documents with supported content types', async () => {
+    vi.useFakeTimers()
+    const blobXhr = makeXHR([
+      rule('xhr-mock-blob', {
+        response: {
+          enabled: true,
+          mode: 'mock',
+          replace: { body: 'blob body', headers: { 'content-type': 'text/plain; charset=utf-8' } },
+        },
+      }),
+    ])
+    blobXhr.open('POST', 'https://example.test/api', true)
+    blobXhr.responseType = 'blob'
+    blobXhr.send()
+    await vi.runAllTimersAsync()
+    expect(blobXhr.response).toBeInstanceOf(Blob)
+    expect((blobXhr.response as Blob).type).toBe('text/plain; charset=utf-8')
+
+    class ParserStub {
+      parseFromString = vi.fn((body: string, type: DOMParserSupportedType) => ({ body, type }))
+    }
+    vi.stubGlobal('DOMParser', ParserStub)
+    try {
+      const documentXhr = makeXHR([
+        rule('xhr-mock-document', {
+          response: {
+            enabled: true,
+            mode: 'mock',
+            replace: {
+              body: '<p>hello</p>',
+              headers: { 'content-type': 'Text/HTML; charset=utf-8' },
+            },
+          },
+        }),
+      ])
+      documentXhr.open('POST', 'https://example.test/api', true)
+      documentXhr.responseType = 'document'
+      documentXhr.send()
+      await vi.runAllTimersAsync()
+      expect(documentXhr.response).toEqual({ body: '"<p>hello</p>"', type: 'text/html' })
+
+      const unsupportedDocument = makeXHR([
+        rule('xhr-mock-document-unsupported', {
+          response: {
+            enabled: true,
+            mode: 'mock',
+            replace: { body: 'body', headers: { 'content-type': 'application/octet-stream' } },
+          },
+        }),
+      ])
+      unsupportedDocument.open('POST', 'https://example.test/api', true)
+      unsupportedDocument.responseType = 'document'
+      unsupportedDocument.send()
+      await vi.runAllTimersAsync()
+      expect(unsupportedDocument.response).toBeNull()
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+
+  it('leaves native requests in place when mock configuration is invalid', () => {
+    const invalidStatus = makeXHR([
+      rule('xhr-mock-invalid-status', {
+        response: { enabled: true, mode: 'mock', replace: { status: 199, body: 'mock' } },
+      }),
+    ])
+    invalidStatus.open('POST', 'https://example.test/api', true)
+    invalidStatus.send()
+    expect(FakeXHR.sendCalls).toBe(1)
+
+    const unsupportedType = makeXHR([
+      rule('xhr-mock-unsupported-type', {
+        response: { enabled: true, mode: 'mock', replace: { body: 'mock' } },
+      }),
+    ])
+    unsupportedType.responseType = 'ms-stream' as XMLHttpRequestResponseType
+    unsupportedType.open('POST', 'https://example.test/api', true)
+    unsupportedType.send()
+    expect(FakeXHR.sendCalls).toBe(2)
+
+    const throwingBody = {
+      toJSON() {
+        throw new Error('cannot serialize mock')
+      },
+    }
+    const unserializable = makeXHR([
+      rule('xhr-mock-throwing-body', {
+        response: { enabled: true, mode: 'mock', replace: { body: throwingBody as never } },
+      }),
+    ])
+    unserializable.open('POST', 'https://example.test/api', true)
+    unserializable.send()
+    expect(FakeXHR.sendCalls).toBe(3)
+  })
+
+  it('forwards abort to native XHR outside an active mock request', async () => {
+    const xhr = makeXHR([])
+    const nativeAbort = vi.spyOn(xhr, 'abort')
+    xhr.abort()
+    expect(nativeAbort).toHaveBeenCalledOnce()
   })
 
   it('reports a skipped-network outcome after Mock completion only while armed', async () => {

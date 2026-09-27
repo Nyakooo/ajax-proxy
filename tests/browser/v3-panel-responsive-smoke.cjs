@@ -259,14 +259,25 @@ async function main() {
       if (width >= 1200) {
         const editorBox = await resizableEditor.boundingBox()
         assert.ok(editorBox)
-        await page.mouse.move(editorBox.x + editorBox.width - 6, editorBox.y + editorBox.height - 6)
+        const resizeHandle = {
+          x: editorBox.x + editorBox.width - 6,
+          y: editorBox.y + editorBox.height - 6,
+        }
+        await page.mouse.move(resizeHandle.x, resizeHandle.y)
         await page.mouse.down()
-        await page.mouse.move(
-          editorBox.x + editorBox.width - 6,
-          editorBox.y + editorBox.height + 48,
-          { steps: 4 }
-        )
+        await page.mouse.move(resizeHandle.x + 12, resizeHandle.y + 64, { steps: 12 })
+        // Let Chromium apply its native CSS-resize gesture before reading layout.
+        await page.waitForTimeout(100)
         await page.mouse.up()
+        await page.waitForFunction(
+          ({ selector, initialHeight }) =>
+            document.querySelector(selector)?.getBoundingClientRect().height > initialHeight,
+          {
+            selector: '.codemirror-json-editor.response-json-input',
+            initialHeight: editorBox.height,
+          },
+          { timeout: 1000 }
+        )
         const resizedEditorBox = await resizableEditor.boundingBox()
         assert.ok(
           resizedEditorBox.height > editorBox.height,

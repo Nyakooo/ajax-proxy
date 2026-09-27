@@ -22,7 +22,9 @@ async function main() {
     const worker = context.serviceWorkers()[0] || (await context.waitForEvent('serviceworker'))
     const id = new URL(worker.url()).hostname
     const panelUrl = `chrome-extension://${id}/panels-v3/index.html`
-    await worker.evaluate(async () => {
+    const popup = await context.newPage()
+    await popup.goto(`chrome-extension://${id}/panels-v3/popup.html`)
+    await popup.evaluate(async () => {
       await chrome.storage.local.set({
         'ajax-proxy:storage:v3-config': {
           format: 'ajax-proxy-backup',
@@ -41,8 +43,6 @@ async function main() {
         },
       })
     })
-    const popup = await context.newPage()
-    await popup.goto(`chrome-extension://${id}/panels-v3/popup.html`)
     const openButton = popup.getByRole('button', { name: 'Open full panel', exact: true })
     const [panel] = await Promise.all([
       context.waitForEvent('page', { timeout: 8000 }),
