@@ -266,7 +266,8 @@ describe('CustomXHR rule selection', () => {
     initRedirectXHRState(state)
 
     const request = new CustomRedirectXHR()
-    const openResult = request.open('POST', 'https://example.test/api/users')
+    const originalUrl = new URL('https://example.test/api/users')
+    const openResult = request.open('POST', originalUrl)
 
     expect(openResult).toBeUndefined()
     expect(request.responseURL).toBe('https://target.test/second/users')

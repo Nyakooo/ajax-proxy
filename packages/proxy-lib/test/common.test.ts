@@ -1,6 +1,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { NoticeTo } from '@proxy/protocol'
-import { finalRedirectUrl, matchIgnoresAndRule, maybeMatching, notice } from '../src/common'
+import {
+  finalRedirectUrl,
+  fmtURLToString,
+  matchIgnoresAndRule,
+  maybeMatching,
+  notice,
+} from '../src/common'
 
 afterEach(() => {
   vi.unstubAllGlobals()
@@ -21,6 +27,18 @@ describe('notice', () => {
       match_url: '/api',
       method: 'POST',
     })
+  })
+})
+
+describe('fmtURLToString', () => {
+  it('converts a native URL object to a string and preserves string input', () => {
+    const url = new URL('https://example.com/api?mode=test#section')
+
+    expect(fmtURLToString(url)).toBe(url.toString())
+    expect(typeof fmtURLToString(url)).toBe('string')
+    expect(fmtURLToString('https://example.com/api?mode=test#section')).toBe(
+      'https://example.com/api?mode=test#section'
+    )
   })
 })
 

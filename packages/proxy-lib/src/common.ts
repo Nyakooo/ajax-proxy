@@ -72,14 +72,9 @@ export function matchIgnoresAndRule(
   return matched
 }
 
-function isURLObject(x: unknown): x is URL {
-  return x && (x as any).hasOwnProperty('host') && (x as any).hasOwnProperty('hash')
-}
-
 /**格式化URL 返回 string */
 export function fmtURLToString(url: string | URL) {
-  if (isURLObject(url)) return url.toString()
-  else return url
+  return typeof url === 'string' ? url : url.toString()
 }
 
 /**获取重定向URL */
