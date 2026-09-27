@@ -81,6 +81,7 @@ afterEach(() => {
   else globalThis.chrome = previousChrome
   previousChrome = undefined
   vi.restoreAllMocks()
+  vi.unstubAllGlobals()
   document.body.innerHTML = ''
 })
 
@@ -341,6 +342,64 @@ describe('App visible selection and bulk rule actions', () => {
       true
     )
     expect(wrapper.find('.bulk-actions').exists()).toBe(false)
+    expect(sentMessages.filter((message) => message.key === V3PanelMessageKey.SAVE_CONFIG)).toEqual(
+      []
+    )
+  })
+
+  it('exports selected rules with only their referenced tags', async () => {
+    const selectedRule = {
+      id: 'selected-rule',
+      enabled: true,
+      tagIds: ['selected-tag'],
+      match: { url: '/api/selected', method: 'POST', type: 'normal' },
+      response: { enabled: true, replace: { body: { id: 'selected-rule' } } },
+    }
+    const otherRule = {
+      ...selectedRule,
+      id: 'other-rule',
+      tagIds: ['other-tag'],
+      match: { ...selectedRule.match, url: '/api/other' },
+    }
+    const selectedTag = { id: 'selected-tag', name: 'Selected', used: true }
+    const otherTag = { id: 'other-tag', name: 'Other', used: true }
+    const startingConfig = {
+      ...initialConfig(),
+      tags: [selectedTag, otherTag],
+      rules: [selectedRule, otherRule],
+    }
+    const { wrapper, sentMessages } = await mountApp([], startingConfig)
+    const createObjectURL = vi.fn()
+    createObjectURL.mockReturnValue('blob:ajax-proxy-selected-rules')
+    const revokeObjectURL = vi.fn()
+    const NativeURL = globalThis.URL
+    class TestURL extends NativeURL {}
+    Object.defineProperty(TestURL, 'createObjectURL', { value: createObjectURL })
+    Object.defineProperty(TestURL, 'revokeObjectURL', { value: revokeObjectURL })
+    vi.stubGlobal('URL', TestURL)
+    const clickAnchor = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+
+    await wrapper.get('.rule-selection input').setValue(true)
+    await buttonByText(wrapper, '导出所选规则').trigger('click')
+    await flushPromises()
+
+    expect(createObjectURL).toHaveBeenCalledOnce()
+    expect(revokeObjectURL).toHaveBeenCalledWith('blob:ajax-proxy-selected-rules')
+    expect(clickAnchor).toHaveBeenCalledOnce()
+    expect(clickAnchor.mock.instances[0].download).toMatch(
+      /^ajax-proxy-v3-rules-\d{4}-\d{2}-\d{2}\.json$/
+    )
+
+    const blob = createObjectURL.mock.calls[0][0] as Blob
+    const backupJson = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader()
+      reader.addEventListener('load', () => resolve(String(reader.result)))
+      reader.addEventListener('error', () => reject(reader.error))
+      reader.readAsText(blob)
+    })
+    const exported = JSON.parse(backupJson)
+    expect(exported.rules).toEqual([selectedRule])
+    expect(exported.tags).toEqual([selectedTag])
     expect(sentMessages.filter((message) => message.key === V3PanelMessageKey.SAVE_CONFIG)).toEqual(
       []
     )
