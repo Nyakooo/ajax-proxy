@@ -23,6 +23,8 @@ export type V3RedirectConfig = {
 export interface V3Rule {
     id: string;
     enabled: boolean;
+    /** Pinned rules execute before unpinned rules while preserving order within each group. */
+    pinned?: boolean;
     /** Optional IDs from the backup's tag collection; omitted means untagged. */
     tagIds?: string[];
     match: {
