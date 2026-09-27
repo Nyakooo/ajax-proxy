@@ -64,6 +64,9 @@ const responseEditorIssue = ref('')
 const backupDialogOpen = ref(false)
 const ruleTemplatesDialogOpen = ref(false)
 const siteSwitchesDialogOpen = ref(false)
+const backupDialogTrigger = ref(null)
+const ruleTemplatesDialogTrigger = ref(null)
+const siteSwitchesDialogTrigger = ref(null)
 const ruleFiltersOpen = ref(false)
 const ruleTagFilterOpen = ref(false)
 const ruleTagsDialogOpen = ref(false)
@@ -573,6 +576,41 @@ async function persistConfig(nextConfig) {
   return true
 }
 
+function openDialog(openState, trigger, event) {
+  trigger.value = event.currentTarget
+  openState.value = true
+}
+
+function openBackupDialog(event) {
+  openDialog(backupDialogOpen, backupDialogTrigger, event)
+}
+
+function openRuleTemplatesDialog(event) {
+  openDialog(ruleTemplatesDialogOpen, ruleTemplatesDialogTrigger, event)
+}
+
+function openSiteSwitchesDialog(event) {
+  openDialog(siteSwitchesDialogOpen, siteSwitchesDialogTrigger, event)
+}
+
+async function closeDialog(openState, trigger) {
+  openState.value = false
+  await nextTick()
+  if (trigger.value?.isConnected) trigger.value.focus()
+}
+
+function closeBackupDialog() {
+  return closeDialog(backupDialogOpen, backupDialogTrigger)
+}
+
+function closeRuleTemplatesDialog() {
+  return closeDialog(ruleTemplatesDialogOpen, ruleTemplatesDialogTrigger)
+}
+
+function closeSiteSwitchesDialog() {
+  return closeDialog(siteSwitchesDialogOpen, siteSwitchesDialogTrigger)
+}
+
 async function loadLatestConfig() {
   if (!configConflict.value || !globalThis.confirm(t('editor.confirmLoadLatest'))) return
   saving.value = true
@@ -611,7 +649,7 @@ async function restoreBackup(backup) {
   recentMatches.value = []
   recentFunctionErrors.value = []
   locale.value = backup.settings.language
-  backupDialogOpen.value = false
+  await closeBackupDialog()
 }
 
 async function addRuleTemplate(templateId) {
@@ -894,7 +932,7 @@ async function disableSiteOrigin(origin) {
       disabledOrigins: [...nextDisabledOrigins].sort(),
     })
   ) {
-    siteSwitchesDialogOpen.value = false
+    await closeSiteSwitchesDialog()
   }
 }
 
@@ -1004,7 +1042,7 @@ async function importRules(backup) {
     operationError.value = formatV3ValidationIssues(validation.issues)[0] ?? t('editor.saveFailed')
     return
   }
-  if (await persistConfig(validation.data)) backupDialogOpen.value = false
+  if (await persistConfig(validation.data)) await closeBackupDialog()
 }
 
 async function duplicateRule(rule) {
@@ -1249,21 +1287,21 @@ async function moveRule(rule, targetRule) {
               severity="secondary"
               text
               :disabled="loading || saving"
-              @click="siteSwitchesDialogOpen = true"
+              @click="openSiteSwitchesDialog"
             />
             <AppButton
               :label="t('ruleTemplates.open')"
               severity="secondary"
               text
               :disabled="loading || saving"
-              @click="ruleTemplatesDialogOpen = true"
+              @click="openRuleTemplatesDialog"
             />
             <AppButton
               :label="t('rules.backup')"
               severity="secondary"
               text
               :disabled="loading || saving"
-              @click="backupDialogOpen = true"
+              @click="openBackupDialog"
             />
           </div>
 
@@ -1750,7 +1788,7 @@ async function moveRule(rule, targetRule) {
       :backup="config"
       :saving="saving"
       :issue="operationError"
-      @close="backupDialogOpen = false"
+      @close="closeBackupDialog"
       @restore="restoreBackup"
       @import-rules="importRules"
     />
@@ -1758,7 +1796,7 @@ async function moveRule(rule, targetRule) {
       :open="ruleTemplatesDialogOpen"
       :saving="saving"
       :issue="operationError"
-      @close="ruleTemplatesDialogOpen = false"
+      @close="closeRuleTemplatesDialog"
       @apply="addRuleTemplate"
     />
     <SiteSwitchesDialog
@@ -1767,7 +1805,7 @@ async function moveRule(rule, targetRule) {
       :current-origin="currentSiteOrigin"
       :saving="saving"
       :issue="operationError"
-      @close="siteSwitchesDialogOpen = false"
+      @close="closeSiteSwitchesDialog"
       @disable="disableSiteOrigin"
       @enable="enableSiteOrigin"
     />

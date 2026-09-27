@@ -10,7 +10,8 @@ const AppButton = defineComponent({
   props: { label: { type: String, default: '' } },
   emits: ['click'],
   setup(props, { emit }) {
-    return () => h('button', { type: 'button', onClick: () => emit('click') }, props.label)
+    return () =>
+      h('button', { type: 'button', onClick: (event) => emit('click', event) }, props.label)
   },
 })
 
@@ -147,6 +148,33 @@ function buttonByText(wrapper, text) {
   return button
 }
 
+describe('App dialog focus return', () => {
+  it('returns focus to each toolbar trigger when its dialog closes', async () => {
+    const { wrapper } = await mountApp()
+
+    const siteTrigger = buttonByText(wrapper, '站点开关')
+    await siteTrigger.trigger('click')
+    await flushPromises()
+    await wrapper.get('.site-switches-dialog').trigger('keydown', { key: 'Escape' })
+    await flushPromises()
+    expect(document.activeElement).toBe(siteTrigger.element)
+
+    const templatesTrigger = buttonByText(wrapper, '规则模板')
+    await templatesTrigger.trigger('click')
+    await flushPromises()
+    await wrapper.get('.rule-templates-dialog').trigger('keydown', { key: 'Escape' })
+    await flushPromises()
+    expect(document.activeElement).toBe(templatesTrigger.element)
+
+    const backupTrigger = buttonByText(wrapper, '备份 / 恢复')
+    await backupTrigger.trigger('click')
+    await flushPromises()
+    await wrapper.get('.backup-dialog').trigger('keydown', { key: 'Escape' })
+    await flushPromises()
+    expect(document.activeElement).toBe(backupTrigger.element)
+  })
+})
+
 describe('App no-match diagnostics localization', () => {
   it('localizes no-match controls and reason labels in the selected language', async () => {
     const startingConfig = {
@@ -237,7 +265,8 @@ describe('App site switch persistence flow', () => {
   it('persists only the normalized origin and removes it when re-enabled', async () => {
     const { wrapper, sentMessages } = await mountApp()
 
-    await buttonByText(wrapper, '站点开关').trigger('click')
+    const siteTrigger = buttonByText(wrapper, '站点开关')
+    await siteTrigger.trigger('click')
     await flushPromises()
     await wrapper.get('#site-switch-origin').setValue('https://example.com:8443/path?private=value')
     await wrapper.get('.site-switch-form').trigger('submit')
@@ -249,6 +278,7 @@ describe('App site switch persistence flow', () => {
     expect(saves()[0].value.config.disabledOrigins).toEqual(['https://example.com:8443'])
     expect(JSON.stringify(saves()[0].value.config)).not.toContain('/path?private=value')
     expect(wrapper.find('[role="dialog"]').exists()).toBe(false)
+    expect(document.activeElement).toBe(siteTrigger.element)
 
     await buttonByText(wrapper, '站点开关').trigger('click')
     await flushPromises()
@@ -453,7 +483,8 @@ describe('App backup restore persistence flow', () => {
       ],
     }
 
-    await buttonByText(wrapper, '备份 / 恢复').trigger('click')
+    const backupTrigger = buttonByText(wrapper, '备份 / 恢复')
+    await backupTrigger.trigger('click')
     await wrapper.get('[data-testid="backup-json-input"]').setValue(JSON.stringify(backup))
     await buttonByText(wrapper, '验证备份').trigger('click')
     await flushPromises()
@@ -490,6 +521,7 @@ describe('App backup restore persistence flow', () => {
       wrapper.get('[aria-label="Interface language"]').find('[aria-pressed="true"]').text()
     ).toBe('EN')
     expect(wrapper.get('.rule-row').text()).toContain('/restored')
+    expect(document.activeElement).toBe(backupTrigger.element)
   })
 
   it('retries an append import without replacing config and remaps same-name tags', async () => {
