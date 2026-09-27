@@ -324,6 +324,60 @@ describe('content page-event bridge', () => {
     expect(document.getElementById('ajax-proxy-v3-function-sandbox')).toBeNull()
   })
 
+  it('mounts the function sandbox for request redirects without an enabled response action', async () => {
+    mocks.initStorage.mockResolvedValue(undefined)
+    mocks.getStorageSnapshot.mockReturnValue({})
+    mocks.getStorage.mockReturnValue(null)
+    vi.stubGlobal('chrome', {
+      runtime: {
+        connect: vi.fn(),
+        getURL: (path: string) => `chrome-extension://test/${path}`,
+      },
+      storage: { onChanged: { addListener: mocks.onChangedAddListener } },
+    })
+    trackContentEventListeners()
+
+    await importContent()
+    await vi.waitFor(() => expect(mocks.onChangedAddListener).toHaveBeenCalledOnce())
+
+    const onChanged = mocks.onChangedAddListener.mock.calls[0][0]
+    const redirectFunctionConfig = {
+      settings: { globalEnabled: true },
+      rules: [
+        {
+          enabled: true,
+          request: {
+            enabled: true,
+            redirect: { type: 'function', code: 'return url' },
+          },
+          response: { enabled: false, replace: { code: 'return { body: "unused" }' } },
+        },
+      ],
+    }
+    mocks.getStorage.mockReturnValue(redirectFunctionConfig)
+    onChanged({ 'v3-config': { newValue: redirectFunctionConfig } }, 'local')
+
+    expect(document.getElementById('ajax-proxy-v3-function-sandbox')?.getAttribute('src')).toBe(
+      'chrome-extension://test/v3-sandbox/sandbox.html'
+    )
+
+    const disabledFunctionConfig = {
+      ...redirectFunctionConfig,
+      rules: [
+        {
+          ...redirectFunctionConfig.rules[0],
+          request: {
+            enabled: false,
+            redirect: { type: 'function', code: 'return url' },
+          },
+        },
+      ],
+    }
+    mocks.getStorage.mockReturnValue(disabledFunctionConfig)
+    onChanged({ 'v3-config': { newValue: disabledFunctionConfig } }, 'local')
+    expect(document.getElementById('ajax-proxy-v3-function-sandbox')).toBeNull()
+  })
+
   it('persists converted V2 state and removes only its legacy storage keys', async () => {
     mocks.initStorage.mockResolvedValue(undefined)
     const legacySnapshot = {
