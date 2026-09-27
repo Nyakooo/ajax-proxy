@@ -17,6 +17,7 @@
     "build:protocol": "pnpm -C ./packages/protocol build",
     "build:utils": "pnpm build:protocol && pnpm -C ./packages/shared-utils build",
     "build:chrome": "cross-env NODE_OPTIONS=--openssl-legacy-provider pnpm -C ./packages/shell-chrome build",
+    "build:chrome:vite-prototype": "pnpm build:all && node ./scripts/build-shell-vite-prototype.cjs",
     "build:comp": "pnpm -C ./packages/v2-compatibility build",
     "build:panels": "cross-env NODE_OPTIONS=--openssl-legacy-provider pnpm -C ./packages/vue-panels build",
     "build:v3-panels": "pnpm -C ./packages/vue3-panels build",

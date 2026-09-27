@@ -2,6 +2,7 @@
 node_modules
 dist
 packages/vue3-panels/dist-editor-prototype
+packages/shell-chrome/build-vite
 
 # local env files
 .env.local
