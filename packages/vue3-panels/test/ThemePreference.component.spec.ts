@@ -9,8 +9,12 @@ function createMediaQuery(initial = false) {
   const listeners = new Set<(event: { matches: boolean }) => void>()
   const query = {
     matches: initial,
-    addEventListener: vi.fn((_type: string, listener: (event: { matches: boolean }) => void) => listeners.add(listener)),
-    removeEventListener: vi.fn((_type: string, listener: (event: { matches: boolean }) => void) => listeners.delete(listener)),
+    addEventListener: vi.fn((_type: string, listener: (event: { matches: boolean }) => void) =>
+      listeners.add(listener)
+    ),
+    removeEventListener: vi.fn((_type: string, listener: (event: { matches: boolean }) => void) =>
+      listeners.delete(listener)
+    ),
     change(matches: boolean) {
       query.matches = matches
       listeners.forEach((listener) => listener({ matches }))
@@ -41,7 +45,10 @@ afterEach(() => {
 describe('useThemePreference', () => {
   it('defaults to system mode and follows system color changes', async () => {
     const media = createMediaQuery(false)
-    vi.stubGlobal('matchMedia', vi.fn(() => media))
+    vi.stubGlobal(
+      'matchMedia',
+      vi.fn(() => media)
+    )
     const { wrapper, preference } = mountPreference()
     await flushPromises()
 
@@ -57,7 +64,10 @@ describe('useThemePreference', () => {
 
   it('lets a manual choice override later system changes', async () => {
     const media = createMediaQuery(false)
-    vi.stubGlobal('matchMedia', vi.fn(() => media))
+    vi.stubGlobal(
+      'matchMedia',
+      vi.fn(() => media)
+    )
     const { wrapper, preference } = mountPreference()
     preference.setThemeMode('dark')
     media.change(false)
@@ -85,11 +95,15 @@ describe('useThemePreference', () => {
       get: vi.fn().mockResolvedValue({ [STORAGE_KEY]: 'light' }),
       set: vi.fn().mockResolvedValue(undefined),
       onChanged: {
-        addListener: vi.fn((listener) => { changed = listener }),
+        addListener: vi.fn((listener) => {
+          changed = listener
+        }),
         removeListener: vi.fn(),
       },
     }
-    vi.stubGlobal('chrome', { storage: { local: chromeStorage, onChanged: chromeStorage.onChanged } })
+    vi.stubGlobal('chrome', {
+      storage: { local: chromeStorage, onChanged: chromeStorage.onChanged },
+    })
     const { wrapper, preference } = mountPreference()
     await flushPromises()
     expect(preference.themeMode.value).toBe('light')
@@ -103,11 +117,17 @@ describe('useThemePreference', () => {
 
   it('ignores storage read and write failures', async () => {
     const chromeStorage = {
-      get: vi.fn(() => { throw new Error('read failed') }),
-      set: vi.fn(() => { throw new Error('write failed') }),
+      get: vi.fn(() => {
+        throw new Error('read failed')
+      }),
+      set: vi.fn(() => {
+        throw new Error('write failed')
+      }),
       onChanged: { addListener: vi.fn(), removeListener: vi.fn() },
     }
-    vi.stubGlobal('chrome', { storage: { local: chromeStorage, onChanged: chromeStorage.onChanged } })
+    vi.stubGlobal('chrome', {
+      storage: { local: chromeStorage, onChanged: chromeStorage.onChanged },
+    })
     const { wrapper, preference } = mountPreference()
     preference.setThemeMode('dark')
     await flushPromises()

@@ -70,7 +70,10 @@ describe('service worker message entry', () => {
     })
     vi.doMock('../src/service-worker/event', () => ({ injectEventListener: vi.fn() }))
     vi.doMock('../src/service-worker/notice', () => ({ useCurrentTitle: vi.fn() }))
-    vi.doMock('../src/service-worker/init', () => ({ initDefaultSth: vi.fn(), syncToolbarIcon: vi.fn() }))
+    vi.doMock('../src/service-worker/init', () => ({
+      initDefaultSth: vi.fn(),
+      syncToolbarIcon: vi.fn(),
+    }))
     vi.doMock('../src/service-worker/badge', () => ({ chromeBadge: vi.fn() }))
     vi.doMock('../src/service-worker/v3Hit', () => ({ chromeBadgeV3: vi.fn() }))
     vi.doMock('../src/service-worker/v3FunctionError', () => ({ notifyV3FunctionError: vi.fn() }))

@@ -1062,3 +1062,7 @@ panel / popup / tabPanel 定向测试 29 项、shell TypeScript、改动文件�
 ## 验证门禁与迁移修复检查点（2026-09-27）
 
 提交 V2 数据转换后从原始 storage 快照继续传递 V3 配置和诊断开关的修复，避免旧格式转换丢失独立 V3 状态。统一规则和独立 popup / 手动 tab 浏览器回归加入 CI，响应式 smoke 同步两个规则入口；ESLint 排除生成的 build-vite-dev 目录。557 项代码测试、115 项组件测试、完整 V2 / V3 extension smoke、统一规则 smoke、独立面板 smoke、400px / 360px 响应式 smoke，以及改动范围 ESLint / Prettier / diff 检查通过。两份构建的 service_worker.js 内容一致。CI 门禁已配置，远端新一轮运行结果待推送后确认；实际 Chrome 独立弹窗确认仍待用户回复。整体计划仍为 468 / 497（94.2%）。
+
+## CI 格式基线修复（2026-09-27）
+
+远端 run 36322269475 的构建任务通过 lint 后，被未登记的两个测试文件格式差异阻断：serviceWorkerIndex.test.ts 和 ThemePreference.component.spec.ts。只应用 Prettier 格式化；本机完整严格格式检查和 package 格式基线检查通过（41 个 legacy 文件仍在既有基线内），不扩大基线。整体计划仍为 468 / 497（94.2%），后续推送重新执行 CI。
