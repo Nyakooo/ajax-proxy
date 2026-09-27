@@ -96,6 +96,13 @@ export function createV3ConfigService(runtime = globalThis.chrome?.runtime) {
   }
 
   return {
+    subscribe(listener) {
+      const messages = runtime?.onMessage
+      if (!messages?.addListener) return () => {}
+
+      messages.addListener(listener)
+      return () => messages.removeListener?.(listener)
+    },
     getSnapshot() {
       return send(
         {

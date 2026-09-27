@@ -44,6 +44,24 @@ describe('V3 config panel adapter', () => {
       ok: false,
       error: 'extension-api-unavailable',
     })
+    expect(service.subscribe(vi.fn())()).toBeUndefined()
+  })
+
+  it('subscribes to extension messages and releases the listener', () => {
+    const listeners = new Set()
+    const onMessage = {
+      addListener: vi.fn((listener) => listeners.add(listener)),
+      removeListener: vi.fn((listener) => listeners.delete(listener)),
+    }
+    const service = createV3ConfigService({ sendMessage: vi.fn(), onMessage })
+    const listener = vi.fn()
+
+    const remove = service.subscribe(listener)
+    expect(onMessage.addListener).toHaveBeenCalledWith(listener)
+    expect(listeners.has(listener)).toBe(true)
+    remove()
+    expect(onMessage.removeListener).toHaveBeenCalledWith(listener)
+    expect(listeners.has(listener)).toBe(false)
   })
 
   it('reports messaging failures without leaking browser-specific exceptions', async () => {

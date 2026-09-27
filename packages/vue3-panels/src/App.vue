@@ -47,13 +47,12 @@ const section = ref('intercept')
 const search = ref('')
 const searchBox = ref(null)
 const { locale, t } = useI18n({ useScope: 'global' })
-const extensionRuntime = globalThis.chrome?.runtime
 let configService
 let diagnosticsCaptureStorage
 let ruleOperations
 let quickCreateReturnSection = null
 let v3BackupVersion = 4
-const memoryOnly = ref(!extensionRuntime?.sendMessage)
+const memoryOnly = ref(!globalThis.chrome?.runtime?.sendMessage)
 const loading = ref(true)
 const configReady = ref(false)
 const saving = ref(false)
@@ -505,7 +504,7 @@ onMounted(async () => {
     }
 
     const { createV3ConfigService } = await import('./services/v3Config.js')
-    configService = createV3ConfigService(extensionRuntime)
+    configService = createV3ConfigService()
     const result = await configService.getSnapshot()
     if (result.ok) {
       const snapshotConfig = result.snapshot.config
@@ -520,9 +519,7 @@ onMounted(async () => {
       hitCounters.value = result.snapshot.hitCounters
       if (snapshotConfig) locale.value = snapshotConfig.settings.language
       configReady.value = true
-      extensionRuntime.onMessage?.addListener(receiveExtensionMessage)
-      removeExtensionMessageListener = () =>
-        extensionRuntime.onMessage?.removeListener(receiveExtensionMessage)
+      removeExtensionMessageListener = configService.subscribe(receiveExtensionMessage)
       const captureStorage = getDiagnosticsCaptureStorage()
       if (captureStorage.canObserveChanges) {
         const state = await captureStorage.getState()
