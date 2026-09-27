@@ -480,4 +480,46 @@ describe('shared storage cache', () => {
       })
     }
   )
+
+  it.each(['read', 'write'] as const)(
+    'keeps the cached value and reports an ordinary webpage localStorage %s failure',
+    async (operation) => {
+      let shouldFail = false
+      const errorLog = vi.spyOn(console, 'error').mockImplementation(() => {})
+      const dispatchEvent = vi.fn()
+      vi.stubGlobal('dispatchEvent', dispatchEvent)
+      vi.stubGlobal('chrome', undefined)
+      vi.stubGlobal('localStorage', {
+        mode: '"interceptor"',
+        getItem: () => {
+          if (operation === 'read' && shouldFail) throw new Error('localStorage denied')
+          return '"interceptor"'
+        },
+        setItem: () => {
+          if (operation === 'write' && shouldFail) throw new Error('localStorage denied')
+        },
+      })
+      const { getRealStorage, getStorage, initStorage, setStorage } = await import('../src/storage')
+      await initStorage()
+      shouldFail = true
+
+      const result =
+        operation === 'read'
+          ? getRealStorage('mode' as StorageKey)
+          : setStorage('mode', 'redirector')
+      await expect(result).rejects.toThrow('localStorage denied')
+
+      expect(getStorage('mode')).toBe('interceptor')
+      expect(errorLog).toHaveBeenCalled()
+      expect(dispatchEvent).toHaveBeenCalledOnce()
+      expect(dispatchEvent.mock.calls[0][0]).toMatchObject({
+        type: 'ajax-proxy:storage-error',
+        detail: {
+          operation,
+          key: 'mode',
+          message: 'localStorage denied',
+        },
+      })
+    }
+  )
 })
