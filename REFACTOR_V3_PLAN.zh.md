@@ -217,7 +217,7 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - [x] 评估规则命中时的轻量视觉提示；页面边缘光晕不纳入 V3，避免增加跨 frame / SPA、可访问性和性能验收范围。
 - [x] 扩展图标 / 面板已提示全局启用状态；由于本期不实现页面光晕，无需为该效果增加降级提示。
 - [x] 减少动态效果、动画频率和页面边缘命中提示的评估已完成；该视觉反馈不纳入 V3。
-- [ ] 优化备份恢复、标签、搜索、筛选、排序和批量操作流程。
+- [x] 优化备份恢复、标签、搜索、筛选、排序和批量操作流程；覆盖规则 / 标签 CRUD、筛选选择、批量启停、排序约束、所选导出，以及备份预览、恢复与错误分支（见下方回归项及 `BackupRestoreDialog.component.spec.ts`）。
 - [x] App 回归覆盖搜索或状态筛选后隐藏选择的清理，以及筛选结果内的逐条选择和批量启用；保存只改变所选规则。
 - [x] App 回归覆盖批量启用保存失败：界面保持规则停用状态、保留当前选择，并显示存储错误。
 - [x] App 回归覆盖规则优先级排序：筛选激活时禁用排序并提示先清除条件；清除后只持久化预期的规则顺序。
@@ -533,13 +533,13 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - [x] 重定向目标计算失败、网络响应失败或响应解析失败时，组合规则如何回退？请求构造 / 目标解析在派发前失败时 fail-open 使用原请求；重定向请求已派发后网络错误沿用原生失败且不重试；响应替换 / 解析失败回退到原响应。
 - [x] V3 遇到 V2 格式备份时明确提示格式不兼容；不提供自动迁移或转换工具。
 - [x] 编辑器选型原则：轻量是约束之一，JSON 的直观结构化调整是明确需求；CodeMirror 6 可作为函数编辑和 JSON 文本模式的候选，但不得默认替代树形交互。允许按需组合代码编辑器和专用 JSON 树编辑器，以原型的真实交互和生产体积数据决定。
-- [ ] 自定义函数是否保留；若保留，如何呈现执行风险和超时策略？
-- [ ] V3 首发必须包含哪些新增功能，哪些放入后续版本？
-- [ ] 界面是否需要暗色模式、窄屏适配及特定设计风格？
+- [x] 自定义函数保留为受限 response 计算；按不可信代码放入无扩展权限、无网络能力且可终止 worker 的 sandbox，设 5 秒硬超时、fail-open，并在 UI 呈现风险和确认（见 `docs/V3-USER-FUNCTIONS.zh.md`）。
+- [x] V3 首发新增功能范围已确认：规则管理、组合请求 / 响应行为、V3 备份、精确 origin 开关和主动开启的临时诊断；排除通用 header / body 改写、持久草稿、多 profile、链式规则等扩展项（见“其余用户反馈筛选结果”）。
+- [x] 采用浅 / 深主题与窄屏布局，并以 PrimeVue styled + Ajax Proxy design tokens 建立品牌视觉；当前截图问题已修复。完整屏幕阅读器 / WCAG 审计仍是独立未完成项（见 `docs/V3-VISUAL-SYSTEM.zh.md`、`docs/V3-UI-PROTOTYPE.zh.md` 和第 236 项）。
 - [ ] 是否有目标发布日期或分阶段公开预览计划？
 - [x] V3 国际化语言范围：只维护简体中文和英文；切换控件采用直接可见的双选分段按钮，不使用下拉菜单。
 - [x] V3 构建工具方向：最终生产构建优先统一到 Vite；扩展宿主的 Manifest、service worker 与 content script 需先完成原型和目标浏览器验收，迁移期可暂留 Webpack，全部入口切换后再清理旧工具链。
-- [ ] V3 最终采用怎样的 monorepo 包边界和包内目录约定？阶段 0 完成依赖图及迁移提案，阶段 2 按小步重构落实。
+- [x] V3 monorepo 包边界和包内目录约定按阶段 0 的依赖图及迁移提案执行；阶段 1 / 2 已逐步落实目录和模块拆分（见 `docs/V3-ARCHITECTURE-ASSESSMENT.zh.md`）。
 
 ## 7. 已识别的问题清单
 
@@ -1009,6 +1009,6 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - 2026-09-27：Vite clean-build CI run [36303386599](https://github.com/Nyakooo/ajax-proxy/actions/runs/36303386599) 全部 jobs 通过，包括清理后原型构建、原型 ZIP 检查、后续正式构建、watch 重建及 Stable / 最低版本浏览器 smoke。Vite 清洁构建验收子项完成，计划核对项为 457 / 491（93.1%）。
 - 2026-09-27：从当前已提交源码重建 Vue 3 面板和 shell Vite 原型，刷新 `zip/ajax-proxy-vite-prototype.zip`；`unzip -t` 与本机 Playwright extension smoke 通过，覆盖 V2 / V3 面板持久化、静态重定向 header、站点开关、Fetch / XHR、sandbox 和 Service Worker 重启。预览包包含两套面板，默认窗口仍打开 Vue 2；V3 预览通过扩展的 `panels-v3/index.html` 路径打开。当前代码头完整 CI run [36303810972](https://github.com/Nyakooo/ajax-proxy/actions/runs/36303810972) 全部通过。
 - 2026-09-27：将 Vite prototype 扩展的 toolbar action 默认面板切换为 Vue 3，同时保留 Webpack runtime 的 Vue 2 默认路径；构建脚本验证产出的 service worker 确实指向 V3。Vue 3 Vite 生产构建、shell panel 单测 6 项、本机 Chromium 扩展 smoke（V2 / V3 持久化、重定向 header、站点开关、Fetch / XHR、sandbox、SW restart）和 ZIP 完整性检查通过；CI run [36304987359](https://github.com/Nyakooo/ajax-proxy/actions/runs/36304987359) 全部 jobs 通过。固定 pnpm 12.6.0 无法从当前 registry mirror 获取，因此本机直接调用已安装 Vite / Vitest 完成编译和测试；品牌浏览器手动安装仍待验收。
-- 当前计划核对项为 458 / 492（93.1%）；本条仅完成 Vite 原型扩展的 V3 默认入口，不代表正式 Vite 切换或品牌浏览器人工验收完成。
-- 2026-09-27：根据窄屏预览截图调整 V3 响应规则弹窗：限制弹窗视口高度，固定标题和保存操作、仅滚动表单主体，窄屏表单切单列并拉伸控件，短屏动态缩小 JSON / 函数编辑器。本机 Vite 生产构建及 ZIP 完整性通过；Playwright 对 634×756 与 520×540 视口重新渲染并检查截图，确认双列 / 单列切换、字段铺满和保存操作可见。整体计划仍为 458 / 492（93.1%）。
+- 2026-09-27：审核计划中已回答但遗漏勾选的产品决策：自定义函数安全模型、V3 首发范围、主题 / 窄屏 / 视觉方向和 monorepo 边界；另确认备份恢复、标签、搜索、筛选、排序和批量操作的实现及回归已覆盖。以上只关闭决策 / 已完成体验项，不代表后续正式 Vite 迁移或完整无障碍审计完成。计划核对项为 463 / 492（94.1%）。
+- 2026-09-27：根据窄屏预览截图调整 V3 响应规则弹窗：限制弹窗视口高度，固定标题和保存操作、仅滚动表单主体，窄屏表单切单列并拉伸控件，短屏动态缩小 JSON / 函数编辑器。本机 Vite 生产构建及 ZIP 完整性通过；Playwright 对 634×756 与 520×540 视口重新渲染并检查截图，确认双列 / 单列切换、字段铺满和保存操作可见。整体计划为 463 / 492（94.1%）。
 - GitHub 里程碑：[阶段 0](https://github.com/Nyakooo/ajax-proxy/milestone/1)、[阶段 1](https://github.com/Nyakooo/ajax-proxy/milestone/2)、[阶段 2](https://github.com/Nyakooo/ajax-proxy/milestone/3)、[阶段 3](https://github.com/Nyakooo/ajax-proxy/milestone/4)、[阶段 4](https://github.com/Nyakooo/ajax-proxy/milestone/5)、[阶段 5](https://github.com/Nyakooo/ajax-proxy/milestone/6)、[阶段 6](https://github.com/Nyakooo/ajax-proxy/milestone/7)、[阶段 7](https://github.com/Nyakooo/ajax-proxy/milestone/8)；已复现缺陷：[issue #56](https://github.com/Nyakooo/ajax-proxy/issues/56)。
