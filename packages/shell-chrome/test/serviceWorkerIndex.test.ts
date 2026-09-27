@@ -35,7 +35,7 @@ afterEach(() => {
 })
 
 describe('service worker message entry', () => {
-  it('rejects tab-less content messages, isolates rejection, and routes XHR outcomes', async () => {
+  it('validates and routes content hit and outcome messages', async () => {
     const storageReady = deferred<void>()
     const runtimeListeners: MessageListener[] = []
     const noticePanelsByServiceWorker = vi.fn()
@@ -44,6 +44,7 @@ describe('service worker message entry', () => {
     const notifyV3FetchOutcome = vi.fn().mockResolvedValue(undefined)
     const notifyV3XHROutcome = vi.fn().mockResolvedValue(undefined)
     const chromeBadge = vi.fn()
+    const chromeBadgeV3 = vi.fn()
     const actionClickListeners: ActionClickListener[] = []
     const commandListeners: CommandListener[] = []
     const storageChangeListeners: StorageChangeListener[] = []
@@ -90,7 +91,7 @@ describe('service worker message entry', () => {
     vi.doMock('../src/service-worker/notice', () => ({ useCurrentTitle: vi.fn(() => '') }))
     vi.doMock('../src/service-worker/init', () => ({ initDefaultSth: vi.fn() }))
     vi.doMock('../src/service-worker/badge', () => ({ chromeBadge }))
-    vi.doMock('../src/service-worker/v3Hit', () => ({ chromeBadgeV3: vi.fn() }))
+    vi.doMock('../src/service-worker/v3Hit', () => ({ chromeBadgeV3 }))
     vi.doMock('../src/service-worker/v3FunctionError', () => ({ notifyV3FunctionError }))
     vi.doMock('../src/service-worker/v3NoMatch', () => ({ notifyV3NoMatch }))
     vi.doMock('../src/service-worker/v3FetchOutcome', () => ({ notifyV3FetchOutcome }))
@@ -148,6 +149,109 @@ describe('service worker message entry', () => {
     expect(chromeBadge).toHaveBeenCalledOnce()
 
     const contentSender = { id: 'test-extension', tab: { id: 1 } }
+    chromeBadge.mockClear()
+
+    const pageBadgeHit = { match_url: '/api/items', method: 'GET', url: '/api/items/1' }
+    const v3Hit = {
+      kind: 'v3-hit',
+      rule_id: 'rule-a',
+      match_url: '/api/items',
+      method: 'GET',
+      url: '/api/items/1',
+    }
+    const v3NoMatch = {
+      kind: 'v3-no-match',
+      method: 'GET',
+      rules: [{ rule_id: 'rule-a', reason: 'method-mismatch' }],
+      truncated: false,
+    }
+    const fetchOutcome = {
+      kind: 'v3-fetch-outcome',
+      correlation_id: 'fetch-1',
+      rule_id: 'rule-a',
+      stage: 'request',
+      outcome: 'applied',
+      reason: 'redirect-applied',
+    }
+
+    listener(
+      {
+        from: NoticeFrom.CONTENT,
+        to: NoticeTo.SERVICE_WORKER,
+        key: NoticeKey.BADGE_STATUS,
+        value: pageBadgeHit,
+      },
+      contentSender
+    )
+    listener(
+      {
+        from: NoticeFrom.CONTENT,
+        to: NoticeTo.SERVICE_WORKER,
+        key: NoticeKey.V3_HIT,
+        value: v3Hit,
+      },
+      contentSender
+    )
+    expect(chromeBadge).toHaveBeenCalledExactlyOnceWith(pageBadgeHit)
+    expect(chromeBadgeV3).toHaveBeenCalledExactlyOnceWith(v3Hit)
+
+    chromeBadge.mockClear()
+    chromeBadgeV3.mockClear()
+    listener(
+      {
+        from: NoticeFrom.CONTENT,
+        to: NoticeTo.SERVICE_WORKER,
+        key: NoticeKey.BADGE_STATUS,
+        value: { ...pageBadgeHit, unexpected: true },
+      },
+      contentSender
+    )
+    listener(
+      {
+        from: NoticeFrom.CONTENT,
+        to: NoticeTo.SERVICE_WORKER,
+        key: NoticeKey.V3_HIT,
+        value: { ...v3Hit, unexpected: true },
+      },
+      contentSender
+    )
+    listener(
+      {
+        from: NoticeFrom.CONTENT,
+        to: NoticeTo.SERVICE_WORKER,
+        key: NoticeKey.V3_HIT,
+        value: { ...v3Hit, method: 'get' },
+      },
+      contentSender
+    )
+    expect(chromeBadge).not.toHaveBeenCalled()
+    expect(chromeBadgeV3).not.toHaveBeenCalled()
+
+    listener(
+      {
+        from: NoticeFrom.CONTENT,
+        to: NoticeTo.SERVICE_WORKER,
+        key: NoticeKey.V3_NO_MATCH,
+        value: v3NoMatch,
+      },
+      contentSender
+    )
+    listener(
+      {
+        from: NoticeFrom.CONTENT,
+        to: NoticeTo.SERVICE_WORKER,
+        key: NoticeKey.V3_FETCH_OUTCOME,
+        value: fetchOutcome,
+      },
+      contentSender
+    )
+    await vi.waitFor(() => expect(notifyV3NoMatch).toHaveBeenCalledExactlyOnceWith(v3NoMatch))
+    await vi.waitFor(() =>
+      expect(notifyV3FetchOutcome).toHaveBeenCalledExactlyOnceWith(fetchOutcome)
+    )
+    notifyV3NoMatch.mockClear()
+    notifyV3FetchOutcome.mockClear()
+
     const functionError = {
       rule_id: 'rule-a',
       match_url: '/api/items',
