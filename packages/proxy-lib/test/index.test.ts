@@ -360,6 +360,103 @@ describe('proxy lifecycle and page wrappers', () => {
     expect(pageFetch).toHaveBeenCalledTimes(3)
   })
 
+  it('clears only the active legacy rule list when update receives an empty array', async () => {
+    vi.stubGlobal('XMLHttpRequest', ExistingXMLHttpRequest)
+    const requests: string[] = []
+    const pageFetch = vi.fn(async (input: RequestInfo | URL) => {
+      requests.push(input instanceof Request ? input.url : input.toString())
+      return new Response('page response')
+    })
+    vi.stubGlobal('window', {
+      XMLHttpRequest: ExistingXMLHttpRequest,
+      fetch: pageFetch,
+      dispatchEvent: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      eval,
+    })
+    const { default: lib } = await import('../src/index')
+    lib.update({
+      global_on: true,
+      mode: 'interceptor',
+      interceptor_matching_content: [
+        {
+          switch_on: true,
+          match_url: '/intercept',
+          override: 'intercepted',
+          status_code: '200',
+          override_type: 'json',
+        },
+      ],
+      redirector_matching_content: [
+        { switch_on: true, domain: '/redirect', redirect_url: '/redirected' },
+      ],
+    })
+
+    lib.update([])
+    expect(await (await window.fetch(new Request('https://example.test/intercept'))).text()).toBe(
+      'page response'
+    )
+
+    lib.update('redirector')
+    await window.fetch(new Request('https://example.test/redirect'))
+    expect(requests.at(-1)).toBe('https://example.test/redirected')
+
+    lib.update([
+      {
+        switch_on: true,
+        match_url: '/intercept',
+        override: 'intercepted',
+        status_code: '200',
+      },
+    ])
+    lib.update('redirector')
+    lib.update([])
+    await window.fetch(new Request('https://example.test/redirect'))
+    expect(requests.at(-1)).toBe('https://example.test/redirect')
+
+    lib.update('interceptor')
+    expect(await (await window.fetch(new Request('https://example.test/intercept'))).text()).toBe(
+      'intercepted'
+    )
+  })
+
+  it('warns on invalid non-empty legacy rule arrays without replacing active rules', async () => {
+    vi.stubGlobal('XMLHttpRequest', ExistingXMLHttpRequest)
+    const pageFetch = vi.fn(async () => new Response('page response'))
+    vi.stubGlobal('window', {
+      XMLHttpRequest: ExistingXMLHttpRequest,
+      fetch: pageFetch,
+      dispatchEvent: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      eval,
+    })
+    const { default: lib } = await import('../src/index')
+    lib.update({
+      global_on: true,
+      mode: 'interceptor',
+      interceptor_matching_content: [
+        {
+          switch_on: true,
+          match_url: '/intercept',
+          override: 'still active',
+          status_code: '200',
+        },
+      ],
+      redirector_matching_content: [],
+    })
+
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    lib.update([null])
+
+    expect(warn).toHaveBeenCalledWith('invalid rule list')
+    expect(await (await window.fetch(new Request('https://example.test/intercept'))).text()).toBe(
+      'still active'
+    )
+    expect(pageFetch).toHaveBeenCalledOnce()
+  })
+
   it('preserves page wrappers installed outside the proxy and disables the inner proxy', async () => {
     vi.stubGlobal('XMLHttpRequest', ExistingXMLHttpRequest)
     const originFetch = vi.fn(async () => new Response('page response'))
