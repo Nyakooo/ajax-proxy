@@ -68,6 +68,7 @@ const backupDialogTrigger = ref(null)
 const ruleTemplatesDialogTrigger = ref(null)
 const siteSwitchesDialogTrigger = ref(null)
 const ruleFiltersOpen = ref(false)
+const ruleFilterControl = ref(null)
 const ruleTagFilterOpen = ref(false)
 const ruleTagsDialogOpen = ref(false)
 const ruleDiagnosticsOpen = ref(false)
@@ -267,6 +268,19 @@ function openRuleTagManager() {
 function closeRuleTagFilter() {
   ruleTagFilterOpen.value = false
   nextTick(() => ruleTagsControl.value?.querySelector('button')?.focus())
+}
+
+function toggleRuleFilters() {
+  if (ruleFiltersOpen.value) {
+    closeRuleFilters()
+    return
+  }
+  ruleFiltersOpen.value = true
+}
+
+function closeRuleFilters() {
+  ruleFiltersOpen.value = false
+  nextTick(() => ruleFilterControl.value?.querySelector('button')?.focus())
 }
 
 function closeRuleTagManager() {
@@ -1262,19 +1276,20 @@ async function moveRule(rule, targetRule) {
                 @manage="openRuleTagManager"
               />
             </div>
-            <div class="filter-control">
+            <div ref="ruleFilterControl" class="filter-control">
               <AppButton
                 :label="t('rules.filter')"
                 severity="secondary"
                 outlined
                 :aria-expanded="ruleFiltersOpen"
-                @click="ruleFiltersOpen = !ruleFiltersOpen"
+                @click="toggleRuleFilters"
+                @keydown.esc.stop.prevent="closeRuleFilters"
               />
               <RuleFilterPopover
                 :open="ruleFiltersOpen"
                 :status="ruleStatusFilter"
                 :match-type="ruleMatchTypeFilter"
-                @close="ruleFiltersOpen = false"
+                @close="closeRuleFilters"
                 @update:status="ruleStatusFilter = $event"
                 @update:match-type="ruleMatchTypeFilter = $event"
                 @clear="clearRuleFilters"

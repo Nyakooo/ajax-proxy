@@ -175,6 +175,23 @@ describe('App dialog focus return', () => {
   })
 })
 
+describe('App rule filter focus return', () => {
+  it('returns focus to the filter trigger when Escape closes its popover', async () => {
+    const { wrapper } = await mountApp()
+    const trigger = buttonByText(wrapper, '筛选')
+    trigger.element.focus()
+
+    await trigger.trigger('click')
+    await flushPromises()
+    expect(trigger.attributes('aria-expanded')).toBe('true')
+    await wrapper.get('.rule-filter-popover').trigger('keydown', { key: 'Escape' })
+    await flushPromises()
+
+    expect(trigger.attributes('aria-expanded')).toBe('false')
+    expect(document.activeElement).toBe(trigger.element)
+  })
+})
+
 describe('App no-match diagnostics localization', () => {
   it('localizes no-match controls and reason labels in the selected language', async () => {
     const startingConfig = {

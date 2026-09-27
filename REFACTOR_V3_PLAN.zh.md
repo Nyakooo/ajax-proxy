@@ -199,6 +199,7 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - [ ] 统一应用文案、组件库、日期 / 数字格式和 JSON 编辑器语言为当前选择；检查中英文键值完整、术语一致、布局无截断，首次启动语言默认策略明确。
 - [ ] 检查键盘操作、焦点顺序、可读性和不同窗口尺寸下的布局。
 - [x] 关闭备份 / 恢复、规则模板和站点管理弹窗后，将键盘焦点送回原打开按钮；由 App 层组件回归覆盖 Escape 关闭。
+- [x] 关闭规则筛选 popover 后将键盘焦点送回筛选触发按钮；Escape 和触发按钮上的 Escape 都走统一关闭处理。
 - [x] 在生产 V3 面板构建上验证 400px 与最低 360px 视口的中文 / 英文主界面、搜索、规则列表和响应编辑弹窗；关键控件无水平溢出且可以交互，CI 使用 Chrome 与 Edge Stable 运行 smoke。
 
 **阶段验收**
@@ -810,4 +811,5 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - 2026-09-27：补齐中英文 message tree 守卫，自动检查仅保留 zh-CN / en、键路径一致、插值参数一致且无空文案；将 Fetch / XHR 诊断中的“关联 ID”改为 catalog 文案，并在 App 组件回归中验证切换语言。全量 Vitest 36 个文件 / 367 项、Vue 3 UI 8 个文件 / 50 项、V3 面板生产构建、改动文件 ESLint / Prettier 通过。完成 341 / 375 项（90.9%）。
 - 2026-09-27：为生产 V3 面板增加 400px / 360px 响应式 Playwright smoke，验证中英文切换、搜索过滤、规则行与响应编辑弹窗的边界和操作；接入 Chrome / Edge Stable CI 矩阵，不加载扩展或使用本机扩展页面。完成 342 / 376 项（91.0%）。
 - 2026-09-27：修复备份 / 恢复、规则模板和站点管理弹窗关闭后的焦点返回；焦点回到各自的 toolbar 打开按钮，成功的备份恢复或站点停用也复用同一返回路径。Vue 3 UI 8 个文件 / 51 项、生产构建、改动文件 ESLint / Prettier 通过。完成 343 / 377 项（91.0%）。
+- 2026-09-27：为规则筛选 popover 统一 Escape / 关闭处理，关闭后焦点回到筛选触发按钮；新增 App 层键盘回归。Vue 3 UI 8 个文件 / 52 项、生产构建、改动文件 ESLint / Prettier 通过。完成 344 / 378 项（91.0%）。
 - GitHub 里程碑：[阶段 0](https://github.com/Nyakooo/ajax-proxy/milestone/1)、[阶段 1](https://github.com/Nyakooo/ajax-proxy/milestone/2)、[阶段 2](https://github.com/Nyakooo/ajax-proxy/milestone/3)、[阶段 3](https://github.com/Nyakooo/ajax-proxy/milestone/4)、[阶段 4](https://github.com/Nyakooo/ajax-proxy/milestone/5)、[阶段 5](https://github.com/Nyakooo/ajax-proxy/milestone/6)、[阶段 6](https://github.com/Nyakooo/ajax-proxy/milestone/7)、[阶段 7](https://github.com/Nyakooo/ajax-proxy/milestone/8)；已复现缺陷：[issue #56](https://github.com/Nyakooo/ajax-proxy/issues/56)。
