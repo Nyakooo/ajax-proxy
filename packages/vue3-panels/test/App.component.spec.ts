@@ -551,6 +551,52 @@ describe('App rule tag management persistence', () => {
     expect(wrapper.findAll('.rule-row')).toHaveLength(3)
     expect(buttonByText(wrapper, '标签').exists()).toBe(true)
   })
+
+  it('renames tags without changing IDs or rule references and rejects duplicate names', async () => {
+    const currentTag = { id: 'tag-current', name: 'Current', used: true }
+    const existingTag = { id: 'tag-existing', name: 'Platform', used: true }
+    const startingConfig = {
+      ...initialConfig(),
+      tags: [currentTag, existingTag],
+      rules: [
+        {
+          id: 'tagged-rule',
+          enabled: true,
+          tagIds: ['tag-current'],
+          match: { url: '/api/tagged', method: 'POST', type: 'normal' },
+          response: { enabled: true, replace: { body: { id: 'tagged-rule' } } },
+        },
+      ],
+    }
+    const { wrapper, sentMessages } = await mountApp([], startingConfig)
+
+    await buttonByText(wrapper, '标签').trigger('click')
+    await buttonByText(wrapper, '管理标签').trigger('click')
+    await flushPromises()
+
+    const currentTagRow = wrapper.findAll('.rule-tags-list li')[0]
+    const renameInput = currentTagRow.get('input')
+    await renameInput.setValue('  Current Platform  ')
+    await buttonByText(currentTagRow, '保存名称').trigger('click')
+    await flushPromises()
+
+    const saves = () =>
+      sentMessages.filter((message) => message.key === V3PanelMessageKey.SAVE_CONFIG)
+    expect(saves()).toHaveLength(1)
+    expect(saves()[0].value.config.tags).toEqual([
+      { ...currentTag, name: 'Current Platform' },
+      existingTag,
+    ])
+    expect(saves()[0].value.config.rules[0].tagIds).toEqual(['tag-current'])
+
+    await renameInput.setValue(' platform ')
+    await buttonByText(currentTagRow, '保存名称').trigger('click')
+    await flushPromises()
+
+    expect(saves()).toHaveLength(1)
+    expect(wrapper.get('.operation-alert').text()).toContain('标签名称不能重复')
+    expect(wrapper.get('.rule-tags-dialog').text()).toContain('Current Platform')
+  })
 })
 
 describe('App no-match diagnostics localization', () => {
