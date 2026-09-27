@@ -193,6 +193,60 @@ describe('CustomXHR rule selection', () => {
     })
   })
 
+  it('skips response rules for a different request method', async () => {
+    vi.stubGlobal('XMLHttpRequest', FakeXMLHttpRequest)
+    const dispatchEvent = vi.fn()
+    vi.stubGlobal('window', {
+      XMLHttpRequest: FakeXMLHttpRequest,
+      dispatchEvent,
+      eval,
+    })
+    const { default: CustomXHR, initInterceptorXHRState } = await import('../src/createXHR')
+    const state: RefGlobalState = {
+      value: {
+        global_on: true,
+        mode: 'interceptor',
+        interceptor_matching_content: [
+          {
+            switch_on: true,
+            match_url: '/api',
+            method: 'POST',
+            override: 'post-only response',
+            status_code: '201',
+          },
+          {
+            switch_on: true,
+            match_url: '/api',
+            method: 'GET',
+            override: 'get-only response',
+            status_code: '202',
+          },
+        ],
+        redirector_matching_content: [],
+      },
+    }
+    initInterceptorXHRState(state)
+
+    const request = new CustomXHR()
+    const complete = new Promise<void>((resolve) => {
+      request.onreadystatechange = () => {
+        if (request.readyState === 4) resolve()
+      }
+    })
+    request.open('GET', 'https://example.test/api')
+    request.send()
+    await complete
+
+    expect(request.responseText).toBe('get-only response')
+    expect(request.status).toBe(202)
+    expect(dispatchEvent).toHaveBeenCalledOnce()
+    expect(dispatchEvent.mock.calls[0][0].detail).toMatchObject({
+      match_url: '/api',
+      method: 'GET',
+      rule_index: 1,
+    })
+  })
+
   it('preserves JSON responseType semantics when replacing a legacy XHR response', async () => {
     vi.stubGlobal('XMLHttpRequest', FakeXMLHttpRequest)
     const dispatchEvent = vi.fn()
