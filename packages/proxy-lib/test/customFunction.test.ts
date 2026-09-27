@@ -17,6 +17,21 @@ function setupWindow() {
 }
 
 describe('custom function completion', () => {
+  it('supports a legacy redirect function that calls next synchronously', async () => {
+    setupWindow()
+    const { execSetup } = await import('../src/redirectUrlFunc')
+
+    await expect(
+      execSetup(
+        request,
+        'function(req, next) { next({ url: req.url + "/legacy", headers: { "x-redirected-by": "legacy" } }) }'
+      )
+    ).resolves.toEqual({
+      url: `${request.url}/legacy`,
+      headers: { 'x-redirected-by': 'legacy' },
+    })
+  })
+
   it('waits for an asynchronous redirect callback', async () => {
     setupWindow()
     const { execSetup } = await import('../src/redirectUrlFunc')
