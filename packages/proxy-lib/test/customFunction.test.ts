@@ -129,6 +129,23 @@ describe('custom function completion', () => {
     ).resolves.toEqual({ override: 'promised', status: 202 })
   })
 
+  it('waits for an asynchronous interceptor callback after an undefined return', async () => {
+    setupWindow()
+    vi.useFakeTimers()
+    const { execSetup } = await import('../src/overrideFunc')
+    const result = execSetup(
+      context,
+      'function(req, res, next) { setTimeout(() => next({ override: "callback", status: 203 }), 0) }'
+    )
+
+    await vi.advanceTimersByTimeAsync(0)
+
+    await expect(result).resolves.toEqual({ override: 'callback', status: 203 })
+    expect(Reflect.get(await result, Symbol.for('ajax-proxy.custom-function-fail-open'))).toBe(
+      undefined
+    )
+  })
+
   it('normalizes an object returned synchronously by an interceptor function', async () => {
     setupWindow()
     const { execSetup } = await import('../src/overrideFunc')

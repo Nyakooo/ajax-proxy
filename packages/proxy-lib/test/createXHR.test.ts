@@ -421,6 +421,73 @@ describe('CustomXHR rule selection', () => {
     })
   })
 
+  it('keeps the original URL when a synchronous redirect callback never completes', async () => {
+    vi.stubGlobal('XMLHttpRequest', FakeXMLHttpRequest)
+    vi.stubGlobal('window', { XMLHttpRequest: FakeXMLHttpRequest, eval })
+    const warning = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const { default: CustomRedirectXHR, initRedirectXHRState } = await import('../src/redirectXHR')
+    initRedirectXHRState({
+      value: {
+        global_on: true,
+        mode: 'redirector',
+        interceptor_matching_content: [],
+        redirector_matching_content: [
+          {
+            switch_on: true,
+            domain: 'https://example.test/api',
+            redirect_url: '',
+            method: 'POST',
+            redirect_type: 'function',
+            redirect_func: 'function(req, next) { }',
+          },
+        ],
+      },
+    })
+    const request = new CustomRedirectXHR()
+
+    request.open('POST', 'https://example.test/api/users')
+
+    expect(request.responseURL).toBe('https://example.test/api/users')
+    expect(warning).toHaveBeenCalledOnce()
+    expect(warning).toHaveBeenCalledWith(
+      '[AjaxProxy] Redirect function did not complete synchronously; using the original URL'
+    )
+  })
+
+  it.each([
+    ['an array', '[]'],
+    ['a non-plain object', 'new Date()'],
+  ])('rejects redirect callback headers returned as %s', async (_description, headers) => {
+    vi.stubGlobal('XMLHttpRequest', FakeXMLHttpRequest)
+    vi.stubGlobal('window', { XMLHttpRequest: FakeXMLHttpRequest, eval })
+    const { default: CustomRedirectXHR, initRedirectXHRState } = await import('../src/redirectXHR')
+    initRedirectXHRState({
+      value: {
+        global_on: true,
+        mode: 'redirector',
+        interceptor_matching_content: [],
+        redirector_matching_content: [
+          {
+            switch_on: true,
+            domain: 'https://example.test/api',
+            redirect_url: '',
+            method: 'POST',
+            redirect_type: 'function',
+            redirect_func: `function(req, next) { next({ url: "https://target.test/api", headers: ${headers} }) }`,
+          },
+        ],
+      },
+    })
+    const request = new CustomRedirectXHR()
+
+    request.open('POST', 'https://example.test/api/users')
+    request.setRequestHeader('x-user', 'preserved')
+    request.send('request body')
+
+    expect(request.responseURL).toBe('https://example.test/api/users')
+    expect(request.requestHeaders).toEqual({ 'x-user': ['preserved'] })
+  })
+
   it('does not leak redirect headers when an XHR instance is reused', async () => {
     vi.stubGlobal('XMLHttpRequest', FakeXMLHttpRequest)
     vi.stubGlobal('window', { XMLHttpRequest: FakeXMLHttpRequest, eval })
