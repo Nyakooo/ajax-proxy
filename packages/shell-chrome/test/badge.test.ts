@@ -23,6 +23,7 @@ vi.mock('@proxy/shared-utils', () => ({
     GLOBAL_SWITCH: 'global-switch',
     MODE: 'mode',
     INTERCEPT_LIST: 'intercept-list',
+    LANGUAGE: 'language',
     V3_CONFIG: 'v3-config',
     V3_HITS: 'v3-hits',
   },
@@ -39,6 +40,7 @@ vi.mock('@proxy/v3-domain', async (importOriginal) => ({
 
 import { chromeBadge } from '../src/service-worker/badge'
 import { chromeBadgeV3, renderActiveV3Badge } from '../src/service-worker/v3Hit'
+import { chromeNativeNotice } from '../src/service-worker/notice'
 
 afterEach(() => {
   vi.unstubAllGlobals()
@@ -46,6 +48,91 @@ afterEach(() => {
 })
 
 describe('chromeBadge rule selection', () => {
+  it('clears the legacy badge when the global switch is off', async () => {
+    mocks.getRealStorage.mockImplementation(async (key) => {
+      if (key === 'v3-config') return null
+      if (key === 'global-switch') return false
+      return undefined
+    })
+    const setBadgeText = vi.fn()
+    const setBadgeBackgroundColor = vi.fn()
+    vi.stubGlobal('chrome', { action: { setBadgeText, setBadgeBackgroundColor } })
+
+    await chromeBadge({ match_url: '/api', method: 'GET' })
+
+    expect(setBadgeText).toHaveBeenCalledWith({ text: '' })
+    expect(setBadgeBackgroundColor).not.toHaveBeenCalled()
+    expect(mocks.getRealStorage).not.toHaveBeenCalledWith('intercept-list', [])
+  })
+
+  it('shows the redirector badge and its teal background', async () => {
+    mocks.getRealStorage.mockImplementation(async (key) => {
+      if (key === 'v3-config') return null
+      if (key === 'global-switch') return true
+      if (key === 'mode') return 'redirector'
+      return undefined
+    })
+    const setBadgeText = vi.fn()
+    const setBadgeBackgroundColor = vi.fn()
+    vi.stubGlobal('chrome', { action: { setBadgeText, setBadgeBackgroundColor } })
+
+    await chromeBadge()
+
+    expect(setBadgeBackgroundColor).toHaveBeenCalledWith({ color: '#006d75' })
+    expect(setBadgeText).toHaveBeenCalledWith({ text: 'R' })
+    expect(mocks.getRealStorage).not.toHaveBeenCalledWith('intercept-list', [])
+  })
+
+  it('clears the legacy badge when the interceptor list is empty', async () => {
+    mocks.getRealStorage.mockImplementation(async (key) => {
+      if (key === 'v3-config') return null
+      if (key === 'global-switch') return true
+      if (key === 'mode') return 'interceptor'
+      if (key === 'intercept-list') return []
+      return undefined
+    })
+    const setBadgeText = vi.fn()
+    vi.stubGlobal('chrome', { action: { setBadgeText, setBadgeBackgroundColor: vi.fn() } })
+
+    await chromeBadge({ match_url: '/api', method: 'GET' })
+
+    expect(setBadgeText).toHaveBeenCalledWith({ text: '' })
+    expect(mocks.setStorage).not.toHaveBeenCalled()
+    expect(mocks.noticePanelsByServiceWorker).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    ['zh', '拦截次数过多'],
+    ['en', 'Too many interceptions'],
+  ])('sends a localized notice at 100 hits for %s', async (language, title) => {
+    const rule = {
+      switch_on: true,
+      match_url: '/api',
+      method: 'GET',
+      hit: 99,
+      remark: 'important endpoint',
+    }
+    mocks.getRealStorage.mockImplementation(async (key) => {
+      if (key === 'v3-config') return null
+      if (key === 'global-switch') return true
+      if (key === 'mode') return 'interceptor'
+      if (key === 'intercept-list') return [rule]
+      if (key === 'language') return language
+      return undefined
+    })
+    vi.stubGlobal('chrome', {
+      action: { setBadgeText: vi.fn(), setBadgeBackgroundColor: vi.fn() },
+    })
+
+    await chromeBadge({ match_url: '/api', method: 'GET' })
+
+    expect(chromeNativeNotice).toHaveBeenCalledWith({
+      title,
+      message: '/api\nimportant endpoint',
+    })
+    expect(rule.hit).toBe(100)
+  })
+
   it('increments only the rule selected by the request notice', async () => {
     const rules = [
       { switch_on: true, match_url: '/api', method: 'POST', hit: 2 },
