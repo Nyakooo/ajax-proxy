@@ -151,6 +151,7 @@ async function mountApp(saveResponses = [], startingConfig = initialConfig(), st
   return {
     wrapper: mountedWrapper,
     sentMessages,
+    getStoredConfig: () => structuredClone(storedConfig),
     sendExtensionMessage(message) {
       if (!extensionMessageListener) throw new Error('No extension message listener is registered')
       extensionMessageListener(message)
@@ -939,16 +940,18 @@ describe('App rule view navigation accessibility', () => {
 })
 
 describe('App function response persistence flow', () => {
+  const editorStubs = {
+    CodeMirrorJsonEditor: {
+      props: ['modelValue', 'ariaLabel'],
+      emits: ['update:modelValue'],
+      template:
+        '<textarea :aria-label="ariaLabel" :value="modelValue" @input="$emit(\'update:modelValue\', $event.target.value)" />',
+    },
+  }
+
   it('persists a confirmed function response as disabled by default', async () => {
     vi.spyOn(globalThis, 'confirm').mockReturnValue(true)
-    const { wrapper, sentMessages } = await mountApp([], initialConfig(), {
-      CodeMirrorJsonEditor: {
-        props: ['modelValue', 'ariaLabel'],
-        emits: ['update:modelValue'],
-        template:
-          '<textarea :aria-label="ariaLabel" :value="modelValue" @input="$emit(\'update:modelValue\', $event.target.value)" />',
-      },
-    })
+    const { wrapper, sentMessages } = await mountApp([], initialConfig(), editorStubs)
 
     await buttonByText(wrapper, '创建拦截规则').trigger('click')
     await flushPromises()
@@ -974,6 +977,82 @@ describe('App function response persistence flow', () => {
       }),
     ])
     expect(wrapper.find('.rule-editor').exists()).toBe(false)
+  })
+
+  it('updates a function response while preserving its request action and tags', async () => {
+    const confirm = vi.spyOn(globalThis, 'confirm').mockReturnValue(true)
+    const tag = { id: 'tag-api', name: 'API', used: true }
+    const existingRule = {
+      id: 'combined-rule',
+      enabled: true,
+      tagIds: [tag.id],
+      match: { url: '/api/combined', method: 'POST', type: 'normal' },
+      request: { enabled: true, redirect: { url: '/api/target' } },
+      response: { enabled: false, replace: { code: 'return { body: { old: true } }' } },
+    }
+    const startingConfig = { ...initialConfig(), tags: [tag], rules: [existingRule] }
+    const { wrapper, sentMessages } = await mountApp([], startingConfig, editorStubs)
+
+    const row = wrapper.get('.rule-row')
+    await buttonByText(row, '编辑').trigger('click')
+    await flushPromises()
+    await wrapper
+      .get('textarea[aria-label="函数体代码"]')
+      .setValue('return { body: { fresh: true } }')
+    await wrapper.get('.function-enabled input').setValue(true)
+    await wrapper.get('.editor-form').trigger('submit')
+    await flushPromises()
+
+    const saves = sentMessages.filter((message) => message.key === V3PanelMessageKey.SAVE_CONFIG)
+    expect(confirm).toHaveBeenCalledTimes(2)
+    expect(saves).toHaveLength(1)
+    expect(saves[0].value.config.rules).toEqual([
+      {
+        ...existingRule,
+        response: { enabled: true, replace: { code: 'return { body: { fresh: true } }' } },
+      },
+    ])
+    expect(saves[0].value.config.tags).toEqual([tag])
+    expect(wrapper.find('.rule-editor').exists()).toBe(false)
+  })
+
+  it('keeps an existing rule unchanged and the editor open when saving its function response fails', async () => {
+    vi.spyOn(globalThis, 'confirm').mockReturnValue(true)
+    const existingRule = {
+      id: 'combined-rule',
+      enabled: true,
+      tagIds: ['tag-api'],
+      match: { url: '/api/combined', method: 'POST', type: 'normal' },
+      request: { enabled: true, redirect: { url: '/api/target' } },
+      response: { enabled: false, replace: { code: 'return { body: { old: true } }' } },
+    }
+    const tag = { id: 'tag-api', name: 'API', used: true }
+    const startingConfig = { ...initialConfig(), tags: [tag], rules: [existingRule] }
+    const { wrapper, sentMessages, getStoredConfig } = await mountApp(
+      [{ ok: false, error: 'storage-write-failed' }],
+      startingConfig,
+      editorStubs
+    )
+
+    await buttonByText(wrapper.get('.rule-row'), '编辑').trigger('click')
+    await flushPromises()
+    await wrapper
+      .get('textarea[aria-label="函数体代码"]')
+      .setValue('return { body: { changed: true } }')
+    await wrapper.get('.editor-form').trigger('submit')
+    await flushPromises()
+
+    const saves = sentMessages.filter((message) => message.key === V3PanelMessageKey.SAVE_CONFIG)
+    expect(saves).toHaveLength(1)
+    expect(saves[0].value.config.rules[0]).toMatchObject({
+      id: existingRule.id,
+      request: existingRule.request,
+      tagIds: existingRule.tagIds,
+      response: { enabled: false, replace: { code: 'return { body: { changed: true } }' } },
+    })
+    expect(getStoredConfig()).toEqual(startingConfig)
+    expect(wrapper.find('.rule-editor').exists()).toBe(true)
+    expect(wrapper.get('.operation-alert').text()).toContain('storage-write-failed')
   })
 })
 
