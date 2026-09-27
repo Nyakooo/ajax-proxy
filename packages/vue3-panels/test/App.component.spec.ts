@@ -370,6 +370,11 @@ describe('App no-match diagnostics localization', () => {
     }
     const { wrapper, sendExtensionMessage } = await mountApp([], startingConfig)
 
+    expect(document.documentElement.lang).toBe('zh-CN')
+    expect(
+      wrapper.findAll('.language-toggle button').map((button) => button.attributes('aria-label'))
+    ).toEqual(['简体中文', 'English'])
+
     sendExtensionMessage({
       from: NoticeFrom.SERVICE_WORKER,
       to: NoticeTo.PANELS,
@@ -425,6 +430,7 @@ describe('App no-match diagnostics localization', () => {
 
     await wrapper.get('.language-toggle button[aria-label="English"]').trigger('click')
 
+    expect(document.documentElement.lang).toBe('en')
     expect(diagnostics.text()).toContain('No-match diagnostics')
     expect(diagnostics.text()).toContain('Capture the next unmatched request')
     expect(diagnostics.text()).toContain('Request method does not match')

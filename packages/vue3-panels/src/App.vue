@@ -10,6 +10,7 @@ import {
   watch,
 } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { supportedLocales } from './i18n/index.js'
 import {
   isV3FunctionError,
   isV3FetchOutcome,
@@ -92,10 +93,6 @@ const recentFetchOutcomes = ref([])
 const currentSiteOrigin = ref('')
 let tabActivatedListener
 let tabUpdatedListener
-const languages = [
-  { code: 'zh-CN', label: '简体中文', shortLabel: '中' },
-  { code: 'en', label: 'English', shortLabel: 'EN' },
-]
 const unstyledMode = import.meta.env.VITE_UI_UNSTYLED === 'true'
 const comparePassThrough =
   new URLSearchParams(window.location.search).get('pt') === '1' || unstyledMode
@@ -1154,7 +1151,7 @@ async function moveRule(rule, targetRule) {
           />
           <div class="language-toggle" role="group" :aria-label="t('language.aria')">
             <button
-              v-for="item in languages"
+              v-for="item in supportedLocales"
               :key="item.code"
               type="button"
               :aria-label="item.label"

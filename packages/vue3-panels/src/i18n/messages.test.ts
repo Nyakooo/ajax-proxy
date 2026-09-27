@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { messages } from './messages.js'
-import { getInitialLocale, localeStorageKey } from './index.js'
+import { getInitialLocale, localeStorageKey, supportedLocales } from './index.js'
 
 function collectStrings(value: unknown, path = ''): Map<string, string> {
   const result = new Map<string, string>()
@@ -30,7 +30,11 @@ function placeholders(message: string): string[] {
 
 describe('V3 locale message catalogs', () => {
   it('contains only zh-CN and English with matching keys and interpolation parameters', () => {
-    expect(Object.keys(messages).sort()).toEqual(['en', 'zh-CN'])
+    expect(supportedLocales).toEqual([
+      { code: 'zh-CN', label: '简体中文', shortLabel: '中' },
+      { code: 'en', label: 'English', shortLabel: 'EN' },
+    ])
+    expect(Object.keys(messages).sort()).toEqual(supportedLocales.map(({ code }) => code).sort())
 
     const chinese = collectStrings(messages['zh-CN'])
     const english = collectStrings(messages.en)
@@ -55,6 +59,7 @@ describe('V3 locale message catalogs', () => {
 
     expect(localeStorageKey).toBe('ajax-proxy-v3-locale')
     expect(getInitialLocale(stored('en'))).toBe('en')
+    expect(getInitialLocale(stored('zh-CN'))).toBe('zh-CN')
     expect(getInitialLocale(stored(null))).toBe('zh-CN')
     expect(getInitialLocale(stored('fr'))).toBe('zh-CN')
     expect(

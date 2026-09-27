@@ -196,7 +196,8 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - [x] App 回归覆盖搜索或状态筛选后隐藏选择的清理，以及筛选结果内的逐条选择和批量启用；保存只改变所选规则。
 - [x] App 回归覆盖批量启用保存失败：界面保持规则停用状态、保留当前选择，并显示存储错误。
 - [x] App 回归覆盖规则优先级排序：筛选激活时禁用排序并提示先清除条件；清除后只持久化预期的规则顺序。
-- [ ] 国际化范围限定为简体中文与英文；清理繁体中文、日语、法语、韩语、俄语、爱尔兰语等非目标语言资源，以及 UI / JSON 编辑器相关的多余 locale 映射。
+- [ ] V3 面板及编辑器只提供简体中文与英文；正式入口仍运行 Vue 2 期间保留其语言目录和 JSONEditor 映射，待切换至 V3 的提交再清理不支持的语言资源。
+- [x] 集中管理 V3 支持语言清单，供启动偏好校验和切换控件共用；回归确认控件只显示两种语言且切换同步更新文档语言属性。
 - [x] 为简体中文与英文文案目录增加一致性回归，检查语言范围、键路径、插值参数和空文案；Fetch / XHR 诊断中的“关联 ID”标签也由当前语言文案提供。
 - [x] 锁定首次启动语言策略：无偏好、无效偏好或存储读取失败时使用简体中文，只恢复支持的 `en` 偏好。
 - [x] 将语言切换从下拉框改为始终可见的双选分段控件，明确显示“简体中文”和“English”；当前语言有清晰选中态，点击后立即切换并持久化，不需要额外确认。Vue 3 候选面板已通过 `vue-i18n` Composition API 实现，偏好保存在隔离的原型 localStorage 键中。
@@ -821,4 +822,5 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - 2026-09-27：补批量启用保存失败回归：扩展 storage 拒绝写入时，规则仍保持停用、选择仍可重试，并展示具体错误。全量 Vitest 36 个文件 / 368 项、Vue 3 UI 8 个文件 / 54 项、V3 面板生产构建、改动文件 ESLint / Prettier 通过。完成 347 / 381 项（91.1%）。
 - 2026-09-27：补 App 级规则优先级排序回归：筛选生效时禁用调整按钮并给出恢复提示，清除后排序只保存正确的规则序列。全量 Vitest 36 个文件 / 368 项、Vue 3 UI 8 个文件 / 55 项、V3 面板生产构建、改动文件 ESLint / Prettier 通过。完成 348 / 382 项（91.1%）。
 - 2026-09-27：将 App 搜索框测试桩改为真实双向输入，并扩展既有选择 / 批量操作回归，确认搜索和状态筛选都会清理隐藏选择。全量 Vitest 36 个文件 / 368 项、Vue 3 UI 8 个文件 / 55 项、V3 面板生产构建、改动文件 ESLint / Prettier 通过。进度仍为 348 / 382 项（91.1%）。
+- 2026-09-27：集中 V3 支持语言选项清单，启动偏好校验与面板切换控件共用；回归确认语言控件仅显示简体中文 / English，切换同步更新 `<html lang>`，文案键目录与支持语言一致。旧 Vue 2 面板仍是正式入口，因此其 locale 暂留到 V3 切换提交后清理。全量 Vitest 36 个文件 / 368 项、Vue 3 UI 8 个文件 / 55 项、V3 面板生产构建、改动文件 ESLint / Prettier 通过。完成 349 / 383 项（91.1%）。
 - GitHub 里程碑：[阶段 0](https://github.com/Nyakooo/ajax-proxy/milestone/1)、[阶段 1](https://github.com/Nyakooo/ajax-proxy/milestone/2)、[阶段 2](https://github.com/Nyakooo/ajax-proxy/milestone/3)、[阶段 3](https://github.com/Nyakooo/ajax-proxy/milestone/4)、[阶段 4](https://github.com/Nyakooo/ajax-proxy/milestone/5)、[阶段 5](https://github.com/Nyakooo/ajax-proxy/milestone/6)、[阶段 6](https://github.com/Nyakooo/ajax-proxy/milestone/7)、[阶段 7](https://github.com/Nyakooo/ajax-proxy/milestone/8)；已复现缺陷：[issue #56](https://github.com/Nyakooo/ajax-proxy/issues/56)。
