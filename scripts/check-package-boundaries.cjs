@@ -68,7 +68,9 @@ function walk(directory) {
       entry.name === 'lib' ||
       entry.name === 'types' ||
       entry.name === 'build' ||
-      entry.name === 'dist'
+      entry.name === 'build-vite' ||
+      entry.name === 'dist' ||
+      entry.name === 'dist-editor-prototype'
     )
       continue
     const target = path.join(directory, entry.name)
