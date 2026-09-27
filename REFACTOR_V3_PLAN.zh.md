@@ -301,6 +301,7 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - [x] 为旧面板窗口控制覆盖首次创建、聚焦、关闭重建、全屏切换和尺寸循环；仅控制当前缓存的面板窗口。
 - [x] 为 Service Worker 图标与快捷键事件覆盖 open / close / fullscreen / resize 路由；未知 command 不触发面板操作。
 - [x] 为 legacy Service Worker badge 覆盖 global switch off、redirector、空规则及命中 100 时的中英文通知路径。
+- [x] 为 legacy badge 覆盖命中 100 后每 20 次的提醒间隔、未知语言 fallback 和零命中计数清除。
 - [x] 为 Service Worker notice 生命周期覆盖匹配 CONNECT_NAME 端口、当前 tab 标题转发、disconnect 清理、content 通知代理及 Chrome notification 无关点击 / lastError 路径。
 - [x] 为 Service Worker 默认初始化覆盖 storage 成功 / 失败：按全局开关设置 active / inactive toolbar icon，并在读取成功后初始化徽章。
 - [x] 在存储初始化 Promise 完成前同步注册工具栏点击和快捷键监听，避免 MV3 Service Worker 冷启动漏掉首个事件。
@@ -882,4 +883,5 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - 2026-09-27：为 Service Worker action / command listener 补路由回归：工具栏点击和 open_panel 打开面板；close_panel、full_screen、resize_window 调用对应操作；未知命令无副作用。定向测试 1 项、全量 Vitest 42 个文件 / 401 项通过；改动文件 ESLint / Prettier 与 diff 检查通过。完成 376 / 410 项（91.7%）。
 - 2026-09-27：补 legacy Chrome badge 分支：全局开关关闭和空规则清空徽章，redirector 设置 R 和颜色，命中 100 时按语言发送中英文通知并包含 URL / remark。badge 定向测试 10 项、全量 Vitest 42 个文件 / 406 项通过；改动文件 ESLint / Prettier 与 diff 检查通过。完成 377 / 411 项（91.7%）。
 - 2026-09-27：为 content -> Service Worker 标题转发补长度边界：8192 字符标题转发，8193 字符标题不通知面板。`serviceWorkerIndex` 定向组件测试和全量 Vitest 42 个文件 / 406 项通过；改动文件 ESLint / Prettier 与 diff 检查通过。完成 378 / 412 项（91.7%）。
+- 2026-09-27：补 legacy badge 的提醒间隔与零命中路径：确认命中 101 不提醒、120 再次提醒；未知语言回退英文，累计徽章只加有效规则命中；零计数清空 badge。定向测试 12 项、全量 Vitest 42 个文件 / 408 项通过；改动文件 ESLint / Prettier 与 diff 检查通过。完成 379 / 413 项（91.8%）。
 - GitHub 里程碑：[阶段 0](https://github.com/Nyakooo/ajax-proxy/milestone/1)、[阶段 1](https://github.com/Nyakooo/ajax-proxy/milestone/2)、[阶段 2](https://github.com/Nyakooo/ajax-proxy/milestone/3)、[阶段 3](https://github.com/Nyakooo/ajax-proxy/milestone/4)、[阶段 4](https://github.com/Nyakooo/ajax-proxy/milestone/5)、[阶段 5](https://github.com/Nyakooo/ajax-proxy/milestone/6)、[阶段 6](https://github.com/Nyakooo/ajax-proxy/milestone/7)、[阶段 7](https://github.com/Nyakooo/ajax-proxy/milestone/8)；已复现缺陷：[issue #56](https://github.com/Nyakooo/ajax-proxy/issues/56)。

@@ -133,6 +133,61 @@ describe('chromeBadge rule selection', () => {
     expect(rule.hit).toBe(100)
   })
 
+  it('repeats the fallback-language notice every twenty hits after the limit', async () => {
+    const matchingRule = {
+      switch_on: true,
+      match_url: '/api',
+      method: 'GET',
+      hit: 99,
+      remark: 'important endpoint',
+    }
+    const unrelatedRule = { switch_on: true, match_url: '/other', hit: 2 }
+    mocks.getRealStorage.mockImplementation(async (key) => {
+      if (key === 'v3-config') return null
+      if (key === 'global-switch') return true
+      if (key === 'mode') return 'interceptor'
+      if (key === 'intercept-list') return [matchingRule, unrelatedRule]
+      if (key === 'language') return 'fr'
+      return undefined
+    })
+    const setBadgeText = vi.fn()
+    vi.stubGlobal('chrome', {
+      action: { setBadgeText, setBadgeBackgroundColor: vi.fn() },
+    })
+
+    for (let hit = 100; hit <= 120; hit += 1) {
+      await chromeBadge({ match_url: '/api', method: 'GET' })
+    }
+
+    expect(matchingRule.hit).toBe(120)
+    expect(chromeNativeNotice).toHaveBeenCalledTimes(2)
+    expect(chromeNativeNotice).toHaveBeenNthCalledWith(1, {
+      title: 'Too many interceptions',
+      message: '/api\nimportant endpoint',
+    })
+    expect(chromeNativeNotice).toHaveBeenNthCalledWith(2, {
+      title: 'Too many interceptions',
+      message: '/api\nimportant endpoint',
+    })
+    expect(setBadgeText).toHaveBeenLastCalledWith({ text: '+122' })
+  })
+
+  it('clears the legacy badge when no active rule has a hit count', async () => {
+    mocks.getRealStorage.mockImplementation(async (key) => {
+      if (key === 'v3-config') return null
+      if (key === 'global-switch') return true
+      if (key === 'mode') return 'interceptor'
+      if (key === 'intercept-list') return [{ switch_on: true, match_url: '/api' }]
+      return undefined
+    })
+    const setBadgeText = vi.fn()
+    vi.stubGlobal('chrome', { action: { setBadgeText, setBadgeBackgroundColor: vi.fn() } })
+
+    await chromeBadge()
+
+    expect(setBadgeText).toHaveBeenLastCalledWith({ text: '' })
+  })
+
   it('increments only the rule selected by the request notice', async () => {
     const rules = [
       { switch_on: true, match_url: '/api', method: 'POST', hit: 2 },
