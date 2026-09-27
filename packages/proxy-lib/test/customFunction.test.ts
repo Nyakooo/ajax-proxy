@@ -44,6 +44,79 @@ describe('custom function completion', () => {
     ).resolves.toEqual({ url: `${request.url}/async` })
   })
 
+  it.each([
+    ['null', 'function() { return null }'],
+    ['a primitive', 'function() { return 42 }'],
+    ['a missing URL', 'function() { return { headers: {} } }'],
+    ['non-object headers', 'function(req) { return { url: req.url, headers: [] } }'],
+    ['null headers', 'function(req) { return { url: req.url, headers: null } }'],
+  ])('fails open when a redirect function returns %s', async (_description, funcText) => {
+    setupWindow()
+    const { execSetup } = await import('../src/redirectUrlFunc')
+
+    const fallback = await execSetup(request, funcText)
+
+    expect(fallback).toEqual({ url: request.url })
+    expect(Reflect.get(fallback, Symbol.for('ajax-proxy.custom-function-fail-open'))).toBe(true)
+  })
+
+  it('uses the first result when a redirect function completes by callback and return value', async () => {
+    setupWindow()
+    const { execSetup } = await import('../src/redirectUrlFunc')
+
+    await expect(
+      execSetup(
+        request,
+        'function(req, next) { next({ url: req.url + "/callback" }); return { url: req.url + "/return" } }'
+      )
+    ).resolves.toEqual({ url: `${request.url}/callback` })
+  })
+
+  it('fails open when the configured redirect function does not evaluate to a function', async () => {
+    setupWindow()
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const { execSetup } = await import('../src/redirectUrlFunc')
+
+    const fallback = await execSetup(request, '42')
+
+    expect(fallback).toEqual({ url: request.url })
+    expect(Reflect.get(fallback, Symbol.for('ajax-proxy.custom-function-fail-open'))).toBe(true)
+    expect(errorSpy).toHaveBeenCalledWith('[AjaxProxy][error] Invalid redirect function')
+  })
+
+  it('fails open when a redirect function throws synchronously', async () => {
+    setupWindow()
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const { execSetup } = await import('../src/redirectUrlFunc')
+
+    const fallback = await execSetup(request, 'function() { throw new Error("failed") }')
+
+    expect(fallback).toEqual({ url: request.url })
+    expect(Reflect.get(fallback, Symbol.for('ajax-proxy.custom-function-fail-open'))).toBe(true)
+    expect(errorSpy).toHaveBeenCalledWith(
+      '[AjaxProxy][error] redirect function failed',
+      expect.any(Error)
+    )
+  })
+
+  it('fails open when a redirect function rejects asynchronously', async () => {
+    setupWindow()
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const { execSetup } = await import('../src/redirectUrlFunc')
+
+    const fallback = await execSetup(
+      request,
+      'function() { return Promise.reject(new Error("failed")) }'
+    )
+
+    expect(fallback).toEqual({ url: request.url })
+    expect(Reflect.get(fallback, Symbol.for('ajax-proxy.custom-function-fail-open'))).toBe(true)
+    expect(errorSpy).toHaveBeenCalledWith(
+      '[AjaxProxy][error] redirect function rejected',
+      expect.any(Error)
+    )
+  })
+
   it('accepts a Promise result from an interceptor function', async () => {
     setupWindow()
     const { execSetup } = await import('../src/overrideFunc')
