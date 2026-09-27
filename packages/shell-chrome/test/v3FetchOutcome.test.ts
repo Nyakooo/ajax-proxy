@@ -154,6 +154,43 @@ describe('notifyV3FetchOutcome', () => {
     expect(mocks.getRealStorage).toHaveBeenCalledWith('fetch-outcomes-armed', false)
   })
 
+  it('forwards a skipped-network Mock outcome only for an enabled Mock response rule', async () => {
+    const mockOutcome = {
+      ...requestOutcome,
+      stage: 'request',
+      outcome: 'applied',
+      reason: 'mock-network-skipped',
+    }
+    setup({
+      config: backup({
+        rules: [
+          {
+            id: 'rule-a',
+            enabled: true,
+            response: { enabled: true, mode: 'mock' },
+            request: { enabled: true },
+          },
+        ],
+      }),
+    })
+    expect(await notifyV3FetchOutcome(mockOutcome)).toBe(true)
+    expect(mocks.noticePanelsByServiceWorker).toHaveBeenCalledWith('v3-fetch-outcome', mockOutcome)
+
+    setup({
+      config: backup({
+        rules: [
+          {
+            id: 'rule-a',
+            enabled: true,
+            response: { enabled: true, mode: 'replace' },
+            request: { enabled: true },
+          },
+        ],
+      }),
+    })
+    expect(await notifyV3FetchOutcome(mockOutcome)).toBe(false)
+  })
+
   it('forwards network failures for rules with only an enabled response action', async () => {
     setup({
       config: backup({

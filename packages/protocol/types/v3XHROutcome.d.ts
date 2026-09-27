@@ -5,6 +5,7 @@ export declare const V3XHROutcomeReason: {
     readonly REDIRECT_OPEN_FAILED: "redirect-open-failed";
     readonly REDIRECT_TARGET_UNSUPPORTED: "redirect-target-unsupported";
     readonly SEND_FAILED: "send-failed";
+    readonly MOCK_NETWORK_SKIPPED: "mock-network-skipped";
     readonly RESPONSE_REPLACEMENT_APPLIED: "response-replacement-applied";
     readonly RESPONSE_REPLACEMENT_FAILED: "response-replacement-failed";
     readonly RESPONSE_REPLACEMENT_UNSUPPORTED: "response-replacement-unsupported";

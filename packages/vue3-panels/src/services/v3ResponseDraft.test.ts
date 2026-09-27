@@ -71,7 +71,11 @@ describe('V3 response drafts', () => {
         id: 'new',
         enabled: true,
         match: { url: '/x' },
-        response: { enabled: true, replace: { status: 200, body: { ok: true } } },
+        response: {
+          enabled: true,
+          mode: 'replace',
+          replace: { status: 200, body: { ok: true } },
+        },
       },
     })
   })
@@ -96,10 +100,34 @@ describe('V3 response drafts', () => {
       ok: true,
       rule: {
         ...existingRule,
-        response: { enabled: true, replace: { status: 201, body: null } },
+        response: {
+          enabled: true,
+          mode: 'replace',
+          replace: { status: 201, body: null },
+        },
       },
     })
     expect(result.rule.request).toBe(request)
+  })
+
+  it('writes mock mode for a static JSON response when selected', () => {
+    const result = buildV3ResponseRule({
+      id: 'mock-rule',
+      match: { url: '/missing-api' },
+      statusDraft: '201',
+      bodyDraft: '{"ok":true}',
+      deliveryMode: 'mock',
+    })
+
+    expect(result).toMatchObject({
+      ok: true,
+      rule: {
+        response: {
+          mode: 'mock',
+          replace: { status: 201, body: { ok: true } },
+        },
+      },
+    })
   })
 
   it('preserves response fields that the JSON editor does not edit', () => {

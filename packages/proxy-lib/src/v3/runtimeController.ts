@@ -64,7 +64,12 @@ function getHostOrigin(host: Window): HostOriginRead {
   }
 }
 
-function notifyV3Match(host: Window, rule: V3Rule, request: { url: string; method: string }) {
+function notifyV3Match(
+  host: Window,
+  rule: V3Rule,
+  request: { url: string; method: string },
+  mock?: { responseMode: 'mock'; status: number; networkSkipped: true }
+) {
   try {
     const detail: V3Hit = {
       kind: 'v3-hit',
@@ -72,6 +77,11 @@ function notifyV3Match(host: Window, rule: V3Rule, request: { url: string; metho
       match_url: rule.match.url,
       method: request.method,
       url: request.url,
+      ...(mock && {
+        response_mode: mock.responseMode,
+        status: mock.status,
+        network_skipped: mock.networkSkipped,
+      }),
     }
     host.dispatchEvent(new CustomEvent(NoticeTo.CONTENT, { detail }))
   } catch {
@@ -161,8 +171,12 @@ export function createV3RuntimeController(
       if (!origin.ok || isV3OriginDisabled(origin.origin, backup.disabledOrigins)) return []
       return backup.rules
     },
-    onMatched: (rule: V3Rule, _index: number, request: { url: string; method: string }) =>
-      notifyV3Match(host, rule, request),
+    onMatched: (
+      rule: V3Rule,
+      _index: number,
+      request: { url: string; method: string },
+      mock?: { responseMode: 'mock'; status: number; networkSkipped: true }
+    ) => notifyV3Match(host, rule, request, mock),
     onNoMatch: (request: { url: string; method: string }) => {
       if (!diagnosticsArmed || !backup || !backup.settings.globalEnabled) return
       const origin = getHostOrigin(host)

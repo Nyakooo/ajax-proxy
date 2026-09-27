@@ -31,13 +31,15 @@ const jsonTreeHistoryKey = ref(0)
 
 function createForm(rule = null) {
   const replace = rule?.response?.replace ?? {}
+  const responseMode = typeof replace.code === 'string' ? 'function' : 'json'
   return {
     matchUrl: rule?.match?.url ?? '',
     matchType: rule?.match?.type ?? 'normal',
     method: rule?.match?.method ?? 'ANY',
     status: replace.status ?? 200,
     body: JSON.stringify(replace.body ?? {}, null, 2),
-    responseMode: typeof replace.code === 'string' ? 'function' : 'json',
+    responseMode,
+    deliveryMode: rule?.response?.mode === 'mock' ? 'mock' : 'replace',
     code: replace.code ?? DEFAULT_FUNCTION_EXAMPLE,
     functionEnabled: false,
     enabled: rule?.enabled ?? true,
@@ -117,6 +119,7 @@ function submit() {
     status: Number(form.value.status),
     body: parsedBody.body,
     mode: 'json',
+    deliveryMode: form.value.deliveryMode,
     responseEnabled: true,
     tagIds: [...form.value.tagIds],
   })
@@ -134,6 +137,7 @@ function setFunctionEnabled(event) {
 
 function setResponseMode(mode) {
   form.value.responseMode = mode
+  if (mode === 'function') form.value.deliveryMode = 'replace'
   localIssue.value = ''
   jsonIssue.value = false
 }
@@ -256,6 +260,31 @@ function trapFocus(event) {
             />
             <span>{{ t('responseEditor.functionMode') }}</span>
           </label>
+        </fieldset>
+
+        <fieldset v-if="form.responseMode === 'json'" class="response-delivery-picker">
+          <legend>{{ t('responseEditor.deliveryMode') }}</legend>
+          <label>
+            <input
+              type="radio"
+              name="response-delivery-mode"
+              value="replace"
+              :checked="form.deliveryMode === 'replace'"
+              @change="form.deliveryMode = 'replace'"
+            />
+            <span>{{ t('responseEditor.replaceRealResponse') }}</span>
+          </label>
+          <label>
+            <input
+              type="radio"
+              name="response-delivery-mode"
+              value="mock"
+              :checked="form.deliveryMode === 'mock'"
+              @change="form.deliveryMode = 'mock'"
+            />
+            <span>{{ t('responseEditor.mockResponse') }}</span>
+          </label>
+          <small v-if="form.deliveryMode === 'mock'">{{ t('responseEditor.mockHelp') }}</small>
         </fieldset>
 
         <label class="editor-field">

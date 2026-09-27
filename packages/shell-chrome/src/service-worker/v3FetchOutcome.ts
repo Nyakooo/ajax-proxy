@@ -14,6 +14,9 @@ function matchesAction(rule: V3Rule, value: V3FetchOutcome) {
     if (value.reason === V3FetchOutcomeReason.NETWORK_FAILED) {
       return Boolean(rule.request?.enabled || rule.response?.enabled)
     }
+    if (value.reason === V3FetchOutcomeReason.MOCK_NETWORK_SKIPPED) {
+      return Boolean(rule.response?.enabled && rule.response.mode === 'mock')
+    }
     return (
       Boolean(rule.request?.enabled) &&
       (value.reason === V3FetchOutcomeReason.REDIRECT_APPLIED ||
@@ -37,6 +40,9 @@ function matchesOutcome(value: V3FetchOutcome) {
   }
   if (value.reason === V3FetchOutcomeReason.NETWORK_FAILED) {
     return value.stage === 'request' && value.outcome === 'failed'
+  }
+  if (value.reason === V3FetchOutcomeReason.MOCK_NETWORK_SKIPPED) {
+    return value.stage === 'request' && value.outcome === 'applied'
   }
   if (value.reason === V3FetchOutcomeReason.RESPONSE_REPLACEMENT_APPLIED) {
     return value.stage === 'response' && value.outcome === 'applied'

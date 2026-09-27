@@ -5,6 +5,10 @@ export type V3Hit = {
     match_url: string;
     method: string;
     url?: string;
+    /** Present only when a static Mock response intercepted this request. */
+    response_mode?: 'mock';
+    status?: number;
+    network_skipped?: true;
 };
 /** Service-worker notice sent after a V3 rule hit has been recorded. */
 export type V3HitNotice = {
@@ -13,6 +17,10 @@ export type V3HitNotice = {
     match_url: string;
     method: string;
     url: string;
+    /** Present only when a static Mock response intercepted this request. */
+    response_mode?: 'mock';
+    status?: number;
+    network_skipped?: true;
 };
 /** Validate the untrusted service-worker hit notice before exposing it to panels. */
 export declare function isV3HitNotice(value: unknown): value is V3HitNotice;

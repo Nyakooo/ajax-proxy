@@ -16,6 +16,157 @@ function rule(id: string, options: Partial<V3Rule> = {}): V3Rule {
 }
 
 describe('createV3Fetch', () => {
+  it('returns a static mock for the selected rule without dispatching Fetch or redirect functions', async () => {
+    const selectedRule = rule('static-mock', {
+      request: {
+        enabled: true,
+        redirect: { type: 'function', code: 'return "https://target.test/"' },
+      },
+      response: {
+        enabled: true,
+        mode: 'mock',
+        replace: {
+          status: 202,
+          headers: { 'x-mock': 'selected', 'content-type': 'application/problem+json' },
+          body: { mocked: true },
+        },
+      },
+    })
+    const laterRule = rule('later-rule', {
+      response: { enabled: true, mode: 'mock', replace: { body: { wrong: true } } },
+    })
+    const fetcher = vi.fn(async () => new Response('network'))
+    const executeRedirectFunction = vi.fn(async () => 'https://target.test/')
+    const onMatched = vi.fn()
+    const fetch = createV3Fetch(fetcher, {
+      getRules: () => [selectedRule, laterRule],
+      executeRedirectFunction,
+      onMatched,
+    })
+
+    const result = await fetch('https://example.test/api', { method: 'POST' })
+
+    expect(fetcher).not.toHaveBeenCalled()
+    expect(executeRedirectFunction).not.toHaveBeenCalled()
+    expect(onMatched).toHaveBeenCalledOnce()
+    expect(onMatched.mock.calls[0]).toEqual([
+      selectedRule,
+      0,
+      { url: 'https://example.test/api', method: 'POST' },
+      { responseMode: 'mock', status: 202, networkSkipped: true },
+    ])
+    expect(result.status).toBe(202)
+    expect(result.headers.get('x-mock')).toBe('selected')
+    expect(result.headers.get('content-type')).toBe('application/problem+json')
+    await expect(result.json()).resolves.toEqual({ mocked: true })
+  })
+
+  it('defaults static JSON mocks to application/json and omits bodies for HEAD and bodyless statuses', async () => {
+    const fetcher = vi.fn(async () => new Response('network'))
+    const fetch = createV3Fetch(fetcher, {
+      getRules: () => [
+        rule('body-mock', {
+          match: { url: '/api' },
+          response: { enabled: true, mode: 'mock', replace: { body: { ok: true } } },
+        }),
+      ],
+    })
+
+    const getResult = await fetch('https://example.test/api', { method: 'POST' })
+    expect(getResult.headers.get('content-type')).toBe('application/json')
+    await expect(getResult.json()).resolves.toEqual({ ok: true })
+
+    const headResult = await fetch('https://example.test/api', { method: 'HEAD' })
+    expect(headResult.body).toBeNull()
+
+    for (const status of [204, 205, 304]) {
+      const statusFetch = createV3Fetch(fetcher, {
+        getRules: () => [
+          rule(`status-${status}`, {
+            match: { url: '/api', method: 'POST' },
+            response: { enabled: true, mode: 'mock', replace: { status, body: { ignored: true } } },
+          }),
+        ],
+      })
+      const result = await statusFetch('https://example.test/api', { method: 'POST' })
+      expect(result.status).toBe(status)
+      expect(result.body).toBeNull()
+    }
+
+    expect(fetcher).not.toHaveBeenCalled()
+  })
+
+  it('honors an already-aborted request signal before returning a static mock', async () => {
+    const controller = new AbortController()
+    controller.abort()
+    const fetcher = vi.fn(async () => new Response('network'))
+    const fetch = createV3Fetch(fetcher, {
+      getRules: () => [
+        rule('aborted-mock', {
+          response: { enabled: true, mode: 'mock', replace: { body: { ok: true } } },
+        }),
+      ],
+    })
+
+    await expect(
+      fetch('https://example.test/api', { method: 'POST', signal: controller.signal })
+    ).rejects.toMatchObject({ name: 'AbortError' })
+    expect(fetcher).not.toHaveBeenCalled()
+  })
+
+  it('reports a transient skipped-network outcome only while capture is armed', async () => {
+    const selectedRule = rule('diagnosed-mock', {
+      match: { url: '/api', method: 'POST' },
+      response: { enabled: true, mode: 'mock', replace: { status: 203, body: { ok: true } } },
+    })
+    const fetcher = vi.fn(async () => new Response('network'))
+    const onFetchOutcome = vi.fn()
+    const fetch = createV3Fetch(fetcher, {
+      getRules: () => [selectedRule],
+      onFetchOutcome,
+      isFetchOutcomeDiagnosticsArmed: () => true,
+    })
+
+    await fetch('https://example.test/api', { method: 'POST' })
+
+    expect(onFetchOutcome).toHaveBeenCalledExactlyOnceWith(
+      selectedRule,
+      expect.stringMatching(/^v3-fetch-/),
+      'request',
+      'applied',
+      'mock-network-skipped'
+    )
+    expect(fetcher).not.toHaveBeenCalled()
+
+    const disarmed = vi.fn()
+    await createV3Fetch(fetcher, {
+      getRules: () => [selectedRule],
+      onFetchOutcome: disarmed,
+      isFetchOutcomeDiagnosticsArmed: () => false,
+    })('https://example.test/api', { method: 'POST' })
+    expect(disarmed).not.toHaveBeenCalled()
+  })
+
+  it('documents that no-cors mock responses do not emulate opaque network responses', async () => {
+    const fetcher = vi.fn(async () => new Response('network'))
+    const fetch = createV3Fetch(fetcher, {
+      getRules: () => [
+        rule('no-cors-mock', {
+          match: { url: '/api', method: 'GET' },
+          response: { enabled: true, mode: 'mock', replace: { body: { visible: true } } },
+        }),
+      ],
+    })
+
+    const result = await fetch('https://example.test/api', { mode: 'no-cors' })
+
+    expect(fetcher).not.toHaveBeenCalled()
+    // `new Response()` creates a readable synthetic response. The wrapper
+    // cannot reproduce the opaque response behavior of a native no-cors fetch.
+    expect(result.type).not.toBe('opaque')
+    await expect(result.json()).resolves.toEqual({ visible: true })
+  })
+
   it('merges static redirect headers and strips sensitive headers after cross-origin overrides', async () => {
     const selectedRule = rule('static-redirect-headers', {
       request: {

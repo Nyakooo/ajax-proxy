@@ -3,6 +3,7 @@ export const V3FetchOutcomeReason = {
   REDIRECT_APPLIED: 'redirect-applied',
   REDIRECT_CONSTRUCTION_FAILED: 'redirect-construction-failed',
   NETWORK_FAILED: 'network-failed',
+  MOCK_NETWORK_SKIPPED: 'mock-network-skipped',
   RESPONSE_REPLACEMENT_APPLIED: 'response-replacement-applied',
   RESPONSE_REPLACEMENT_FAILED: 'response-replacement-failed',
   RESPONSE_REPLACEMENT_UNSUPPORTED: 'response-replacement-unsupported',
@@ -84,7 +85,10 @@ export function isV3FetchOutcome(value: unknown): value is V3FetchOutcome {
       typeof value.outcome === 'string' &&
       OUTCOMES.has(value.outcome) &&
       typeof value.reason === 'string' &&
-      REASONS.has(value.reason)
+      REASONS.has(value.reason) &&
+      (value.reason !== V3FetchOutcomeReason.MOCK_NETWORK_SKIPPED ||
+        (value.stage === V3FetchOutcomeStage.REQUEST &&
+          value.outcome === V3FetchOutcomeStatus.APPLIED))
     )
   } catch {
     return false

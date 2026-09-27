@@ -1039,11 +1039,11 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 
 2026-09-27：用户复报大面板仍未显示，进一步加固 popup→service worker→面板打开链路：创建窗口明确要求前台激活；两次窗口创建失败时改在扩展标签页打开，并复用 / 聚焦 / 关闭该标签；popup 显示后台未响应或底层创建失败详情。panel / popup 单测 18 项、Vue popup 组件 11 项、shell TypeScript 及隔离 Chromium popup→V3 面板 smoke 通过；build-vite 与 build-vite-dev 均从最新源码重建。当前桌面策略仍不允许我直接访问扩展内部页面；需在实际 Chrome 重载最新目录确认，若仍失败 popup 会直接显示可诊断的具体错误。
 
-## 11. V3 响应规则的 Mock 模式（待实施）
+## 11. V3 响应规则的 Mock 模式（本地实现完成，远端验收待复跑）
 
 目标：即使真实后端 API 不存在或尚未部署，页面发起匹配的 Fetch / 异步 XHR 后，插件也能按规则直接返回静态 Mock 响应。命中提示需明确标注“Mock 响应”，并展示请求 method / URL、匹配规则、状态码及真实网络是否被跳过。建议首版增加明确的“Mock（跳过真实请求）”响应模式，静态 JSON 优先；Fetch 在网络分发前短路返回合成 Response，XHR 则按异步 XHR 事件顺序合成状态、响应体和响应头，同时保留现有“收到真实响应后替换”的行为。完全跳过网络时应提示“真实请求已跳过 / 由 Mock 接管”，不能声称已证实 API 不存在；若采用网络失败后兜底，则提示“请求失败，已使用 Mock”，因为浏览器无法仅凭 Fetch 网络错误区分接口缺失、离线、DNS 或 CORS。命中记录建议只保留短期、限制条数并避免记录请求体；实施时需明确与同一规则重定向动作的优先关系，并覆盖 Fetch / XHR、规则优先级、诊断提示和浏览器验收。
 
-2026-09-27 设计检查点：同一请求仍按置顶优先、然后既有规则顺序选中首条匹配规则；该规则启用 Mock response 时，Mock 接管该请求，跳过同条 request redirect 和真实网络，不继续尝试低优先级规则。首版仅静态 JSON，response.mode 缺省保持原有真实响应替换语义；规则 schema 与 V3 backup 升为版本 9，V3 backup 3–8 继续读取且按 replace 解释，V2 不兼容承诺不变。函数 Mock 与网络失败 fallback 不进入首版。schema / backup 严格验证及 61 项 v3-domain 测试已完成；Fetch、XHR 运行时、诊断 UI 和浏览器端到端验收仍待实施。
+2026-09-27 设计检查点：同一请求仍按置顶优先、然后既有规则顺序选中首条匹配规则；该规则启用 Mock response 时，Mock 接管该请求，跳过同条 request redirect 和真实网络，不继续尝试低优先级规则。首版仅静态 JSON，response.mode 缺省保持原有真实响应替换语义；规则 schema 与 V3 backup 升为版本 9，V3 backup 3–8 继续读取且按 replace 解释，V2 不兼容承诺不变。函数 Mock 与网络失败 fallback 不进入首版。schema / backup、Fetch / XHR 运行时与面板说明均已实现；完整扩展 smoke 已验证静态 Mock 响应、真实网络未发出、命中提示标注 Mock / 跳过网络 / 状态码。浏览器 Stable 与最低版本 CI 需在最新分支提交后复跑。
 
 ## 大面板打开修复检查点（2026-09-27）
 
@@ -1082,3 +1082,11 @@ panel / popup / tabPanel 定向测试 29 项、shell TypeScript、改动文件�
 ## Vite 正式 shell 切换检查点（2026-09-27）
 
 根 `pnpm build` / `pnpm build:chrome` 已改为使用正式 Vite shell 产物，默认指向 Vue 3 面板；Webpack 扩展构建保留为 `pnpm build:chrome:webpack` 独立回退入口。正式包已补齐 V3 popup 与 sandbox 路径，并加入产物布局 smoke；Chrome / Edge Stable 与最低版本 CI 配置已改为加载正式 Vite 产物。V3 面板、Vite shell 构建、ZIP 解压、Webpack 回退构建及包边界 / 格式门禁通过。旧 Vue 2 面板及编辑器仍作为随包的独立路径保留，其构建退役和依赖清理尚未完成；品牌浏览器新矩阵需待本次推送后确认，extension E2E 最近匹配通知 smoke 也待 Mock UI 合并后复跑。
+
+## Mock、批量规则工具栏和面板高度检查点（2026-09-27）
+
+V3 静态 JSON Mock 已完成 Fetch / XHR runtime、V3 backup v9 校验及回读、编辑模式和命中说明；完整 extension smoke 验证状态码与响应体、服务端没有收到 Mock 请求，并在规则命中记录中显示 “Mock response”、“The real network request was skipped” 和 HTTP 状态。V3 backup 3–8 继续按 replace 读取。
+
+规则列表工具栏新增“删除所选”，二次确认后只删除勾选项并清空选择；组件回归验证取消确认时保留选择、未选规则和标签。导出 / 启用 / 停用 / 删除 / 清除选择统一为 11px 字号、28px 控件高度。大面板窗口上限为 840px；小视口用紧凑顶栏、诊断卡片和空状态间距，Chrome 浏览器 smoke 在 770px 高视口验证整个 shell 与空数据状态内容均位于窗口内。
+
+本地集成检查通过：全量 49 个 Vitest 文件 / 575 项、Vue 3 组件 13 个文件 / 127 项、V3 domain / protocol / proxy-lib / shell TypeScript；改动文件 ESLint / Prettier；正式 `pnpm build`、产物布局、完整 V2 / V3 extension smoke、Fetch / XHR Mock E2E、批量删除与按钮尺寸 E2E、独立面板打开 smoke、770px 高视口空状态及 400px / 360px 响应式 smoke。检查点本身完成度 100%。历史 468 / 497（94.2%）是新 Mock、正式 Vite 生产切换和近期 UI 要求加入前的旧统计口径，不能继续代表当前整体进度；最新 Chrome / Edge Stable / 最低版本远端 CI 及 Vue 2 退役仍在后续计划中。

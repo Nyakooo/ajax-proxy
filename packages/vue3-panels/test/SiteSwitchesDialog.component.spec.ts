@@ -152,6 +152,7 @@ describe('ResponseRuleEditor', () => {
           match: { url: '/api', type: 'normal', method: 'ANY' },
           status: 200,
           body: {},
+          deliveryMode: 'replace',
           mode: 'json',
           responseEnabled: true,
           tagIds: ['tag-a'],

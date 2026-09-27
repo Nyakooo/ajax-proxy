@@ -357,9 +357,19 @@ function receiveExtensionMessage(message) {
   ) {
     const rule = config.value.rules.find((candidate) => candidate.id === message.value.rule_id)
     if (!rule || !rule.enabled) return
+    const isMockOutcome = message.value.reason === 'mock-network-skipped'
+    if (
+      isMockOutcome &&
+      (message.value.stage !== 'request' ||
+        message.value.outcome !== 'applied' ||
+        !rule.response?.enabled ||
+        rule.response.mode !== 'mock')
+    ) {
+      return
+    }
     const actionEnabled =
       message.value.stage === 'request'
-        ? message.value.reason === 'network-failed'
+        ? message.value.reason === 'network-failed' || isMockOutcome
           ? Boolean(rule.request?.enabled || rule.response?.enabled)
           : Boolean(rule.request?.enabled)
         : Boolean(rule.response?.enabled)
@@ -374,7 +384,16 @@ function receiveExtensionMessage(message) {
   if (message.key !== NoticeKey.V3_HIT || !isV3HitNotice(message.value)) return
 
   const { rule_id: ruleId, count } = message.value
-  if (!config.value.rules.some((rule) => rule.id === ruleId)) return
+  const hitRule = config.value.rules.find((rule) => rule.id === ruleId)
+  if (!hitRule) return
+  if (
+    message.value.response_mode === 'mock' &&
+    (message.value.network_skipped !== true ||
+      hitRule.response?.enabled !== true ||
+      hitRule.response.mode !== 'mock')
+  ) {
+    return
+  }
   if (count > (hitCounters.value[ruleId] ?? 0)) {
     hitCounters.value = { ...hitCounters.value, [ruleId]: count }
   }
@@ -957,6 +976,7 @@ async function saveResponseRule(fields) {
     match: fields.match,
     statusDraft: fields.status,
     bodyDraft: JSON.stringify(fields.body),
+    deliveryMode: fields.deliveryMode,
     existingRule: existing ? { ...existing, enabled: fields.enabled } : undefined,
   })
   if (!result.ok) {
@@ -1132,6 +1152,17 @@ async function setSelectedRulesEnabled(value) {
   const nextRules = config.value.rules.map((rule) =>
     selected.has(rule.id) && rule.enabled !== value ? { ...rule, enabled: value } : rule
   )
+  if (await persistConfig({ ...config.value, rules: nextRules })) selectedRuleIds.value = []
+}
+
+async function deleteSelectedRules() {
+  const selected = new Set(selectedRuleIds.value)
+  if (
+    selected.size === 0 ||
+    !window.confirm(t('rules.confirmDeleteSelected', { count: selected.size }))
+  )
+    return
+  const nextRules = config.value.rules.filter((rule) => !selected.has(rule.id))
   if (await persistConfig({ ...config.value, rules: nextRules })) selectedRuleIds.value = []
 }
 
@@ -1518,6 +1549,13 @@ async function deleteRule(rule) {
               @click="setSelectedRulesEnabled(false)"
             />
             <AppButton
+              :label="t('rules.deleteSelected')"
+              severity="danger"
+              outlined
+              :disabled="saving || loading"
+              @click="deleteSelectedRules"
+            />
+            <AppButton
               :label="t('rules.clearSelection')"
               severity="secondary"
               text
@@ -1683,6 +1721,20 @@ async function deleteRule(rule) {
                     {{ t(`diagnostics.outcomes.status.${event.outcome}`) }} ·
                     {{ t(`diagnostics.outcomes.reason.${event.reason}`) }}
                   </small>
+                  <small
+                    v-if="event.reason === 'mock-network-skipped' && event.stage === 'request'"
+                    class="mock-outcome-notice"
+                  >
+                    <strong>{{ t('diagnostics.mockResponse.label') }}</strong>
+                    {{ t('diagnostics.mockResponse.networkSkipped') }} ·
+                    {{
+                      t('diagnostics.mockResponse.httpStatus', {
+                        status:
+                          config.rules.find((rule) => rule.id === event.rule_id)?.response?.replace
+                            ?.status ?? 200,
+                      })
+                    }}
+                  </small>
                   <small>
                     {{ t('diagnostics.actionOutcomes.correlationId') }}:
                     <code>{{ event.correlation_id.slice(-16) }}</code>
@@ -1711,6 +1763,14 @@ async function deleteRule(rule) {
                     t('rules.matchedRequest', { method: match.method, url: match.url })
                   }}</code>
                   <small>{{ t('rules.matchCondition', { url: match.match_url }) }}</small>
+                  <small
+                    v-if="match.response_mode === 'mock' && match.network_skipped === true"
+                    class="mock-hit-notice"
+                  >
+                    <strong>{{ t('diagnostics.mockResponse.label') }}</strong>
+                    {{ t('diagnostics.mockResponse.networkSkipped') }} ·
+                    {{ t('diagnostics.mockResponse.httpStatus', { status: match.status }) }}
+                  </small>
                 </div>
                 <time :datetime="new Date(match.receivedAt).toISOString()">
                   {{ formatMatchTime(match.receivedAt) }}
@@ -1934,7 +1994,7 @@ async function deleteRule(rule) {
             />
           </nav>
 
-          <div v-else class="empty-state">
+          <div v-else-if="!visibleRules.length" class="empty-state">
             <div class="empty-illustration">⌕</div>
             <h2>
               {{ search || ruleFiltersActive ? t('rules.noSearchResults') : t('rules.noRules') }}

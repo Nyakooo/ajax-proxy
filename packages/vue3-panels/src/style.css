@@ -90,7 +90,7 @@ input {
 
 .shell {
   width: min(1240px, calc(100vw - 56px));
-  min-height: min(850px, calc(100vh - 48px));
+  min-height: min(790px, calc(100vh - 48px));
   margin: 24px auto;
   overflow: hidden;
   border: 1px solid var(--ap-border);
@@ -251,7 +251,7 @@ input {
 
 .workspace {
   display: grid;
-  min-height: 730px;
+  min-height: min(680px, calc(100vh - 132px));
   grid-template-columns: 220px minmax(0, 1fr);
 }
 
@@ -624,6 +624,22 @@ input {
   font-family: var(--ap-font-ui);
 }
 
+.mock-hit-notice strong,
+.mock-outcome-notice strong {
+  display: inline-flex;
+  align-items: center;
+  margin-right: 4px;
+  padding: 1px 6px;
+  border: 1px solid color-mix(in srgb, var(--ap-teal) 38%, var(--ap-border));
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--ap-teal) 10%, var(--ap-card));
+  color: var(--ap-teal);
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1.45;
+  white-space: nowrap;
+}
+
 .recent-matches-list time {
   flex: 0 0 auto;
   color: var(--ap-muted);
@@ -819,6 +835,14 @@ input {
   margin-right: auto;
   color: var(--ap-muted);
   font-size: 11px;
+}
+
+.bulk-actions .p-button {
+  min-height: 28px;
+  padding: 4px 8px;
+  font-size: 11px;
+  line-height: 1.2;
+  white-space: nowrap;
 }
 
 .rule-order {
@@ -1490,7 +1514,7 @@ input {
 
 .empty-state {
   display: flex;
-  min-height: 370px;
+  min-height: 300px;
   flex-direction: column;
   align-items: center;
   justify-content: center;
@@ -1643,6 +1667,32 @@ input {
 
 .app-dark .ap-pt-button-primary {
   color: var(--ap-text-on-primary);
+}
+
+@media (max-height: 850px) {
+  .shell {
+    margin-top: 12px;
+    margin-bottom: 0;
+  }
+
+  .topbar {
+    min-height: 74px;
+  }
+
+  .recent-matches.no-match-diagnostics,
+  .recent-matches.fetch-outcome-diagnostics {
+    margin-top: 8px;
+    padding: 7px 10px 4px;
+  }
+
+  .recent-matches.no-match-diagnostics .diagnostic-summary,
+  .recent-matches.fetch-outcome-diagnostics .diagnostic-summary {
+    margin-top: 6px;
+  }
+
+  .empty-state {
+    min-height: 260px;
+  }
 }
 
 @media (max-width: 900px) {

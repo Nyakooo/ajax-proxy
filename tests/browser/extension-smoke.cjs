@@ -1088,6 +1088,7 @@ async function main() {
     assert.deepEqual(v3UiRule.match, { url: '/api/v3-ui', type: 'normal', method: 'POST' })
     assert.deepEqual(v3UiRule.response, {
       enabled: true,
+      mode: 'replace',
       replace: { status: 203, body: { origin: 'v3-ui', ok: true, items: [2, 1] } },
     })
     assert.deepEqual(
@@ -2122,6 +2123,7 @@ async function main() {
     assert.equal(exactBackupVersion, 9, 'saving an exact matcher keeps the latest backup format')
     assert.deepEqual(quickCreatedRule.response, {
       enabled: true,
+      mode: 'replace',
       replace: { status: 200, body: {} },
     })
     assert.equal(quickCreatedRule.request, undefined)
@@ -2292,6 +2294,26 @@ async function main() {
         const match = { url: '/api/v3-exclusion', method: 'POST', type: 'normal' }
         const rules = [
           {
+            id: 'v3-static-mock-fetch-extension-smoke',
+            enabled: true,
+            match: { url: '/api/v3-mock-fetch', method: 'GET', type: 'normal' },
+            response: {
+              enabled: true,
+              mode: 'mock',
+              replace: { status: 201, body: { source: 'mock', api: 'fetch' } },
+            },
+          },
+          {
+            id: 'v3-static-mock-xhr-extension-smoke',
+            enabled: true,
+            match: { url: '/api/v3-mock-xhr', method: 'GET', type: 'normal' },
+            response: {
+              enabled: true,
+              mode: 'mock',
+              replace: { status: 202, body: { source: 'mock', api: 'xhr' } },
+            },
+          },
+          {
             id: 'v3-function-redirect-extension-smoke',
             enabled: true,
             match: { url: '/api/v3-function-redirect', method: 'POST', type: 'normal' },
@@ -2352,7 +2374,7 @@ async function main() {
         await chrome.storage.local.set({
           [key]: {
             ...config,
-            formatVersion: 8,
+            formatVersion: 9,
             disabledOrigins: [],
             rules: [...rules, ...config.rules],
           },
@@ -2361,9 +2383,47 @@ async function main() {
       { key: 'ajax-proxy:storage:v3-config', port }
     )
     await restartedPage.reload()
+    await v3Panel.reload()
+    await v3Panel.getByText('/api/v3-mock-fetch', { exact: true }).waitFor()
     await restartedPage.waitForFunction(() =>
       document.getElementById('ajax-proxy-v3-function-sandbox')
     )
+    const mockFetchResult = await restartedPage.evaluate(async () => {
+      const response = await fetch('/api/v3-mock-fetch')
+      return { status: response.status, body: await response.json() }
+    })
+    assert.deepEqual(mockFetchResult, {
+      status: 201,
+      body: { source: 'mock', api: 'fetch' },
+    })
+    const mockXhrResult = await restartedPage.evaluate(
+      () =>
+        new Promise((resolve, reject) => {
+          const request = new XMLHttpRequest()
+          request.onload = () =>
+            resolve({ status: request.status, body: JSON.parse(request.responseText) })
+          request.onerror = () => reject(new Error('static Mock XHR failed'))
+          request.open('GET', '/api/v3-mock-xhr')
+          request.send()
+        })
+    )
+    assert.deepEqual(mockXhrResult, {
+      status: 202,
+      body: { source: 'mock', api: 'xhr' },
+    })
+    await restartedPage.waitForTimeout(50)
+    assert.equal(
+      requests.filter(({ url }) => url === '/api/v3-mock-fetch' || url === '/api/v3-mock-xhr')
+        .length,
+      0,
+      'static Mock should not send the matched requests to the server'
+    )
+    await v3Panel.waitForFunction(() => document.querySelectorAll('.mock-hit-notice').length >= 2)
+    const mockNotice = v3Panel.locator('.mock-hit-notice').first()
+    const mockNoticeText = await mockNotice.innerText()
+    assert.match(mockNoticeText, /Mock response/)
+    assert.match(mockNoticeText, /The real network request was skipped/)
+    assert.match(mockNoticeText, /HTTP status (201|202)/)
     const functionRedirectFetch = await restartedPage.evaluate(async () => {
       const response = await fetch('/api/v3-function-redirect', {
         method: 'POST',

@@ -9,9 +9,9 @@ afterEach(() => {
   document.body.innerHTML = ''
 })
 
-async function mountFunctionEditor() {
+async function mountFunctionEditor(rule = null) {
   const wrapper = mount(ResponseRuleEditor, {
-    props: { open: true },
+    props: { open: true, rule },
     attachTo: document.body,
     global: {
       plugins: [i18n],
@@ -27,9 +27,9 @@ async function mountFunctionEditor() {
   return wrapper
 }
 
-async function mountJsonEditor() {
+async function mountJsonEditor(rule = null) {
   const wrapper = mount(ResponseRuleEditor, {
-    props: { open: true },
+    props: { open: true, rule },
     attachTo: document.body,
     global: {
       plugins: [i18n],
@@ -84,6 +84,69 @@ describe('ResponseRuleEditor function response confirmation', () => {
 })
 
 describe('ResponseRuleEditor JSON editing modes', () => {
+  it('creates and edits static JSON delivery modes, while legacy rules default to replacement', async () => {
+    const created = await mountJsonEditor()
+    expect(
+      created.get('input[name="response-delivery-mode"][value="replace"]').element.checked
+    ).toBe(true)
+    await created.get('input[name="response-delivery-mode"][value="mock"]').setValue()
+    await created.get('form').trigger('submit')
+    expect(created.emitted('save')?.[0]?.[0]).toMatchObject({
+      mode: 'json',
+      deliveryMode: 'mock',
+      status: 200,
+    })
+
+    const edited = await mountJsonEditor({
+      id: 'mock-rule',
+      enabled: true,
+      match: { url: '/mock' },
+      response: { enabled: true, mode: 'mock', replace: { status: 202, body: { ok: true } } },
+    })
+    expect(edited.get('input[name="response-delivery-mode"][value="mock"]').element.checked).toBe(
+      true
+    )
+    await edited.get('form').trigger('submit')
+    expect(edited.emitted('save')?.[0]?.[0]).toMatchObject({
+      deliveryMode: 'mock',
+      status: 202,
+      body: { ok: true },
+    })
+  })
+
+  it('hides mock mode for function responses and omits its delivery mode from saves', async () => {
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true)
+    const wrapper = await mountJsonEditor({
+      id: 'mock-rule',
+      enabled: true,
+      match: { url: '/mock' },
+      response: { enabled: true, mode: 'mock', replace: { status: 200, body: {} } },
+    })
+    await wrapper.get('input[name="response-mode"][value="function"]').setValue()
+    expect(wrapper.find('input[name="response-delivery-mode"]').exists()).toBe(false)
+    await wrapper.get('form').trigger('submit')
+    expect(confirm).toHaveBeenCalledOnce()
+    const savedFunction = wrapper.emitted('save')?.[0]?.[0]
+    expect(savedFunction).toMatchObject({ mode: 'function' })
+    expect(savedFunction).not.toHaveProperty('deliveryMode')
+
+    wrapper.unmount()
+    const switching = await mountJsonEditor({
+      id: 'mock-rule',
+      enabled: true,
+      match: { url: '/mock' },
+      response: { enabled: true, mode: 'mock', replace: { status: 200, body: {} } },
+    })
+    await switching.get('input[name="response-delivery-mode"][value="mock"]').setValue()
+    await switching.get('input[name="response-mode"][value="function"]').setValue()
+    await switching.get('input[name="response-mode"][value="json"]').setValue()
+    expect(
+      switching.get('input[name="response-delivery-mode"][value="replace"]').element.checked
+    ).toBe(true)
+    await switching.get('form').trigger('submit')
+    expect(switching.emitted('save')?.[0]?.[0]).toMatchObject({ deliveryMode: 'replace' })
+  })
+
   it('closes only through Cancel or X, keeps backdrop and Escape inert, and still saves', async () => {
     const wrapper = await mountJsonEditor()
 

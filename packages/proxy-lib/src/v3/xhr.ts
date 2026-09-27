@@ -21,6 +21,77 @@ interface ReplacementResolution {
   hasBody: boolean
 }
 
+interface MockResponse {
+  status: number
+  statusText: string
+  body: string
+  headers: Map<string, { name: string; value: string }>
+}
+
+const statusTexts: Record<number, string> = {
+  200: 'OK',
+  201: 'Created',
+  202: 'Accepted',
+  203: 'Non-Authoritative Information',
+  204: 'No Content',
+  205: 'Reset Content',
+  206: 'Partial Content',
+  301: 'Moved Permanently',
+  302: 'Found',
+  303: 'See Other',
+  304: 'Not Modified',
+  307: 'Temporary Redirect',
+  308: 'Permanent Redirect',
+  400: 'Bad Request',
+  401: 'Unauthorized',
+  403: 'Forbidden',
+  404: 'Not Found',
+  405: 'Method Not Allowed',
+  409: 'Conflict',
+  410: 'Gone',
+  418: "I'm a Teapot",
+  422: 'Unprocessable Content',
+  429: 'Too Many Requests',
+  500: 'Internal Server Error',
+  501: 'Not Implemented',
+  502: 'Bad Gateway',
+  503: 'Service Unavailable',
+  504: 'Gateway Timeout',
+}
+
+function prepareMock(xhr: XMLHttpRequest, rule: V3Rule, method: string): MockResponse | undefined {
+  const config = rule.response?.replace
+  if (!rule.response?.enabled || rule.response.mode !== 'mock' || !config || config.code) return
+  const status = config.status ?? 200
+  if (!Number.isInteger(status) || status < 200 || status > 599) return
+  const responseType = xhr.responseType
+  if (!['', 'text', 'json', 'arraybuffer', 'blob', 'document'].includes(responseType)) return
+  let body = ''
+  try {
+    if (config.body !== undefined) body = JSON.stringify(config.body) ?? ''
+  } catch {
+    return
+  }
+  const headers = new Map<string, { name: string; value: string }>()
+  for (const [name, value] of Object.entries(config.headers ?? {})) {
+    const key = name.toLowerCase()
+    const prior = headers.get(key)
+    headers.set(key, {
+      name: prior?.name ?? name,
+      value: prior ? `${prior.value}, ${value}` : value,
+    })
+  }
+  if (!headers.has('content-type')) {
+    headers.set('content-type', { name: 'Content-Type', value: 'application/json' })
+  }
+  if (method.toUpperCase() === 'HEAD' || [204, 205, 304].includes(status)) body = ''
+  return { status, statusText: statusTexts[status] ?? '', body, headers }
+}
+
+function makeProgressEvent(type: string): Event {
+  return typeof ProgressEvent === 'undefined' ? new Event(type) : new ProgressEvent(type)
+}
+
 const correlationNonce = Math.random().toString(36).slice(2, 10)
 let correlationSequence = 0
 
@@ -115,6 +186,16 @@ export function createV3XHR(NativeXHR: V3XHRConstructor, options: V3XHROptions):
     constructor() {
       super()
       let selected: V3Rule | undefined
+      let mockResponse: MockResponse | undefined
+      let mockRequested = false
+      let mockReadyState = 0
+      let mockFailureType: 'abort' | 'timeout' | 'error' | undefined
+      let mockResponseValue: unknown = null
+      let mockResponseText = ''
+      let mockSent = false
+      let mockUrl = ''
+      let mockTimer: ReturnType<typeof setTimeout> | undefined
+      let mockTimeoutTimer: ReturnType<typeof setTimeout> | undefined
       let replacementResolution: ReplacementResolution | undefined
       let replacementResolved = false
       let replacementOutcomeReported = false
@@ -171,12 +252,119 @@ export function createV3XHR(NativeXHR: V3XHRConstructor, options: V3XHROptions):
         return wrapper
       }
 
+      const clearMockTimers = () => {
+        if (mockTimer !== undefined) clearTimeout(mockTimer)
+        if (mockTimeoutTimer !== undefined) clearTimeout(mockTimeoutTimer)
+        mockTimer = undefined
+        mockTimeoutTimer = undefined
+      }
+
+      const dispatchMock = (type: string) => this.dispatchEvent(makeProgressEvent(type))
+      const mockFailure = (type: 'abort' | 'timeout' | 'error') => {
+        clearMockTimers()
+        mockFailureType = type
+        mockReadyState = 4
+        mockResponseValue = null
+        mockResponseText = ''
+        dispatchMock('readystatechange')
+        dispatchMock(type)
+        dispatchMock('loadend')
+      }
+
+      const scheduleMockResponse = () => {
+        mockTimer = setTimeout(() => {
+          mockTimer = undefined
+          if (!mockResponse || !mockSent || mockReadyState === 4) return
+          mockReadyState = 2
+          dispatchMock('readystatechange')
+          mockTimer = setTimeout(() => {
+            mockTimer = undefined
+            if (!mockResponse || !mockSent || mockReadyState === 4) return
+            mockReadyState = 3
+            dispatchMock('readystatechange')
+            mockTimer = setTimeout(() => {
+              mockTimer = undefined
+              if (!mockResponse || !mockSent || mockReadyState === 4) return
+              const noBody = !mockResponse.body
+              mockResponseText = noBody ? '' : mockResponse.body
+              const responseType = this.responseType
+              if (noBody) {
+                if (responseType === 'json') mockResponseValue = null
+                else if (responseType === 'arraybuffer') mockResponseValue = new ArrayBuffer(0)
+                else if (responseType === 'blob') mockResponseValue = new Blob()
+                else if (responseType === 'document') mockResponseValue = null
+                else mockResponseValue = ''
+              } else if (responseType === 'json') {
+                try {
+                  mockResponseValue = JSON.parse(mockResponse.body)
+                } catch {
+                  mockResponseValue = null
+                }
+              } else if (responseType === 'arraybuffer') {
+                mockResponseValue = new TextEncoder().encode(mockResponse.body).buffer
+              } else if (responseType === 'blob') {
+                mockResponseValue = new Blob([mockResponse.body], {
+                  type: mockResponse.headers.get('content-type')?.value ?? '',
+                })
+              } else if (responseType === 'document') {
+                const mimeType = mockResponse.headers
+                  .get('content-type')
+                  ?.value.split(';', 1)[0]
+                  .trim()
+                  .toLowerCase()
+                if (
+                  typeof DOMParser !== 'undefined' &&
+                  [
+                    'text/html',
+                    'application/xml',
+                    'text/xml',
+                    'application/xhtml+xml',
+                    'image/svg+xml',
+                  ].includes(mimeType ?? '')
+                ) {
+                  mockResponseValue = new DOMParser().parseFromString(
+                    mockResponse.body,
+                    mimeType as DOMParserSupportedType
+                  )
+                } else mockResponseValue = null
+              } else mockResponseValue = mockResponse.body
+              mockReadyState = 4
+              if (mockTimeoutTimer !== undefined) clearTimeout(mockTimeoutTimer)
+              mockTimeoutTimer = undefined
+              dispatchMock('readystatechange')
+              dispatchMock('progress')
+              dispatchMock('load')
+              dispatchMock('loadend')
+              if (selected && correlationId) {
+                outcomeReason(
+                  'request',
+                  'applied',
+                  'mock-network-skipped',
+                  options,
+                  selected,
+                  correlationId
+                )
+              }
+            }, 1)
+          }, 1)
+        }, 1)
+      }
+
       const proxy = new Proxy(this, {
         get(target, property) {
           if (property === 'open') {
             return (...args: Parameters<XMLHttpRequest['open']>) => {
               const [method, url, async] = args
               selected = undefined
+              mockRequested = false
+              clearMockTimers()
+              mockResponse = undefined
+              mockReadyState = 0
+              mockFailureType = undefined
+              mockResponseValue = null
+              mockResponseText = ''
+              mockSent = false
+              mockUrl = ''
               replacementResolution = undefined
               replacementResolved = false
               replacementOutcomeReported = false
@@ -204,8 +392,22 @@ export function createV3XHR(NativeXHR: V3XHRConstructor, options: V3XHROptions):
                 })
                 if (match) {
                   selected = match.rule
+                  mockRequested =
+                    match.rule.response?.enabled === true && match.rule.response.mode === 'mock'
+                  const matchedMock = prepareMock(target, match.rule, method)
+                  if (matchedMock) {
+                    mockResponse = matchedMock
+                    mockReadyState = 1
+                    mockUrl = originalUrl
+                  }
                   try {
-                    options.onMatched?.(match.rule, match.index, match.originalRequest)
+                    if (matchedMock) {
+                      options.onMatched?.(match.rule, match.index, match.originalRequest, {
+                        responseMode: 'mock',
+                        status: matchedMock.status,
+                        networkSkipped: true,
+                      })
+                    } else options.onMatched?.(match.rule, match.index, match.originalRequest)
                   } catch {
                     // Metrics/notification failures must not affect the request.
                   }
@@ -234,7 +436,10 @@ export function createV3XHR(NativeXHR: V3XHRConstructor, options: V3XHROptions):
                   ? redirectConfig.url
                   : undefined
               const targetUrl =
-                redirect?.enabled && !redirectExcluded && typeof redirectValue === 'string'
+                !mockRequested &&
+                redirect?.enabled &&
+                !redirectExcluded &&
+                typeof redirectValue === 'string'
                   ? resolveRedirect(redirectValue, originalUrl)
                   : undefined
               // XHR open() is synchronous, so dynamic redirect functions are unsupported.
@@ -267,6 +472,22 @@ export function createV3XHR(NativeXHR: V3XHRConstructor, options: V3XHROptions):
 
           if (property === 'send') {
             return (...args: Parameters<XMLHttpRequest['send']>) => {
+              if (mockResponse) {
+                if (mockSent)
+                  throw new DOMException('The request has already been sent.', 'InvalidStateError')
+                mockSent = true
+                const armed =
+                  options.onXHROutcome !== undefined &&
+                  (options.isFetchOutcomeDiagnosticsArmed?.() ?? true)
+                if (armed && selected) correlationId ??= createCorrelationId()
+                dispatchMock('loadstart')
+                const timeout = Number(target.timeout)
+                if (timeout > 0) {
+                  mockTimeoutTimer = setTimeout(() => mockFailure('timeout'), timeout)
+                }
+                scheduleMockResponse()
+                return
+              }
               const armed =
                 options.onXHROutcome !== undefined &&
                 (options.isFetchOutcomeDiagnosticsArmed?.() ?? true)
@@ -319,6 +540,48 @@ export function createV3XHR(NativeXHR: V3XHRConstructor, options: V3XHROptions):
                 throw error
               }
             }
+          }
+
+          if (property === 'abort') {
+            return () => {
+              if (mockResponse && mockSent && mockReadyState !== 4) {
+                mockFailure('abort')
+                return
+              }
+              return target.abort()
+            }
+          }
+
+          if (property === 'readyState' && mockResponse) return mockReadyState
+          if (property === 'status' && mockResponse)
+            return mockReadyState < 2 || mockFailureType ? 0 : mockResponse.status
+          if (property === 'statusText' && mockResponse)
+            return mockReadyState < 2 || mockFailureType ? '' : mockResponse.statusText
+          if (property === 'responseURL' && mockResponse) return mockReadyState < 2 ? '' : mockUrl
+          if (property === 'response' && mockResponse)
+            return mockReadyState === 4 && !mockFailureType ? mockResponseValue : null
+          if (property === 'responseText' && mockResponse) {
+            if (target.responseType !== '' && target.responseType !== 'text') {
+              throw new DOMException(
+                'responseText is only available for text responses.',
+                'InvalidStateError'
+              )
+            }
+            return mockReadyState === 4 && !mockFailureType ? mockResponseText : ''
+          }
+          if (property === 'getResponseHeader' && mockResponse) {
+            return (name: string) => {
+              if (mockReadyState < 2 || mockFailureType) return null
+              return mockResponse?.headers.get(name.toLowerCase())?.value ?? null
+            }
+          }
+          if (property === 'getAllResponseHeaders' && mockResponse) {
+            return () =>
+              mockReadyState < 2 || mockFailureType
+                ? ''
+                : [...(mockResponse?.headers.values() ?? [])]
+                    .map(({ name, value }) => `${name}: ${value}\r\n`)
+                    .join('')
           }
 
           if (property === 'setRequestHeader') {

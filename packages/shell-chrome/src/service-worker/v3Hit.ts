@@ -55,6 +55,11 @@ export function chromeBadgeV3(hit: V3Hit) {
         match_url: hit.match_url,
         method: hit.method,
         url: hit.url ?? hit.match_url,
+        ...(hit.response_mode === 'mock' && {
+          response_mode: hit.response_mode,
+          status: hit.status,
+          network_skipped: hit.network_skipped,
+        }),
       })
     })
     .catch((error) => {

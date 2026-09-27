@@ -6,21 +6,26 @@ import type { V3RuntimeHostOptions } from '../../src/v3/runtimeOptions'
 
 afterEach(() => {
   vi.restoreAllMocks()
+  vi.useRealTimers()
   FakeXHR.failRedirectOpenTarget = false
   FakeXHR.sendFailure = undefined
+  FakeXHR.sendCalls = 0
 })
 
 class FakeXHR extends EventTarget {
   static failRedirectOpenTarget = false
   static sendFailure: Error | undefined
+  static sendCalls = 0
   readyState = 0
   responseType: XMLHttpRequestResponseType = ''
   status = 200
   statusText = 'OK'
   response: unknown = ''
+  timeout = 0
   responseText = ''
   onreadystatechange: ((this: XMLHttpRequest, event: Event) => unknown) | null = null
   onload: ((this: XMLHttpRequest, event: Event) => unknown) | null = null
+  onerror: ((this: XMLHttpRequest, event: Event) => unknown) | null = null
   openArgs: unknown[] = []
   requestHeaders: Array<[string, string]> = []
   sentBody: Document | XMLHttpRequestBodyInit | null | undefined
@@ -41,6 +46,7 @@ class FakeXHR extends EventTarget {
     this.requestHeaders.push([name, value])
   })
   send = vi.fn((body?: Document | XMLHttpRequestBodyInit | null) => {
+    FakeXHR.sendCalls += 1
     if (FakeXHR.sendFailure) throw FakeXHR.sendFailure
     this.sentBody = body
   })
@@ -84,7 +90,7 @@ function rule(id: string, options: Partial<V3Rule> = {}): V3Rule {
 
 function makeXHR(
   rules: readonly V3Rule[],
-  onMatched?: (rule: V3Rule, index: number, request: { url: string; method: string }) => void,
+  onMatched?: V3RuntimeHostOptions['onMatched'],
   onNoMatch?: (request: { url: string; method: string }) => void,
   onXHROutcome?: V3RuntimeHostOptions['onXHROutcome'],
   armed = false,
@@ -102,6 +108,182 @@ function makeXHR(
 }
 
 describe('createV3XHR', () => {
+  it('returns asynchronous mock JSON without calling native send and exposes status and headers', async () => {
+    vi.useFakeTimers()
+    const selected = rule('xhr-mock', {
+      request: { enabled: true, redirect: { url: 'https://redirect.test/api' } },
+      response: {
+        enabled: true,
+        mode: 'mock',
+        replace: { status: 201, headers: { 'X-Mock': 'yes' }, body: { ok: true } },
+      },
+    })
+    const onMatched = vi.fn()
+    const xhr = makeXHR([selected], onMatched)
+    xhr.responseType = 'json'
+    const seen: string[] = []
+    xhr.addEventListener('readystatechange', () => seen.push(`rs${xhr.readyState}`))
+    xhr.addEventListener('loadstart', () => seen.push('loadstart'))
+    xhr.addEventListener('progress', () => seen.push('progress'))
+    xhr.addEventListener('load', () => seen.push('load'))
+    xhr.addEventListener('loadend', () => seen.push('loadend'))
+
+    xhr.open('POST', 'https://example.test/api', true)
+    expect(xhr.readyState).toBe(1)
+    expect(xhr.openArgs).toEqual(['POST', 'https://example.test/api', true])
+    expect(onMatched).toHaveBeenCalledExactlyOnceWith(
+      selected,
+      0,
+      {
+        url: 'https://example.test/api',
+        method: 'POST',
+      },
+      { responseMode: 'mock', status: 201, networkSkipped: true }
+    )
+    xhr.send()
+    expect(FakeXHR.sendCalls).toBe(0)
+    expect(seen).toEqual(['loadstart'])
+
+    await vi.runAllTimersAsync()
+
+    expect(seen).toEqual(['loadstart', 'rs2', 'rs3', 'rs4', 'progress', 'load', 'loadend'])
+    expect(xhr.status).toBe(201)
+    expect(xhr.statusText).toBe('Created')
+    expect(xhr.response).toEqual({ ok: true })
+    expect(xhr.getResponseHeader('x-MOCK')).toBe('yes')
+    expect(xhr.getResponseHeader('content-type')).toBe('application/json')
+    expect(xhr.getAllResponseHeaders()).toContain('X-Mock: yes\r\n')
+  })
+
+  it('reports a skipped-network outcome after Mock completion only while armed', async () => {
+    vi.useFakeTimers()
+    const selected = rule('xhr-mock-outcome', {
+      response: { enabled: true, mode: 'mock', replace: { status: 202, body: { ok: true } } },
+    })
+    const onXHROutcome = vi.fn()
+    const xhr = makeXHR([selected], undefined, undefined, onXHROutcome, true)
+    xhr.open('POST', 'https://example.test/api', true)
+    xhr.send()
+    await vi.runAllTimersAsync()
+
+    expect(onXHROutcome).toHaveBeenCalledExactlyOnceWith(
+      selected,
+      expect.stringMatching(/^v3-xhr-/),
+      'request',
+      'applied',
+      'mock-network-skipped'
+    )
+
+    const disarmedOutcome = vi.fn()
+    const disarmed = makeXHR([selected], undefined, undefined, disarmedOutcome, false)
+    disarmed.open('POST', 'https://example.test/api', true)
+    disarmed.send()
+    await vi.runAllTimersAsync()
+    expect(disarmedOutcome).not.toHaveBeenCalled()
+  })
+
+  it('emits abort and timeout events asynchronously and never sends the native request', async () => {
+    vi.useFakeTimers()
+    const xhr = makeXHR([
+      rule('xhr-mock-cancel', {
+        response: { enabled: true, mode: 'mock', replace: { body: { ok: true } } },
+      }),
+    ])
+    const seen: string[] = []
+    xhr.addEventListener('readystatechange', () => seen.push(`rs${xhr.readyState}`))
+    xhr.addEventListener('abort', () => seen.push('abort'))
+    xhr.addEventListener('timeout', () => seen.push('timeout'))
+    xhr.addEventListener('loadend', () => seen.push('loadend'))
+
+    xhr.open('POST', 'https://example.test/api', true)
+    xhr.send()
+    xhr.abort()
+    expect(seen).toEqual(['rs4', 'abort', 'loadend'])
+    expect(xhr.status).toBe(0)
+    await vi.runAllTimersAsync()
+    expect(seen).toEqual(['rs4', 'abort', 'loadend'])
+
+    xhr.open('POST', 'https://example.test/api', true)
+    xhr.timeout = 2
+    xhr.send()
+    await vi.advanceTimersByTimeAsync(2)
+    expect(seen.slice(-3)).toEqual(['rs4', 'timeout', 'loadend'])
+    expect(xhr.status).toBe(0)
+    expect(FakeXHR.sendCalls).toBe(0)
+  })
+
+  it('honors responseType configured after open', async () => {
+    vi.useFakeTimers()
+    const xhr = makeXHR([
+      rule('xhr-mock-arraybuffer', {
+        response: { enabled: true, mode: 'mock', replace: { body: 'data' } },
+      }),
+    ])
+    xhr.open('POST', 'https://example.test/api', true)
+    xhr.responseType = 'arraybuffer'
+    xhr.send()
+    await vi.runAllTimersAsync()
+
+    expect(Array.from(new Uint8Array(xhr.response as ArrayBuffer))).toEqual([
+      34, 100, 97, 116, 97, 34,
+    ])
+    expect(() => xhr.responseText).toThrowError(DOMException)
+  })
+
+  it.each([
+    ['HEAD', 200],
+    ['GET', 204],
+    ['GET', 205],
+    ['GET', 304],
+  ] as const)('returns an empty mock body for %s status %s', async (method, status) => {
+    vi.useFakeTimers()
+    const xhr = makeXHR([
+      rule(`xhr-mock-empty-${method}-${status}`, {
+        match: { url: '/api', method },
+        response: {
+          enabled: true,
+          mode: 'mock',
+          replace: { status, body: { mustNotAppear: true } },
+        },
+      }),
+    ])
+    xhr.open(method, 'https://example.test/api', true)
+    xhr.send()
+    await vi.runAllTimersAsync()
+
+    expect(xhr.status).toBe(status)
+    expect(xhr.responseText).toBe('')
+    expect(FakeXHR.sendCalls).toBe(0)
+  })
+
+  it('fails open without claiming mock success for unsupported response code and preserves native errors', () => {
+    const selected = rule('xhr-mock-error', {
+      response: {
+        enabled: true,
+        mode: 'mock',
+        replace: { code: 'return { body: { ok: true } }' },
+      },
+    })
+    const onMatched = vi.fn()
+    const xhr = makeXHR([selected], onMatched)
+    xhr.responseType = 'json'
+    const onError = vi.fn()
+    xhr.onerror = onError
+    xhr.open('POST', 'https://example.test/api', true)
+    xhr.send()
+    xhr.fail('error')
+
+    expect(onMatched).toHaveBeenCalledExactlyOnceWith(selected, 0, {
+      url: 'https://example.test/api',
+      method: 'POST',
+    })
+    expect(xhr.sentBody).toBeUndefined()
+    expect(FakeXHR.sendCalls).toBe(1)
+    expect(onError).toHaveBeenCalledOnce()
+    expect(xhr.status).toBe(0)
+    expect(xhr.response).toBe('')
+  })
+
   it('overrides caller headers on static redirects and strips sensitive headers cross-origin', () => {
     const selectedRule = rule('static-redirect-headers', {
       request: {

@@ -11,6 +11,9 @@ import type { V3Rule } from '@proxy/v3-domain'
 
 function matchesAction(rule: V3Rule, value: V3XHROutcome) {
   if (value.stage === 'request') {
+    if (value.reason === V3XHROutcomeReason.MOCK_NETWORK_SKIPPED) {
+      return Boolean(rule.response?.enabled && rule.response.mode === 'mock')
+    }
     return (
       Boolean(rule.request?.enabled) &&
       (value.reason === V3XHROutcomeReason.REDIRECT_APPLIED ||
@@ -28,6 +31,9 @@ function matchesAction(rule: V3Rule, value: V3XHROutcome) {
 }
 
 function matchesOutcome(value: V3XHROutcome) {
+  if (value.reason === V3XHROutcomeReason.MOCK_NETWORK_SKIPPED) {
+    return value.stage === 'request' && value.outcome === 'applied'
+  }
   if (value.reason === V3XHROutcomeReason.REDIRECT_APPLIED) {
     return value.stage === 'request' && value.outcome === 'applied'
   }

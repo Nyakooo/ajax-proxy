@@ -34,7 +34,7 @@ const backup = (overrides: Record<string, unknown> = {}) => ({
       id: 'rule-a',
       enabled: true,
       request: { enabled: true },
-      response: { enabled: true },
+      response: { enabled: true, mode: 'mock' },
     },
     {
       id: 'rule-disabled',
@@ -100,6 +100,25 @@ describe('notifyV3XHROutcome', () => {
     setup({ armed: false })
     expect(await notifyV3XHROutcome(requestOutcome)).toBe(false)
     expect(mocks.noticePanelsByServiceWorker).not.toHaveBeenCalled()
+  })
+
+  it('forwards a skipped-network Mock outcome only for an enabled Mock response rule', async () => {
+    setup()
+    const mock = {
+      ...requestOutcome,
+      stage: 'request',
+      outcome: 'applied',
+      reason: 'mock-network-skipped',
+    }
+    expect(await notifyV3XHROutcome(mock)).toBe(true)
+    expect(mocks.noticePanelsByServiceWorker).toHaveBeenCalledWith('v3-fetch-outcome', mock)
+
+    setup({
+      config: backup({
+        rules: [{ id: 'rule-a', enabled: true, response: { enabled: true, mode: 'replace' } }],
+      }),
+    })
+    expect(await notifyV3XHROutcome(mock)).toBe(false)
   })
 
   it('rejects malformed, data-bearing, and inconsistent outcomes', async () => {

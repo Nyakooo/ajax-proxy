@@ -5,6 +5,10 @@ export type V3Hit = {
   match_url: string
   method: string
   url?: string
+  /** Present only when a static Mock response intercepted this request. */
+  response_mode?: 'mock'
+  status?: number
+  network_skipped?: true
 }
 
 /** Service-worker notice sent after a V3 rule hit has been recorded. */
@@ -14,10 +18,17 @@ export type V3HitNotice = {
   match_url: string
   method: string
   url: string
+  /** Present only when a static Mock response intercepted this request. */
+  response_mode?: 'mock'
+  status?: number
+  network_skipped?: true
 }
 
-const HIT_NOTICE_KEYS = ['rule_id', 'count', 'match_url', 'method', 'url'] as const
-const HIT_KEYS = ['kind', 'rule_id', 'match_url', 'method', 'url'] as const
+const MOCK_KEYS = ['response_mode', 'status', 'network_skipped'] as const
+const HIT_NOTICE_REQUIRED_KEYS = ['rule_id', 'count', 'match_url', 'method', 'url'] as const
+const HIT_NOTICE_KEYS = [...HIT_NOTICE_REQUIRED_KEYS, ...MOCK_KEYS] as const
+const HIT_REQUIRED_KEYS = ['kind', 'rule_id', 'match_url', 'method'] as const
+const HIT_KEYS = [...HIT_REQUIRED_KEYS, 'url', ...MOCK_KEYS] as const
 
 /** Copy allowed own data properties without invoking getters or proxy get traps. */
 function copyOwnDataProperties(
@@ -45,13 +56,25 @@ function copyOwnDataProperties(
   }
 }
 
+function isMockMetadata(data: Record<string, unknown>) {
+  const hasMockMetadata = MOCK_KEYS.some((key) => key in data)
+  if (!hasMockMetadata) return true
+  return (
+    data.response_mode === 'mock' &&
+    Number.isInteger(data.status) &&
+    (data.status as number) >= 200 &&
+    (data.status as number) <= 599 &&
+    data.network_skipped === true
+  )
+}
+
 /** Validate the untrusted service-worker hit notice before exposing it to panels. */
 export function isV3HitNotice(value: unknown): value is V3HitNotice {
   try {
     if (typeof value !== 'object' || value === null || Array.isArray(value)) return false
     const prototype = Object.getPrototypeOf(value)
     if (prototype !== Object.prototype && prototype !== null) return false
-    const data = copyOwnDataProperties(value, HIT_NOTICE_KEYS, HIT_NOTICE_KEYS)
+    const data = copyOwnDataProperties(value, HIT_NOTICE_KEYS, HIT_NOTICE_REQUIRED_KEYS)
     if (data === null) return false
     return (
       typeof data.rule_id === 'string' &&
@@ -63,7 +86,8 @@ export function isV3HitNotice(value: unknown): value is V3HitNotice {
       typeof data.method === 'string' &&
       data.method.length > 0 &&
       typeof data.url === 'string' &&
-      data.url.length > 0
+      data.url.length > 0 &&
+      isMockMetadata(data)
     )
   } catch {
     return false
@@ -76,7 +100,7 @@ export function isV3Hit(value: unknown): value is V3Hit {
     if (typeof value !== 'object' || value === null || Array.isArray(value)) return false
     const prototype = Object.getPrototypeOf(value)
     if (prototype !== Object.prototype && prototype !== null) return false
-    const data = copyOwnDataProperties(value, HIT_KEYS, HIT_KEYS.slice(0, 4))
+    const data = copyOwnDataProperties(value, HIT_KEYS, HIT_REQUIRED_KEYS)
     if (data === null) return false
     return (
       data.kind === 'v3-hit' &&
@@ -88,7 +112,8 @@ export function isV3Hit(value: unknown): value is V3Hit {
       data.match_url.length <= 4096 &&
       typeof data.method === 'string' &&
       /^[A-Z]{1,16}$/.test(data.method) &&
-      (data.url === undefined || (typeof data.url === 'string' && data.url.length <= 8192))
+      (data.url === undefined || (typeof data.url === 'string' && data.url.length <= 8192)) &&
+      isMockMetadata(data)
     )
   } catch {
     return false

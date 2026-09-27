@@ -6,6 +6,7 @@ export const V3XHROutcomeReason = {
   REDIRECT_OPEN_FAILED: 'redirect-open-failed',
   REDIRECT_TARGET_UNSUPPORTED: 'redirect-target-unsupported',
   SEND_FAILED: 'send-failed',
+  MOCK_NETWORK_SKIPPED: 'mock-network-skipped',
   RESPONSE_REPLACEMENT_APPLIED: 'response-replacement-applied',
   RESPONSE_REPLACEMENT_FAILED: 'response-replacement-failed',
   RESPONSE_REPLACEMENT_UNSUPPORTED: 'response-replacement-unsupported',
@@ -61,6 +62,8 @@ export function isV3XHROutcome(value: unknown): value is V3XHROutcome {
     if (!validShape) return false
     if (record.stage === 'request') {
       return (
+        (record.reason === V3XHROutcomeReason.MOCK_NETWORK_SKIPPED &&
+          record.outcome === V3FetchOutcomeStatus.APPLIED) ||
         (record.reason === V3XHROutcomeReason.REDIRECT_APPLIED &&
           record.outcome === V3FetchOutcomeStatus.APPLIED) ||
         ((record.reason === V3XHROutcomeReason.REDIRECT_OPEN_FAILED ||

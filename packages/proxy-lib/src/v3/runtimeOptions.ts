@@ -13,7 +13,12 @@ import type {
 
 export interface V3RuntimeHostOptions {
   getRules: () => readonly V3Rule[]
-  onMatched?: (rule: V3Rule, index: number, request: { url: string; method: string }) => void
+  onMatched?: (
+    rule: V3Rule,
+    index: number,
+    request: { url: string; method: string },
+    mock?: { responseMode: 'mock'; status: number; networkSkipped: true }
+  ) => void
   onNoMatch?: (request: { url: string; method: string }) => void
   onFunctionError?: (
     rule: V3Rule,

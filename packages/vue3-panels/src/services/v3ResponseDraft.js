@@ -64,6 +64,7 @@ export function buildV3ResponseRule({
   match,
   statusDraft = String(DEFAULT_STATUS),
   bodyDraft,
+  deliveryMode = 'replace',
   existingRule,
 }) {
   const statusText = String(statusDraft).trim()
@@ -84,6 +85,7 @@ export function buildV3ResponseRule({
     match: match ?? existingRule?.match,
     response: {
       enabled: true,
+      mode: deliveryMode === 'mock' ? 'mock' : 'replace',
       replace: {
         ...(existingRule?.response?.replace ?? {}),
         status,

@@ -647,6 +647,56 @@ describe('App visible selection and bulk rule actions', () => {
       []
     )
   })
+
+  it('confirms and deletes only selected rules while preserving unrelated rules and tags', async () => {
+    const makeRule = (id: string, url: string) => ({
+      id,
+      enabled: true,
+      match: { url, method: 'GET', type: 'normal' },
+      response: { enabled: true, replace: { body: { id } } },
+    })
+    const { wrapper, sentMessages } = await mountApp([], {
+      ...initialConfig(),
+      tags: [{ id: 'saved-tag', name: 'Keep me', used: true }],
+      rules: [makeRule('first', '/api/first'), makeRule('second', '/api/second')],
+    })
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true)
+
+    await wrapper.get('.rule-selection input').setValue(true)
+    await buttonByText(wrapper, '删除所选').trigger('click')
+    await flushPromises()
+
+    expect(confirm).toHaveBeenCalledWith('确定删除选中的 1 条规则吗？')
+    const save = sentMessages.find((message) => message.key === V3PanelMessageKey.SAVE_CONFIG)
+    expect(save.value.config.rules.map(({ id }) => id)).toEqual(['second'])
+    expect(save.value.config.tags).toEqual([{ id: 'saved-tag', name: 'Keep me', used: true }])
+    expect(wrapper.find('.bulk-actions').exists()).toBe(false)
+  })
+
+  it('keeps the selected rules when bulk deletion is cancelled', async () => {
+    const { wrapper, sentMessages } = await mountApp([], {
+      ...initialConfig(),
+      rules: [
+        {
+          id: 'selected',
+          enabled: true,
+          match: { url: '/api/selected', method: 'GET', type: 'normal' },
+          response: { enabled: true, replace: { body: {} } },
+        },
+      ],
+    })
+    vi.spyOn(window, 'confirm').mockReturnValue(false)
+
+    await wrapper.get('.rule-selection input').setValue(true)
+    await buttonByText(wrapper, '删除所选').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.get('.rule-selection input').element.checked).toBe(true)
+    expect(wrapper.find('.bulk-actions').exists()).toBe(true)
+    expect(sentMessages.filter((message) => message.key === V3PanelMessageKey.SAVE_CONFIG)).toEqual(
+      []
+    )
+  })
 })
 
 describe('App request rules pagination and pinning', () => {
@@ -656,6 +706,21 @@ describe('App request rules pagination and pinning', () => {
     ...(pinned ? { pinned: true } : {}),
     match: { url: `/api/${id}`, method: 'GET', type: 'normal' },
     response: { enabled: true, replace: { body: { id } } },
+  })
+
+  it('does not show an empty state when one rule fits on a page', async () => {
+    const { wrapper } = await mountApp([], {
+      ...initialConfig(),
+      rules: [makeRule('single-rule')],
+    })
+    expect(wrapper.findAll('.rule-row')).toHaveLength(1)
+    expect(wrapper.find('.empty-state').exists()).toBe(false)
+  })
+
+  it('shows an empty state when the filtered rule list is empty', async () => {
+    const { wrapper } = await mountApp([], initialConfig())
+    expect(wrapper.findAll('.rule-row')).toHaveLength(0)
+    expect(wrapper.find('.empty-state').exists()).toBe(true)
   })
 
   it('clears selection when moving to another page', async () => {
@@ -1288,6 +1353,63 @@ describe('App recent match notifications', () => {
     expect(recentMatches.text()).toContain('/api/stored-hit?request=1')
     expect(wrapper.get('.rule-row .hit-count strong').text()).toBe('1')
   })
+
+  it('labels a successful static mock hit and its mock outcome without claiming the API is absent', async () => {
+    const rule = {
+      id: 'mock-hit-rule',
+      enabled: true,
+      match: { url: '/api/virtual', method: 'GET', type: 'normal' },
+      response: { enabled: true, mode: 'mock', replace: { status: 201, body: { mocked: true } } },
+    }
+    const { wrapper, sendExtensionMessage } = await mountApp([], {
+      ...initialConfig(),
+      rules: [rule],
+    })
+    sendExtensionMessage({
+      from: NoticeFrom.SERVICE_WORKER,
+      to: NoticeTo.PANELS,
+      key: NoticeKey.V3_HIT,
+      value: {
+        rule_id: rule.id,
+        count: 1,
+        match_url: rule.match.url,
+        method: 'GET',
+        url: 'https://example.test/api/virtual?x=1',
+        response_mode: 'mock',
+        status: 201,
+        network_skipped: true,
+      },
+    })
+    sendExtensionMessage({
+      from: NoticeFrom.SERVICE_WORKER,
+      to: NoticeTo.PANELS,
+      key: NoticeKey.V3_FETCH_OUTCOME,
+      value: {
+        kind: 'v3-fetch-outcome',
+        correlation_id: 'mock-outcome-1',
+        rule_id: rule.id,
+        stage: 'request',
+        outcome: 'applied',
+        reason: 'mock-network-skipped',
+      },
+    })
+    await flushPromises()
+
+    const recentMatches = wrapper.get(
+      '.recent-matches:not(.no-match-diagnostics):not(.fetch-outcome-diagnostics)'
+    )
+    expect(recentMatches.text()).toContain('https://example.test/api/virtual?x=1')
+    expect(recentMatches.text()).toContain('GET')
+    expect(recentMatches.text()).toContain('/api/virtual')
+    expect(recentMatches.text()).toContain('Mock 响应')
+    expect(recentMatches.text()).toContain('本次真实网络请求已跳过')
+    expect(recentMatches.text()).toContain('HTTP 状态 201')
+    expect(recentMatches.text()).not.toContain('不存在')
+
+    const outcomes = wrapper.get('.fetch-outcome-diagnostics')
+    expect(outcomes.text()).toContain('Mock 已跳过真实网络请求')
+    expect(outcomes.text()).toContain('HTTP 状态 201')
+  })
 })
 
 describe('App site switch persistence flow', () => {
@@ -1747,11 +1869,31 @@ describe('App JSON response persistence flow', () => {
         match: { url: '/api/json', type: 'normal', method: 'POST' },
         response: {
           enabled: true,
+          mode: 'replace',
           replace: { status: 202, body: { ok: true, items: [1, 2] } },
         },
       }),
     ])
     expect(wrapper.find('.rule-editor').exists()).toBe(false)
+  })
+
+  it('persists a selected mock mode on static response rules', async () => {
+    const { wrapper, sentMessages } = await mountApp([], initialConfig(), editorStubs)
+
+    await buttonByText(wrapper, '创建规则').trigger('click')
+    await flushPromises()
+    await wrapper.get('.rule-editor input[autocomplete="off"]').setValue('/api/mock')
+    await wrapper.get('input[name="response-delivery-mode"][value="mock"]').setValue()
+    await wrapper.get('.editor-form').trigger('submit')
+    await flushPromises()
+
+    const saves = sentMessages.filter((message) => message.key === V3PanelMessageKey.SAVE_CONFIG)
+    expect(saves).toHaveLength(1)
+    expect(saves[0].value.config.rules[0].response).toEqual({
+      enabled: true,
+      mode: 'mock',
+      replace: { status: 200, body: {} },
+    })
   })
 
   it('edits a composite response while preserving its redirect, tags, and custom headers', async () => {
@@ -1784,6 +1926,7 @@ describe('App JSON response persistence flow', () => {
         ...existingRule,
         response: {
           enabled: true,
+          mode: 'replace',
           replace: { status: 206, headers: { 'x-debug': 'kept' }, body: { updated: true } },
         },
       },

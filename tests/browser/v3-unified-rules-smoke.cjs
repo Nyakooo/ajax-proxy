@@ -197,6 +197,36 @@ async function main() {
         .inputValue(),
       '/verify/34'
     )
+    await editorPage.locator('.response-rule-editor .editor-close').click()
+    await panel.reload()
+    await panel.locator('.rule-row').nth(19).waitFor()
+
+    const selectedRows = panel.locator('.rule-row')
+    await selectedRows.nth(0).locator('.rule-selection input').check()
+    await selectedRows.nth(1).locator('.rule-selection input').check()
+    const bulkActions = panel.locator('.bulk-actions')
+    await bulkActions.waitFor()
+    const bulkButtonMetrics = await bulkActions.locator('.p-button').evaluateAll((buttons) =>
+      buttons.map((button) => ({
+        fontSize: getComputedStyle(button).fontSize,
+        height: button.getBoundingClientRect().height,
+      }))
+    )
+    assert.ok(
+      bulkButtonMetrics.every(({ fontSize, height }) => fontSize === '11px' && height <= 30)
+    )
+    panel.once('dialog', async (dialog) => await dialog.accept())
+    await bulkActions.getByRole('button', { name: 'Delete selected', exact: true }).click()
+    await worker.evaluate(async () => {
+      const key = 'ajax-proxy:storage:v3-config'
+      for (let attempt = 0; attempt < 100; attempt++) {
+        const config = (await chrome.storage.local.get(key))[key]
+        if (config.rules.length === 44) return
+        await new Promise((resolve) => setTimeout(resolve, 20))
+      }
+      throw new Error('Bulk delete did not persist exactly two selected rules')
+    })
+    await bulkActions.waitFor({ state: 'detached' })
     await row.getByRole('button', { name: 'Delete rule: /verify/34', exact: true }).click()
     await popup
       .getByRole('group', { name: 'Delete this rule?' })
@@ -204,7 +234,7 @@ async function main() {
       .click()
     await popup.getByText('No matching rules', { exact: true }).waitFor()
     console.log(
-      'Independent popup panel creation/reuse, separate response/redirect views, popup action filtering, 30 pinned rules, combined-rule editing, scrolling/search/toggle/pin/delete passed'
+      'Independent popup panel creation/reuse, separate response/redirect views, popup action filtering, 30 pinned rules, combined-rule editing, compact bulk actions and bulk deletion passed'
     )
   } finally {
     await context?.close()

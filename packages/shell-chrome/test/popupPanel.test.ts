@@ -149,9 +149,9 @@ describe('independent popup panel windows', () => {
         state: 'normal',
         focused: true,
         left: 16,
-        top: 16,
+        top: 30,
         width: 1248,
-        height: 868,
+        height: 840,
       },
       expect.any(Function)
     )
@@ -210,9 +210,9 @@ describe('independent popup panel windows', () => {
       expect.objectContaining({
         focused: true,
         left: 260,
-        top: 100,
+        top: 130,
         width: 1280,
-        height: 900,
+        height: 840,
       }),
       expect.any(Function)
     )

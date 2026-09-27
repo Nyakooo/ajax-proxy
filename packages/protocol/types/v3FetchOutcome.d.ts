@@ -3,6 +3,7 @@ export declare const V3FetchOutcomeReason: {
     readonly REDIRECT_APPLIED: "redirect-applied";
     readonly REDIRECT_CONSTRUCTION_FAILED: "redirect-construction-failed";
     readonly NETWORK_FAILED: "network-failed";
+    readonly MOCK_NETWORK_SKIPPED: "mock-network-skipped";
     readonly RESPONSE_REPLACEMENT_APPLIED: "response-replacement-applied";
     readonly RESPONSE_REPLACEMENT_FAILED: "response-replacement-failed";
     readonly RESPONSE_REPLACEMENT_UNSUPPORTED: "response-replacement-unsupported";

@@ -7,6 +7,10 @@ export interface V3RuntimeHostOptions {
     onMatched?: (rule: V3Rule, index: number, request: {
         url: string;
         method: string;
+    }, mock?: {
+        responseMode: 'mock';
+        status: number;
+        networkSkipped: true;
     }) => void;
     onNoMatch?: (request: {
         url: string;

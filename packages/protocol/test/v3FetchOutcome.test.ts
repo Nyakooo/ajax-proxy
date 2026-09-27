@@ -14,6 +14,18 @@ const valid = {
 describe('isV3FetchOutcome', () => {
   it('accepts the exact transient event shape', () => {
     expect(isV3FetchOutcome(valid)).toBe(true)
+    expect(
+      isV3FetchOutcome({
+        ...valid,
+        reason: V3FetchOutcomeReason.MOCK_NETWORK_SKIPPED,
+      })
+    ).toBe(true)
+    expect(
+      isV3FetchOutcome({ ...valid, outcome: 'fallback', reason: 'mock-network-skipped' })
+    ).toBe(false)
+    expect(isV3FetchOutcome({ ...valid, stage: 'response', reason: 'mock-network-skipped' })).toBe(
+      false
+    )
   })
 
   it('rejects extra request or response fields', () => {
@@ -58,6 +70,14 @@ describe('isV3XHROutcome', () => {
 
   it('accepts the exact transient XHR event shape and keeps transport distinct', () => {
     expect(isV3XHROutcome(valid)).toBe(true)
+    expect(
+      isV3XHROutcome({
+        ...valid,
+        stage: 'request',
+        outcome: 'applied',
+        reason: V3XHROutcomeReason.MOCK_NETWORK_SKIPPED,
+      })
+    ).toBe(true)
     expect(isV3XHROutcome({ ...valid, kind: 'v3-fetch-outcome' })).toBe(false)
     expect(isV3XHROutcome({ ...valid, stage: 'request' })).toBe(false)
     expect(isV3XHROutcome({ ...valid, outcome: 'failed' })).toBe(false)

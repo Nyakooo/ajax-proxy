@@ -64,6 +64,26 @@ function needsRequestSnapshot(rule: V3Rule): boolean {
   )
 }
 
+function createMockResponse(request: Request, rule: V3Rule): Response {
+  const replace = rule.response?.replace ?? {}
+  const status = replace.status ?? 200
+  const headers = new Headers(replace.headers)
+  const configuredBody = replace.body
+  const hasBody = configuredBody !== undefined
+
+  if (hasBody && !headers.has('content-type')) {
+    headers.set('content-type', 'application/json')
+  }
+
+  // Fetch forbids bodies for HEAD and these status codes, even when a rule
+  // contains a configured JSON payload.
+  const bodyAllowed =
+    request.method !== 'HEAD' && status !== 204 && status !== 205 && status !== 304
+  const body = hasBody && bodyAllowed ? JSON.stringify(configuredBody) : null
+
+  return new Response(body, { status, headers })
+}
+
 function redirectFunctionFailureCode(error: unknown): V3FunctionErrorCode {
   const message = error instanceof Error ? error.message.toLowerCase() : ''
   if (message.includes('timed out')) return 'timeout'
@@ -155,6 +175,38 @@ export function createV3Fetch(fetcher: V3Fetch, options: V3FetchOptions): V3Fetc
         // Diagnostics must not affect the native request.
       }
       return fetcher(input, init)
+    }
+
+    if (selection.rule.response?.enabled && selection.rule.response.mode === 'mock') {
+      if (originalRequest.signal.aborted) {
+        throw new DOMException('The operation was aborted.', 'AbortError')
+      }
+      // Static mock mode deliberately skips redirect, response-function, and
+      // network dispatch. Only the selected rule is considered.
+      const mockResponse = createMockResponse(originalRequest, selection.rule)
+      try {
+        options.onMatched?.(selection.rule, selection.index, selection.originalRequest, {
+          responseMode: 'mock',
+          status: mockResponse.status,
+          networkSkipped: true,
+        })
+      } catch {
+        // Statistics and notifications must not change the synthetic response.
+      }
+      const mockOutcomeArmed =
+        options.onFetchOutcome !== undefined && (options.isFetchOutcomeDiagnosticsArmed?.() ?? true)
+      if (mockOutcomeArmed) {
+        const mockCorrelationId = createCorrelationId()
+        reportOutcome(
+          options,
+          selection.rule,
+          mockCorrelationId,
+          'request',
+          'applied',
+          'mock-network-skipped'
+        )
+      }
+      return mockResponse
     }
 
     try {

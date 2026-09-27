@@ -56,7 +56,7 @@ export type V3Language = 'zh-CN' | 'en'
 
 export interface V3Backup {
   format: typeof V3_BACKUP_FORMAT
-  formatVersion: 3 | 4 | 5 | 6 | 7 | 8
+  formatVersion: 3 | 4 | 5 | 6 | 7 | 8 | 9
   settings: {
     globalEnabled: boolean
     mode: V3Mode

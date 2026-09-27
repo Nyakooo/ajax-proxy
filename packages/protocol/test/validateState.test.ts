@@ -26,6 +26,22 @@ describe('V3 hit event validation', () => {
   it('accepts a valid hit event with an optional request URL', () => {
     expect(isV3Hit(valid)).toBe(true)
     expect(isV3Hit({ ...valid, url: 'https://site.test/api' })).toBe(true)
+    expect(
+      isV3Hit({
+        ...valid,
+        url: 'https://site.test/api',
+        response_mode: 'mock',
+        status: 201,
+        network_skipped: true,
+      })
+    ).toBe(true)
+    expect(isV3Hit({ ...valid, response_mode: 'mock' })).toBe(false)
+    expect(isV3Hit({ ...valid, response_mode: 'mock', status: 201, network_skipped: false })).toBe(
+      false
+    )
+    expect(isV3Hit({ ...valid, response_mode: 'mock', status: 101, network_skipped: true })).toBe(
+      false
+    )
   })
 
   it('rejects malformed events, oversized fields, extra keys, and custom prototypes', () => {
@@ -85,6 +101,15 @@ describe('V3 hit notice validation', () => {
 
   it('accepts a well-formed service-worker hit notice', () => {
     expect(isV3HitNotice(valid)).toBe(true)
+    expect(
+      isV3HitNotice({
+        ...valid,
+        response_mode: 'mock',
+        status: 201,
+        network_skipped: true,
+      })
+    ).toBe(true)
+    expect(isV3HitNotice({ ...valid, response_mode: 'mock' })).toBe(false)
   })
 
   it('rejects missing, malformed, extra, or unsafe notice values', () => {

@@ -170,6 +170,7 @@ async function main() {
 
     for (const { width, height } of [
       { width: 1200, height: 900 },
+      { width: 1200, height: 770 },
       { width: 400, height: 560 },
       { width: 360, height: 560 },
     ]) {
@@ -185,6 +186,30 @@ async function main() {
 
       const search = page.locator('.search-box input')
       assert.ok(await search.isVisible())
+      if (width >= 1200 && height <= 800) {
+        await search.fill('no-such-empty-state-rule')
+        const emptyState = page.locator('.empty-state')
+        await emptyState.waitFor()
+        const layout = await page.evaluate(() => ({
+          viewportHeight: window.innerHeight,
+          documentHeight: document.documentElement.scrollHeight,
+          shellBottom: document.querySelector('.shell').getBoundingClientRect().bottom,
+          emptyStateBottom: document.querySelector('.empty-state').getBoundingClientRect().bottom,
+          shellHeight: document.querySelector('.shell').getBoundingClientRect().height,
+          topbarHeight: document.querySelector('.topbar').getBoundingClientRect().height,
+          workspaceHeight: document.querySelector('.workspace').getBoundingClientRect().height,
+          contentHeight: document.querySelector('.content').getBoundingClientRect().height,
+          contentChildren: [...document.querySelector('.content').children].map((child) => ({
+            selector: child.className || child.tagName,
+            height: child.getBoundingClientRect().height,
+            bottom: child.getBoundingClientRect().bottom,
+          })),
+        }))
+        assert.ok(
+          layout.shellBottom <= height + 1 && layout.emptyStateBottom <= height + 1,
+          `Empty state must fit the ${height}px default panel viewport: ${JSON.stringify(layout)}`
+        )
+      }
       await search.fill('catalog')
       assert.equal(await page.locator('.rule-row').count(), 1)
       await search.fill('')

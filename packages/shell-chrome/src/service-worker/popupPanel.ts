@@ -67,7 +67,9 @@ async function panelBounds(windows: chrome.windows.Window[], screen?: PanelScree
     }
   }
   const width = Math.max(1, Math.min(1280, screen.width - 32))
-  const height = Math.max(1, Math.min(900, screen.height - 32))
+  // The V3 shell now fits its empty state below 790px; keep modest space for
+  // browser chrome while avoiding the previous oversized 900px default.
+  const height = Math.max(1, Math.min(840, screen.height - 32))
   return {
     left: Math.round(screen.left + (screen.width - width) / 2),
     top: Math.round(screen.top + (screen.height - height) / 2),
