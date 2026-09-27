@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { RefGlobalState } from '../src/types'
 
 class FakeXMLHttpRequest extends EventTarget {
+  #upload = new EventTarget()
   readyState = 0
   responseText = ''
   response: unknown = ''
@@ -17,6 +18,9 @@ class FakeXMLHttpRequest extends EventTarget {
   #onreadystatechangeListener = (event: Event) => this.#onreadystatechange?.call(this, event)
   constructor() {
     super()
+  }
+  get upload() {
+    return this.#upload
   }
   get onreadystatechange() {
     return this.#onreadystatechange
@@ -57,6 +61,8 @@ class FakeXMLHttpRequest extends EventTarget {
     this.responseText = typeof body === 'string' ? body : 'original response'
     this.response = this.responseText
     this.readyState = 4
+    this.upload.dispatchEvent(new Event('progress'))
+    this.upload.dispatchEvent(new Event('load'))
     this.dispatchEvent(new Event('loadstart'))
     this.dispatchEvent(new Event('readystatechange'))
     this.dispatchEvent(new Event('progress'))
@@ -75,6 +81,37 @@ afterEach(() => {
 })
 
 describe('CustomXHR rule selection', () => {
+  it('exposes the native upload target so upload events reach listeners', async () => {
+    vi.stubGlobal('XMLHttpRequest', FakeXMLHttpRequest)
+    vi.stubGlobal('window', { XMLHttpRequest: FakeXMLHttpRequest, eval })
+    const { default: CustomXHR, initInterceptorXHRState } = await import('../src/createXHR')
+    initInterceptorXHRState({
+      value: {
+        global_on: false,
+        mode: 'interceptor',
+        interceptor_matching_content: [],
+        redirector_matching_content: [],
+      },
+    })
+
+    const request = new CustomXHR()
+    const upload = request.upload
+    const observed: string[] = []
+    for (const eventName of ['progress', 'load']) {
+      upload.addEventListener(eventName, function (this: EventTarget, event) {
+        expect(this).toBe(upload)
+        expect(event.target).toBe(upload)
+        expect(event.currentTarget).toBe(upload)
+        observed.push(event.type)
+      })
+    }
+
+    request.open('POST', 'https://example.test/upload')
+    request.send('payload')
+
+    expect(observed).toEqual(['progress', 'load'])
+  })
+
   it('forwards registered XHR events with the proxy as the listener target', async () => {
     vi.stubGlobal('XMLHttpRequest', FakeXMLHttpRequest)
     vi.stubGlobal('window', { XMLHttpRequest: FakeXMLHttpRequest, eval })

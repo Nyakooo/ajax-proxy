@@ -206,6 +206,12 @@ class CustomXHR extends XMLHttpRequest {
   private watchAndOverride() {
     // 获取原始XHR
     const xhr = new OriginXHR()
+    // Native XMLHttpRequest.upload is a non-enumerable prototype accessor, so
+    // the generic property-copy loop below cannot expose the sending XHR's target.
+    Object.defineProperty(this, 'upload', {
+      get: () => xhr.upload,
+      enumerable: true,
+    })
     for (let attr in xhr) {
       if (attr === 'onreadystatechange') continue
       // else if (attr === "onload") {
