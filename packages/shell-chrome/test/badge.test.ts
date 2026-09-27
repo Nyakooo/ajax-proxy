@@ -233,6 +233,32 @@ describe('chromeBadge rule selection', () => {
     expect(mocks.noticePanelsByServiceWorker).toHaveBeenCalledWith('hit-rate')
   })
 
+  it('serializes concurrent legacy hits so neither increment is lost', async () => {
+    let storedRules = [{ switch_on: true, match_url: '/api', method: 'GET', hit: 0 }]
+    mocks.getRealStorage.mockImplementation(async (key) => {
+      if (key === 'v3-config') return null
+      if (key === 'global-switch') return true
+      if (key === 'mode') return 'interceptor'
+      if (key === 'intercept-list') return structuredClone(storedRules)
+      return undefined
+    })
+    mocks.setStorage.mockImplementation(async (key, value) => {
+      if (key === 'intercept-list') storedRules = value
+    })
+    vi.stubGlobal('chrome', {
+      action: { setBadgeText: vi.fn(), setBadgeBackgroundColor: vi.fn() },
+    })
+
+    await Promise.all([
+      chromeBadge({ match_url: '/api', method: 'GET' }),
+      chromeBadge({ match_url: '/api', method: 'GET' }),
+    ])
+
+    expect(storedRules[0].hit).toBe(2)
+    expect(mocks.setStorage).toHaveBeenCalledTimes(2)
+    expect(mocks.noticePanelsByServiceWorker).toHaveBeenCalledTimes(2)
+  })
+
   it('stores V3 hits separately and keeps legacy badge refreshes on the V3 total', async () => {
     const backup = {
       formatVersion: 3,

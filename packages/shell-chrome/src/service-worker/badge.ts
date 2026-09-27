@@ -5,6 +5,14 @@ import { NoticeKey, StorageKey, setStorage, getRealStorage, noticePanelsByServic
 import { chromeNativeNotice } from "./notice";
 import { renderActiveV3Badge } from './v3Hit'
 
+let legacyHitQueue = Promise.resolve()
+
+function queueLegacyHit<T>(update: () => Promise<T>) {
+    const operation = legacyHitQueue.then(update)
+    legacyHitQueue = operation.then(() => undefined, () => undefined)
+    return operation
+}
+
 // 同步 命中率
 async function syncRoutesAsHit(routes, match_url, method, rule_index?: number) {
     const list = routes || [];
@@ -55,7 +63,7 @@ async function syncRoutesAsHit(routes, match_url, method, rule_index?: number) {
         }
     }
     // 更新本地拦截列表
-    setStorage(StorageKey.INTERCEPT_LIST, list);
+    await setStorage(StorageKey.INTERCEPT_LIST, list);
     return counter;
 }
 
@@ -86,7 +94,12 @@ export async function chromeBadge(data?: BadgeHit) {
     }
     // 拦截器模式颜色
     chrome.action.setBadgeBackgroundColor({ color: "#F56C6C" });
-    const interceptList = await getRealStorage(StorageKey.INTERCEPT_LIST, []);
+    const { interceptList, counter } = await queueLegacyHit(async () => {
+        const list = await getRealStorage(StorageKey.INTERCEPT_LIST, []);
+        if (list.length === 0) return { interceptList: list, counter: 0 };
+        const total = await syncRoutesAsHit(list, match_url, method, rule_index);
+        return { interceptList: list, counter: total };
+    });
     // 如果没有需要拦截的数据时，设置默认值
     if (interceptList.length === 0) {
         if (await renderActiveV3Badge()) return
@@ -95,7 +108,6 @@ export async function chromeBadge(data?: BadgeHit) {
     }
 
     if (await renderActiveV3Badge()) return
-    const counter = await syncRoutesAsHit(interceptList, match_url, method, rule_index)
     // 当计算完成，且 参数存在时证明 hit 属性已经做过叠加，需要通知到 panels变更列表 hit 数据
     if (match_url && method) {
         // 通知 panels 当前 match_url & method 的条件下已经命中，hit 属性已经变更 需要更新table 列表
