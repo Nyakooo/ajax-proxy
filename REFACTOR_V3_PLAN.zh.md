@@ -85,6 +85,7 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - [x] 明确依赖规则：核心请求引擎不依赖 Vue / UI 或 Chrome storage / badge helper；`pnpm check:boundaries` 检查 8 个 workspace 包依赖有向无环、包间依赖有声明、无私有源码深层引用，并由 CI 运行。平台适配和 UI 的后续窄接口迁移记录于架构评估。
 - [x] 统一源码、生成声明、构建产物和测试夹具的归属；声明文件采用“生成后随源码提交”，CI 在构建后用 `pnpm check:generated-types` 检查声明漂移；clean build 清理重建全部 package 产物，测试脚本 / fixture 明确归入 `tests/` 与 package test。Node 24.21.0 下冻结安装、空产物 clean build、类型检查、单测与扩展 E2E 均通过。
 - [x] 审查当前 `compatibility` 包：确认 shell 启动与面板导入仍使用其转换逻辑；已重命名为 `@proxy/v2-compatibility` 并明确只负责 V2 数据格式转换。
+- [ ] **按最新产品决策彻底移除 V2→V3 数据转换：** V3 使用全新数据，用户不要求继承 V2 配置，因此删除启动时旧 storage key / schema 自动转换、旧备份转换入口、`@proxy/v2-compatibility` 包及其 workspace / CI / 测试引用。保留 V3 自身的备份导入校验；遇到 V2 文件只提示格式不兼容，不提供转换工具。此项待执行，不代表转换代码已移除。
 - [x] 统一测试目录约定：单元 / 组件测试与所属源码就近组织，跨包集成和浏览器端到端测试放在明确的顶层测试区域（`tests/browser/`），fixture 命名及生命周期一致。
 - [x] 每次迁移目录或包边界时保持构建入口、类型声明、扩展打包和发布脚本同步更新，并以依赖图和 clean build 验证没有隐式路径依赖（本次将兼容包类型导入改为代理库公共入口，边界检查纳入 CI；clean build、类型检查和扩展 Fetch / XHR smoke 通过）。
 - [x] 固定 Node / pnpm 并验证冻结安装：Node 24.21.0、pnpm 12.6.0、lockfile v9；全新安装使用 `pnpm install --frozen-lockfile`。
@@ -614,6 +615,7 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - 2026-09-25：新增 V3 目录结构专项评估与迁移任务。现有顶层包大致按运行职责拆分，但 Vue 面板内部仍有 `common` 聚合目录、编辑器独立包、旧版 `compatibility` 包及分散测试 / fixture；需结合新的组合规则模型、Vue 3 UI、测试分层和 V2 不兼容策略重新核实边界，暂不预设必须整体推倒重排。
 - 2026-09-25：按维护者补充，将 V3 国际化范围限定为简体中文和英文；语言切换改为始终可见、点击即生效的双选分段控件，并纳入非目标语言资源清理、中英文文案完整性、选择持久化和编辑器语言同步验收。
 - 2026-09-27：补充 V3 构建工具评估：当前 `proxy-lib` 与 Vue 3 面板已经使用 Vite，Webpack 主要用于旧 Vue 2 面板 / 编辑器和 `shell-chrome` 扩展宿主。目标是最终生产构建统一迁到 Vite；扩展宿主先验证 Manifest V3、service worker、content script、静态资源和真实浏览器打包行为，再切换并删除过渡依赖。参考：[Vite 多页面构建](https://vite.dev/guide/build)、[CRXJS content scripts](https://crxjs.dev/concepts/content/)、[CRXJS service worker](https://crxjs.dev/concepts/background/)。
+- 2026-09-27：维护者确认 V3 使用全新数据，不需要 V2 配置兼容。后续清理必须删除全部 V2→V3 转换流程（包括扩展启动 storage 转换、旧备份转换入口、专属包及测试）；V3 原生备份校验继续保留，V2 格式仅显示不兼容提示。记录待在下一执行时完成代码清理和验证。
 - 2026-09-25：阶段 1 增加 Vitest 5 + V8 覆盖率工具、根级测试命令、源码 alias、CI 覆盖率步骤及 `docs/V3-TESTING.zh.md`；首批 7 项规则匹配 / 静态重定向回归用例已通过。记录 workspace TS 源码初始覆盖率（statements 8.46%、branches 4.69%、functions 5.55%、lines 8.39%），详见测试基线文档。Vue Test Utils + jsdom 与 Playwright 定为后续工具，尚未安装 / 验证；CI 实际浏览器矩阵、lint / 格式检查、包边界与目录职责仍未完成，本阶段暂不验收或提交。
 - 2026-09-25：阶段 0 问题登记补充到 `docs/V3-ISSUES.zh.md`。通过临时 Vitest 调用实际 Fetch 拦截包装器复现：以 `Request` 传入 POST 而省略 `init` 时，POST 规则未生效，因为 method 只从 `init.method` 读取；临时用例已删除，持久化修复与回归测试安排在阶段 2。其余静态审查线索仍标为待复现。
 - 2026-09-25：完成首轮 V3 目录结构、跨包依赖、声明 / 构建产物、编辑器加载和测试夹具归属评估，迁移建议、clean-build 风险及验收标准见 `docs/V3-ARCHITECTURE-ASSESSMENT.zh.md`。这是方案交付，不代表已执行包迁移；V3 schema / core 分层和 `compatibility` 去留需在阶段 1 / 2 分步处理。
