@@ -27,6 +27,23 @@ describe('isV3FetchOutcome', () => {
     expect(isV3FetchOutcome({ ...valid, outcome: 'success' })).toBe(false)
     expect(isV3FetchOutcome({ ...valid, correlation_id: 'bad id' })).toBe(false)
   })
+
+  it('rejects hostile proxies that throw during prototype checks or property reads', () => {
+    const blockedPrototype = new Proxy(valid, {
+      getPrototypeOf() {
+        throw new Error('prototype access blocked')
+      },
+    })
+    const blockedRead = new Proxy(valid, {
+      get(target, key, receiver) {
+        if (key === 'reason') throw new Error('property read blocked')
+        return Reflect.get(target, key, receiver)
+      },
+    })
+
+    expect(isV3FetchOutcome(blockedPrototype)).toBe(false)
+    expect(isV3FetchOutcome(blockedRead)).toBe(false)
+  })
 })
 
 describe('isV3XHROutcome', () => {
