@@ -1,13 +1,12 @@
 export * from './backup'
 export * from './backupVersion'
 export type { JsonValue, V3RedirectConfig, V3ResponseFunctionResult, V3Rule, V3Tag } from './rules'
-export { analyzeV3RuleMatches, isV3RedirectExcluded, selectV3Rule } from './ruleMatching'
-export type {
-  V3RequestMatchInput,
-  V3RuleMatchAnalysis,
-  V3RuleMatchReason,
-  V3RuleSelection,
-} from './ruleMatching'
+export { analyzeV3RuleMatches } from './ruleAnalysis'
+export type { V3RuleMatchAnalysis } from './ruleAnalysis'
+export { isV3RedirectExcluded } from './ruleMatcher'
+export type { V3RequestMatchInput, V3RuleMatchReason } from './ruleMatcher'
+export { selectV3Rule } from './ruleMatching'
+export type { V3RuleSelection } from './ruleMatching'
 export {
   appendV3Rule,
   deleteV3Rule,

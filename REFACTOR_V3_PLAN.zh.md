@@ -119,6 +119,7 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - [x] 让 V3 runtime 配置更新返回 schema validation issues，并复用 domain 的路径化错误格式；非法配置仍保留当前活动配置，null 清除和 disabled 配置语义不变。
 - [x] 将 V3 backup schema / validation 放到 domain package 的 `backup.ts`，通过 `index.ts` 稳定导出入口；规则 matcher 从 `backup.ts` 单向依赖规则类型，避免 barrel 与匹配器互相导入。
 - [x] 将纯 V3 规则模型类型从 backup 校验实现拆到 `rules.ts`；backup validator 与 matcher 直接依赖领域类型，包根入口继续导出原有类型 API。
+- [x] 将共享的 V3 匹配判定 / 正则缓存、运行时首条规则选择和手工诊断分析分到独立领域模块；Fetch / XHR 与 UI 诊断仍共用同一匹配语义，包根函数与类型导出保持稳定。
 - [x] 将 V3 命中规则复核、counter sanitize、总计和安全递增等纯领域逻辑放入 `v3-domain/hitCounters.ts`；service worker 只负责串行队列、storage、徽章和 panel notification。
 - [x] 将 V3 面板临时诊断与 Fetch / XHR outcome 采集偏好的 Chrome storage 读写和 `onChanged` 订阅封装到 service；App 只同步视图状态，适配器单测覆盖读取、启停、区域过滤和清理。
 - [x] 将 V3 面板活动标签页查询、HTTP(S) origin 规范化及 `tabs.onActivated` / `tabs.onUpdated` 订阅封装到 service；App 只消费当前 origin，并在卸载时释放订阅。
@@ -996,4 +997,5 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - 2026-09-27：覆盖响应 sandbox 重复执行 ID 的超时清理竞态：旧执行的 100ms grace callback 不会移除较新 pending 调用，后者仍能正常接收结果。定向 sandbox 测试 28 项、全量 Vitest 45 个文件 / 515 项通过；总体语句 / 分支 / 函数 / 行覆盖率为 98.01% / 95.01% / 98.4% / 99.16%，sandbox 分支覆盖率升至 93.47%。严格 ESLint、Prettier 与 diff 检查通过。完成 450 / 484 项（93.0%）。
 - 2026-09-27：为 shell Vite 原型提供隔离的 Rollup watch 输出 `build-vite-dev` 和 Fetch / XHR 重载验收脚本；本机 Chromium 验证首次加载及 `document.ts` 改动触发 `document.js` 重建后的 smoke 均通过。复核后固定并保护输出目录，确保启动 / 静态资源校验失败时关闭全部 watcher，并在触发重建前校验源码 mtime 与内容、退出后仅在文件未被修改时恢复时间戳。旧生产 Vite 原型 clean build、Manifest / 资源校验、ZIP 完整性和扩展 smoke 通过；包边界、脚本零告警 ESLint、Prettier、CI YAML 解析与 diff 检查通过。CI run [36301672668](https://github.com/Nyakooo/ajax-proxy/actions/runs/36301672668) 全部通过，包括 watch 重建循环、Chrome / Edge Stable 浏览器 smoke 和 Chrome 141 / Edge 140 最低版本扩展 smoke。品牌版浏览器手动加载扩展仍待验收。开发循环需要重载扩展与页面，不提供页面内 HMR。完成 451 / 485 项（93.0%）。
 - 2026-09-27：为 Vue 3 `RuleFilterPopover` 新增组件回归，覆盖初始筛选选中态、status / matchType 更新、清除、关闭按钮、Escape 和 `open=false` 隐藏。组件测试 9 个文件 / 80 项通过；新测试 ESLint 零告警、Prettier 与 diff 检查通过。完成 452 / 486 项（93.0%）。
+- 2026-09-27：将 `v3-domain` 共享规则匹配判定与正则缓存、运行时首条规则选择、手工诊断分析拆分到明确模块，package root 保持现有函数与类型 API；补充架构评估映射。domain 规则校验 / matcher 测试 45 项、domain TypeScript 检查、包边界、严格 ESLint、Prettier 和 diff 检查通过。完成 453 / 487 项（93.0%）。
 - GitHub 里程碑：[阶段 0](https://github.com/Nyakooo/ajax-proxy/milestone/1)、[阶段 1](https://github.com/Nyakooo/ajax-proxy/milestone/2)、[阶段 2](https://github.com/Nyakooo/ajax-proxy/milestone/3)、[阶段 3](https://github.com/Nyakooo/ajax-proxy/milestone/4)、[阶段 4](https://github.com/Nyakooo/ajax-proxy/milestone/5)、[阶段 5](https://github.com/Nyakooo/ajax-proxy/milestone/6)、[阶段 6](https://github.com/Nyakooo/ajax-proxy/milestone/7)、[阶段 7](https://github.com/Nyakooo/ajax-proxy/milestone/8)；已复现缺陷：[issue #56](https://github.com/Nyakooo/ajax-proxy/issues/56)。
