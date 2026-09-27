@@ -70,7 +70,7 @@ describe('service worker message entry', () => {
     })
     vi.doMock('../src/service-worker/event', () => ({ injectEventListener: vi.fn() }))
     vi.doMock('../src/service-worker/notice', () => ({ useCurrentTitle: vi.fn() }))
-    vi.doMock('../src/service-worker/init', () => ({ initDefaultSth: vi.fn() }))
+    vi.doMock('../src/service-worker/init', () => ({ initDefaultSth: vi.fn(), syncToolbarIcon: vi.fn() }))
     vi.doMock('../src/service-worker/badge', () => ({ chromeBadge: vi.fn() }))
     vi.doMock('../src/service-worker/v3Hit', () => ({ chromeBadgeV3: vi.fn() }))
     vi.doMock('../src/service-worker/v3FunctionError', () => ({ notifyV3FunctionError: vi.fn() }))
@@ -105,6 +105,7 @@ describe('service worker message entry', () => {
     const runtimeListeners: MessageListener[] = []
     const storageChangeListeners: StorageChangeListener[] = []
     const initDefaultSth = vi.fn()
+    const syncToolbarIcon = vi.fn()
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
     vi.stubGlobal('chrome', {
       runtime: {
@@ -130,7 +131,7 @@ describe('service worker message entry', () => {
     })
     vi.doMock('../src/service-worker/event', () => ({ injectEventListener: vi.fn() }))
     vi.doMock('../src/service-worker/notice', () => ({ useCurrentTitle: vi.fn() }))
-    vi.doMock('../src/service-worker/init', () => ({ initDefaultSth }))
+    vi.doMock('../src/service-worker/init', () => ({ initDefaultSth, syncToolbarIcon }))
     vi.doMock('../src/service-worker/badge', () => ({ chromeBadge: vi.fn() }))
     vi.doMock('../src/service-worker/v3Hit', () => ({ chromeBadgeV3: vi.fn() }))
     vi.doMock('../src/service-worker/v3FunctionError', () => ({ notifyV3FunctionError: vi.fn() }))
@@ -162,6 +163,7 @@ describe('service worker message entry', () => {
     const notifyV3XHROutcome = vi.fn().mockResolvedValue(undefined)
     const chromeBadge = vi.fn()
     const chromeBadgeV3 = vi.fn()
+    const syncToolbarIcon = vi.fn()
     const actionClickListeners: ActionClickListener[] = []
     const commandListeners: CommandListener[] = []
     const storageChangeListeners: StorageChangeListener[] = []
@@ -206,7 +208,7 @@ describe('service worker message entry', () => {
       }
     })
     vi.doMock('../src/service-worker/notice', () => ({ useCurrentTitle }))
-    vi.doMock('../src/service-worker/init', () => ({ initDefaultSth: vi.fn() }))
+    vi.doMock('../src/service-worker/init', () => ({ initDefaultSth: vi.fn(), syncToolbarIcon }))
     vi.doMock('../src/service-worker/badge', () => ({ chromeBadge }))
     vi.doMock('../src/service-worker/v3Hit', () => ({ chromeBadgeV3 }))
     vi.doMock('../src/service-worker/v3FunctionError', () => ({ notifyV3FunctionError }))
@@ -234,6 +236,7 @@ describe('service worker message entry', () => {
     onStorageChanged({ [StorageKey.V3_CONFIG]: { newValue: {} } }, 'local')
     onStorageChanged({ [StorageKey.V3_HITS]: { newValue: {} } }, 'local')
     expect(chromeBadge).toHaveBeenCalledTimes(2)
+    expect(syncToolbarIcon).toHaveBeenCalledOnce()
 
     chromeBadge.mockClear()
     onStorageChanged({ [StorageKey.V3_CONFIG]: { newValue: {} } }, 'sync')

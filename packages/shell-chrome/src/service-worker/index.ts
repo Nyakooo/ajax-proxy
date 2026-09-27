@@ -22,7 +22,7 @@ import {
 } from '@proxy/protocol'
 import { injectEventListener } from './event'
 import { useCurrentTitle } from './notice'
-import { initDefaultSth } from './init'
+import { initDefaultSth, syncToolbarIcon } from './init'
 import { chromeBadge } from './badge'
 import { chromeBadgeV3 } from './v3Hit'
 import { notifyV3FunctionError } from './v3FunctionError'
@@ -50,6 +50,7 @@ storageReady
   .then(() => {
     chrome.storage.onChanged.addListener((changes, areaName) => {
       if (areaName === 'local' && (changes[StorageKey.V3_CONFIG] || changes[StorageKey.V3_HITS])) {
+        if (changes[StorageKey.V3_CONFIG]) void syncToolbarIcon()
         chromeBadge()
       }
     })
