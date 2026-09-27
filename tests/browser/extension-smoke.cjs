@@ -996,7 +996,8 @@ async function main() {
       await englishButton.click()
       await v3Panel.reload()
     }
-    await v3Panel.getByRole('button', { name: 'Create intercept rule' }).click()
+    await v3Panel.getByRole('button', { name: 'Create rule', exact: true }).click()
+    await v3Panel.getByRole('dialog').getByRole('button', { name: 'Create intercept rule' }).click()
     const responseEditor = v3Panel.getByRole('dialog')
     await responseEditor
       .locator('.cm-content[contenteditable="true"]')
@@ -1426,7 +1427,8 @@ async function main() {
     )
 
     v3Panel.on('dialog', (dialog) => dialog.accept())
-    await v3Panel.getByRole('button', { name: 'Create intercept rule' }).click()
+    await v3Panel.getByRole('button', { name: 'Create rule', exact: true }).click()
+    await v3Panel.getByRole('dialog').getByRole('button', { name: 'Create intercept rule' }).click()
     const functionEditor = v3Panel.getByRole('dialog')
     await functionEditor.locator('label.editor-field').nth(0).locator('input').fill('/api/function')
     await functionEditor.locator('.editor-field-row select').nth(1).selectOption('POST')
@@ -1590,14 +1592,14 @@ async function main() {
         'ajax-proxy:storage:v3-config'
       )
       const dualRule = configAfterDelete.rules.find((rule) => rule.id === dualActionRule.id)
-      if (dualRule && !dualRule.response) break
+      if (!dualRule) break
       await new Promise((resolve) => setTimeout(resolve, 50))
     }
-    const preservedRedirectRule = configAfterDelete.rules.find(
-      (rule) => rule.id === dualActionRule.id
+    assert.equal(
+      configAfterDelete.rules.some((rule) => rule.id === dualActionRule.id),
+      false,
+      'deleting a unified rule removes all its actions'
     )
-    assert.ok(preservedRedirectRule.request, 'deleting the disabled response keeps the redirect')
-    assert.equal(preservedRedirectRule.response, undefined)
 
     const importedFunctionRows = v3Panel.locator('.rule-row').filter({ hasText: '/api/function' })
     await importedFunctionRows.first().waitFor()
@@ -1912,8 +1914,8 @@ async function main() {
     )
     await conflictingTagDialog.getByRole('button', { name: 'Cancel', exact: true }).click()
 
-    await v3Panel.locator('.sidebar .nav-item').nth(1).click()
-    await v3Panel.getByRole('button', { name: 'Create redirect rule' }).click()
+    await v3Panel.getByRole('button', { name: 'Create rule', exact: true }).click()
+    await v3Panel.getByRole('dialog').getByRole('button', { name: 'Create redirect rule' }).click()
     const taggedRedirectEditor = v3Panel.locator('.rule-editor[role="dialog"]')
     await taggedRedirectEditor
       .locator('label.editor-field')

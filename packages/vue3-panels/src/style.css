@@ -463,6 +463,25 @@ input {
   font-size: 11px;
 }
 
+.theme-control {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--ap-muted);
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.theme-control select {
+  min-height: 30px;
+  padding: 3px 20px 3px 7px;
+  border: 1px solid var(--ap-border);
+  border-radius: 6px;
+  background: var(--ap-card);
+  color: var(--ap-ink);
+  font-size: 10px;
+}
+
 .toolbar-spacer {
   flex: 1;
 }
@@ -472,6 +491,39 @@ input {
   color: var(--ap-muted);
   font-size: 10px;
   white-space: nowrap;
+}
+
+.page-size-control {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--ap-muted);
+  font-size: 10px;
+}
+
+.page-size-control select {
+  min-height: 30px;
+  padding: 3px 22px 3px 7px;
+  border: 1px solid var(--ap-border);
+  border-radius: 6px;
+  background: var(--ap-card);
+  color: var(--ap-ink);
+  font-size: 10px;
+}
+
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 15px 0;
+  color: var(--ap-muted);
+  font-size: 11px;
+}
+
+.pagination .p-button {
+  height: 32px;
+  font-size: 10px;
 }
 
 .disabled-notice {
@@ -880,7 +932,9 @@ input {
 
 .rule-actions {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
+  justify-content: flex-end;
   gap: 3px;
 }
 
@@ -943,6 +997,42 @@ input {
   background: var(--ap-card);
   box-shadow: 0 22px 70px rgb(0 0 0 / 24%);
   color: var(--ap-ink);
+}
+
+.create-rule-choice {
+  position: relative;
+  width: min(420px, 100%);
+  padding: 24px;
+  border: 1px solid var(--ap-border);
+  border-radius: var(--ap-radius-panel);
+  background: var(--ap-card);
+  box-shadow: 0 22px 70px rgb(0 0 0 / 24%);
+  color: var(--ap-ink);
+}
+
+.create-rule-choice h2 {
+  margin: 0 36px 8px 0;
+  font-size: 17px;
+}
+
+.create-rule-choice p {
+  margin: 0;
+  color: var(--ap-muted);
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.create-rule-choice .editor-close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+}
+
+.create-rule-choice-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+  margin-top: 20px;
 }
 
 .response-rule-editor {

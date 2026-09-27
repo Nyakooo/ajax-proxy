@@ -51,7 +51,10 @@ if (watchMode) {
 }
 
 async function copyStaticAssets() {
-  fs.copyFileSync(path.join(extensionRoot, 'manifest.json'), path.join(outputDir, 'manifest.json'))
+  const manifest = JSON.parse(fs.readFileSync(path.join(extensionRoot, 'manifest.json'), 'utf8'))
+  manifest.action.default_popup = 'panels-v3/popup.html'
+  manifest.commands._execute_action = { description: 'Open quick rules popup' }
+  fs.writeFileSync(path.join(outputDir, 'manifest.json'), JSON.stringify(manifest, null, 2))
   fs.cpSync(path.join(extensionRoot, 'icons'), path.join(outputDir, 'icons'), {
     recursive: true,
   })
@@ -74,6 +77,7 @@ async function copyStaticAssets() {
 function validateManifestAssets() {
   const manifest = JSON.parse(fs.readFileSync(path.join(outputDir, 'manifest.json'), 'utf8'))
   const references = [
+    manifest.action?.default_popup,
     manifest.background?.service_worker,
     ...(manifest.content_scripts ?? []).flatMap((contentScript) => contentScript.js ?? []),
     ...(manifest.sandbox?.pages ?? []),
@@ -110,7 +114,12 @@ function validateManifestAssets() {
     throw new Error('Vite service worker must open the V3 panel by default')
   }
 
-  for (const htmlFile of ['v3-sandbox/sandbox.html', 'panels/index.html', 'panels-v3/index.html']) {
+  for (const htmlFile of [
+    'v3-sandbox/sandbox.html',
+    'panels/index.html',
+    'panels-v3/index.html',
+    'panels-v3/popup.html',
+  ]) {
     const htmlPath = path.join(outputDir, htmlFile)
     const html = fs.readFileSync(htmlPath, 'utf8')
     const localReferences = [...html.matchAll(/\b(?:src|href)=["']([^"']+)["']/g)]

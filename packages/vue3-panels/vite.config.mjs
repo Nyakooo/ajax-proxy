@@ -14,5 +14,11 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     emptyOutDir: true,
+    rollupOptions: {
+      input: {
+        panel: fileURLToPath(new URL('./index.html', import.meta.url)),
+        popup: fileURLToPath(new URL('./popup.html', import.meta.url)),
+      },
+    },
   },
 })

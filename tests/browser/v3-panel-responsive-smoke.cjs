@@ -193,6 +193,7 @@ async function main() {
       await assertPageFits(page, width, 'en')
 
       await page.locator('.content-heading > button').click()
+      await page.getByRole('dialog').getByRole('button', { name: 'Create intercept rule' }).click()
       const dialog = page.locator('.response-rule-editor[role="dialog"]')
       await dialog.waitFor({ state: 'visible' })
       assert.match(await dialog.locator('h2').innerText(), /Create JSON response rule/)

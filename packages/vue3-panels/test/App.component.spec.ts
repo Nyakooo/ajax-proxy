@@ -84,6 +84,8 @@ afterEach(() => {
   vi.restoreAllMocks()
   vi.unstubAllGlobals()
   document.body.innerHTML = ''
+  window.localStorage.removeItem('ajax-proxy:ui:theme')
+  window.history.replaceState(null, '', '/')
 })
 
 async function mountApp(saveResponses = [], startingConfig = initialConfig(), stubs = {}) {
@@ -91,7 +93,7 @@ async function mountApp(saveResponses = [], startingConfig = initialConfig(), st
   previousChrome = globalThis.chrome
   let storedConfig = structuredClone(startingConfig)
   let storedRevision = initialRevision
-  let extensionMessageListener
+  const extensionMessageListeners = new Set()
   const sentMessages = []
   const sendMessage = vi.fn(async (message) => {
     sentMessages.push(message)
@@ -119,13 +121,14 @@ async function mountApp(saveResponses = [], startingConfig = initialConfig(), st
   })
   globalThis.chrome = {
     runtime: {
+      id: 'test-extension-id',
       sendMessage,
       onMessage: {
         addListener(listener) {
-          extensionMessageListener = listener
+          extensionMessageListeners.add(listener)
         },
         removeListener(listener) {
-          if (extensionMessageListener === listener) extensionMessageListener = undefined
+          extensionMessageListeners.delete(listener)
         },
       },
     },
@@ -154,11 +157,111 @@ async function mountApp(saveResponses = [], startingConfig = initialConfig(), st
     sentMessages,
     getStoredConfig: () => structuredClone(storedConfig),
     sendExtensionMessage(message) {
-      if (!extensionMessageListener) throw new Error('No extension message listener is registered')
-      extensionMessageListener(message)
+      if (!extensionMessageListeners.size)
+        throw new Error('No extension message listener is registered')
+      for (const listener of extensionMessageListeners) listener(message)
+    },
+    sendRuntimeMessage(message, sender = { id: 'test-extension-id' }) {
+      for (const listener of extensionMessageListeners) listener(message, sender)
     },
   }
 }
+
+describe('App rule edit requests', () => {
+  it('opens the response editor from the edit query after loading config', async () => {
+    window.history.replaceState(null, '', '/?edit=response-rule')
+    const rule = {
+      id: 'response-rule',
+      enabled: true,
+      match: { url: '/api/response', method: 'GET', type: 'normal' },
+      response: { enabled: true, replace: { body: { ok: true } } },
+    }
+    const { wrapper } = await mountApp([], { ...initialConfig(), rules: [rule] })
+
+    expect(wrapper.find('.response-rule-editor').exists()).toBe(true)
+    expect(wrapper.find('.redirect-rule-editor').exists()).toBe(false)
+  })
+
+  it('opens the redirect editor for redirect-only rules and reports missing IDs', async () => {
+    window.history.replaceState(null, '', '/?edit=redirect-rule')
+    const rule = {
+      id: 'redirect-rule',
+      enabled: true,
+      match: { url: '/api/redirect', method: 'GET', type: 'normal' },
+      request: { enabled: true, redirect: { url: '/target' } },
+    }
+    const { wrapper } = await mountApp([], { ...initialConfig(), rules: [rule] })
+    expect(wrapper.find('.redirect-rule-editor').exists()).toBe(true)
+    expect(wrapper.find('.response-rule-editor').exists()).toBe(false)
+  })
+
+  it('reports an unknown edit query without saving config', async () => {
+    window.history.replaceState(null, '', '/?edit=missing-rule')
+    const { wrapper, sentMessages } = await mountApp()
+    expect(wrapper.get('[role="alert"]').text()).toContain('未找到规则 ID「missing-rule」')
+    expect(sentMessages.some((message) => message.key === V3PanelMessageKey.SAVE_CONFIG)).toBe(
+      false
+    )
+  })
+
+  it('accepts worker edit requests only from the extension without a tab sender', async () => {
+    const rule = {
+      id: 'combined-rule',
+      enabled: true,
+      match: { url: '/api/combined', method: 'GET', type: 'normal' },
+      request: { enabled: true, redirect: { url: '/target' } },
+      response: { enabled: true, replace: { body: { ok: true } } },
+    }
+    const { wrapper, sendRuntimeMessage } = await mountApp([], {
+      ...initialConfig(),
+      rules: [rule],
+    })
+
+    sendRuntimeMessage(
+      { type: 'ajax-proxy:edit-rule', ruleId: rule.id },
+      { id: 'test-extension-id', tab: { id: 1 } }
+    )
+    await flushPromises()
+    expect(wrapper.find('.response-rule-editor').exists()).toBe(false)
+
+    sendRuntimeMessage({ type: 'ajax-proxy:edit-rule', ruleId: rule.id })
+    await flushPromises()
+    expect(wrapper.find('.response-rule-editor').exists()).toBe(true)
+    expect(wrapper.find('.redirect-rule-editor').exists()).toBe(false)
+  })
+
+  it('confirms before replacing a different unsaved editor from a worker request', async () => {
+    window.history.replaceState(null, '', '/?edit=first-rule')
+    const makeRule = (id: string) => ({
+      id,
+      enabled: true,
+      match: { url: `/api/${id}`, method: 'GET', type: 'normal' },
+      response: { enabled: true, replace: { body: { id } } },
+    })
+    const { wrapper, sendRuntimeMessage } = await mountApp([], {
+      ...initialConfig(),
+      rules: [makeRule('first-rule'), makeRule('second-rule')],
+    })
+    const confirm = vi.spyOn(globalThis, 'confirm').mockReturnValue(false)
+    const openSecond = () =>
+      sendRuntimeMessage({ type: 'ajax-proxy:edit-rule', ruleId: 'second-rule' })
+
+    openSecond()
+    await flushPromises()
+    expect(confirm).toHaveBeenCalledOnce()
+    expect(wrapper.get('.response-rule-editor input[autocomplete="off"]').element.value).toBe(
+      '/api/first-rule'
+    )
+
+    confirm.mockReturnValue(true)
+    openSecond()
+    await flushPromises()
+    expect(confirm).toHaveBeenCalledTimes(2)
+    expect(wrapper.get('.response-rule-editor input[autocomplete="off"]').element.value).toBe(
+      '/api/second-rule'
+    )
+  })
+})
 
 function buttonByText(wrapper, text) {
   const button = wrapper.findAll('button').find((candidate) => candidate.text() === text)
@@ -273,6 +376,28 @@ describe('App search keyboard shortcut', () => {
 
     expect(editorShortcut.defaultPrevented).toBe(false)
     expect(document.activeElement).toBe(siteInput.element)
+  })
+})
+
+describe('App theme preference', () => {
+  it('offers system, light, and dark modes and applies the selected mode', async () => {
+    const { wrapper } = await mountApp()
+    const theme = wrapper.get('select[aria-label="主题"]')
+    expect(theme.element.value).toBe('system')
+    expect(theme.findAll('option').map((option) => option.text())).toEqual([
+      '跟随系统',
+      '浅色',
+      '深色',
+    ])
+
+    await theme.setValue('dark')
+    await flushPromises()
+    expect(document.documentElement.classList.contains('app-dark')).toBe(true)
+    expect(window.localStorage.getItem('ajax-proxy:ui:theme')).toBe('dark')
+
+    await theme.setValue('light')
+    await flushPromises()
+    expect(document.documentElement.classList.contains('app-dark')).toBe(false)
   })
 })
 
@@ -475,6 +600,142 @@ describe('App visible selection and bulk rule actions', () => {
   })
 })
 
+describe('App request rules pagination and pinning', () => {
+  const makeRule = (id: string, pinned = false) => ({
+    id,
+    enabled: true,
+    ...(pinned ? { pinned: true } : {}),
+    match: { url: `/api/${id}`, method: 'GET', type: 'normal' },
+    response: { enabled: true, replace: { body: { id } } },
+  })
+
+  it('clears selection when moving to another page', async () => {
+    const startingConfig = {
+      ...initialConfig(),
+      rules: Array.from({ length: 21 }, (_, index) => makeRule(`rule-${index + 1}`)),
+    }
+    const { wrapper } = await mountApp([], startingConfig)
+    expect(wrapper.findAll('.rule-row')).toHaveLength(20)
+    await wrapper.get('.rule-selection input').setValue(true)
+    expect(wrapper.find('.bulk-actions').exists()).toBe(true)
+
+    await buttonByText(wrapper, '下一页').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.findAll('.rule-row')).toHaveLength(1)
+    expect(wrapper.find('.bulk-actions').exists()).toBe(false)
+    expect(wrapper.get('.pagination').text()).toContain('第 2 / 2 页')
+    expect(
+      wrapper
+        .get('select[aria-label="每页"]')
+        .findAll('option')
+        .map((option) => option.text())
+    ).toEqual(['20', '50', '100'])
+  })
+
+  it('reorders by full rule priority across a page boundary', async () => {
+    const startingConfig = {
+      ...initialConfig(),
+      rules: Array.from({ length: 21 }, (_, index) => makeRule(`rule-${index + 1}`)),
+    }
+    const { wrapper, sentMessages } = await mountApp([], startingConfig)
+    await buttonByText(wrapper, '下一页').trigger('click')
+    await flushPromises()
+
+    const moveUp = wrapper.get('button[aria-label="提高规则「/api/rule-21」的优先级"]')
+    expect(moveUp.attributes('disabled')).toBeUndefined()
+    await moveUp.trigger('click')
+    await flushPromises()
+
+    const save = sentMessages.find((message) => message.key === V3PanelMessageKey.SAVE_CONFIG)
+    expect(save.value.config.rules.map(({ id }) => id).slice(-3)).toEqual([
+      'rule-19',
+      'rule-21',
+      'rule-20',
+    ])
+    expect(wrapper.get('.pagination').text()).toContain('第 2 / 2 页')
+    expect(wrapper.findAll('.rule-row')).toHaveLength(1)
+    expect(wrapper.get('.rule-row').text()).toContain('/api/rule-20')
+  })
+
+  it('keeps pinned rules first, filters them, and persists pin changes', async () => {
+    const startingConfig = {
+      ...initialConfig(),
+      rules: [makeRule('first'), makeRule('second'), makeRule('pinned', true)],
+    }
+    const { wrapper, sentMessages } = await mountApp([], startingConfig)
+    expect(wrapper.findAll('.rule-row').map((row) => row.text())).toEqual([
+      expect.stringContaining('/api/pinned'),
+      expect.stringContaining('/api/first'),
+      expect.stringContaining('/api/second'),
+    ])
+    expect(
+      wrapper.get('button[aria-label="提高规则「/api/pinned」的优先级"]').attributes('disabled')
+    ).toBeDefined()
+    expect(
+      wrapper.get('button[aria-label="降低规则「/api/pinned」的优先级"]').attributes('disabled')
+    ).toBeDefined()
+
+    const secondRow = wrapper
+      .findAll('.rule-row')
+      .find((row) => row.text().includes('/api/second'))!
+    await secondRow.get('button[aria-label="置顶规则「/api/second」"]').trigger('click')
+    await flushPromises()
+    expect(wrapper.findAll('.rule-row').map((row) => row.text())).toEqual([
+      expect.stringContaining('/api/second'),
+      expect.stringContaining('/api/pinned'),
+      expect.stringContaining('/api/first'),
+    ])
+
+    const saves = sentMessages.filter((message) => message.key === V3PanelMessageKey.SAVE_CONFIG)
+    expect(saves).toHaveLength(1)
+    expect(saves[0].value.config.rules.map(({ id, pinned }) => [id, pinned])).toEqual([
+      ['second', true],
+      ['pinned', true],
+      ['first', undefined],
+    ])
+
+    await buttonByText(wrapper, '只看置顶').trigger('click')
+    await flushPromises()
+    expect(wrapper.findAll('.rule-row')).toHaveLength(2)
+    expect(wrapper.findAll('.rule-row').map((row) => row.text())).toEqual([
+      expect.stringContaining('/api/second'),
+      expect.stringContaining('/api/pinned'),
+    ])
+  })
+
+  it('adds a new response rule at the end and moves to the new rule page', async () => {
+    const startingConfig = {
+      ...initialConfig(),
+      rules: Array.from({ length: 20 }, (_, index) => makeRule(`rule-${index + 1}`)),
+    }
+    const { wrapper, sentMessages } = await mountApp([], startingConfig, {
+      CodeMirrorJsonEditor: {
+        props: ['modelValue', 'ariaLabel'],
+        emits: ['update:modelValue'],
+        template:
+          '<textarea :aria-label="ariaLabel" :value="modelValue" @input="$emit(\'update:modelValue\', $event.target.value)" />',
+      },
+    })
+
+    await wrapper.get('input[placeholder="搜索 URL、method 或备注"]').setValue('pinned:true')
+    await buttonByText(wrapper, '创建规则').trigger('click')
+    await buttonByText(wrapper, '创建响应规则').trigger('click')
+    await wrapper.get('.rule-editor input[autocomplete="off"]').setValue('/api/new-last')
+    await wrapper.get('.editor-form').trigger('submit')
+    await flushPromises()
+
+    const saves = sentMessages.filter((message) => message.key === V3PanelMessageKey.SAVE_CONFIG)
+    expect(saves).toHaveLength(1)
+    expect(saves[0].value.config.rules).toHaveLength(21)
+    expect(saves[0].value.config.rules.at(-1).match.url).toBe('/api/new-last')
+    expect(wrapper.findAll('.rule-row')).toHaveLength(1)
+    expect(wrapper.get('.rule-row').text()).toContain('/api/new-last')
+    expect(wrapper.get('.pagination').text()).toContain('第 2 / 2 页')
+    expect(wrapper.get('input[placeholder="搜索 URL、method 或备注"]').element.value).toBe('')
+  })
+})
+
 describe('App rule duplication persistence flow', () => {
   it('inserts a disabled copy after its source without copying the hit counter', async () => {
     const tag = { id: 'tag-duplicate', name: 'Duplicate', used: true }
@@ -655,6 +916,25 @@ describe('App rule deletion persistence', () => {
       expect.stringContaining('/api/selected'),
     ])
     expect(wrapper.get('.operation-alert').text()).toContain('storage-write-failed')
+  })
+
+  it('deletes a combined request and response rule as one rule', async () => {
+    const combinedRule = {
+      ...makeRule('combined-rule', '/api/combined'),
+      request: { enabled: true, redirect: { url: '/target' } },
+    }
+    const { wrapper, sentMessages } = await mountApp([], {
+      ...initialConfig(),
+      rules: [combinedRule],
+    })
+    vi.spyOn(globalThis, 'confirm').mockReturnValue(true)
+
+    await buttonByText(wrapper.get('.rule-row'), '删除').trigger('click')
+    await flushPromises()
+
+    const save = sentMessages.find((message) => message.key === V3PanelMessageKey.SAVE_CONFIG)
+    expect(save.value.config.rules).toEqual([])
+    expect(wrapper.findAll('.rule-row')).toHaveLength(0)
   })
 })
 
@@ -1016,11 +1296,7 @@ describe('App redirect exclusion persistence flow', () => {
   it('saves edited exclusions into the V3 snapshot', async () => {
     const { wrapper, sentMessages } = await mountApp()
 
-    const redirectNavigation = wrapper
-      .findAll('.nav-item')
-      .find((button) => button.text().includes('重定向规则'))
-    expect(redirectNavigation).toBeDefined()
-    await redirectNavigation!.trigger('click')
+    await buttonByText(wrapper, '创建规则').trigger('click')
     await buttonByText(wrapper, '创建重定向规则').trigger('click')
     await wrapper
       .get('.rule-editor form')
@@ -1049,10 +1325,7 @@ describe('App redirect exclusion persistence flow', () => {
     vi.spyOn(globalThis, 'confirm').mockReturnValue(true)
     const { wrapper, sentMessages } = await mountApp()
 
-    const redirectNavigation = wrapper
-      .findAll('.nav-item')
-      .find((button) => button.text().includes('重定向规则'))
-    await redirectNavigation!.trigger('click')
+    await buttonByText(wrapper, '创建规则').trigger('click')
     await buttonByText(wrapper, '创建重定向规则').trigger('click')
     await wrapper
       .get('.rule-editor form')
@@ -1073,6 +1346,35 @@ describe('App redirect exclusion persistence flow', () => {
       redirect: { type: 'function', code: 'return request.url' },
     })
     expect(globalThis.confirm).toHaveBeenCalledTimes(1)
+  })
+
+  it('edits the redirect action of a combined rule and preserves its response and pin', async () => {
+    const rule = {
+      id: 'combined-redirect',
+      enabled: true,
+      pinned: true,
+      match: { url: '/api/combined', method: 'GET', type: 'normal' },
+      request: { enabled: true, redirect: { url: '/old-target' } },
+      response: { enabled: true, replace: { status: 201, body: { preserved: true } } },
+    }
+    const { wrapper, sentMessages } = await mountApp([], { ...initialConfig(), rules: [rule] })
+
+    await buttonByText(wrapper.get('.rule-row'), '编辑重定向').trigger('click')
+    await wrapper
+      .get('.redirect-rule-editor form')
+      .findAll('input:not([type="checkbox"]):not([type="radio"])')[1]
+      .setValue('/new-target')
+    await wrapper.get('.redirect-rule-editor form').trigger('submit')
+    await flushPromises()
+
+    const save = sentMessages.find((message) => message.key === V3PanelMessageKey.SAVE_CONFIG)
+    expect(save.value.config.rules).toEqual([
+      {
+        ...rule,
+        tagIds: [],
+        request: { enabled: true, redirect: { url: '/new-target' } },
+      },
+    ])
   })
 })
 
@@ -1121,26 +1423,13 @@ describe('RedirectRuleEditor static request headers', () => {
 })
 
 describe('App rule view navigation accessibility', () => {
-  it('exposes the named navigation landmark and current view', async () => {
+  it('exposes one unified request rules navigation item', async () => {
     const { wrapper } = await mountApp()
 
     const navigation = wrapper.get('nav[aria-label="工作区"]')
-    const interceptButton = navigation
-      .findAll('.nav-item')
-      .find((button) => button.text().includes('拦截规则'))
-    const redirectButton = navigation
-      .findAll('.nav-item')
-      .find((button) => button.text().includes('重定向规则'))
-
-    expect(interceptButton).toBeDefined()
-    expect(redirectButton).toBeDefined()
-    expect(interceptButton!.attributes('aria-current')).toBe('page')
-    expect(redirectButton!.attributes('aria-current')).toBeUndefined()
-
-    await redirectButton!.trigger('click')
-
-    expect(interceptButton!.attributes('aria-current')).toBeUndefined()
-    expect(redirectButton!.attributes('aria-current')).toBe('page')
+    expect(navigation.findAll('.nav-item')).toHaveLength(1)
+    expect(navigation.get('.nav-item').text()).toContain('请求规则')
+    expect(navigation.get('.nav-item').attributes('aria-current')).toBe('page')
   })
 })
 
@@ -1158,7 +1447,8 @@ describe('App function response persistence flow', () => {
     vi.spyOn(globalThis, 'confirm').mockReturnValue(true)
     const { wrapper, sentMessages } = await mountApp([], initialConfig(), editorStubs)
 
-    await buttonByText(wrapper, '创建拦截规则').trigger('click')
+    await buttonByText(wrapper, '创建规则').trigger('click')
+    await buttonByText(wrapper, '创建响应规则').trigger('click')
     await flushPromises()
     await wrapper.get('input[name="response-mode"][value="function"]').setValue(true)
     await wrapper.get('.rule-editor input[autocomplete="off"]').setValue('/api/function')
@@ -1199,7 +1489,7 @@ describe('App function response persistence flow', () => {
     const { wrapper, sentMessages } = await mountApp([], startingConfig, editorStubs)
 
     const row = wrapper.get('.rule-row')
-    await buttonByText(row, '编辑').trigger('click')
+    await buttonByText(row, '编辑响应').trigger('click')
     await flushPromises()
     await wrapper
       .get('textarea[aria-label="函数体代码"]')
@@ -1239,7 +1529,7 @@ describe('App function response persistence flow', () => {
       editorStubs
     )
 
-    await buttonByText(wrapper.get('.rule-row'), '编辑').trigger('click')
+    await buttonByText(wrapper.get('.rule-row'), '编辑响应').trigger('click')
     await flushPromises()
     await wrapper
       .get('textarea[aria-label="函数体代码"]')
@@ -1274,7 +1564,8 @@ describe('App JSON response persistence flow', () => {
   it('creates a JSON response rule with the editor values in the saved config', async () => {
     const { wrapper, sentMessages } = await mountApp([], initialConfig(), editorStubs)
 
-    await buttonByText(wrapper, '创建拦截规则').trigger('click')
+    await buttonByText(wrapper, '创建规则').trigger('click')
+    await buttonByText(wrapper, '创建响应规则').trigger('click')
     await flushPromises()
     await wrapper.get('.rule-editor input[autocomplete="off"]').setValue('/api/json')
     await wrapper.findAll('.rule-editor select')[1].setValue('POST')
@@ -1316,7 +1607,7 @@ describe('App JSON response persistence flow', () => {
     const startingConfig = { ...initialConfig(), tags: [tag], rules: [existingRule] }
     const { wrapper, sentMessages } = await mountApp([], startingConfig, editorStubs)
 
-    await buttonByText(wrapper.get('.rule-row'), '编辑').trigger('click')
+    await buttonByText(wrapper.get('.rule-row'), '编辑响应').trigger('click')
     await flushPromises()
     await wrapper.get('.rule-editor input[type="number"]').setValue(206)
     await wrapper.get('textarea[aria-label="响应 JSON"]').setValue('{"updated":true}')

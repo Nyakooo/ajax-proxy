@@ -30,6 +30,7 @@ import { notifyV3NoMatch } from './v3NoMatch'
 import { notifyV3FetchOutcome } from './v3FetchOutcome'
 import { notifyV3XHROutcome } from './v3XHROutcome'
 import { createV3PanelStartupMessageHandler } from './v3Panel'
+import { handlePopupMessage } from './popup'
 import { INIT_CURRENT_TITLE } from '../consts'
 import { isPageBadgeHit } from '../messageValidation'
 
@@ -40,6 +41,7 @@ const handleV3PanelStartupMessage = createV3PanelStartupMessageHandler({
   storageReady,
 })
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+  if (handlePopupMessage(msg, sender, sendResponse)) return true
   return handleV3PanelStartupMessage(msg, sender, sendResponse)
 })
 

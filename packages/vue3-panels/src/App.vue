@@ -31,6 +31,8 @@ import { validateFunctionResponseDraft } from './services/v3FunctionResponseDraf
 import { cloneV3RuleTemplate } from './services/v3RuleTemplateCatalog.js'
 import { createV3DiagnosticsCaptureStorage } from './services/v3DiagnosticsCaptureStorage.js'
 import { createActiveTabOriginService } from './services/activeTabOrigin.js'
+import { useThemePreference } from './services/useThemePreference.js'
+import { matchesRuleSearch, orderPinnedRules } from '@proxy/v3-domain'
 import lightMark from '../../shell-chrome/icons/128.png'
 import darkMark from '../../../docs/brand/ajax-proxy-mark-dark.png'
 
@@ -42,15 +44,19 @@ const RuleTemplatesDialog = defineAsyncComponent(
 )
 const SiteSwitchesDialog = defineAsyncComponent(() => import('./components/SiteSwitchesDialog.vue'))
 
-const darkMode = ref(false)
-const section = ref('intercept')
+const { themeMode, darkMode, setThemeMode } = useThemePreference()
 const search = ref('')
+const pageSize = ref(20)
+const currentPage = ref(1)
+const pinnedOnly = ref(false)
+const createChooserOpen = ref(false)
+const requestedEditNotice = ref('')
 const searchBox = ref(null)
 const { locale, t } = useI18n({ useScope: 'global' })
 let configService
 let diagnosticsCaptureStorage
 let ruleOperations
-let quickCreateReturnSection = null
+let pendingEditRequestId = ''
 let v3BackupVersion = 4
 const memoryOnly = ref(!globalThis.chrome?.runtime?.sendMessage)
 const loading = ref(true)
@@ -143,13 +149,12 @@ const activeMark = computed(() => (darkMode.value ? darkMark : lightMark))
 const rules = computed(() => config.value.rules)
 const enabled = computed(() => config.value.settings.globalEnabled)
 const disabledOrigins = computed(() => config.value.disabledOrigins ?? [])
-const redirectRuleCount = computed(() => rules.value.filter((rule) => rule.request).length)
-const interceptRuleCount = computed(() => rules.value.filter((rule) => rule.response).length)
 const ruleFiltersActive = computed(
   () =>
     ruleStatusFilter.value !== 'all' ||
     ruleMatchTypeFilter.value !== 'all' ||
-    selectedTagId.value !== ''
+    selectedTagId.value !== '' ||
+    pinnedOnly.value
 )
 
 const selectedTagName = computed(
@@ -185,26 +190,16 @@ function functionErrorActionLabel(failure) {
 
 function isFirstActiveRule(rule) {
   return (
-    config.value.rules.find(
+    orderedRules.value.find(
       (item) => item.enabled && (item.request?.enabled || item.response?.enabled)
     )?.id === rule.id
   )
 }
 
-const visibleRules = computed(() => {
-  const query = search.value.trim().toLowerCase()
-  return rules.value.filter((rule) => {
-    const actions = ruleActions(rule)
-    const searchable = [
-      rule.id,
-      rule.match.url,
-      rule.match.method ?? 'ANY',
-      rule.request?.redirect?.url ?? rule.request?.redirect?.code ?? '',
-      ...actions.map((action) => t(`action.${action.key}`)),
-      ...ruleTagNames(rule),
-    ]
-    const matchesSearch = !query || searchable.join(' ').toLowerCase().includes(query)
-    const matchesSection = section.value === 'redirect' ? rule.request : rule.response
+const orderedRules = computed(() => orderPinnedRules(rules.value))
+const filteredRules = computed(() => {
+  return orderedRules.value.filter((rule) => {
+    const matchesSearch = matchesRuleSearch(rule, search.value, config.value.tags)
     const matchesStatus =
       ruleStatusFilter.value === 'all' ||
       (ruleStatusFilter.value === 'enabled' ? rule.enabled : !rule.enabled)
@@ -213,12 +208,35 @@ const visibleRules = computed(() => {
       ruleMatchTypeFilter.value === 'all' || ruleMatchTypeFilter.value === matchType
     const matchesTag =
       selectedTagId.value === '' || (rule.tagIds ?? []).includes(selectedTagId.value)
-    return matchesSearch && matchesSection && matchesStatus && matchesType && matchesTag
+    return (
+      matchesSearch &&
+      matchesStatus &&
+      matchesType &&
+      matchesTag &&
+      (!pinnedOnly.value || rule.pinned)
+    )
   })
 })
 
+const pageCount = computed(() =>
+  Math.max(1, Math.ceil(filteredRules.value.length / pageSize.value))
+)
+const pageRules = computed(() => {
+  const start = (currentPage.value - 1) * pageSize.value
+  return filteredRules.value.slice(start, start + pageSize.value)
+})
+const visibleRules = pageRules
+
+watch([filteredRules, pageSize], () => {
+  currentPage.value = Math.min(currentPage.value, pageCount.value)
+})
+
+watch([search, ruleStatusFilter, ruleMatchTypeFilter, selectedTagId, pinnedOnly], () => {
+  currentPage.value = 1
+})
+
 watch(
-  () => visibleRules.value.map((rule) => rule.id),
+  () => pageRules.value.map((rule) => rule.id),
   (visibleIds) => {
     const visible = new Set(visibleIds)
     selectedRuleIds.value = selectedRuleIds.value.filter((id) => visible.has(id))
@@ -235,6 +253,7 @@ function clearRuleFilters() {
   ruleStatusFilter.value = 'all'
   ruleMatchTypeFilter.value = 'all'
   selectedTagId.value = ''
+  pinnedOnly.value = false
 }
 
 function openRuleTagManager() {
@@ -406,6 +425,7 @@ function runRuleDiagnostics() {
 }
 
 let removeExtensionMessageListener
+let removeEditRequestListener
 let removeDiagnosticsStorageListener
 
 function getDiagnosticsCaptureStorage() {
@@ -447,10 +467,6 @@ function cancelFetchOutcomeCapture() {
   if (fetchOutcomeCaptureArmed.value) void setFetchOutcomeCapture(false)
 }
 
-watch(darkMode, (dark) => {
-  document.documentElement.classList.toggle('app-dark', dark)
-})
-
 watch(
   locale,
   (currentLocale) => {
@@ -476,6 +492,23 @@ watch(
 
 onMounted(async () => {
   window.addEventListener('keydown', focusSearchWithShortcut)
+  const editRequestListener = (message, sender) => {
+    if (
+      message?.type !== 'ajax-proxy:edit-rule' ||
+      typeof message.ruleId !== 'string' ||
+      sender?.id !== globalThis.chrome?.runtime?.id ||
+      sender?.tab
+    )
+      return
+    if (!configReady.value) {
+      pendingEditRequestId = message.ruleId
+      return
+    }
+    openRequestedRule(message.ruleId, true)
+  }
+  globalThis.chrome?.runtime?.onMessage?.addListener(editRequestListener)
+  removeEditRequestListener = () =>
+    globalThis.chrome?.runtime?.onMessage?.removeListener(editRequestListener)
   removeActiveTabOriginListener = createActiveTabOriginService().subscribe((origin) => {
     currentSiteOrigin.value = origin
   })
@@ -521,6 +554,10 @@ onMounted(async () => {
       hitCounters.value = result.snapshot.hitCounters
       if (snapshotConfig) locale.value = snapshotConfig.settings.language
       configReady.value = true
+      const requestedEditId = new URLSearchParams(window.location.search).get('edit')
+      if (requestedEditId || pendingEditRequestId)
+        openRequestedRule(requestedEditId || pendingEditRequestId)
+      pendingEditRequestId = ''
       removeExtensionMessageListener = configService.subscribe(receiveExtensionMessage)
       const captureStorage = getDiagnosticsCaptureStorage()
       if (captureStorage.canObserveChanges) {
@@ -553,6 +590,7 @@ onBeforeUnmount(() => {
   cancelNoMatchCapture()
   cancelFetchOutcomeCapture()
   removeExtensionMessageListener?.()
+  removeEditRequestListener?.()
   removeDiagnosticsStorageListener?.()
   removeActiveTabOriginListener?.()
   window.removeEventListener('pagehide', cancelNoMatchCapture)
@@ -677,16 +715,14 @@ async function addRuleTemplate(templateId) {
 
   ruleTemplatesDialogOpen.value = false
   if (rule.request?.enabled) {
-    section.value = 'redirect'
     showEditor(rule)
   } else {
-    section.value = 'intercept'
     showResponseEditor(rule)
   }
+  await revealRule(rule.id, true)
 }
 
 function showEditor(rule = null) {
-  if (section.value !== 'redirect') return
   editorIssue.value = ''
   editingRule.value = rule
   editorOpen.value = true
@@ -694,24 +730,57 @@ function showEditor(rule = null) {
 
 function createRule() {
   if (!ruleOperations || loading.value || saving.value) return
-  if (section.value === 'redirect') showEditor()
-  else {
-    responseEditorIssue.value = ''
-    editingResponseRule.value = null
-    responseEditorOpen.value = true
-  }
+  createChooserOpen.value = true
+}
+
+function chooseCreateAction(action) {
+  createChooserOpen.value = false
+  if (action === 'redirect')
+    showEditor({
+      enabled: true,
+      tagIds: [],
+      match: { url: '', method: 'ANY', type: 'normal' },
+      request: { enabled: true, redirect: { url: '' } },
+    })
+  else
+    showResponseEditor({
+      enabled: true,
+      tagIds: [],
+      match: { url: '', method: 'ANY', type: 'normal' },
+      response: { enabled: true, replace: { status: 200, body: {} } },
+    })
 }
 
 function showResponseEditor(rule = null) {
-  if (section.value !== 'intercept') return
   responseEditorIssue.value = ''
   editingResponseRule.value = rule
   responseEditorOpen.value = true
 }
 
+function openRequestedRule(ruleId, confirmReplace = false) {
+  if (editingRule.value?.id === ruleId && editorOpen.value) return
+  if (editingResponseRule.value?.id === ruleId && responseEditorOpen.value) return
+  const rule = config.value.rules.find((candidate) => candidate.id === ruleId)
+  if (!rule) {
+    requestedEditNotice.value = t('rules.requestedEditMissing', { id: ruleId })
+    return
+  }
+  requestedEditNotice.value = ''
+  if (confirmReplace && (editorOpen.value || responseEditorOpen.value)) {
+    if (!globalThis.confirm(t('rules.confirmSwitchEditor'))) return
+    editorOpen.value = false
+    editingRule.value = null
+    editorIssue.value = ''
+    responseEditorOpen.value = false
+    editingResponseRule.value = null
+    responseEditorIssue.value = ''
+  }
+  if (rule.response) showResponseEditor(rule)
+  else showEditor(rule)
+}
+
 function createRuleFromMatch(match, action) {
   if (loading.value || saving.value) return
-  quickCreateReturnSection = section.value
   const rule = {
     enabled: false,
     tagIds: [],
@@ -722,11 +791,9 @@ function createRuleFromMatch(match, action) {
     },
   }
   if (action === 'redirect') {
-    section.value = 'redirect'
     showEditor({ ...rule, request: { enabled: true, redirect: { url: '' } } })
     return
   }
-  section.value = 'intercept'
   showResponseEditor({
     ...rule,
     response: { enabled: true, replace: { status: 200, body: {} } },
@@ -735,18 +802,34 @@ function createRuleFromMatch(match, action) {
 
 function closeQuickRedirectEditor() {
   editorOpen.value = false
-  if (quickCreateReturnSection !== null) section.value = quickCreateReturnSection
-  quickCreateReturnSection = null
 }
 
 function closeQuickResponseEditor() {
   responseEditorOpen.value = false
-  if (quickCreateReturnSection !== null) section.value = quickCreateReturnSection
-  quickCreateReturnSection = null
+}
+
+async function revealRule(id, clearFilters = false) {
+  if (clearFilters) {
+    search.value = ''
+    ruleStatusFilter.value = 'all'
+    ruleMatchTypeFilter.value = 'all'
+    selectedTagId.value = ''
+    pinnedOnly.value = false
+  }
+  await nextTick()
+  const index = orderedRules.value.findIndex((rule) => rule.id === id)
+  if (index < 0) return
+  currentPage.value = Math.floor(index / pageSize.value) + 1
+  await nextTick()
+  Array.from(document.querySelectorAll('[data-rule-id]'))
+    .find((element) => element.dataset.ruleId === id)
+    ?.scrollIntoView?.({ block: 'nearest' })
 }
 
 async function saveRedirectRule(fields) {
   const current = config.value
+  const existing = editingRule.value?.id ? editingRule.value : null
+  const isNewRule = !editingRule.value?.id
   const id = editingRule.value?.id ?? createRuleId(current.rules)
   const rule = {
     ...(editingRule.value ?? {}),
@@ -772,16 +855,17 @@ async function saveRedirectRule(fields) {
             },
     },
   }
-  const nextRules = editingRule.value
+  const nextRules = existing
     ? ruleOperations.replaceV3Rule(current.rules, id, rule)
-    : ruleOperations.insertV3Rule(current.rules, rule, 0)
+    : ruleOperations.insertV3Rule(current.rules, rule, current.rules.length)
   if (nextRules === current.rules) {
     editorIssue.value = t('editor.duplicateRule')
     return
   }
   if (await persistConfig({ ...current, rules: [...nextRules] })) {
     editorOpen.value = false
-    quickCreateReturnSection = null
+    if (isNewRule) await revealRule(id, true)
+    editingRule.value = null
   }
 }
 
@@ -812,14 +896,15 @@ async function saveResponseRule(fields) {
     }
     const nextRules = existing
       ? ruleOperations.replaceV3Rule(current.rules, id, rule)
-      : ruleOperations.insertV3Rule(current.rules, rule, 0)
+      : ruleOperations.insertV3Rule(current.rules, rule, current.rules.length)
     if (nextRules === current.rules) {
       responseEditorIssue.value = t('editor.duplicateRule')
       return
     }
     if (await persistConfig({ ...current, rules: [...nextRules] })) {
       responseEditorOpen.value = false
-      quickCreateReturnSection = null
+      if (!existing) await revealRule(id, true)
+      editingResponseRule.value = null
     }
     return
   }
@@ -843,14 +928,15 @@ async function saveResponseRule(fields) {
   rule.tagIds = [...(fields.tagIds ?? [])]
   const nextRules = existing
     ? ruleOperations.replaceV3Rule(current.rules, id, rule)
-    : ruleOperations.insertV3Rule(current.rules, rule, 0)
+    : ruleOperations.insertV3Rule(current.rules, rule, current.rules.length)
   if (nextRules === current.rules) {
     responseEditorIssue.value = t('editor.duplicateRule')
     return
   }
   if (await persistConfig({ ...current, rules: [...nextRules] })) {
     responseEditorOpen.value = false
-    quickCreateReturnSection = null
+    if (!existing) await revealRule(id, true)
+    editingResponseRule.value = null
   }
 }
 
@@ -965,6 +1051,20 @@ async function setRuleEnabled(id, value) {
   }
 }
 
+async function setRulePinned(rule, pinned) {
+  const updated = config.value.rules.map((item) => {
+    if (item.id !== rule.id) return item
+    const next = { ...item }
+    if (pinned) next.pinned = true
+    else delete next.pinned
+    return next
+  })
+  const nextRules = orderPinnedRules(updated)
+  if (await persistConfig({ ...config.value, rules: [...nextRules] })) {
+    await revealRule(rule.id)
+  }
+}
+
 function toggleVisibleRuleSelection() {
   const visibleIds = visibleRules.value.map((rule) => rule.id)
   if (allVisibleRulesSelected.value) {
@@ -1073,46 +1173,31 @@ async function duplicateRule(rule) {
   if (nextRules !== current.rules) await persistConfig({ ...current, rules: [...nextRules] })
 }
 
-async function deleteRule(rule) {
-  const isRedirect = section.value === 'redirect'
-  const actionExists = isRedirect ? Boolean(rule.request) : Boolean(rule.response)
-  if (!actionExists) return
-  const keepOtherAction = isRedirect ? Boolean(rule.response) : Boolean(rule.request)
-  const confirmationKey = keepOtherAction
-    ? isRedirect
-      ? 'editor.confirmDeleteRedirect'
-      : 'editor.confirmDeleteResponse'
-    : 'editor.confirmDelete'
-  if (!window.confirm(t(confirmationKey, { url: rule.match.url }))) return
-  const nextRules = keepOtherAction
-    ? ruleOperations.replaceV3Rule(
-        config.value.rules,
-        rule.id,
-        isRedirect ? withoutRedirectAction(rule) : withoutResponseAction(rule)
-      )
-    : ruleOperations.deleteV3Rule(config.value.rules, rule.id)
-  await persistConfig({ ...config.value, rules: [...nextRules] })
-}
-
-function withoutRedirectAction(rule) {
-  const ruleWithoutRedirect = { ...rule }
-  delete ruleWithoutRedirect.request
-  return ruleWithoutRedirect
-}
-
-function withoutResponseAction(rule) {
-  const ruleWithoutResponse = { ...rule }
-  delete ruleWithoutResponse.response
-  return ruleWithoutResponse
-}
-
 async function moveRule(rule, targetRule) {
-  if (search.value.trim() || ruleFiltersActive.value) return
-  const targetIndex = config.value.rules.findIndex((item) => item.id === targetRule.id)
-  const nextRules = ruleOperations.moveV3Rule(config.value.rules, rule.id, targetIndex)
+  if (!targetRule || search.value.trim() || ruleFiltersActive.value) return
+  if (Boolean(rule.pinned) !== Boolean(targetRule.pinned)) return
+  const targetIndex = orderedRules.value.findIndex((item) => item.id === targetRule.id)
+  const nextRules = ruleOperations.moveV3Rule(orderedRules.value, rule.id, targetIndex)
   if (nextRules !== config.value.rules) {
-    await persistConfig({ ...config.value, rules: [...nextRules] })
+    await persistConfig({ ...config.value, rules: [...orderPinnedRules(nextRules)] })
   }
+}
+
+function neighborRule(rule, direction) {
+  const index = orderedRules.value.findIndex((item) => item.id === rule.id)
+  const neighbor = orderedRules.value[index + direction]
+  return Boolean(neighbor) && Boolean(neighbor.pinned) === Boolean(rule.pinned) ? neighbor : null
+}
+
+function editRuleAction(rule, action) {
+  if (action === 'redirect') showEditor(rule)
+  else showResponseEditor(rule)
+}
+
+async function deleteRule(rule) {
+  if (!window.confirm(t('editor.confirmDelete', { url: rule.match.url }))) return
+  const nextRules = ruleOperations.deleteV3Rule(config.value.rules, rule.id)
+  await persistConfig({ ...config.value, rules: [...nextRules] })
 }
 </script>
 
@@ -1148,13 +1233,18 @@ async function moveRule(rule, targetRule) {
               @update:modelValue="setGlobalEnabled"
             />
           </label>
-          <AppButton
-            class="theme-toggle"
-            :label="darkMode ? t('theme.dark') : t('theme.light')"
-            severity="secondary"
-            text
-            @click="darkMode = !darkMode"
-          />
+          <label class="theme-control">
+            <span>{{ t('theme.label') }}</span>
+            <select
+              :value="themeMode"
+              :aria-label="t('theme.label')"
+              @change="setThemeMode($event.target.value)"
+            >
+              <option value="system">{{ t('theme.system') }}</option>
+              <option value="light">{{ t('theme.light') }}</option>
+              <option value="dark">{{ t('theme.dark') }}</option>
+            </select>
+          </label>
           <div class="language-toggle" role="group" :aria-label="t('language.aria')">
             <button
               v-for="item in supportedLocales"
@@ -1175,27 +1265,10 @@ async function moveRule(rule, targetRule) {
         <aside class="sidebar">
           <p class="sidebar-heading">{{ t('workspace.title') }}</p>
           <nav :aria-label="t('workspace.title')">
-            <button
-              type="button"
-              class="nav-item"
-              :class="{ selected: section === 'intercept' }"
-              :aria-current="section === 'intercept' ? 'page' : undefined"
-              @click="section = 'intercept'"
-            >
+            <button type="button" class="nav-item selected" aria-current="page">
               <span class="nav-icon intercept-icon">⇄</span>
-              <span>{{ t('workspace.intercept') }}</span>
-              <span class="nav-count">{{ interceptRuleCount }}</span>
-            </button>
-            <button
-              type="button"
-              class="nav-item"
-              :class="{ selected: section === 'redirect' }"
-              :aria-current="section === 'redirect' ? 'page' : undefined"
-              @click="section = 'redirect'"
-            >
-              <span class="nav-icon redirect-icon">↗</span>
-              <span>{{ t('workspace.redirect') }}</span>
-              <span class="nav-count">{{ redirectRuleCount }}</span>
+              <span>{{ t('workspace.requestRules') }}</span>
+              <span class="nav-count">{{ rules.length }}</span>
             </button>
           </nav>
           <div class="sidebar-divider" />
@@ -1213,22 +1286,13 @@ async function moveRule(rule, targetRule) {
           <div class="content-heading">
             <div>
               <div class="eyebrow">
-                {{ t('rules.eyebrow') }} /
-                {{
-                  section === 'intercept'
-                    ? t('workspace.sectionIntercept')
-                    : t('workspace.sectionRedirect')
-                }}
+                {{ t('rules.eyebrow') }}
               </div>
-              <h1>
-                {{ section === 'intercept' ? t('workspace.intercept') : t('workspace.redirect') }}
-              </h1>
+              <h1>{{ t('workspace.requestRules') }}</h1>
               <p>{{ t('rules.description') }}</p>
             </div>
             <AppButton
-              :label="
-                section === 'redirect' ? t('rules.createRedirect') : t('rules.createIntercept')
-              "
+              :label="t('rules.create')"
               :pt="comparePassThrough ? passThroughCreateButton : undefined"
               :disabled="loading || saving"
               @click="createRule"
@@ -1251,6 +1315,13 @@ async function moveRule(rule, targetRule) {
               outlined
               :disabled="loading || saving || visibleRules.length === 0"
               @click="toggleVisibleRuleSelection"
+            />
+            <AppButton
+              :label="pinnedOnly ? t('rules.showAllRules') : t('rules.showPinnedRules')"
+              severity="secondary"
+              outlined
+              :aria-pressed="pinnedOnly"
+              @click="pinnedOnly = !pinnedOnly"
             />
             <AppButton
               :label="t('diagnostics.open')"
@@ -1304,6 +1375,14 @@ async function moveRule(rule, targetRule) {
             </div>
             <div class="toolbar-spacer" />
             <span class="result-count">{{ loading ? t('editor.loading') : resultCount }}</span>
+            <label class="page-size-control">
+              <span>{{ t('rules.pageSize') }}</span>
+              <select v-model.number="pageSize" :aria-label="t('rules.pageSize')">
+                <option :value="20">20</option>
+                <option :value="50">50</option>
+                <option :value="100">100</option>
+              </select>
+            </label>
             <AppButton
               :label="t('site.manage')"
               severity="secondary"
@@ -1337,6 +1416,9 @@ async function moveRule(rule, targetRule) {
               :disabled="saving"
               @click="loadLatestConfig"
             />
+          </div>
+          <div v-if="requestedEditNotice" class="operation-alert" role="alert">
+            {{ requestedEditNotice }}
           </div>
 
           <div
@@ -1620,7 +1702,12 @@ async function moveRule(rule, targetRule) {
           </section>
 
           <div v-if="visibleRules.length" class="rule-list">
-            <article v-for="(rule, index) in visibleRules" :key="rule.id" class="rule-row">
+            <article
+              v-for="rule in visibleRules"
+              :key="rule.id"
+              class="rule-row"
+              :data-rule-id="rule.id"
+            >
               <label class="rule-selection">
                 <input
                   type="checkbox"
@@ -1631,7 +1718,9 @@ async function moveRule(rule, targetRule) {
                 />
               </label>
               <div class="rule-order">
-                {{ String(index + 1).padStart(2, '0') }}
+                {{
+                  String(orderedRules.findIndex((item) => item.id === rule.id) + 1).padStart(2, '0')
+                }}
               </div>
               <ToggleSwitch
                 :model-value="rule.enabled"
@@ -1695,12 +1784,28 @@ async function moveRule(rule, targetRule) {
               <div class="rule-actions">
                 <button
                   type="button"
+                  :aria-label="
+                    rule.pinned
+                      ? t('rules.unpin', { url: rule.match.url })
+                      : t('rules.pin', { url: rule.match.url })
+                  "
+                  :aria-pressed="Boolean(rule.pinned)"
+                  :title="rule.pinned ? t('rules.unpinShort') : t('rules.pinShort')"
+                  :disabled="saving || loading"
+                  @click="setRulePinned(rule, !rule.pinned)"
+                >
+                  {{ rule.pinned ? '★' : '☆' }}
+                </button>
+                <button
+                  type="button"
                   :aria-label="t('editor.moveUp', { url: rule.match.url })"
-                  :disabled="index === 0 || saving || Boolean(search.trim()) || ruleFiltersActive"
+                  :disabled="
+                    !neighborRule(rule, -1) || saving || Boolean(search.trim()) || ruleFiltersActive
+                  "
                   :title="
                     search.trim() || ruleFiltersActive ? t('rules.clearSearchToReorder') : undefined
                   "
-                  @click="moveRule(rule, visibleRules[index - 1])"
+                  @click="moveRule(rule, neighborRule(rule, -1))"
                 >
                   ↑
                 </button>
@@ -1708,40 +1813,58 @@ async function moveRule(rule, targetRule) {
                   type="button"
                   :aria-label="t('editor.moveDown', { url: rule.match.url })"
                   :disabled="
-                    index === visibleRules.length - 1 ||
-                    saving ||
-                    Boolean(search.trim()) ||
-                    ruleFiltersActive
+                    !neighborRule(rule, 1) || saving || Boolean(search.trim()) || ruleFiltersActive
                   "
                   :title="
                     search.trim() || ruleFiltersActive ? t('rules.clearSearchToReorder') : undefined
                   "
-                  @click="moveRule(rule, visibleRules[index + 1])"
+                  @click="moveRule(rule, neighborRule(rule, 1))"
                 >
                   ↓
                 </button>
                 <button type="button" :disabled="saving || loading" @click="duplicateRule(rule)">
                   {{ t('editor.duplicate') }}
                 </button>
-                <template v-if="section === 'redirect'">
-                  <button type="button" :disabled="saving" @click="showEditor(rule)">
-                    {{ t('editor.edit') }}
-                  </button>
-                  <button type="button" :disabled="saving" @click="deleteRule(rule)">
-                    {{ t('editor.delete') }}
-                  </button>
-                </template>
-                <template v-else>
-                  <button type="button" :disabled="saving" @click="showResponseEditor(rule)">
-                    {{ t('editor.edit') }}
-                  </button>
-                  <button type="button" :disabled="saving" @click="deleteRule(rule)">
-                    {{ t('editor.delete') }}
-                  </button>
-                </template>
+                <button
+                  v-if="rule.response"
+                  type="button"
+                  :disabled="saving"
+                  @click="editRuleAction(rule, 'response')"
+                >
+                  {{ rule.request ? t('rules.editResponse') : t('editor.edit') }}
+                </button>
+                <button
+                  v-if="rule.request"
+                  type="button"
+                  :disabled="saving"
+                  @click="editRuleAction(rule, 'redirect')"
+                >
+                  {{ rule.response ? t('rules.editRedirect') : t('editor.edit') }}
+                </button>
+                <button type="button" :disabled="saving" @click="deleteRule(rule)">
+                  {{ t('editor.delete') }}
+                </button>
               </div>
             </article>
           </div>
+
+          <nav v-if="pageCount > 1" class="pagination" :aria-label="t('rules.pagination')">
+            <AppButton
+              :label="t('rules.previousPage')"
+              severity="secondary"
+              outlined
+              :disabled="currentPage <= 1"
+              @click="currentPage--"
+            />
+            <span>{{ t('rules.pageIndicator', { current: currentPage, total: pageCount }) }}</span>
+            <AppButton
+              :label="t('rules.nextPage')"
+              severity="secondary"
+              outlined
+              :disabled="currentPage >= pageCount"
+              @click="currentPage++"
+            />
+          </nav>
 
           <div v-else class="empty-state">
             <div class="empty-illustration">⌕</div>
@@ -1772,21 +1895,46 @@ async function moveRule(rule, targetRule) {
               @click="clearRuleFilters"
             />
           </div>
-
-          <footer class="prototype-note">
-            {{
-              unstyledMode
-                ? t('prototype.unstyled')
-                : comparePassThrough
-                  ? t('prototype.passThrough')
-                  : t('prototype.styled')
-            }}
-            <span>·</span>
-            {{ memoryOnly ? t('prototype.memory') : t('prototype.extension') }}
-          </footer>
         </section>
       </section>
     </main>
+    <div
+      v-if="createChooserOpen"
+      class="editor-backdrop create-rule-backdrop"
+      @click.self="createChooserOpen = false"
+    >
+      <section
+        class="create-rule-choice"
+        role="dialog"
+        aria-modal="true"
+        :aria-label="t('rules.createChoiceTitle')"
+      >
+        <button
+          type="button"
+          class="editor-close"
+          :aria-label="t('site.close')"
+          @click="createChooserOpen = false"
+        >
+          ×
+        </button>
+        <h2>{{ t('rules.createChoiceTitle') }}</h2>
+        <p>{{ t('rules.createChoiceDescription') }}</p>
+        <div class="create-rule-choice-actions">
+          <AppButton
+            :label="t('rules.createResponse')"
+            :disabled="saving"
+            @click="chooseCreateAction('response')"
+          />
+          <AppButton
+            :label="t('rules.createRedirect')"
+            severity="secondary"
+            outlined
+            :disabled="saving"
+            @click="chooseCreateAction('redirect')"
+          />
+        </div>
+      </section>
+    </div>
     <RedirectRuleEditor
       :open="editorOpen"
       :rule="editingRule"
