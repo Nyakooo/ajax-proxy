@@ -439,4 +439,45 @@ describe('shared storage cache', () => {
     await expect(initStorage()).rejects.toThrow('storage denied')
     expect(errorLog).toHaveBeenCalled()
   })
+
+  it.each(['remove', 'clear'] as const)(
+    'keeps the cached values and reports an ordinary webpage localStorage %s failure',
+    async (operation) => {
+      const errorLog = vi.spyOn(console, 'error').mockImplementation(() => {})
+      const dispatchEvent = vi.fn()
+      vi.stubGlobal('dispatchEvent', dispatchEvent)
+      vi.stubGlobal('chrome', undefined)
+      vi.stubGlobal('localStorage', {
+        mode: '"interceptor"',
+        rules: '["saved"]',
+        getItem: (key: string) =>
+          key === 'mode' ? '"interceptor"' : key === 'rules' ? '["saved"]' : null,
+        removeItem: () => {
+          if (operation === 'remove') throw new Error('localStorage denied')
+        },
+        clear: () => {
+          if (operation === 'clear') throw new Error('localStorage denied')
+        },
+      })
+      const { clearStorage, getStorage, initStorage, removeStorage } =
+        await import('../src/storage')
+      await initStorage()
+
+      const result = operation === 'remove' ? removeStorage(['mode', 'rules']) : clearStorage()
+      await expect(result).rejects.toThrow('localStorage denied')
+
+      expect(getStorage('mode')).toBe('interceptor')
+      expect(getStorage('rules')).toEqual(['saved'])
+      expect(errorLog).toHaveBeenCalled()
+      expect(dispatchEvent).toHaveBeenCalledOnce()
+      expect(dispatchEvent.mock.calls[0][0]).toMatchObject({
+        type: 'ajax-proxy:storage-error',
+        detail: {
+          operation,
+          ...(operation === 'remove' ? { key: 'mode,rules' } : {}),
+          message: 'localStorage denied',
+        },
+      })
+    }
+  )
 })
