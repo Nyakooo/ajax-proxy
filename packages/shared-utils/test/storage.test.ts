@@ -459,6 +459,29 @@ describe('shared storage cache', () => {
     expect(getStorage('mode', 'missing')).toBe('missing')
   })
 
+  it('refreshes the ordinary webpage cache for an empty localStorage key', async () => {
+    let storageListener: ((event: StorageEvent) => void) | undefined
+    const localStorage = Object.create(null)
+    Object.defineProperty(localStorage, '', { value: true, enumerable: true })
+    Object.defineProperties(localStorage, {
+      getItem: { value: (key: string) => (key === '' ? '"initial"' : null) },
+      setItem: { value: vi.fn() },
+      removeItem: { value: vi.fn() },
+      clear: { value: vi.fn() },
+    })
+    vi.stubGlobal('chrome', undefined)
+    vi.stubGlobal('localStorage', localStorage)
+    vi.stubGlobal('addEventListener', (type: string, listener: (event: StorageEvent) => void) => {
+      if (type === 'storage') storageListener = listener
+    })
+    const { getStorage, initStorage } = await import('../src/storage')
+    await initStorage()
+
+    storageListener?.({ key: '', newValue: '"updated"', storageArea: localStorage } as StorageEvent)
+
+    expect(getStorage('')).toBe('updated')
+  })
+
   it('clears ordinary webpage cache after a localStorage clear event', async () => {
     let storageListener: ((event: StorageEvent) => void) | undefined
     const values = { mode: '"interceptor"', rules: '[1,2]' }

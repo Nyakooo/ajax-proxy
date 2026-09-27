@@ -77,7 +77,7 @@ function handleLocalStorageChanged(event: StorageEvent) {
     storageData = {}
   } else if (event.newValue === null) {
     delete storageData[event.key]
-  } else if (event.key) {
+  } else if (event.key !== null) {
     storageData[event.key] = parseLocalStorageValue(event.newValue)
   }
 }
