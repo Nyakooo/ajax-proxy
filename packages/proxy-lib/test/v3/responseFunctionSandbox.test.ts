@@ -16,6 +16,48 @@ afterEach(() => {
 })
 
 describe('createV3ResponseFunctionExecutor', () => {
+  it('rejects when the sandbox becomes ready at the execution deadline and remains reusable', async () => {
+    vi.useFakeTimers()
+    vi.stubGlobal('HTMLIFrameElement', FakeIFrameElement)
+    const frame = new FakeIFrameElement()
+    let onMessage: ((event: MessageEvent) => void) | undefined
+    let nextId = 0
+    const host = {
+      document: { getElementById: vi.fn(() => frame) },
+      addEventListener: vi.fn((_type: string, listener: EventListenerOrEventListenerObject) => {
+        if (typeof listener === 'function') onMessage = listener as (event: MessageEvent) => void
+      }),
+      crypto: { randomUUID: () => `deadline-execution-${++nextId}` },
+    } as unknown as Window
+    const execute = createV3ResponseFunctionExecutor(host)
+    const request = { url: '/api', method: 'GET' }
+    const response = { status: 200, statusText: 'OK', headers: {}, body: 'native' }
+    const deliver = (data: unknown) =>
+      onMessage?.({ origin: 'null', source: frame.contentWindow, data } as MessageEvent)
+
+    const expiredExecution = execute('return response.body', request, response)
+    await Promise.resolve()
+    vi.setSystemTime(Date.now() + 5000)
+    deliver({ channel: 'ajax-proxy-v3-function-sandbox', type: 'ready' })
+
+    await expect(expiredExecution).rejects.toThrow('Function response timed out after 5 seconds.')
+    expect(frame.contentWindow.postMessage).not.toHaveBeenCalled()
+    expect(frame.remove).not.toHaveBeenCalled()
+
+    const nextExecution = execute('return response.status', request, response)
+    await vi.waitFor(() => expect(frame.contentWindow.postMessage).toHaveBeenCalledOnce())
+    deliver({
+      channel: 'ajax-proxy-v3-function-sandbox',
+      type: 'result',
+      id: 'deadline-execution-2',
+      ok: true,
+      result: 200,
+    })
+
+    await expect(nextExecution).resolves.toBe(200)
+    expect(frame.remove).not.toHaveBeenCalled()
+  })
+
   it('does not send request or response snapshots to a frame with a spoofed id', async () => {
     vi.stubGlobal('HTMLIFrameElement', FakeIFrameElement)
     const frame = new FakeIFrameElement()
