@@ -913,6 +913,30 @@ describe('App redirect exclusion persistence flow', () => {
   })
 })
 
+describe('App rule view navigation accessibility', () => {
+  it('exposes the named navigation landmark and current view', async () => {
+    const { wrapper } = await mountApp()
+
+    const navigation = wrapper.get('nav[aria-label="工作区"]')
+    const interceptButton = navigation
+      .findAll('.nav-item')
+      .find((button) => button.text().includes('拦截规则'))
+    const redirectButton = navigation
+      .findAll('.nav-item')
+      .find((button) => button.text().includes('重定向规则'))
+
+    expect(interceptButton).toBeDefined()
+    expect(redirectButton).toBeDefined()
+    expect(interceptButton!.attributes('aria-current')).toBe('page')
+    expect(redirectButton!.attributes('aria-current')).toBeUndefined()
+
+    await redirectButton!.trigger('click')
+
+    expect(interceptButton!.attributes('aria-current')).toBeUndefined()
+    expect(redirectButton!.attributes('aria-current')).toBe('page')
+  })
+})
+
 describe('App concurrent configuration conflict flow', () => {
   it('requires confirmation before loading the latest config after a conflict', async () => {
     const remoteConfig = {

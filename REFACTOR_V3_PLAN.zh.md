@@ -210,6 +210,7 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - [x] 最近命中时间与命中计数使用当前界面语言进行 Intl 日期和数字格式化，并由 App 回归覆盖中英文切换。
 - [ ] 检查键盘操作、焦点顺序、可读性和不同窗口尺寸下的布局。
 - [x] 实现并回归搜索快捷键：macOS 使用 Command+K，Windows / Linux 使用 Ctrl+K；焦点在其他输入框、可编辑区域时不抢占其按键。
+- [x] 为规则视图切换添加具名导航 landmark，并通过 `aria-current="page"` 暴露当前视图；组件回归验证初始状态和切换状态。真实屏幕阅读器播报仍需在浏览器辅助技术验收。
 - [x] 关闭备份 / 恢复、规则模板和站点管理弹窗后，将键盘焦点送回原打开按钮；由 App 层组件回归覆盖 Escape 关闭。
 - [x] 关闭规则筛选 popover 后将键盘焦点送回筛选触发按钮；Escape 和触发按钮上的 Escape 都走统一关闭处理。
 - [x] 在生产 V3 面板构建上验证 400px 与最低 360px 视口的中文 / 英文主界面、搜索、规则列表和响应编辑弹窗；关键控件无水平溢出且可以交互，CI 使用 Chrome 与 Edge Stable 运行 smoke。
@@ -837,4 +838,5 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - 2026-09-27：补标签重命名集成回归：名称会修剪首尾空白，更新后规则仍引用原 tag ID，大小写不敏感重名会被拒绝且不再次保存。全量 Vitest 36 个文件 / 368 项、Vue 3 UI 8 个文件 / 60 项、改动文件 ESLint / Prettier 通过。完成 354 / 388 项（91.2%）。
 - 2026-09-27：让最近命中时间和计数均按当前 V3 locale 使用 Intl 格式化，并在 App 中以固定时间 / 大计数回归中英文切换结果。全量 Vitest 36 个文件 / 368 项、Vue 3 UI 8 个文件 / 60 项、V3 面板生产构建、改动文件 ESLint / Prettier 通过。完成 355 / 389 项（91.3%）。
 - 2026-09-27：接通搜索框提示的键盘快捷键：Command+K / Ctrl+K 均聚焦并全选搜索输入；其他文本输入框和内容编辑器中的按键不被拦截。全量 Vitest 36 个文件 / 368 项、Vue 3 UI 8 个文件 / 61 项、V3 面板生产构建及 400 / 360 px Chromium 响应 smoke、改动文件 ESLint / Prettier 通过。完成 356 / 390 项（91.3%）。
+- 2026-09-27：为规则视图切换添加具名导航区域，并用 `aria-current="page"` 暴露当前视图；App 组件回归覆盖初始拦截视图及切换到重定向后的状态。全量 Vitest 37 个文件 / 371 项、Vue 3 UI 8 个文件 / 62 项、V3 面板生产构建、改动文件 ESLint / Prettier 与 diff 检查通过。完成 357 / 391 项（91.3%）；真实屏幕阅读器播报验证仍待浏览器辅助技术验收。
 - GitHub 里程碑：[阶段 0](https://github.com/Nyakooo/ajax-proxy/milestone/1)、[阶段 1](https://github.com/Nyakooo/ajax-proxy/milestone/2)、[阶段 2](https://github.com/Nyakooo/ajax-proxy/milestone/3)、[阶段 3](https://github.com/Nyakooo/ajax-proxy/milestone/4)、[阶段 4](https://github.com/Nyakooo/ajax-proxy/milestone/5)、[阶段 5](https://github.com/Nyakooo/ajax-proxy/milestone/6)、[阶段 6](https://github.com/Nyakooo/ajax-proxy/milestone/7)、[阶段 7](https://github.com/Nyakooo/ajax-proxy/milestone/8)；已复现缺陷：[issue #56](https://github.com/Nyakooo/ajax-proxy/issues/56)。

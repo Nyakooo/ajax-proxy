@@ -1198,26 +1198,30 @@ async function moveRule(rule, targetRule) {
       <section class="workspace">
         <aside class="sidebar">
           <p class="sidebar-heading">{{ t('workspace.title') }}</p>
-          <button
-            type="button"
-            class="nav-item"
-            :class="{ selected: section === 'intercept' }"
-            @click="section = 'intercept'"
-          >
-            <span class="nav-icon intercept-icon">⇄</span>
-            <span>{{ t('workspace.intercept') }}</span>
-            <span class="nav-count">{{ interceptRuleCount }}</span>
-          </button>
-          <button
-            type="button"
-            class="nav-item"
-            :class="{ selected: section === 'redirect' }"
-            @click="section = 'redirect'"
-          >
-            <span class="nav-icon redirect-icon">↗</span>
-            <span>{{ t('workspace.redirect') }}</span>
-            <span class="nav-count">{{ redirectRuleCount }}</span>
-          </button>
+          <nav :aria-label="t('workspace.title')">
+            <button
+              type="button"
+              class="nav-item"
+              :class="{ selected: section === 'intercept' }"
+              :aria-current="section === 'intercept' ? 'page' : undefined"
+              @click="section = 'intercept'"
+            >
+              <span class="nav-icon intercept-icon">⇄</span>
+              <span>{{ t('workspace.intercept') }}</span>
+              <span class="nav-count">{{ interceptRuleCount }}</span>
+            </button>
+            <button
+              type="button"
+              class="nav-item"
+              :class="{ selected: section === 'redirect' }"
+              :aria-current="section === 'redirect' ? 'page' : undefined"
+              @click="section = 'redirect'"
+            >
+              <span class="nav-icon redirect-icon">↗</span>
+              <span>{{ t('workspace.redirect') }}</span>
+              <span class="nav-count">{{ redirectRuleCount }}</span>
+            </button>
+          </nav>
           <div class="sidebar-divider" />
           <div class="sidebar-tip">
             <span class="tip-mark">i</span>
