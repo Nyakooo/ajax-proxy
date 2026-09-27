@@ -146,6 +146,15 @@ describe('rule input validation', () => {
     ).toBe(false)
   })
 
+  it('accepts status codes at the supported endpoints and rejects values outside them', () => {
+    const rule = { switch_on: true, match_url: '/api' }
+    expect(isValidInterceptors([{ ...rule, status_code: 200 }])).toBe(true)
+    expect(isValidInterceptors([{ ...rule, status_code: '599' }])).toBe(true)
+    expect(isValidInterceptors([{ ...rule, status_code: 199 }])).toBe(false)
+    expect(isValidInterceptors([{ ...rule, status_code: '600' }])).toBe(false)
+    expect(isValidInterceptors([{ ...rule, status_code: 200.5 }])).toBe(false)
+  })
+
   it('rejects invalid redirect headers and overlong ignore patterns', () => {
     const rule = {
       switch_on: true,
@@ -160,5 +169,37 @@ describe('rule input validation', () => {
       isValidRedirectors([{ ...rule, headers: [{ key: 'x-ok', value: 'safe\r\nInjected: yes' }] }])
     ).toBe(false)
     expect(isValidRedirectors([{ ...rule, ignores: ['x'.repeat(4097)] }])).toBe(false)
+  })
+
+  it('enforces the redirect header count and aggregate UTF-8 byte limits', () => {
+    const rule = {
+      switch_on: true,
+      domain: 'example.com',
+      redirect_url: 'https://localhost',
+    }
+    expect(
+      isValidRedirectors([
+        { ...rule, headers: Array.from({ length: 100 }, () => ({ key: 'x', value: '' })) },
+      ])
+    ).toBe(true)
+    expect(
+      isValidRedirectors([
+        { ...rule, headers: Array.from({ length: 101 }, () => ({ key: 'x', value: '' })) },
+      ])
+    ).toBe(false)
+
+    const exactByteLimit = [
+      ...Array.from({ length: 3 }, () => ({ key: 'x', value: 'é'.repeat(4096) })),
+      { key: 'x', value: 'é'.repeat(4094) },
+    ]
+    expect(isValidRedirectors([{ ...rule, headers: exactByteLimit }])).toBe(true)
+    expect(
+      isValidRedirectors([
+        {
+          ...rule,
+          headers: [...exactByteLimit.slice(0, 3), { key: 'x', value: 'é'.repeat(4094) + 'a' }],
+        },
+      ])
+    ).toBe(false)
   })
 })
