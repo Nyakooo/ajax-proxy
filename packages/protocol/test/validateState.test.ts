@@ -128,6 +128,57 @@ describe('V3 hit notice validation', () => {
 })
 
 describe('rule input validation', () => {
+  it('validates shared rule fields and their supported boundaries', () => {
+    const interceptor = { switch_on: true, match_url: '/api' }
+    const redirector = {
+      switch_on: true,
+      domain: 'example.com',
+      redirect_url: 'https://localhost',
+    }
+    const cases = [
+      {
+        rule: interceptor,
+        regexField: 'match_url',
+        validate: (rule: Record<string, unknown>) => isValidInterceptors([rule]),
+      },
+      {
+        rule: redirector,
+        regexField: 'domain',
+        validate: (rule: Record<string, unknown>) => isValidRedirectors([rule]),
+      },
+    ]
+
+    for (const { rule, regexField, validate } of cases) {
+      expect(validate(rule)).toBe(true)
+      for (const method of ['ANY', 'GET', 'POST', 'PUT', 'DELETE', 'PATCH']) {
+        expect(validate({ ...rule, method })).toBe(true)
+      }
+      expect(validate({ ...rule, filter_type: 'normal', remark: 'x'.repeat(512) })).toBe(true)
+      expect(validate({ ...rule, filter_type: 'regex', [regexField]: '^/api$' })).toBe(true)
+    }
+  })
+
+  it.each([
+    ['switch_on', undefined],
+    ['switch_on', 1],
+    ['filter_type', null],
+    ['filter_type', 'other'],
+    ['method', 'get'],
+    ['method', 'OPTIONS'],
+    ['remark', 1],
+    ['remark', 'x'.repeat(513)],
+  ])('rejects invalid shared field %s=%s', (field, value) => {
+    const interceptor = { switch_on: true, match_url: '/api', [field]: value }
+    const redirector = {
+      switch_on: true,
+      domain: 'example.com',
+      redirect_url: 'https://localhost',
+      [field]: value,
+    }
+    expect(isValidInterceptors([interceptor])).toBe(false)
+    expect(isValidRedirectors([redirector])).toBe(false)
+  })
+
   it('accepts supported RE2 patterns and rejects unsupported or oversized patterns', () => {
     expect(isValidRegexPattern('^https://example\\.com/api/.*$')).toBe(true)
     expect(isValidRegexPattern('([a-z]+)+$')).toBe(true)
