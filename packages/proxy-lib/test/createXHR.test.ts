@@ -502,6 +502,48 @@ describe('CustomXHR rule selection', () => {
     expect(dispatchEvent).not.toHaveBeenCalled()
   })
 
+  it('keeps the native response when a legacy response function changes only the status', async () => {
+    vi.stubGlobal('XMLHttpRequest', FakeXMLHttpRequest)
+    const dispatchEvent = vi.fn()
+    vi.stubGlobal('window', {
+      XMLHttpRequest: FakeXMLHttpRequest,
+      dispatchEvent,
+      eval,
+    })
+    const { default: CustomXHR, initInterceptorXHRState } = await import('../src/createXHR')
+    initInterceptorXHRState({
+      value: {
+        global_on: true,
+        mode: 'interceptor',
+        interceptor_matching_content: [
+          {
+            switch_on: true,
+            match_url: '/api',
+            override_type: 'function',
+            override_func: 'function() { return { status: 202 } }',
+          },
+        ],
+        redirector_matching_content: [],
+      },
+    })
+    const request = new CustomXHR()
+    const complete = new Promise<void>((resolve) => {
+      request.onreadystatechange = () => {
+        if (request.readyState === 4) resolve()
+      }
+    })
+
+    request.open('GET', 'https://example.test/api')
+    request.send('native response')
+    await complete
+
+    expect(request.responseText).toBe('native response')
+    expect(request.response).toBe('native response')
+    expect(request.status).toBe(202)
+    expect(request.statusText).toBe('202')
+    expect(dispatchEvent).toHaveBeenCalledOnce()
+  })
+
   it('uses the original URL when a synchronous redirect function throws', async () => {
     vi.stubGlobal('XMLHttpRequest', FakeXMLHttpRequest)
     vi.stubGlobal('window', { XMLHttpRequest: FakeXMLHttpRequest, eval })
