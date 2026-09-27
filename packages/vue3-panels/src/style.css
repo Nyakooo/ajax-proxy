@@ -990,7 +990,7 @@ input {
 .rule-editor {
   max-height: calc(100vh - 40px);
   overflow-y: auto;
-  width: min(520px, 100%);
+  width: min(760px, calc(100vw - 32px));
   padding: 22px;
   border: 1px solid var(--ap-border);
   border-radius: var(--ap-radius-panel);
@@ -999,48 +999,12 @@ input {
   color: var(--ap-ink);
 }
 
-.create-rule-choice {
-  position: relative;
-  width: min(420px, 100%);
-  padding: 24px;
-  border: 1px solid var(--ap-border);
-  border-radius: var(--ap-radius-panel);
-  background: var(--ap-card);
-  box-shadow: 0 22px 70px rgb(0 0 0 / 24%);
-  color: var(--ap-ink);
-}
-
-.create-rule-choice h2 {
-  margin: 0 36px 8px 0;
-  font-size: 17px;
-}
-
-.create-rule-choice p {
-  margin: 0;
-  color: var(--ap-muted);
-  font-size: 11px;
-  line-height: 1.6;
-}
-
-.create-rule-choice .editor-close {
-  position: absolute;
-  top: 14px;
-  right: 14px;
-}
-
-.create-rule-choice-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 9px;
-  margin-top: 20px;
-}
-
 .response-rule-editor {
   display: flex;
   min-height: 0;
   flex-direction: column;
   overflow: hidden;
-  width: min(620px, 100%);
+  width: min(760px, calc(100vw - 32px));
 }
 
 .response-rule-editor > .editor-form {
@@ -1050,7 +1014,7 @@ input {
   overscroll-behavior: contain;
   scrollbar-gutter: stable;
   margin-top: 16px;
-  padding-right: 6px;
+  padding: 3px 6px 3px 4px;
 }
 
 .response-rule-editor .editor-actions {
@@ -1064,7 +1028,7 @@ input {
 }
 
 .redirect-rule-editor {
-  width: min(620px, 100%);
+  width: min(760px, calc(100vw - 32px));
 }
 
 .response-mode-picker {
@@ -1201,6 +1165,15 @@ input {
   --cm-gutter-background: var(--ap-card);
   --cm-gutter-foreground: var(--ap-muted);
   --cm-active-line: color-mix(in srgb, var(--ap-teal) 7%, transparent);
+  min-height: 190px;
+  max-height: 65vh;
+  resize: vertical;
+  overflow: auto;
+}
+
+.codemirror-json-editor.response-json-input .cm-editor,
+.codemirror-json-editor.response-json-input .cm-scroller {
+  height: 100%;
 }
 
 .response-json-input .cm-content {
@@ -1223,6 +1196,12 @@ input {
   color: var(--ap-ink);
   font-size: 11px;
   font-weight: 400;
+}
+
+.json-tree-editor.response-json-input {
+  min-height: 190px;
+  max-height: 65vh;
+  resize: vertical;
 }
 
 .json-tree-editor {
@@ -1739,7 +1718,12 @@ input {
   .top-actions {
     width: 100%;
     justify-content: space-between;
+    gap: 4px;
     margin: 0;
+  }
+
+  .language-toggle button {
+    min-width: 28px;
   }
 
   .workspace {

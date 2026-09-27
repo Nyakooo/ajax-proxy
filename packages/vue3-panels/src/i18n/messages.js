@@ -32,13 +32,14 @@ export const messages = {
     language: { aria: '界面语言' },
     workspace: {
       title: '工作区',
-      requestRules: '请求规则',
+      responseRules: '响应规则',
+      redirectRules: '重定向规则',
       tip: '多条规则同时匹配时，由列表中的第一条完整命中规则处理请求。',
     },
     rules: {
       eyebrow: '规则管理',
       description:
-        '按原始请求条件匹配并管理请求与响应行为。普通词会搜索 URL、备注、ID、目标和标签，多个词按 AND 匹配；也可用 method:GET、type:redirect 或 type:response、status:enabled 或 status:disabled、pinned:true 或 pinned:false 筛选。',
+        '响应规则和重定向规则分开显示；同时包含两个动作的规则会出现在两个视图中。普通词搜索 URL、备注、ID、目标和标签，多个词按 AND 匹配；也可用 method:GET、type:redirect 或 type:response、status:enabled 或 status:disabled、pinned:true 或 pinned:false 筛选。',
       create: '创建规则',
       createFirst: '创建第一条规则',
       searchPlaceholder: '搜索 URL、method 或备注',
@@ -82,8 +83,6 @@ export const messages = {
       urlPlaceholder: '输入要匹配的 URL',
       createRedirect: '创建重定向规则',
       createResponse: '创建响应规则',
-      createChoiceTitle: '选择规则动作',
-      createChoiceDescription: '选择要修改的动作类型，然后填写匹配条件和行为。',
       ruleId: '规则 ID：{id}',
       contains: '包含',
       regex: '正则',
@@ -426,13 +425,14 @@ export const messages = {
     language: { aria: 'Interface language' },
     workspace: {
       title: 'Workspace',
-      requestRules: 'Request rules',
+      responseRules: 'Response rules',
+      redirectRules: 'Redirect rules',
       tip: 'When multiple rules match, the first complete match in the list handles the request.',
     },
     rules: {
       eyebrow: 'Rules',
       description:
-        'Match original request conditions and manage request and response actions. Plain terms search URLs, notes, IDs, targets, and tags; multiple terms use AND. Filters include method:GET, type:redirect or type:response, status:enabled or status:disabled, and pinned:true or pinned:false.',
+        'Response and redirect rules have separate views. Rules with both actions appear in both. Plain terms search URLs, notes, IDs, targets, and tags; multiple terms use AND. Filters include method:GET, type:redirect or type:response, status:enabled or status:disabled, and pinned:true or pinned:false.',
       create: 'Create rule',
       createFirst: 'Create your first rule',
       searchPlaceholder: 'Search URL, method, or note',
@@ -476,9 +476,6 @@ export const messages = {
       urlPlaceholder: 'Enter a URL to match',
       createRedirect: 'Create redirect rule',
       createResponse: 'Create response rule',
-      createChoiceTitle: 'Choose a rule action',
-      createChoiceDescription:
-        'Choose the action to configure, then enter its match conditions and behavior.',
       ruleId: 'Rule ID: {id}',
       contains: 'Contains',
       regex: 'Regex',

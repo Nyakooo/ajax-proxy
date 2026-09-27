@@ -216,10 +216,10 @@ function trapFocus(event) {
         <h2 id="response-editor-title">
           {{
             form.responseMode === 'function'
-              ? rule
+              ? rule?.id
                 ? t('responseEditor.editFunctionTitle')
                 : t('responseEditor.createFunctionTitle')
-              : rule
+              : rule?.id
                 ? t('responseEditor.editTitle')
                 : t('responseEditor.createTitle')
           }}

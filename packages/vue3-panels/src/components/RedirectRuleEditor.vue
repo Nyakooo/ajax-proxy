@@ -189,7 +189,7 @@ function trapFocus(event) {
     >
       <header class="editor-heading">
         <h2 id="redirect-editor-title">
-          {{ rule ? t('editor.editRedirect') : t('editor.createRedirect') }}
+          {{ rule?.id ? t('editor.editRedirect') : t('editor.createRedirect') }}
         </h2>
         <button
           type="button"

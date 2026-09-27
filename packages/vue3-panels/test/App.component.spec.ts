@@ -88,7 +88,12 @@ afterEach(() => {
   window.history.replaceState(null, '', '/')
 })
 
-async function mountApp(saveResponses = [], startingConfig = initialConfig(), stubs = {}) {
+async function mountApp(
+  saveResponses = [],
+  startingConfig = initialConfig(),
+  stubs = {},
+  startingHitCounters = {}
+) {
   i18n.global.locale.value = 'zh-CN'
   previousChrome = globalThis.chrome
   let storedConfig = structuredClone(startingConfig)
@@ -100,7 +105,11 @@ async function mountApp(saveResponses = [], startingConfig = initialConfig(), st
     if (message.key === V3PanelMessageKey.GET_SNAPSHOT) {
       return {
         ok: true,
-        snapshot: { config: storedConfig, hitCounters: {}, revision: storedRevision },
+        snapshot: {
+          config: storedConfig,
+          hitCounters: structuredClone(startingHitCounters),
+          revision: storedRevision,
+        },
       }
     }
     if (message.key === V3PanelMessageKey.SAVE_CONFIG) {
@@ -168,6 +177,37 @@ async function mountApp(saveResponses = [], startingConfig = initialConfig(), st
 }
 
 describe('App rule edit requests', () => {
+  it('opens a targeted edit only in the selected panel tab', async () => {
+    const rule = {
+      id: 'targeted-rule',
+      enabled: true,
+      match: { url: '/api/targeted', method: 'GET', type: 'normal' },
+      request: { enabled: true, redirect: { url: '/target' } },
+      response: { enabled: true, replace: { body: { ok: true } } },
+    }
+    const { wrapper, sendRuntimeMessage } = await mountApp([], {
+      ...initialConfig(),
+      rules: [rule],
+    })
+    globalThis.chrome.tabs = { getCurrent: vi.fn((callback) => callback({ id: 42 })) }
+    sendRuntimeMessage({ type: 'ajax-proxy:edit-rule', ruleId: rule.id, targetTabId: 43 })
+    await flushPromises()
+    expect(wrapper.find('.response-rule-editor').exists()).toBe(false)
+    sendRuntimeMessage({ type: 'ajax-proxy:edit-rule', ruleId: rule.id, targetTabId: 42 })
+    await flushPromises()
+    expect(wrapper.find('.response-rule-editor').exists()).toBe(true)
+    vi.spyOn(globalThis, 'confirm').mockReturnValue(true)
+    sendRuntimeMessage({
+      type: 'ajax-proxy:edit-rule',
+      ruleId: rule.id,
+      targetTabId: 42,
+      action: 'redirect',
+    })
+    await flushPromises()
+    expect(wrapper.find('.response-rule-editor').exists()).toBe(false)
+    expect(wrapper.find('.redirect-rule-editor').exists()).toBe(true)
+  })
+
   it('opens the response editor from the edit query after loading config', async () => {
     window.history.replaceState(null, '', '/?edit=response-rule')
     const rule = {
@@ -266,6 +306,15 @@ describe('App rule edit requests', () => {
 function buttonByText(wrapper, text) {
   const button = wrapper.findAll('button').find((candidate) => candidate.text() === text)
   if (!button) throw new Error(`Could not find button: ${text}`)
+  return button
+}
+
+function navigationButtonByText(wrapper, text) {
+  const button = wrapper
+    .get('nav[aria-label="工作区"]')
+    .findAll('.nav-item')
+    .find((candidate) => candidate.text().includes(text))
+  if (!button) throw new Error(`Could not find navigation item: ${text}`)
   return button
 }
 
@@ -719,8 +768,8 @@ describe('App request rules pagination and pinning', () => {
     })
 
     await wrapper.get('input[placeholder="搜索 URL、method 或备注"]').setValue('pinned:true')
-    await buttonByText(wrapper, '创建规则').trigger('click')
     await buttonByText(wrapper, '创建响应规则').trigger('click')
+    expect(wrapper.find('.create-rule-choice').exists()).toBe(false)
     await wrapper.get('.rule-editor input[autocomplete="off"]').setValue('/api/new-last')
     await wrapper.get('.editor-form').trigger('submit')
     await flushPromises()
@@ -1204,6 +1253,43 @@ describe('App no-match diagnostics localization', () => {
   })
 })
 
+describe('App recent match notifications', () => {
+  it('keeps request details when storage has already delivered the matching hit count', async () => {
+    const rule = {
+      id: 'stored-hit-rule',
+      enabled: true,
+      match: { url: '/api/stored-hit', method: 'POST', type: 'normal' },
+      response: { enabled: true, replace: { body: { intercepted: true } } },
+    }
+    const { wrapper, sendExtensionMessage } = await mountApp(
+      [],
+      { ...initialConfig(), rules: [rule] },
+      {},
+      { [rule.id]: 1 }
+    )
+
+    sendExtensionMessage({
+      from: NoticeFrom.SERVICE_WORKER,
+      to: NoticeTo.PANELS,
+      key: NoticeKey.V3_HIT,
+      value: {
+        rule_id: rule.id,
+        count: 1,
+        match_url: rule.match.url,
+        method: rule.match.method,
+        url: `${rule.match.url}?request=1`,
+      },
+    })
+    await flushPromises()
+
+    const recentMatches = wrapper.get(
+      '.recent-matches:not(.no-match-diagnostics):not(.fetch-outcome-diagnostics)'
+    )
+    expect(recentMatches.text()).toContain('/api/stored-hit?request=1')
+    expect(wrapper.get('.rule-row .hit-count strong').text()).toBe('1')
+  })
+})
+
 describe('App site switch persistence flow', () => {
   it('persists only the normalized origin and removes it when re-enabled', async () => {
     const { wrapper, sentMessages } = await mountApp()
@@ -1296,7 +1382,7 @@ describe('App redirect exclusion persistence flow', () => {
   it('saves edited exclusions into the V3 snapshot', async () => {
     const { wrapper, sentMessages } = await mountApp()
 
-    await buttonByText(wrapper, '创建规则').trigger('click')
+    await navigationButtonByText(wrapper, '重定向规则').trigger('click')
     await buttonByText(wrapper, '创建重定向规则').trigger('click')
     await wrapper
       .get('.rule-editor form')
@@ -1325,7 +1411,7 @@ describe('App redirect exclusion persistence flow', () => {
     vi.spyOn(globalThis, 'confirm').mockReturnValue(true)
     const { wrapper, sentMessages } = await mountApp()
 
-    await buttonByText(wrapper, '创建规则').trigger('click')
+    await navigationButtonByText(wrapper, '重定向规则').trigger('click')
     await buttonByText(wrapper, '创建重定向规则').trigger('click')
     await wrapper
       .get('.rule-editor form')
@@ -1359,6 +1445,8 @@ describe('App redirect exclusion persistence flow', () => {
     }
     const { wrapper, sentMessages } = await mountApp([], { ...initialConfig(), rules: [rule] })
 
+    await navigationButtonByText(wrapper, '重定向规则').trigger('click')
+    expect(wrapper.find('.rule-row').text()).toContain('/api/combined')
     await buttonByText(wrapper.get('.rule-row'), '编辑重定向').trigger('click')
     await wrapper
       .get('.redirect-rule-editor form')
@@ -1423,13 +1511,74 @@ describe('RedirectRuleEditor static request headers', () => {
 })
 
 describe('App rule view navigation accessibility', () => {
-  it('exposes one unified request rules navigation item', async () => {
-    const { wrapper } = await mountApp()
+  it('shows action-specific counts and combined rules in both views', async () => {
+    const makeRule = (id: string, url: string, action: 'response' | 'redirect' | 'both') => ({
+      id,
+      enabled: true,
+      match: { url, method: 'GET', type: 'normal' },
+      ...(action !== 'redirect' ? { response: { enabled: true, replace: { body: { id } } } } : {}),
+      ...(action !== 'response'
+        ? { request: { enabled: true, redirect: { url: `/target/${id}` } } }
+        : {}),
+    })
+    const startingConfig = {
+      ...initialConfig(),
+      rules: [
+        makeRule('combined', '/api/shared', 'both'),
+        makeRule('response-only', '/api/response', 'response'),
+        makeRule('redirect-only', '/api/redirect', 'redirect'),
+      ],
+    }
+    const { wrapper } = await mountApp([], startingConfig)
 
     const navigation = wrapper.get('nav[aria-label="工作区"]')
-    expect(navigation.findAll('.nav-item')).toHaveLength(1)
-    expect(navigation.get('.nav-item').text()).toContain('请求规则')
-    expect(navigation.get('.nav-item').attributes('aria-current')).toBe('page')
+    const [responseNavigation, redirectNavigation] = navigation.findAll('.nav-item')
+    expect(navigation.findAll('.nav-item')).toHaveLength(2)
+    expect(responseNavigation.text()).toContain('响应规则')
+    expect(responseNavigation.get('.nav-count').text()).toBe('2')
+    expect(responseNavigation.attributes('aria-current')).toBe('page')
+    expect(wrapper.findAll('.rule-row')).toHaveLength(2)
+    expect(wrapper.findAll('.rule-row').some((row) => row.text().includes('/api/shared'))).toBe(
+      true
+    )
+
+    await wrapper.get('input[placeholder="搜索 URL、method 或备注"]').setValue('/api/shared')
+    expect(wrapper.findAll('.rule-row')).toHaveLength(1)
+    await redirectNavigation.trigger('click')
+    expect(redirectNavigation.text()).toContain('重定向规则')
+    expect(redirectNavigation.get('.nav-count').text()).toBe('2')
+    expect(redirectNavigation.attributes('aria-current')).toBe('page')
+    expect(wrapper.findAll('.rule-row')).toHaveLength(1)
+    expect(wrapper.get('.rule-row').text()).toContain('/api/shared')
+
+    await wrapper.get('input[placeholder="搜索 URL、method 或备注"]').setValue('')
+    expect(wrapper.findAll('.rule-row')).toHaveLength(2)
+    expect(wrapper.findAll('.rule-row').some((row) => row.text().includes('/api/shared'))).toBe(
+      true
+    )
+    await responseNavigation.trigger('click')
+    expect(wrapper.findAll('.rule-row')).toHaveLength(2)
+    expect(wrapper.findAll('.rule-row').some((row) => row.text().includes('/api/response'))).toBe(
+      true
+    )
+  })
+
+  it('resets pagination when switching views', async () => {
+    const responseRules = Array.from({ length: 21 }, (_, index) => ({
+      id: `response-${index}`,
+      enabled: true,
+      match: { url: `/api/response-${index}`, method: 'GET', type: 'normal' },
+      response: { enabled: true, replace: { body: { index } } },
+    }))
+    const { wrapper } = await mountApp([], { ...initialConfig(), rules: responseRules })
+    await buttonByText(wrapper, '下一页').trigger('click')
+    expect(wrapper.get('.pagination').text()).toContain('第 2 / 2 页')
+
+    await navigationButtonByText(wrapper, '重定向规则').trigger('click')
+    expect(wrapper.findAll('.rule-row')).toHaveLength(0)
+    expect(wrapper.find('.pagination').exists()).toBe(false)
+    await navigationButtonByText(wrapper, '响应规则').trigger('click')
+    expect(wrapper.get('.pagination').text()).toContain('第 1 / 2 页')
   })
 })
 
@@ -1447,7 +1596,6 @@ describe('App function response persistence flow', () => {
     vi.spyOn(globalThis, 'confirm').mockReturnValue(true)
     const { wrapper, sentMessages } = await mountApp([], initialConfig(), editorStubs)
 
-    await buttonByText(wrapper, '创建规则').trigger('click')
     await buttonByText(wrapper, '创建响应规则').trigger('click')
     await flushPromises()
     await wrapper.get('input[name="response-mode"][value="function"]').setValue(true)
@@ -1564,7 +1712,6 @@ describe('App JSON response persistence flow', () => {
   it('creates a JSON response rule with the editor values in the saved config', async () => {
     const { wrapper, sentMessages } = await mountApp([], initialConfig(), editorStubs)
 
-    await buttonByText(wrapper, '创建规则').trigger('click')
     await buttonByText(wrapper, '创建响应规则').trigger('click')
     await flushPromises()
     await wrapper.get('.rule-editor input[autocomplete="off"]').setValue('/api/json')
