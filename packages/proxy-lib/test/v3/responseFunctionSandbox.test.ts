@@ -283,6 +283,46 @@ describe('createV3ResponseFunctionExecutor', () => {
     await expect(result).resolves.toBe('native')
   })
 
+  it('accepts null-prototype records for sandbox messages', async () => {
+    vi.stubGlobal('HTMLIFrameElement', FakeIFrameElement)
+    const frame = new FakeIFrameElement()
+    let onMessage: ((event: MessageEvent) => void) | undefined
+    const host = {
+      document: { getElementById: vi.fn(() => frame) },
+      addEventListener: vi.fn((_type: string, listener: EventListenerOrEventListenerObject) => {
+        if (typeof listener === 'function') onMessage = listener as (event: MessageEvent) => void
+      }),
+      crypto: { randomUUID: () => 'null-prototype-execution' },
+    } as unknown as Window
+    const execute = createV3ResponseFunctionExecutor(host)
+    const deliver = (data: unknown) =>
+      onMessage?.({ origin: 'null', source: frame.contentWindow, data } as MessageEvent)
+    const result = execute(
+      'return response.body',
+      { url: '/api', method: 'GET' },
+      { status: 200, statusText: 'OK', headers: {}, body: 'native' }
+    )
+
+    deliver(
+      Object.assign(Object.create(null), {
+        channel: 'ajax-proxy-v3-function-sandbox',
+        type: 'ready',
+      })
+    )
+    await vi.waitFor(() => expect(frame.contentWindow.postMessage).toHaveBeenCalledOnce())
+    deliver(
+      Object.assign(Object.create(null), {
+        channel: 'ajax-proxy-v3-function-sandbox',
+        type: 'result',
+        id: 'null-prototype-execution',
+        ok: true,
+        result: 'native',
+      })
+    )
+
+    await expect(result).resolves.toBe('native')
+  })
+
   it('reuses a ready sandbox frame and accepts round trips only from it', async () => {
     vi.stubGlobal('HTMLIFrameElement', FakeIFrameElement)
     const frame = new FakeIFrameElement()
@@ -902,6 +942,34 @@ describe('createV3ResponseFunctionExecutor', () => {
       )
     ).rejects.toThrow('Function sandbox is unavailable on this page.')
     expect(fakeElement.contentWindow.postMessage).not.toHaveBeenCalled()
+  })
+
+  it('rejects a malformed sandbox URL or a frame without a content window', async () => {
+    vi.stubGlobal('HTMLIFrameElement', FakeIFrameElement)
+    const invalidUrlFrame = new FakeIFrameElement()
+    invalidUrlFrame.src = ''
+    const unavailableWindowFrame = new FakeIFrameElement()
+    unavailableWindowFrame.contentWindow = null as unknown as Window
+    const request = { url: '/api', method: 'GET' }
+    const response = { status: 200, statusText: 'OK', headers: {}, body: 'native' }
+
+    const invalidUrlExecutor = createV3ResponseFunctionExecutor({
+      document: { getElementById: vi.fn(() => invalidUrlFrame) },
+      addEventListener: vi.fn(),
+    } as unknown as Window)
+    await expect(invalidUrlExecutor('return response.body', request, response)).rejects.toThrow(
+      'Function sandbox is unavailable on this page.'
+    )
+    expect(invalidUrlFrame.contentWindow.postMessage).not.toHaveBeenCalled()
+
+    const unavailableWindowExecutor = createV3ResponseFunctionExecutor({
+      document: { getElementById: vi.fn(() => unavailableWindowFrame) },
+      addEventListener: vi.fn(),
+    } as unknown as Window)
+    await expect(
+      unavailableWindowExecutor('return response.body', request, response)
+    ).rejects.toThrow('Function sandbox frame is unavailable.')
+    expect(unavailableWindowFrame.remove).not.toHaveBeenCalled()
   })
 
   it('ignores malformed or untrusted ready messages and times out while loading', async () => {
