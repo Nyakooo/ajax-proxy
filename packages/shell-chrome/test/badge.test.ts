@@ -212,6 +212,27 @@ describe('chromeBadge rule selection', () => {
     expect(mocks.noticePanelsByServiceWorker).toHaveBeenCalledWith('hit-rate')
   })
 
+  it('increments a matching legacy rule without a method for a POST request', async () => {
+    const rule = { switch_on: true, match_url: '/api', hit: 2 }
+    const rules = [rule]
+    mocks.getRealStorage.mockImplementation(async (key) => {
+      if (key === 'v3-config') return null
+      if (key === 'global-switch') return true
+      if (key === 'mode') return 'interceptor'
+      if (key === 'intercept-list') return rules
+      return undefined
+    })
+    const setBadgeText = vi.fn()
+    vi.stubGlobal('chrome', { action: { setBadgeText, setBadgeBackgroundColor: vi.fn() } })
+
+    await chromeBadge({ match_url: '/api', method: 'POST' })
+
+    expect(rule.hit).toBe(3)
+    expect(setBadgeText).toHaveBeenCalledWith({ text: '+3' })
+    expect(mocks.setStorage).toHaveBeenCalledWith('intercept-list', rules)
+    expect(mocks.noticePanelsByServiceWorker).toHaveBeenCalledWith('hit-rate')
+  })
+
   it('stores V3 hits separately and keeps legacy badge refreshes on the V3 total', async () => {
     const backup = {
       formatVersion: 3,
