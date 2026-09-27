@@ -307,6 +307,7 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - [x] 为 V3 response function executor 覆盖源码长度保护；空白和超过 65,536 字符的代码须在 iframe 查找前被拒绝。
 - [x] 为 V3 response function executor 覆盖并发上限；四个活动执行保留并可完成，第五个在排队前稳定拒绝。
 - [x] 为 V3 response function executor 覆盖 iframe scheme 与 sandbox 路径校验，拒绝普通网页 URL 和扩展内非 sandbox 资源。
+- [x] 为生产 `v3-sandbox/sandbox.js` 消息入口覆盖 parent source 与精确 run envelope；伪造来源 / 畸形消息不得创建 Worker，合法 redirect 请求只转发允许字段。
 - [x] 为 V3 response function executor 覆盖握手消息的 origin、source 和严格字段校验；不可信 / 畸形 `ready` 不得启用执行。
 - [x] 为 V3 response function executor 覆盖未知 / 迟到 execution ID；其他请求的结果不得完成当前待处理调用。
 - [x] 为 V3 response function executor 覆盖 timeout 后宽限期内迟到的结果；调用保持 rejected，并立即移除隔离 iframe。
@@ -866,4 +867,5 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - 2026-09-27：补 V3 规则复制 App 层回归：副本紧跟来源，使用新 ID 并默认停用，保留 request / response actions 和 tagIds，不复制命中计数；原规则及其计数保持不变。Vue 3 UI 8 个文件 / 70 项、全量 Vitest 39 个文件 / 378 项通过；改动文件 ESLint / Prettier 与 diff 检查通过。完成 368 / 402 项（91.5%）。
 - 2026-09-27：补 V3 规则删除 App 层成功 / 失败回归：删除指定规则后其他规则顺序不变；存储失败时现有规则留在界面和存储配置中，并显示错误。App 定向测试 32 项、全量 Vue 3 UI 8 个文件 / 72 项通过；改动文件 ESLint / Prettier 与 diff 检查通过。完成 369 / 403 项（91.6%）。
 - 2026-09-27：为 V3 面板配置保存补当前存储配置损坏时的 fail-closed 回归：返回 `format` 校验 issue，且不会写入有效的新配置覆盖损坏状态。定向测试 23 项、全量 Vitest 39 个文件 / 379 项通过；改动文件 ESLint / Prettier 与 diff 检查通过。完成 370 / 404 项（91.6%）。
+- 2026-09-27：使用 Node `vm` 执行真实 `v3-sandbox/sandbox.js` 并覆盖 parent source / envelope 边界：伪造来源、缺字段和额外字段均不创建 Worker；精确合法 redirect 请求创建 Worker，且只转发白名单字段。定向测试 2 项、全量 Vitest 41 个文件 / 386 项通过；改动文件 ESLint / Prettier 与 diff 检查通过。完成 371 / 405 项（91.6%）。
 - GitHub 里程碑：[阶段 0](https://github.com/Nyakooo/ajax-proxy/milestone/1)、[阶段 1](https://github.com/Nyakooo/ajax-proxy/milestone/2)、[阶段 2](https://github.com/Nyakooo/ajax-proxy/milestone/3)、[阶段 3](https://github.com/Nyakooo/ajax-proxy/milestone/4)、[阶段 4](https://github.com/Nyakooo/ajax-proxy/milestone/5)、[阶段 5](https://github.com/Nyakooo/ajax-proxy/milestone/6)、[阶段 6](https://github.com/Nyakooo/ajax-proxy/milestone/7)、[阶段 7](https://github.com/Nyakooo/ajax-proxy/milestone/8)；已复现缺陷：[issue #56](https://github.com/Nyakooo/ajax-proxy/issues/56)。
