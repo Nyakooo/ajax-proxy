@@ -35,6 +35,8 @@ export interface V3Rule {
   }
   response?: {
     enabled: boolean
+    /** `replace` is the default; `mock` skips the real request and returns static data. */
+    mode?: 'replace' | 'mock'
     replace: {
       status?: number
       headers?: Record<string, string>

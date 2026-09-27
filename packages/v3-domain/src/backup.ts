@@ -6,6 +6,7 @@ import {
   V3_BACKUP_PREVIOUS_VERSION,
   V3_BACKUP_REDIRECT_EXCLUSIONS_VERSION,
   V3_BACKUP_REDIRECT_FUNCTION_VERSION,
+  V3_BACKUP_RESPONSE_MODE_VERSION,
   V3_BACKUP_STATIC_REDIRECT_HEADERS_VERSION,
   V3_BACKUP_VERSION,
 } from './backupVersion'
@@ -22,6 +23,7 @@ export {
   V3_BACKUP_PREVIOUS_VERSION,
   V3_BACKUP_REDIRECT_EXCLUSIONS_VERSION,
   V3_BACKUP_REDIRECT_FUNCTION_VERSION,
+  V3_BACKUP_RESPONSE_MODE_VERSION,
   V3_BACKUP_STATIC_REDIRECT_HEADERS_VERSION,
   V3_BACKUP_VERSION,
 }
@@ -299,12 +301,25 @@ function validateRule(
     const action = value[actionName]
     if (action === undefined) continue
     const actionPath = `${path}.${actionName}`
-    if (!isObject(action) || !hasOnlyKeys(action, [...allowedActionKeys])) {
+    const responseModeAllowed =
+      actionName === 'response' && formatVersion >= V3_BACKUP_RESPONSE_MODE_VERSION
+    const acceptedActionKeys = responseModeAllowed
+      ? [...allowedActionKeys, 'mode']
+      : [...allowedActionKeys]
+    if (!isObject(action) || !hasOnlyKeys(action, acceptedActionKeys)) {
       addIssue(issues, actionPath, 'Expected an action object with supported fields only.')
       continue
     }
     if (typeof action.enabled !== 'boolean')
       addIssue(issues, `${actionPath}.enabled`, 'Expected a boolean.')
+    if (
+      responseModeAllowed &&
+      action.mode !== undefined &&
+      action.mode !== 'replace' &&
+      action.mode !== 'mock'
+    ) {
+      addIssue(issues, `${actionPath}.mode`, 'Expected "replace" or "mock".')
+    }
     const payload = action[payloadName]
     const payloadPath = `${actionPath}.${payloadName}`
     const allowedPayloadKeys =
@@ -439,6 +454,9 @@ function validateRule(
         `Expected a string up to ${MAX_FUNCTION_CODE_LENGTH} characters.`
       )
     }
+    if (actionName === 'response' && action.mode === 'mock' && payload.code !== undefined) {
+      addIssue(issues, `${payloadPath}.code`, 'Mock responses support static JSON only.')
+    }
   }
 
   if (value.request === undefined && value.response === undefined) {
@@ -486,6 +504,7 @@ function validateV3BackupUnchecked(value: unknown): V3BackupValidation {
     value.formatVersion !== V3_BACKUP_EXACT_MATCH_VERSION &&
     value.formatVersion !== V3_BACKUP_DISABLED_ORIGINS_VERSION &&
     value.formatVersion !== V3_BACKUP_REDIRECT_EXCLUSIONS_VERSION &&
+    value.formatVersion !== V3_BACKUP_STATIC_REDIRECT_HEADERS_VERSION &&
     value.formatVersion !== V3_BACKUP_LEGACY_VERSION
   ) {
     addIssue(
