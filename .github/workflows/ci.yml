@@ -130,6 +130,8 @@ jobs:
         run: pnpm test:v3-ui
       - name: Build production extension
         run: pnpm build
+      - name: Build isolated Vite shell prototype
+        run: pnpm build:chrome:vite-prototype
       - name: Verify generated type declarations
         run: pnpm check:generated-types
       - name: Package extension and report sizes
