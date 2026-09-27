@@ -213,7 +213,7 @@ class CustomXHR extends XMLHttpRequest {
       enumerable: true,
     })
     for (let attr in xhr) {
-      if (attr === 'onreadystatechange') continue
+      if (attr === 'onreadystatechange' || attr === 'upload') continue
       // else if (attr === "onload") {
       //     xhr.onload = async (...args) => {
       //         // 开启拦截

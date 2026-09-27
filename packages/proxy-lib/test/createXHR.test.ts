@@ -75,6 +75,17 @@ class FakeXMLHttpRequest extends EventTarget {
   }
 }
 
+class EnumerableUploadXMLHttpRequest extends FakeXMLHttpRequest {
+  constructor() {
+    super()
+    Object.defineProperty(this, 'upload', {
+      value: super.upload,
+      enumerable: true,
+      configurable: true,
+    })
+  }
+}
+
 afterEach(() => {
   vi.unstubAllGlobals()
   vi.resetModules()
@@ -110,6 +121,28 @@ describe('CustomXHR rule selection', () => {
     request.send('payload')
 
     expect(observed).toEqual(['progress', 'load'])
+  })
+
+  it('preserves the upload accessor when the native XHR enumerates it', async () => {
+    vi.stubGlobal('XMLHttpRequest', EnumerableUploadXMLHttpRequest)
+    vi.stubGlobal('window', { XMLHttpRequest: EnumerableUploadXMLHttpRequest, eval })
+    const { default: CustomXHR, initInterceptorXHRState } = await import('../src/createXHR')
+    initInterceptorXHRState({
+      value: {
+        global_on: false,
+        mode: 'interceptor',
+        interceptor_matching_content: [],
+        redirector_matching_content: [],
+      },
+    })
+
+    const request = new CustomXHR()
+    const observed: string[] = []
+    request.upload.addEventListener('progress', (event) => observed.push(event.type))
+    request.open('POST', 'https://example.test/upload')
+    request.send('payload')
+
+    expect(observed).toEqual(['progress'])
   })
 
   it('forwards registered XHR events with the proxy as the listener target', async () => {
