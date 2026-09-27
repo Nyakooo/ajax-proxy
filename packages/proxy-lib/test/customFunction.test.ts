@@ -165,6 +165,32 @@ describe('custom function completion', () => {
     })
   })
 
+  it.each([
+    ['null', 'return null'],
+    ['number', 'return 42'],
+    ['an empty object', 'return {}'],
+  ])('fails open when an interceptor returns %s', async (_label, result) => {
+    setupWindow()
+    const { execSetup } = await import('../src/overrideFunc')
+
+    const fallback = await execSetup(context, `function() { ${result} }`)
+
+    expect(fallback).toEqual({ override: '', status: '201' })
+    expect(Reflect.get(fallback, Symbol.for('ajax-proxy.custom-function-fail-open'))).toBe(true)
+  })
+
+  it('keeps the first valid result when an interceptor completes through callback and return', async () => {
+    setupWindow()
+    const { execSetup } = await import('../src/overrideFunc')
+
+    await expect(
+      execSetup(
+        context,
+        'function(req, res, next) { next({ override: "callback" }); return { override: "return" } }'
+      )
+    ).resolves.toEqual({ override: 'callback', status: '201' })
+  })
+
   it('returns the configured interceptor fallback when evaluation does not produce a function', async () => {
     setupWindow()
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
