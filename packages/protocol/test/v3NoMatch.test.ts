@@ -92,4 +92,15 @@ describe('V3 no-match guard', () => {
       )
     ).toBe(false)
   })
+
+  it('rejects proxies that throw while reading an own data property', () => {
+    const blockedRead = new Proxy(validNoMatch, {
+      get(target, key, receiver) {
+        if (key === 'kind') throw new Error('property read blocked')
+        return Reflect.get(target, key, receiver)
+      },
+    })
+
+    expect(isV3NoMatch(blockedRead)).toBe(false)
+  })
 })
