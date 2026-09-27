@@ -450,6 +450,13 @@ describe('shared storage cache', () => {
     } as StorageEvent)
 
     expect(getStorage('mode')).toBe('redirector')
+
+    storageListener?.({
+      key: 'mode',
+      newValue: null,
+      storageArea: localStorage,
+    } as StorageEvent)
+    expect(getStorage('mode', 'missing')).toBe('missing')
   })
 
   it('clears ordinary webpage cache after a localStorage clear event', async () => {
