@@ -396,6 +396,31 @@ describe('shared storage cache', () => {
     expect(await getStorageAll()).toEqual({})
   })
 
+  it('returns the default and clears the cache when a direct localStorage read misses', async () => {
+    let storedValue: string | null = '"cached"'
+    const localStorage = Object.create(null)
+    Object.defineProperty(localStorage, 'mode', {
+      value: true,
+      enumerable: true,
+      configurable: true,
+    })
+    Object.defineProperty(localStorage, 'getItem', {
+      value: vi.fn(() => storedValue),
+    })
+    vi.stubGlobal('chrome', undefined)
+    vi.stubGlobal('localStorage', localStorage)
+    const { getRealStorage, getStorage, getStorageSnapshot, initStorage } =
+      await import('../src/storage')
+    await initStorage()
+    storedValue = null
+
+    await expect(getRealStorage('mode' as StorageKey, 'default')).resolves.toBe('default')
+
+    expect(localStorage.getItem).toHaveBeenLastCalledWith('mode')
+    expect(getStorage('mode', 'default')).toBe('default')
+    expect(getStorageSnapshot()).toEqual({})
+  })
+
   it('refreshes ordinary webpage cache from localStorage change events', async () => {
     let storageListener: ((event: StorageEvent) => void) | undefined
     vi.stubGlobal('chrome', undefined)
