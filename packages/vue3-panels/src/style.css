@@ -928,7 +928,8 @@ input {
   inset: 0;
   display: grid;
   place-items: center;
-  padding: 20px;
+  overflow-y: auto;
+  padding: clamp(10px, 2.5vh, 20px) clamp(10px, 2.5vw, 20px);
   background: rgb(13 35 39 / 46%);
 }
 
@@ -945,7 +946,31 @@ input {
 }
 
 .response-rule-editor {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+  overflow: hidden;
   width: min(620px, 100%);
+}
+
+.response-rule-editor > .editor-form {
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  margin-top: 16px;
+  padding-right: 6px;
+}
+
+.response-rule-editor .editor-actions {
+  position: sticky;
+  z-index: 1;
+  bottom: 0;
+  margin-top: 0;
+  padding: 10px 0 2px;
+  border-top: 1px solid var(--ap-border);
+  background: var(--ap-card);
 }
 
 .redirect-rule-editor {
@@ -1084,7 +1109,7 @@ input {
 }
 
 .response-json-input .cm-content {
-  min-height: 190px;
+  min-height: clamp(120px, 22vh, 190px);
   padding-right: 10px;
   padding-left: 10px;
   font-size: 12px;
@@ -1220,8 +1245,8 @@ input {
   }
 }
 
-.response-function-input .cm-content {
-  min-height: 230px;
+.response-rule-editor .response-function-input .cm-content {
+  min-height: clamp(150px, 28vh, 230px);
 }
 
 .function-response-fields small {
@@ -1274,6 +1299,44 @@ input {
 .response-examples button:focus-visible {
   outline: 2px solid var(--ap-teal);
   outline-offset: 2px;
+}
+
+@media (max-width: 560px) {
+  .editor-backdrop {
+    padding: 8px;
+  }
+
+  .rule-editor.response-rule-editor {
+    padding: 16px;
+  }
+
+  .response-rule-editor > .editor-form {
+    margin-top: 12px;
+  }
+
+  .response-rule-editor .editor-field-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+}
+
+@media (max-height: 640px) {
+  .editor-backdrop {
+    padding-block: 8px;
+  }
+
+  .response-rule-editor > .editor-form {
+    gap: 12px;
+  }
+
+  .response-rule-editor .response-json-input .cm-content {
+    min-height: clamp(96px, 18vh, 128px);
+  }
+
+  .response-rule-editor .response-function-input .cm-content {
+    min-height: clamp(120px, 22vh, 160px);
+  }
 }
 
 .editor-field input:focus-visible,
