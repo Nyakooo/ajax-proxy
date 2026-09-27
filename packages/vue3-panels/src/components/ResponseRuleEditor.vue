@@ -362,6 +362,8 @@ function trapFocus(event) {
               class="response-json-input"
               :aria-label="t('responseEditor.jsonBody')"
               described-by="response-json-help response-editor-error"
+              resizable
+              :resize-label="t('responseEditor.resizeJsonEditor')"
             />
             <JsonTreeEditor
               v-else

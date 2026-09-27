@@ -251,23 +251,28 @@ async function main() {
 
       const resizableEditor = dialog.locator('.codemirror-json-editor.response-json-input')
       await resizableEditor.waitFor({ state: 'visible' })
-      assert.equal(
-        await resizableEditor.evaluate((element) => getComputedStyle(element).resize),
-        'vertical',
-        'Response JSON editor should expose a vertical resize handle'
+      const matchUrl = dialog.locator('.editor-field input').first()
+      assert.ok(
+        await matchUrl.evaluate((input) => document.activeElement === input),
+        'The first response input should receive focus on open'
       )
+      const resizeHandle = dialog.getByRole('separator', {
+        name: 'Resize response JSON editor height',
+      })
+      await resizeHandle.waitFor({ state: 'visible' })
+      assert.equal(await resizeHandle.getAttribute('aria-orientation'), 'horizontal')
       if (width >= 1200) {
         const editorBox = await resizableEditor.boundingBox()
+        const handleBox = await resizeHandle.boundingBox()
         assert.ok(editorBox)
-        const resizeHandle = {
-          x: editorBox.x + editorBox.width - 6,
-          y: editorBox.y + editorBox.height - 6,
+        assert.ok(handleBox)
+        const handleCenter = {
+          x: handleBox.x + handleBox.width / 2,
+          y: handleBox.y + handleBox.height / 2,
         }
-        await page.mouse.move(resizeHandle.x, resizeHandle.y)
+        await page.mouse.move(handleCenter.x, handleCenter.y)
         await page.mouse.down()
-        await page.mouse.move(resizeHandle.x + 12, resizeHandle.y + 64, { steps: 12 })
-        // Let Chromium apply its native CSS-resize gesture before reading layout.
-        await page.waitForTimeout(100)
+        await page.mouse.move(handleCenter.x, handleCenter.y + 64, { steps: 12 })
         await page.mouse.up()
         await page.waitForFunction(
           ({ selector, initialHeight }) =>
@@ -279,14 +284,26 @@ async function main() {
           { timeout: 1000 }
         )
         const resizedEditorBox = await resizableEditor.boundingBox()
+        assert.ok(resizedEditorBox)
         assert.ok(
           resizedEditorBox.height > editorBox.height,
           `Response JSON editor did not grow after dragging its resize handle: ${editorBox.height}px -> ${resizedEditorBox.height}px`
         )
+        await resizeHandle.focus()
+        await page.keyboard.press('ArrowUp')
+        await page.waitForFunction(
+          ({ selector, currentHeight }) =>
+            document.querySelector(selector)?.getBoundingClientRect().height > currentHeight,
+          {
+            selector: '.codemirror-json-editor.response-json-input',
+            currentHeight: resizedEditorBox.height,
+          },
+          { timeout: 1000 }
+        )
       }
 
-      const matchUrl = dialog.locator('.editor-field input').first()
       assert.ok(await matchUrl.isVisible())
+      await matchUrl.focus()
       const focusGeometry = await matchUrl.evaluate((input) => {
         const scrollport = input.closest('.response-rule-editor > .editor-form')
         const inputRect = input.getBoundingClientRect()

@@ -1,5 +1,5 @@
 <script setup>
-import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { history, historyKeymap, defaultKeymap } from '@codemirror/commands'
 import { javascript } from '@codemirror/lang-javascript'
 import { json } from '@codemirror/lang-json'
@@ -31,10 +31,26 @@ const props = defineProps({
     default: 'json',
     validator: (value) => ['json', 'javascript'].includes(value),
   },
+  resizable: {
+    type: Boolean,
+    default: false,
+  },
+  resizeLabel: {
+    type: String,
+    default: 'Resize JSON editor height',
+  },
 })
 
 const emit = defineEmits(['update:modelValue'])
+const editorRoot = ref(null)
 const editorHost = ref(null)
+const editorHeight = ref(null)
+const viewportHeight = ref(window.innerHeight)
+const minimumHeight = 190
+const maximumHeight = computed(() =>
+  Math.max(minimumHeight, Math.floor(viewportHeight.value * 0.65))
+)
+let resizeDrag
 
 let editorView
 let pendingExternalValue = null
@@ -68,6 +84,48 @@ const onCompositionEnd = () => {
   queueMicrotask(flushPendingExternalValue)
 }
 
+const onWindowResize = () => {
+  viewportHeight.value = window.innerHeight
+}
+
+const clampEditorHeight = (height) => Math.min(maximumHeight.value, Math.max(minimumHeight, height))
+
+const onResizePointerDown = (event) => {
+  if (event.button !== 0) return
+  event.preventDefault()
+  resizeDrag = {
+    pointerId: event.pointerId,
+    startY: event.clientY,
+    startHeight: editorRoot.value.getBoundingClientRect().height,
+  }
+  event.currentTarget.setPointerCapture(event.pointerId)
+}
+
+const onResizePointerMove = (event) => {
+  if (!resizeDrag || resizeDrag.pointerId !== event.pointerId) return
+  editorHeight.value = clampEditorHeight(resizeDrag.startHeight + event.clientY - resizeDrag.startY)
+}
+
+const onResizePointerEnd = (event) => {
+  if (!resizeDrag || resizeDrag.pointerId !== event.pointerId) return
+  resizeDrag = undefined
+}
+
+const onResizeKeydown = (event) => {
+  const currentHeight = editorHeight.value ?? editorRoot.value.getBoundingClientRect().height
+  const step = event.shiftKey ? 48 : 16
+  let nextHeight
+
+  if (event.key === 'ArrowUp') nextHeight = currentHeight + step
+  else if (event.key === 'ArrowDown') nextHeight = currentHeight - step
+  else if (event.key === 'Home') nextHeight = minimumHeight
+  else if (event.key === 'End') nextHeight = maximumHeight.value
+  else return
+
+  event.preventDefault()
+  editorHeight.value = clampEditorHeight(nextHeight)
+}
+
 watch(
   () => props.modelValue,
   (value) => {
@@ -82,6 +140,7 @@ watch(
 )
 
 onMounted(() => {
+  window.addEventListener('resize', onWindowResize)
   const state = EditorState.create({
     doc: props.modelValue,
     extensions: [
@@ -139,6 +198,7 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  window.removeEventListener('resize', onWindowResize)
   if (!editorView) return
   editorHost.value?.removeEventListener('compositionend', onCompositionEnd)
   editorView.destroy()
@@ -147,8 +207,29 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="codemirror-json-editor">
+  <div
+    ref="editorRoot"
+    class="codemirror-json-editor"
+    :class="{ 'codemirror-json-editor--resizable': resizable }"
+    :style="editorHeight === null ? undefined : { height: `${editorHeight}px` }"
+  >
     <div ref="editorHost" />
+    <div
+      v-if="resizable"
+      class="codemirror-json-editor__resize-handle"
+      role="separator"
+      aria-orientation="horizontal"
+      :aria-label="resizeLabel"
+      :aria-valuemin="minimumHeight"
+      :aria-valuemax="maximumHeight"
+      :aria-valuenow="Math.round(editorHeight ?? minimumHeight)"
+      tabindex="0"
+      @pointerdown="onResizePointerDown"
+      @pointermove="onResizePointerMove"
+      @pointerup="onResizePointerEnd"
+      @pointercancel="onResizePointerEnd"
+      @keydown="onResizeKeydown"
+    />
   </div>
 </template>
 
@@ -162,5 +243,41 @@ onBeforeUnmount(() => {
 .codemirror-json-editor:focus-within {
   outline: 2px solid var(--cm-focus-ring, #3b82f6);
   outline-offset: 2px;
+}
+
+.codemirror-json-editor--resizable {
+  position: relative;
+  resize: none !important;
+}
+
+.codemirror-json-editor__resize-handle {
+  position: absolute;
+  z-index: 2;
+  right: 2px;
+  bottom: 2px;
+  width: 34px;
+  height: 14px;
+  border: 1px solid var(--cm-border, #d5d8dc);
+  border-radius: 3px;
+  background: var(--cm-background, #fff);
+  color: var(--cm-gutter-foreground, #73777f);
+  cursor: ns-resize;
+  touch-action: none;
+}
+
+.codemirror-json-editor__resize-handle::before {
+  position: absolute;
+  top: 5px;
+  left: 9px;
+  width: 14px;
+  height: 2px;
+  background: currentColor;
+  box-shadow: 0 4px currentColor;
+  content: '';
+}
+
+.codemirror-json-editor__resize-handle:focus-visible {
+  outline: 2px solid var(--cm-focus-ring, #3b82f6);
+  outline-offset: 1px;
 }
 </style>

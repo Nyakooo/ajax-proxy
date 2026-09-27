@@ -1089,4 +1089,8 @@ V3 静态 JSON Mock 已完成 Fetch / XHR runtime、V3 backup v9 校验及回读
 
 规则列表工具栏新增“删除所选”，二次确认后只删除勾选项并清空选择；组件回归验证取消确认时保留选择、未选规则和标签。导出 / 启用 / 停用 / 删除 / 清除选择统一为 11px 字号、28px 控件高度。大面板窗口上限为 840px；小视口用紧凑顶栏、诊断卡片和空状态间距，Chrome 浏览器 smoke 在 770px 高视口验证整个 shell 与空数据状态内容均位于窗口内。
 
-本地集成检查通过：全量 49 个 Vitest 文件 / 584 项、Vue 3 组件 13 个文件 / 127 项、V3 domain / protocol / proxy-lib / shell TypeScript；改动文件 ESLint / Prettier；正式 `pnpm build`、产物布局、完整 V2 / V3 extension smoke、Fetch / XHR Mock E2E、批量删除与按钮尺寸 E2E、独立面板打开 smoke、770px 高视口空状态及 400px / 360px 响应式 smoke。检查点本身完成度 100%。历史 468 / 497（94.2%）是新 Mock、正式 Vite 生产切换和近期 UI 要求加入前的旧统计口径，不能继续代表当前整体进度；最新 Chrome / Edge Stable / 最低版本远端 CI 及 Vue 2 退役仍在后续计划中。
+本地集成检查通过：全量 49 个 Vitest 文件 / 584 项、Vue 3 组件 14 个文件 / 128 项、V3 domain / protocol / proxy-lib / shell TypeScript；改动文件 ESLint / Prettier；正式 `pnpm build`、产物布局、完整 V2 / V3 extension smoke、Fetch / XHR Mock E2E、批量删除与按钮尺寸 E2E、独立面板打开 smoke、770px 高视口空状态及 400px / 360px 响应式 smoke。检查点本身完成度 100%。历史 468 / 497（94.2%）是新 Mock、正式 Vite 生产切换和近期 UI 要求加入前的旧统计口径，不能继续代表当前整体进度；最新 Chrome / Edge Stable / 最低版本远端 CI 及 Vue 2 退役仍在后续计划中。
+
+## JSON 编辑器可调尺寸修复（2026-09-27）
+
+Stable Chrome / Edge 的原生 CSS `resize` 把手被 CodeMirror 子元素覆盖，远端拖动无法改变高度。响应 JSON 编辑器现启用自定义拖动把手，使用 pointer capture 限制高度在 190px 至 65vh，并提供键盘方向键、Home / End 调整与 ARIA 标注；其它 CodeMirror 编辑器不启用。Vue 3 组件 14 个文件 / 128 项、Vite 构建、响应式桌面拖动与键盘 smoke、400px / 360px smoke、改动文件 ESLint / Prettier 均通过。该修复仍需新的 Chrome / Edge Stable 远端 CI 确认；此前最新 Chrome / Edge 最低版本 smoke 和全量测试覆盖已通过。
