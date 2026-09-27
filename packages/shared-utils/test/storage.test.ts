@@ -78,6 +78,26 @@ describe('shared storage cache', () => {
     expect(getStorageSnapshot()).toEqual({ mode: 'interceptor', rules: [1, 2] })
   })
 
+  it('clears a stale Chrome cache entry when a direct read finds the key missing', async () => {
+    const read = vi.fn((key: unknown, callback: (data: Record<string, unknown>) => void) => {
+      callback(key === null ? { mode: 'stale' } : {})
+    })
+    vi.stubGlobal('chrome', {
+      runtime: {},
+      storage: {
+        onChanged: { addListener: vi.fn() },
+        local: { get: read },
+      },
+    })
+    const { getRealStorage, getStorage, initStorage } = await import('../src/storage')
+    await initStorage()
+
+    await expect(getRealStorage('mode' as StorageKey, 'missing')).resolves.toBe('missing')
+
+    expect(read).toHaveBeenLastCalledWith('mode', expect.any(Function))
+    expect(getStorage('mode', 'missing')).toBe('missing')
+  })
+
   it('rejects and reports storage initialization failures', async () => {
     let inCallback = false
     const storageError = { message: 'storage unavailable' }
