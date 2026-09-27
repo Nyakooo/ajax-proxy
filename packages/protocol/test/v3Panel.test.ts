@@ -142,4 +142,15 @@ describe('V3 panel message guard', () => {
     })
     expect(isV3PanelGetSnapshotRequest(hostileDescriptor)).toBe(false)
   })
+
+  it('rejects save messages when an own-property descriptor trap throws', () => {
+    const hostile = new Proxy(saveConfigMessage, {
+      getOwnPropertyDescriptor(target, key) {
+        if (key === 'value') throw new Error('descriptor access blocked')
+        return Reflect.getOwnPropertyDescriptor(target, key)
+      },
+    })
+
+    expect(isV3PanelSaveConfigRequest(hostile)).toBe(false)
+  })
 })
