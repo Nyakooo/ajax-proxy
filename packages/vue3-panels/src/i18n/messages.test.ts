@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { messages } from './messages.js'
+import { getInitialLocale, localeStorageKey } from './index.js'
 
 function collectStrings(value: unknown, path = ''): Map<string, string> {
   const result = new Map<string, string>()
@@ -47,5 +48,21 @@ describe('V3 locale message catalogs', () => {
         placeholders(chineseMessage)
       )
     }
+  })
+
+  it('defaults to zh-CN and restores only a supported English preference', () => {
+    const stored = (value: string | null) => ({ getItem: () => value })
+
+    expect(localeStorageKey).toBe('ajax-proxy-v3-locale')
+    expect(getInitialLocale(stored('en'))).toBe('en')
+    expect(getInitialLocale(stored(null))).toBe('zh-CN')
+    expect(getInitialLocale(stored('fr'))).toBe('zh-CN')
+    expect(
+      getInitialLocale({
+        getItem() {
+          throw new Error('storage unavailable')
+        },
+      })
+    ).toBe('zh-CN')
   })
 })

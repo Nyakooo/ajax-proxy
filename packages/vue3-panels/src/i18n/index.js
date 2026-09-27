@@ -3,9 +3,10 @@ import { messages } from './messages.js'
 
 export const localeStorageKey = 'ajax-proxy-v3-locale'
 
-function getInitialLocale() {
+export function getInitialLocale(storage) {
   try {
-    return localStorage.getItem(localeStorageKey) === 'en' ? 'en' : 'zh-CN'
+    const preference = storage ?? globalThis.localStorage
+    return preference?.getItem(localeStorageKey) === 'en' ? 'en' : 'zh-CN'
   } catch {
     return 'zh-CN'
   }

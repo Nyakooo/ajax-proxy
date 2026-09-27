@@ -195,8 +195,9 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - [ ] 优化备份恢复、标签、搜索、筛选、排序和批量操作流程。
 - [ ] 国际化范围限定为简体中文与英文；清理繁体中文、日语、法语、韩语、俄语、爱尔兰语等非目标语言资源，以及 UI / JSON 编辑器相关的多余 locale 映射。
 - [x] 为简体中文与英文文案目录增加一致性回归，检查语言范围、键路径、插值参数和空文案；Fetch / XHR 诊断中的“关联 ID”标签也由当前语言文案提供。
+- [x] 锁定首次启动语言策略：无偏好、无效偏好或存储读取失败时使用简体中文，只恢复支持的 `en` 偏好。
 - [x] 将语言切换从下拉框改为始终可见的双选分段控件，明确显示“简体中文”和“English”；当前语言有清晰选中态，点击后立即切换并持久化，不需要额外确认。Vue 3 候选面板已通过 `vue-i18n` Composition API 实现，偏好保存在隔离的原型 localStorage 键中。
-- [ ] 统一应用文案、组件库、日期 / 数字格式和 JSON 编辑器语言为当前选择；检查中英文键值完整、术语一致、布局无截断，首次启动语言默认策略明确。
+- [ ] 统一应用文案、组件库、日期 / 数字格式和 JSON 编辑器语言为当前选择；检查中英文键值完整、术语一致、布局无截断。
 - [ ] 检查键盘操作、焦点顺序、可读性和不同窗口尺寸下的布局。
 - [x] 关闭备份 / 恢复、规则模板和站点管理弹窗后，将键盘焦点送回原打开按钮；由 App 层组件回归覆盖 Escape 关闭。
 - [x] 关闭规则筛选 popover 后将键盘焦点送回筛选触发按钮；Escape 和触发按钮上的 Escape 都走统一关闭处理。
@@ -812,4 +813,5 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - 2026-09-27：为生产 V3 面板增加 400px / 360px 响应式 Playwright smoke，验证中英文切换、搜索过滤、规则行与响应编辑弹窗的边界和操作；接入 Chrome / Edge Stable CI 矩阵，不加载扩展或使用本机扩展页面。完成 342 / 376 项（91.0%）。
 - 2026-09-27：修复备份 / 恢复、规则模板和站点管理弹窗关闭后的焦点返回；焦点回到各自的 toolbar 打开按钮，成功的备份恢复或站点停用也复用同一返回路径。Vue 3 UI 8 个文件 / 51 项、生产构建、改动文件 ESLint / Prettier 通过。完成 343 / 377 项（91.0%）。
 - 2026-09-27：为规则筛选 popover 统一 Escape / 关闭处理，关闭后焦点回到筛选触发按钮；新增 App 层键盘回归。Vue 3 UI 8 个文件 / 52 项、生产构建、改动文件 ESLint / Prettier 通过。完成 344 / 378 项（91.0%）。
+- 2026-09-27：明确并回归 V3 首次启动语言：缺少偏好、未知值或 localStorage 异常时回到简体中文，只有 `en` 恢复英文。全量 Vitest 36 个文件 / 368 项、Vue 3 UI 8 个文件 / 52 项、V3 面板生产构建、改动文件 ESLint / Prettier 通过。完成 345 / 379 项（91.0%）。
 - GitHub 里程碑：[阶段 0](https://github.com/Nyakooo/ajax-proxy/milestone/1)、[阶段 1](https://github.com/Nyakooo/ajax-proxy/milestone/2)、[阶段 2](https://github.com/Nyakooo/ajax-proxy/milestone/3)、[阶段 3](https://github.com/Nyakooo/ajax-proxy/milestone/4)、[阶段 4](https://github.com/Nyakooo/ajax-proxy/milestone/5)、[阶段 5](https://github.com/Nyakooo/ajax-proxy/milestone/6)、[阶段 6](https://github.com/Nyakooo/ajax-proxy/milestone/7)、[阶段 7](https://github.com/Nyakooo/ajax-proxy/milestone/8)；已复现缺陷：[issue #56](https://github.com/Nyakooo/ajax-proxy/issues/56)。
