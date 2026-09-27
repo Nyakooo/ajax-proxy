@@ -424,6 +424,60 @@ describe('createV3ResponseFunctionExecutor', () => {
     await expect(result).rejects.toThrow('Sandbox function failed.')
   })
 
+  it('ignores an over-limit sandbox error without consuming the pending execution', async () => {
+    vi.stubGlobal('HTMLIFrameElement', FakeIFrameElement)
+    const frame = new FakeIFrameElement()
+    let onMessage: ((event: MessageEvent) => void) | undefined
+    const host = {
+      document: { getElementById: vi.fn(() => frame) },
+      addEventListener: vi.fn((_type: string, listener: EventListenerOrEventListenerObject) => {
+        if (typeof listener === 'function') onMessage = listener as (event: MessageEvent) => void
+      }),
+      crypto: { randomUUID: () => 'oversized-error-execution-id' },
+    } as unknown as Window
+    const execute = createV3ResponseFunctionExecutor(host)
+    const result = execute(
+      'throw new Error("expected")',
+      { url: '/api', method: 'GET' },
+      { status: 200, statusText: 'OK', headers: {}, body: 'native' }
+    )
+    const sendMessage = (data: unknown) =>
+      onMessage?.({ origin: 'null', source: frame.contentWindow, data } as MessageEvent)
+    let resultSettled = false
+    void result.then(
+      () => {
+        resultSettled = true
+      },
+      () => {
+        resultSettled = true
+      }
+    )
+    const rejection = expect(result).rejects.toThrow('Sandbox function failed.')
+
+    sendMessage({ channel: 'ajax-proxy-v3-function-sandbox', type: 'ready' })
+    await vi.waitFor(() => expect(frame.contentWindow.postMessage).toHaveBeenCalledOnce())
+    sendMessage({
+      channel: 'ajax-proxy-v3-function-sandbox',
+      type: 'result',
+      id: 'oversized-error-execution-id',
+      ok: false,
+      error: 'x'.repeat(1001),
+    })
+    await Promise.resolve()
+    expect(resultSettled).toBe(false)
+
+    sendMessage({
+      channel: 'ajax-proxy-v3-function-sandbox',
+      type: 'result',
+      id: 'oversized-error-execution-id',
+      ok: false,
+      error: 'Sandbox function failed.',
+    })
+
+    await rejection
+    expect(resultSettled).toBe(true)
+  })
+
   it('rejects when the ready sandbox cannot receive the run message', async () => {
     vi.stubGlobal('HTMLIFrameElement', FakeIFrameElement)
     const frame = new FakeIFrameElement()
