@@ -1359,9 +1359,8 @@ async function deleteRule(rule) {
               <p>{{ t('rules.description') }}</p>
             </div>
             <AppButton
-              :label="
-                section === 'response' ? t('rules.createResponse') : t('rules.createRedirect')
-              "
+              class="create-rule-button"
+              :label="t('rules.create')"
               :pt="comparePassThrough ? passThroughCreateButton : undefined"
               :disabled="loading || saving"
               @click="createRule"
@@ -1943,12 +1942,6 @@ async function deleteRule(rule) {
             <p>
               {{ search || ruleFiltersActive ? t('rules.searchHint') : t('rules.createHint') }}
             </p>
-            <AppButton
-              v-if="!search && !ruleFiltersActive"
-              :label="t('rules.createFirst')"
-              :disabled="loading || saving"
-              @click="createRule"
-            />
             <AppButton
               v-if="search"
               :label="t('rules.clearSearch')"

@@ -325,7 +325,7 @@ describe('App dialog focus return', () => {
     const siteTrigger = buttonByText(wrapper, '站点开关')
     await siteTrigger.trigger('click')
     await flushPromises()
-    await wrapper.get('.site-switches-dialog').trigger('keydown', { key: 'Escape' })
+    await wrapper.get('.site-switches-dialog .editor-close').trigger('click')
     await flushPromises()
     expect(document.activeElement).toBe(siteTrigger.element)
 
@@ -339,7 +339,7 @@ describe('App dialog focus return', () => {
     const backupTrigger = buttonByText(wrapper, '备份 / 恢复')
     await backupTrigger.trigger('click')
     await flushPromises()
-    await wrapper.get('.backup-dialog').trigger('keydown', { key: 'Escape' })
+    await wrapper.get('.backup-dialog .editor-close').trigger('click')
     await flushPromises()
     expect(document.activeElement).toBe(backupTrigger.element)
   })
@@ -768,7 +768,7 @@ describe('App request rules pagination and pinning', () => {
     })
 
     await wrapper.get('input[placeholder="搜索 URL、method 或备注"]').setValue('pinned:true')
-    await buttonByText(wrapper, '创建响应规则').trigger('click')
+    await buttonByText(wrapper, '创建规则').trigger('click')
     expect(wrapper.find('.create-rule-choice').exists()).toBe(false)
     await wrapper.get('.rule-editor input[autocomplete="off"]').setValue('/api/new-last')
     await wrapper.get('.editor-form').trigger('submit')
@@ -1383,7 +1383,7 @@ describe('App redirect exclusion persistence flow', () => {
     const { wrapper, sentMessages } = await mountApp()
 
     await navigationButtonByText(wrapper, '重定向规则').trigger('click')
-    await buttonByText(wrapper, '创建重定向规则').trigger('click')
+    await buttonByText(wrapper, '创建规则').trigger('click')
     await wrapper
       .get('.rule-editor form')
       .findAll('input:not([type="checkbox"]):not([type="radio"])')[0]
@@ -1412,7 +1412,7 @@ describe('App redirect exclusion persistence flow', () => {
     const { wrapper, sentMessages } = await mountApp()
 
     await navigationButtonByText(wrapper, '重定向规则').trigger('click')
-    await buttonByText(wrapper, '创建重定向规则').trigger('click')
+    await buttonByText(wrapper, '创建规则').trigger('click')
     await wrapper
       .get('.rule-editor form')
       .find('input[name="redirect-mode"][value="function"]')
@@ -1511,6 +1511,22 @@ describe('RedirectRuleEditor static request headers', () => {
 })
 
 describe('App rule view navigation accessibility', () => {
+  it('keeps one short create button and creates the action selected in the sidebar', async () => {
+    const { wrapper } = await mountApp([], { ...initialConfig(), rules: [] })
+    const createButtons = () =>
+      wrapper.findAll('button').filter((button) => button.text() === '创建规则')
+    expect(createButtons()).toHaveLength(1)
+    expect(wrapper.text()).not.toContain('创建第一条规则')
+    await createButtons()[0].trigger('click')
+    expect(wrapper.find('.response-rule-editor').exists()).toBe(true)
+    await wrapper.get('.response-rule-editor .editor-close').trigger('click')
+    await navigationButtonByText(wrapper, '重定向规则').trigger('click')
+    expect(createButtons()).toHaveLength(1)
+    expect(wrapper.text()).not.toContain('创建第一条规则')
+    await createButtons()[0].trigger('click')
+    expect(wrapper.find('.redirect-rule-editor').exists()).toBe(true)
+  })
+
   it('shows action-specific counts and combined rules in both views', async () => {
     const makeRule = (id: string, url: string, action: 'response' | 'redirect' | 'both') => ({
       id,
@@ -1596,7 +1612,7 @@ describe('App function response persistence flow', () => {
     vi.spyOn(globalThis, 'confirm').mockReturnValue(true)
     const { wrapper, sentMessages } = await mountApp([], initialConfig(), editorStubs)
 
-    await buttonByText(wrapper, '创建响应规则').trigger('click')
+    await buttonByText(wrapper, '创建规则').trigger('click')
     await flushPromises()
     await wrapper.get('input[name="response-mode"][value="function"]').setValue(true)
     await wrapper.get('.rule-editor input[autocomplete="off"]').setValue('/api/function')
@@ -1712,7 +1728,7 @@ describe('App JSON response persistence flow', () => {
   it('creates a JSON response rule with the editor values in the saved config', async () => {
     const { wrapper, sentMessages } = await mountApp([], initialConfig(), editorStubs)
 
-    await buttonByText(wrapper, '创建响应规则').trigger('click')
+    await buttonByText(wrapper, '创建规则').trigger('click')
     await flushPromises()
     await wrapper.get('.rule-editor input[autocomplete="off"]').setValue('/api/json')
     await wrapper.findAll('.rule-editor select')[1].setValue('POST')

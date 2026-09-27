@@ -177,14 +177,13 @@ function trapFocus(event) {
 
 <template>
   <!-- eslint-disable vue/max-attributes-per-line, vue/html-self-closing -->
-  <div v-if="open" class="editor-backdrop" @click.self="emit('close')">
+  <div v-if="open" class="editor-backdrop">
     <section
       ref="dialogRoot"
       class="rule-editor redirect-rule-editor"
       role="dialog"
       aria-modal="true"
       :aria-labelledby="'redirect-editor-title'"
-      @keydown.esc.stop.prevent="emit('close')"
       @keydown="trapFocus"
     >
       <header class="editor-heading">

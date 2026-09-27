@@ -7,8 +7,8 @@ const os = require('node:os')
 const path = require('node:path')
 const { chromium } = require('playwright')
 
-const createResponseRuleButtonName = /^(?:Create response rule|创建响应规则)$/
-const createRedirectRuleButtonName = /^(?:Create redirect rule|创建重定向规则)$/
+const createResponseRuleButtonName = /^(?:Create rule|创建规则)$/
+const createRedirectRuleButtonName = /^(?:Create rule|创建规则)$/
 const extensionPath = path.resolve(
   process.env.AJAX_PROXY_EXTENSION_PATH || path.join(__dirname, '../../packages/shell-chrome/build')
 )
@@ -2258,16 +2258,16 @@ async function main() {
     await v3Panel.getByTestId('rule-template-apply-static-json-response').click()
     const templateResponseEditor = v3Panel.locator('.response-rule-editor[role="dialog"]')
     await templateResponseEditor.waitFor()
-    await v3Panel.keyboard.press('Escape')
+    await templateResponseEditor.locator('.editor-close').click()
     await v3Panel.getByRole('button', { name: 'Rule templates' }).click()
     await v3Panel.getByTestId('rule-template-apply-static-json-response').click()
     await v3Panel.locator('.response-rule-editor[role="dialog"]').waitFor()
-    await v3Panel.keyboard.press('Escape')
+    await v3Panel.locator('.response-rule-editor .editor-close').click()
 
     await v3Panel.getByRole('button', { name: 'Rule templates' }).click()
     await v3Panel.getByTestId('rule-template-apply-static-http-redirect').click()
     await v3Panel.locator('.editor-backdrop .rule-editor[role="dialog"]').waitFor()
-    await v3Panel.keyboard.press('Escape')
+    await v3Panel.locator('.redirect-rule-editor .editor-close').click()
     const currentTemplateRules = await restartedWorker.evaluate(
       async (key) => (await chrome.storage.local.get(key))[key].rules,
       'ajax-proxy:storage:v3-config'

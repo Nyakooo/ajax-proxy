@@ -52,7 +52,7 @@ describe('SiteSwitchesDialog', () => {
     expect(wrapper.emitted('disable')).toBeUndefined()
   })
 
-  it('traps Tab focus at both ends and emits close for Escape', async () => {
+  it('traps Tab focus and closes only through explicit buttons', async () => {
     const wrapper = mount(SiteSwitchesDialog, {
       attachTo: document.body,
       props: { open: false },
@@ -80,6 +80,9 @@ describe('SiteSwitchesDialog', () => {
     expect(document.activeElement).toBe(first.element)
 
     dialog.element.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+    await wrapper.get('.editor-backdrop').trigger('click')
+    expect(wrapper.emitted('close')).toBeUndefined()
+    await first.trigger('click')
     expect(wrapper.emitted('close')).toHaveLength(1)
   })
 })

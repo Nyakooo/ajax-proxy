@@ -25,6 +25,21 @@ afterEach(() => {
 })
 
 describe('BackupRestoreDialog', () => {
+  it('preserves input on backdrop clicks and Escape, and closes through the close button', async () => {
+    const wrapper = mount(BackupRestoreDialog, {
+      props: { open: true, backup: { rules: [], tags: [] } },
+      global: { plugins: [i18n] },
+    })
+    const input = wrapper.get('[data-testid="backup-json-input"]')
+    await input.setValue('{"unsaved":true}')
+    await wrapper.get('.editor-backdrop').trigger('click')
+    await wrapper.get('[role="dialog"]').trigger('keydown', { key: 'Escape' })
+    expect(wrapper.emitted('close')).toBeUndefined()
+    expect(input.element.value).toBe('{"unsaved":true}')
+    await wrapper.get('.editor-close').trigger('click')
+    expect(wrapper.emitted('close')).toHaveLength(1)
+  })
+
   it('requires confirmation before restoring function rules and emits normalized backup data', async () => {
     const wrapper = mount(BackupRestoreDialog, {
       props: { open: true, backup: { rules: [], tags: [] } },

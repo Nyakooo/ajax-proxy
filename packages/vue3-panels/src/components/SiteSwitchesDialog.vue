@@ -82,13 +82,12 @@ function trapFocus(event) {
 <template>
   <!-- Prettier formats the Vue template markup in this component. -->
   <!-- eslint-disable vue/max-attributes-per-line, vue/html-indent, vue/html-self-closing, vue/singleline-html-element-content-newline -->
-  <div v-if="open" class="editor-backdrop" @click.self="emit('close')">
+  <div v-if="open" class="editor-backdrop">
     <section
       class="rule-editor site-switches-dialog"
       role="dialog"
       aria-modal="true"
       aria-labelledby="site-switches-title"
-      @keydown.esc.stop.prevent="emit('close')"
       @keydown="trapFocus"
     >
       <header class="editor-heading">

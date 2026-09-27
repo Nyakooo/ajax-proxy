@@ -8,7 +8,7 @@ const root = path.resolve(__dirname, '../..')
 const channel = process.env.BROWSER_CHANNEL || 'chromium'
 const executablePath = process.env.BROWSER_EXECUTABLE_PATH
 const label = process.env.BROWSER_LABEL || channel
-const createResponseRuleButtonName = /^(?:Create response rule|创建响应规则)$/
+const createResponseRuleButtonName = /^(?:Create rule|创建规则)$/
 
 async function reservePort() {
   const server = net.createServer()
@@ -194,7 +194,17 @@ async function main() {
       if (width < 1200) await assertPageFits(page, width, 'en')
 
       await page.locator('.sidebar .nav-item').first().click()
-      await page.getByRole('button', { name: createResponseRuleButtonName }).click()
+      const createButton = page.getByRole('button', { name: createResponseRuleButtonName })
+      const createButtonLayout = await createButton.evaluate((button) => ({
+        height: button.getBoundingClientRect().height,
+        whiteSpace: getComputedStyle(button).whiteSpace,
+      }))
+      assert.equal(createButtonLayout.whiteSpace, 'nowrap')
+      assert.ok(
+        createButtonLayout.height <= 36,
+        'Create rule should remain a compact single-line button'
+      )
+      await createButton.click()
       const dialog = page.locator('.response-rule-editor[role="dialog"]')
       await dialog.waitFor({ state: 'visible' })
       assert.match(await dialog.locator('h2').innerText(), /Create JSON response rule/)
@@ -260,6 +270,10 @@ async function main() {
       await matchUrl.fill('/responsive-layout-smoke')
       assert.equal(await matchUrl.inputValue(), '/responsive-layout-smoke')
       await page.keyboard.press('Escape')
+      await page.locator('.editor-backdrop').click({ position: { x: 1, y: 1 } })
+      assert.equal(await dialog.count(), 1, 'Outside clicks and Escape must keep the form open')
+      assert.equal(await matchUrl.inputValue(), '/responsive-layout-smoke')
+      await dialog.locator('.editor-close').click()
       await dialog.waitFor({ state: 'detached' })
 
       assert.deepEqual(pageErrors, [], `${width}px page errors: ${pageErrors.join('; ')}`)

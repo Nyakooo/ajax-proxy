@@ -84,6 +84,27 @@ describe('ResponseRuleEditor function response confirmation', () => {
 })
 
 describe('ResponseRuleEditor JSON editing modes', () => {
+  it('closes only through Cancel or X, keeps backdrop and Escape inert, and still saves', async () => {
+    const wrapper = await mountJsonEditor()
+
+    await wrapper.get('.editor-backdrop').trigger('click')
+    await wrapper.get('.rule-editor').trigger('click')
+    await wrapper.get('.rule-editor').trigger('keydown', { key: 'Escape' })
+    expect(wrapper.emitted('close')).toBeUndefined()
+
+    await wrapper.get('form').trigger('submit')
+    expect(wrapper.emitted('save')).toHaveLength(1)
+    expect(wrapper.emitted('close')).toBeUndefined()
+
+    await wrapper.get('.editor-actions .editor-button-secondary').trigger('click')
+    expect(wrapper.emitted('close')).toHaveLength(1)
+    wrapper.unmount()
+
+    const another = await mountJsonEditor()
+    await another.get('.editor-close').trigger('click')
+    expect(another.emitted('close')).toHaveLength(1)
+  })
+
   it('keeps tree edits in the existing JSON save payload', async () => {
     const wrapper = await mountJsonEditor()
 

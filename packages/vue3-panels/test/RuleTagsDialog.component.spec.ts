@@ -64,7 +64,7 @@ describe('RuleTagsDialog', () => {
     expect(removeButtons.every((button) => button.attributes('disabled') !== undefined)).toBe(true)
   })
 
-  it('focuses on open, traps Tab at both ends, exposes dialog naming, and closes on Escape', async () => {
+  it('focuses on open, traps Tab, and closes only through explicit buttons', async () => {
     const wrapper = mount(RuleTagsDialog, {
       attachTo: document.body,
       props: { open: false, tags: [] },
@@ -101,6 +101,11 @@ describe('RuleTagsDialog', () => {
     expect(document.activeElement).toBe(first.element)
 
     dialog.element.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+    await input.setValue('Unsaved tag')
+    await wrapper.get('.editor-backdrop').trigger('click')
+    expect(wrapper.emitted('close')).toBeUndefined()
+    expect(input.element.value).toBe('Unsaved tag')
+    await first.trigger('click')
     expect(wrapper.emitted('close')).toHaveLength(1)
   })
 })
