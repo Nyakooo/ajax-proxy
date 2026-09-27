@@ -193,7 +193,7 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - [x] 扩展图标 / 面板已提示全局启用状态；由于本期不实现页面光晕，无需为该效果增加降级提示。
 - [x] 减少动态效果、动画频率和页面边缘命中提示的评估已完成；该视觉反馈不纳入 V3。
 - [ ] 优化备份恢复、标签、搜索、筛选、排序和批量操作流程。
-- [x] App 回归覆盖状态筛选后隐藏选择的清理，以及筛选结果内的逐条选择和批量启用；保存只改变所选规则。
+- [x] App 回归覆盖搜索或状态筛选后隐藏选择的清理，以及筛选结果内的逐条选择和批量启用；保存只改变所选规则。
 - [x] App 回归覆盖批量启用保存失败：界面保持规则停用状态、保留当前选择，并显示存储错误。
 - [x] App 回归覆盖规则优先级排序：筛选激活时禁用排序并提示先清除条件；清除后只持久化预期的规则顺序。
 - [ ] 国际化范围限定为简体中文与英文；清理繁体中文、日语、法语、韩语、俄语、爱尔兰语等非目标语言资源，以及 UI / JSON 编辑器相关的多余 locale 映射。
@@ -820,4 +820,5 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - 2026-09-27：补 App 级规则筛选与批量操作集成回归：筛选后不可见的选中规则被清理；对当前所选规则批量启用只修改对应配置项，成功后清空选择。全量 Vitest 36 个文件 / 368 项、Vue 3 UI 8 个文件 / 53 项、V3 面板生产构建、改动文件 ESLint / Prettier 通过。完成 346 / 380 项（91.1%）。
 - 2026-09-27：补批量启用保存失败回归：扩展 storage 拒绝写入时，规则仍保持停用、选择仍可重试，并展示具体错误。全量 Vitest 36 个文件 / 368 项、Vue 3 UI 8 个文件 / 54 项、V3 面板生产构建、改动文件 ESLint / Prettier 通过。完成 347 / 381 项（91.1%）。
 - 2026-09-27：补 App 级规则优先级排序回归：筛选生效时禁用调整按钮并给出恢复提示，清除后排序只保存正确的规则序列。全量 Vitest 36 个文件 / 368 项、Vue 3 UI 8 个文件 / 55 项、V3 面板生产构建、改动文件 ESLint / Prettier 通过。完成 348 / 382 项（91.1%）。
+- 2026-09-27：将 App 搜索框测试桩改为真实双向输入，并扩展既有选择 / 批量操作回归，确认搜索和状态筛选都会清理隐藏选择。全量 Vitest 36 个文件 / 368 项、Vue 3 UI 8 个文件 / 55 项、V3 面板生产构建、改动文件 ESLint / Prettier 通过。进度仍为 348 / 382 项（91.1%）。
 - GitHub 里程碑：[阶段 0](https://github.com/Nyakooo/ajax-proxy/milestone/1)、[阶段 1](https://github.com/Nyakooo/ajax-proxy/milestone/2)、[阶段 2](https://github.com/Nyakooo/ajax-proxy/milestone/3)、[阶段 3](https://github.com/Nyakooo/ajax-proxy/milestone/4)、[阶段 4](https://github.com/Nyakooo/ajax-proxy/milestone/5)、[阶段 5](https://github.com/Nyakooo/ajax-proxy/milestone/6)、[阶段 6](https://github.com/Nyakooo/ajax-proxy/milestone/7)、[阶段 7](https://github.com/Nyakooo/ajax-proxy/milestone/8)；已复现缺陷：[issue #56](https://github.com/Nyakooo/ajax-proxy/issues/56)。

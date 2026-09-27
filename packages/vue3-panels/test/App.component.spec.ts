@@ -46,6 +46,20 @@ const passthrough = defineComponent({
   },
 })
 
+const InputText = defineComponent({
+  inheritAttrs: false,
+  props: { modelValue: { type: String, default: '' } },
+  emits: ['update:modelValue'],
+  setup(props, { attrs, emit }) {
+    return () =>
+      h('input', {
+        ...attrs,
+        value: props.modelValue,
+        onInput: (event) => emit('update:modelValue', (event.target as HTMLInputElement).value),
+      })
+  },
+})
+
 const initialConfig = () => ({
   format: 'ajax-proxy-backup',
   formatVersion: V3_BACKUP_VERSION,
@@ -125,7 +139,7 @@ async function mountApp(saveResponses = [], startingConfig = initialConfig()) {
         AppButton,
         AppTag: passthrough,
         ToggleSwitch,
-        InputText: passthrough,
+        InputText,
       },
     },
   })
@@ -223,6 +237,19 @@ describe('App visible selection and bulk rule actions', () => {
     await flushPromises()
     expect(wrapper.get('.bulk-actions').text()).toContain('已选 1 条规则')
 
+    const search = wrapper.get('input[placeholder="搜索 URL、method 或备注"]')
+    await search.setValue('/api/hidden')
+    await flushPromises()
+    expect(wrapper.findAll('.rule-row').map((row) => row.text())).toHaveLength(1)
+    expect(wrapper.find('.bulk-actions').exists()).toBe(false)
+
+    await search.setValue('')
+    await flushPromises()
+    const selectedAgain = wrapper
+      .findAll('.rule-row')
+      .find((row) => row.text().includes('/api/selected'))
+    await selectedAgain.get('.rule-selection input').setValue(true)
+
     await wrapper.get('input[name="rule-status-filter"][value="enabled"]').trigger('change')
     await flushPromises()
     expect(wrapper.findAll('.rule-row').map((row) => row.text())).toHaveLength(1)
@@ -230,10 +257,10 @@ describe('App visible selection and bulk rule actions', () => {
 
     await wrapper.get('input[name="rule-status-filter"][value="disabled"]').trigger('change')
     await flushPromises()
-    const selectedAgain = wrapper
+    const selectedForBulkEnable = wrapper
       .findAll('.rule-row')
       .find((row) => row.text().includes('/api/selected'))
-    await selectedAgain.get('.rule-selection input').setValue(true)
+    await selectedForBulkEnable.get('.rule-selection input').setValue(true)
     await buttonByText(wrapper, '启用所选').trigger('click')
     await flushPromises()
 
