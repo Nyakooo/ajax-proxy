@@ -66,6 +66,7 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
   - **开发循环验收：** 新增 `watch:chrome:vite-prototype`，shell 源变化会重建 `build-vite-dev` 对应的 classic IIFE；重载扩展并重新导航后，本机 Chromium 上 Fetch / XHR extension smoke 通过，触发 `document.ts` 变化后再次通过。该方案是完整扩展重载循环，不提供页面内 HMR。`verify:chrome:vite-watch` 已加入 CI，CI 首次运行及品牌版 Chrome / Edge Stable 的 Vite 产物安装验收仍待确认。
 - [ ] 先为 `shell-chrome` 建立 Vite 构建原型，验证 Manifest V3、service worker、content script、独立入口、静态资源复制、扩展内相对路径、开发监听重建 / 扩展重载和最终 ZIP；只有目标浏览器 smoke 与打包产物通过后才替换现有构建。
   - [x] 将原型构建改为递归构建 shell 的 workspace 依赖以及 V2 / V3 面板依赖闭包，排除 `shell-chrome` 自身的 Webpack 构建，并加入 CI。旧 Vue 2 面板和编辑器仍暂由 Vue CLI / Webpack 构建。
+  - [ ] CI 在 Vite 原型构建前运行 `pnpm clean:build`，随后独立生成原型并检查 ZIP；正式构建放在该检查之后，证明原型依赖闭包会从清洁产物重建。
   - [x] 让 `extension-smoke.cjs` 接受 `AJAX_PROXY_EXTENSION_PATH`，并将同一 Fetch / XHR Playwright 验收加入 Vite 原型 CI 流程；本机 Chromium 对现有 `build-vite` 扩展产物以及 CI run [36292588575](https://github.com/Nyakooo/ajax-proxy/actions/runs/36292588575) 的构建产物均通过 persistence、规则、Fetch、XHR、iframe、redirect 和 service worker restart smoke。
   - [x] 对原型 ZIP 执行本机 `unzip -t`，所有条目完整性检查通过；同一 ZIP 完整性检查已加入 CI。
   - [x] 将 Vite 产物扩展 smoke 接入 Chrome 141 / Edge 140 最低版本矩阵，复用对应的 browser-for-testing 可执行文件；CI run [36293505492](https://github.com/Nyakooo/ajax-proxy/actions/runs/36293505492) 全部通过。
