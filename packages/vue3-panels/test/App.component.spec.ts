@@ -723,6 +723,21 @@ describe('App request rules pagination and pinning', () => {
     expect(wrapper.find('.empty-state').exists()).toBe(true)
   })
 
+  it('does not say there are no rules when existing rules belong to the other view', async () => {
+    const { wrapper } = await mountApp([], {
+      ...initialConfig(),
+      rules: [makeRule('response-only')],
+    })
+
+    await navigationButtonByText(wrapper, '重定向规则').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.findAll('.rule-row')).toHaveLength(0)
+    expect(wrapper.get('.empty-state h2').text()).toBe('此分类暂无规则')
+    expect(wrapper.find('.empty-state').text()).not.toContain('还没有规则')
+    expect(wrapper.get('.empty-state').text()).toContain('现有规则都在另一个视图中')
+  })
+
   it('clears selection when moving to another page', async () => {
     const startingConfig = {
       ...initialConfig(),

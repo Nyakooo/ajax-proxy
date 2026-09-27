@@ -1997,10 +1997,22 @@ async function deleteRule(rule) {
           <div v-else-if="!visibleRules.length" class="empty-state">
             <div class="empty-illustration">⌕</div>
             <h2>
-              {{ search || ruleFiltersActive ? t('rules.noSearchResults') : t('rules.noRules') }}
+              {{
+                search || ruleFiltersActive
+                  ? t('rules.noSearchResults')
+                  : rules.length
+                    ? t('rules.noRulesInView')
+                    : t('rules.noRules')
+              }}
             </h2>
             <p>
-              {{ search || ruleFiltersActive ? t('rules.searchHint') : t('rules.createHint') }}
+              {{
+                search || ruleFiltersActive
+                  ? t('rules.searchHint')
+                  : rules.length
+                    ? t('rules.noRulesInViewHint')
+                    : t('rules.createHint')
+              }}
             </p>
             <AppButton
               v-if="search"
