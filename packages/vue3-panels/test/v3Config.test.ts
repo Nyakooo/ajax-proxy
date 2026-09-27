@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { NoticeFrom, NoticeTo, V3PanelMessageKey } from '@proxy/protocol'
+import { V3_BACKUP_VERSION } from '@proxy/v3-domain'
 import { createV3ConfigService } from '../src/services/v3Config.js'
 
 const backup = {
@@ -93,7 +94,7 @@ describe('V3 config panel adapter', () => {
       to: NoticeTo.SERVICE_WORKER,
       key: V3PanelMessageKey.SAVE_CONFIG,
       value: {
-        config: { ...backup, formatVersion: 7, disabledOrigins: [] },
+        config: { ...backup, formatVersion: V3_BACKUP_VERSION, disabledOrigins: [] },
         expectedRevision: revision,
       },
     })

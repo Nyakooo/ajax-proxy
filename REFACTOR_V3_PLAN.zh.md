@@ -272,6 +272,7 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - [x] 评估静态响应 header 编辑能力及其 Fetch / XHR 差异；由于 XHR 无法忠实替换响应头，本期暂缓增加配置入口，待接受明确的能力降级方案后再决定是否实施。
 - [x] 规则分组沿用现有多标签关联，标签可组合筛选；暂不增加嵌套分组或组级启停 / 优先级语义。
 - [x] 提供活动页面的精确 origin 站点开关：按协议、主机名和端口独立启停当前 frame 的 V3 规则，默认启用；不改规则自身启用状态或顺序，全局关闭优先。完整备份升至 v5，旧 v3 / v4 导入时升级并补空站点列表。
+- [x] V3 静态重定向支持可选 request headers：backup schema v8 与生成声明、面板编辑和持久化、Fetch / XHR 大小写不敏感覆盖页面同名请求头、允许空字符串值、跨 origin 后剥离 Authorization / Proxy-Authorization / Cookie / Cookie2；组件 / 单元测试、Chrome / Edge Stable 浏览器 runtime smoke 和打包扩展 E2E 均通过。CORS / preflight 与浏览器禁止的 header 保持浏览器原生行为，函数重定向不支持此字段。
 - [x] 评估配置预设范围：内置规则模板已覆盖常见场景；用户命名的多套完整配置 profile 会引入活动配置切换、命中统计归属和 profile 间导入 / 覆盖语义，本阶段先不做，待明确需求后单独设计。
 - [x] 面向常见场景的规则模板及示例：提供静态 JSON 响应与 HTTP 重定向两个离线模板；模板仅使用 `.invalid` 占位域名、默认停用、追加到列表末尾、每次创建重建 ID，不带函数代码。添加前可预览，取消不修改配置；保存失败时在模板弹窗内显示错误。
 - [x] 按用户反馈和维护成本评估其余功能请求，并明确不纳入 V3 的项目；结论同步到第 8 节与后续版本候选。
@@ -279,14 +280,14 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 **其余用户反馈筛选结果（2026-09-26）**
 
 - V3 聚焦规则管理、可预测的 Fetch / XHR 拦截与重定向、V3 专属备份、精确 origin 开关及用户主动开启的临时诊断；保留“首条启用且完整匹配规则负责请求”的优先级，不做隐式链式叠加。
-- 暂不纳入通用请求 / 响应 Headers 读取或改写（issues #55、#48）：#55 原需求描述有歧义；受限头、CORS、覆盖合并规则、Fetch / XHR 可观察差异和备份语义会扩大验证及维护面。静态响应头入口已单独评估并暂缓；收到具体高频场景后再设计。
+- 暂不纳入通用请求 / 响应 Headers 读取或改写（issues #55、#48）：#55 原需求描述有歧义；受限头、CORS、覆盖合并规则、Fetch / XHR 可观察差异和备份语义会扩大验证及维护面。现按用户确认的 #22 需求，仅增加静态重定向 request header map；静态 response header 入口仍暂缓。
 - 暂不纳入请求体改写（issue #44）：Request 流消耗与重放、duplex、FormData / 二进制、Content-Type 一致性、体积上限和 XHR 差异需要单独定义，错误可能改变实际网络请求。
 - 暂不纳入跨面板持久化草稿 / 自动恢复（issue #37）：需引入草稿 schema、过期和冲突处理；持久化函数源码会扩大敏感数据留存。V3 当前只在用户确认时保存配置；关闭确认可在后续作为轻量 UX 提案评估。
 - 暂不纳入自动识别或协调其他请求拦截扩展（issue #46）：页面包装顺序不可可靠枚举或控制。保留稳定版浏览器回归和人工排障说明，不承诺自动化解冲突。
 - 暂不纳入页面命中光晕及动画（阶段 4）：需覆盖 frame、SPA、滚动、窄视口、减少动态效果、键盘 / 屏幕阅读器和性能；V3 先保留扩展图标 / 面板状态与可选的临时诊断作为反馈。
 - 用户命名的多套完整配置 profile、V2 规则 / 备份迁移、嵌套组与链式规则也不纳入本期；分别会增加配置切换 / 统计归属、转换正确性或优先级语义复杂度，现有模板和标签已覆盖当前场景。
 - #53 源码文档属于低成本支持工作，不作为新功能；现有 README 与 V3 文档提供下载 / 解压加载和构建命令，完整开发环境步骤作为阶段 7 文档验收，不阻塞阶段 5 功能范围。
-- #49 组合式规则、#34 URL 匹配、#40 函数重定向、#30 函数响应、#27 最近命中快捷创建、#25 JSON 中文输入方向和 #22 静态重定向请求头已纳入既有实现 / 回归记录；#56 Fetch `Request.method` 缺陷已修复并保留在阶段 2 缺陷跟踪中。
+- #49 组合式规则、#34 URL 匹配、#40 函数重定向、#30 函数响应、#27 最近命中快捷创建、#25 JSON 中文输入方向已纳入既有实现 / 回归记录；#22 静态重定向请求头按上方首发范围完成；#56 Fetch `Request.method` 缺陷已修复并保留在阶段 2 缺陷跟踪中。
 
 **阶段验收**
 
@@ -979,4 +980,5 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - 2026-09-27：修正 V3 面板迁移文档中的过期功能描述：代码与 schema v7 已支持受限 Fetch-only 函数重定向；明确这不代表旧 V2 格式或函数语义兼容，并保留 V2 substring replacement、请求 header 覆盖的能力差异及完整首发 UI 验收待办。文档格式与 diff 检查通过。完成 442 / 476 项（92.9%）。
 - 2026-09-27：修复 V3 面板模态对话框打开时全局 Ctrl / ⌘ K 搜索快捷键把焦点移出对话框的问题；补充备份对话框回归，修复前失败。定向快捷键测试通过，Vue 3 组件测试 8 个文件 / 73 项、全量 Vitest 45 个文件 / 501 项和 Vue 3 Vite 生产构建通过；严格测试 ESLint、全库 ESLint（336 / 378 条告警预算）、Prettier 与 diff 检查通过。前一提交 `82cadfe` 的 CI run [36296866030](https://github.com/Nyakooo/ajax-proxy/actions/runs/36296866030) 中 build、Chrome 141 和 Edge 140 的 Fetch / XHR smoke 失败，Chrome / Edge Stable smoke 通过，原因待后续排查。完成 443 / 477 项（92.9%）。
 - 2026-09-27：修复 legacy 徽章规则计数的并发丢失：将读取、递增、写入串行化，避免同时命中时两个请求读取相同旧计数；Promise.all 回归验证最终计数为 2。定向 badge 测试 14 项、改动文件 ESLint 与 diff 检查通过。完成 444 / 478 项（92.9%）。
+- 2026-09-27：完成 V3 静态重定向请求头（Issue #22）：schema 与备份升至 v8，旧 V3 v3–v7 仍导入并规范化；静态重定向的 header map 在编辑器中持久化，Fetch / XHR 覆盖页面同名 header、保留其他 header 和空字符串值，跨 origin 剥离 Authorization / Proxy-Authorization / Cookie / Cookie2，并按浏览器 ByteString 限制拒绝不可传输值。真实浏览器 runtime smoke 在 Chromium 153、Chrome Stable 154.0.8037.58、Edge Stable 154.0.4258.37 通过；Vite 打包扩展的完整 E2E 验证了 Fetch / XHR 覆盖与透传。验证期间另修复 Chromium 可枚举原生 `XMLHttpRequest.upload` 导致 legacy 包装器构造失败的问题，回归测试通过，单独提交为 `2c0e4fc`。最终全量 Vitest 45 个文件 / 509 项、Vue 3 组件 8 个文件 / 75 项通过；六个 TypeScript 包检查、V3 面板与 proxy-lib Vite 构建、Webpack 和 Vite 扩展构建、扩展 E2E、严格测试 lint、全源码 ESLint（336 / 378 条告警预算）、Prettier 与 diff 检查通过。完成 445 / 479 项（92.9%）。
 - GitHub 里程碑：[阶段 0](https://github.com/Nyakooo/ajax-proxy/milestone/1)、[阶段 1](https://github.com/Nyakooo/ajax-proxy/milestone/2)、[阶段 2](https://github.com/Nyakooo/ajax-proxy/milestone/3)、[阶段 3](https://github.com/Nyakooo/ajax-proxy/milestone/4)、[阶段 4](https://github.com/Nyakooo/ajax-proxy/milestone/5)、[阶段 5](https://github.com/Nyakooo/ajax-proxy/milestone/6)、[阶段 6](https://github.com/Nyakooo/ajax-proxy/milestone/7)、[阶段 7](https://github.com/Nyakooo/ajax-proxy/milestone/8)；已复现缺陷：[issue #56](https://github.com/Nyakooo/ajax-proxy/issues/56)。

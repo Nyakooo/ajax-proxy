@@ -16,6 +16,80 @@ function rule(id: string, options: Partial<V3Rule> = {}): V3Rule {
 }
 
 describe('createV3Fetch', () => {
+  it('merges static redirect headers and strips sensitive headers after cross-origin overrides', async () => {
+    const selectedRule = rule('static-redirect-headers', {
+      request: {
+        enabled: true,
+        redirect: {
+          url: 'https://target.test/api',
+          headers: {
+            'X-Override': 'configured',
+            'X-Empty': '',
+            authorization: 'configured-auth',
+            'proxy-authorization': 'configured-proxy-auth',
+            cookie: 'configured-cookie',
+            cookie2: 'configured-cookie2',
+            'X-Added': 'added',
+          },
+        },
+      },
+    })
+    const fetcher = vi.fn(async (request: Request) => {
+      expect(request.url).toBe('https://target.test/api')
+      expect(request.headers.get('x-override')).toBe('configured')
+      expect(request.headers.has('x-empty')).toBe(true)
+      expect(request.headers.get('x-empty')).toBe('')
+      expect(request.headers.get('x-page')).toBe('preserved')
+      expect(request.headers.get('x-added')).toBe('added')
+      for (const name of ['authorization', 'proxy-authorization', 'cookie', 'cookie2']) {
+        expect(request.headers.has(name)).toBe(false)
+      }
+      return new Response('ok')
+    })
+    const fetch = createV3Fetch(fetcher, { getRules: () => [selectedRule] })
+
+    await fetch('https://example.test/api', {
+      method: 'POST',
+      headers: {
+        'x-override': 'page-value',
+        'x-empty': 'page-value',
+        'x-page': 'preserved',
+        authorization: 'page-auth',
+        'proxy-authorization': 'page-proxy-auth',
+        cookie: 'page-cookie',
+        cookie2: 'page-cookie2',
+      },
+    })
+
+    expect(fetcher).toHaveBeenCalledOnce()
+  })
+
+  it('keeps configured sensitive static redirect headers on the same origin', async () => {
+    const selectedRule = rule('same-origin-static-redirect-headers', {
+      request: {
+        enabled: true,
+        redirect: {
+          url: 'https://example.test/redirected',
+          headers: { authorization: 'configured-auth', cookie: '' },
+        },
+      },
+    })
+    const fetcher = vi.fn(async (request: Request) => {
+      expect(request.headers.get('authorization')).toBe('configured-auth')
+      expect(request.headers.has('cookie')).toBe(true)
+      expect(request.headers.get('cookie')).toBe('')
+      return new Response('ok')
+    })
+    const fetch = createV3Fetch(fetcher, { getRules: () => [selectedRule] })
+
+    await fetch('https://example.test/api', {
+      method: 'POST',
+      headers: { authorization: 'page-auth', cookie: 'page-cookie' },
+    })
+
+    expect(fetcher).toHaveBeenCalledOnce()
+  })
+
   it('isolates concurrent requests, responses, and outcome correlation IDs', async () => {
     const firstRule = rule('first-concurrent', {
       match: { url: '/api/first', method: 'POST' },

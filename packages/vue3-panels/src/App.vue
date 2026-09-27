@@ -765,6 +765,9 @@ async function saveRedirectRule(fields) {
             }
           : {
               url: fields.redirectUrl,
+              ...(Object.keys(fields.redirectHeaders ?? {}).length
+                ? { headers: { ...fields.redirectHeaders } }
+                : {}),
               ...(fields.exclusions?.length ? { exclusions: [...fields.exclusions] } : {}),
             },
     },

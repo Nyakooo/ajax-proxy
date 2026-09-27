@@ -35,6 +35,7 @@ function createForm(rule = null) {
     method: rule?.match?.method ?? 'ANY',
     redirectMode: isFunction ? 'function' : 'static',
     targetUrl: isFunction ? '' : (redirect.url ?? ''),
+    headersText: JSON.stringify(isFunction ? {} : (redirect.headers ?? {}), null, 2),
     code: isFunction ? (redirect.code ?? '') : DEFAULT_FUNCTION_EXAMPLE,
     redirectEnabled: isFunction ? false : (rule?.request?.enabled ?? true),
     exclusionsText: (redirect.exclusions ?? []).join('\n'),
@@ -57,6 +58,7 @@ watch(
 
 function submit() {
   localIssue.value = ''
+  let headers = {}
   if (!form.value.matchUrl.trim()) {
     localIssue.value = t('editor.requiredFields')
     return
@@ -72,6 +74,20 @@ function submit() {
     }
     if (form.value.targetUrl !== form.value.targetUrl.trim()) {
       localIssue.value = t('editor.noOuterWhitespace')
+      return
+    }
+    try {
+      headers = JSON.parse(form.value.headersText)
+    } catch {
+      localIssue.value = t('editor.redirectHeadersInvalidJson')
+      return
+    }
+    if (!headers || typeof headers !== 'object' || Array.isArray(headers)) {
+      localIssue.value = t('editor.redirectHeadersObjectRequired')
+      return
+    }
+    if (Object.values(headers).some((value) => typeof value !== 'string')) {
+      localIssue.value = t('editor.redirectHeadersStringValues')
       return
     }
   } else {
@@ -116,6 +132,7 @@ function submit() {
       : {
           redirectMode: 'static',
           redirectUrl: form.value.targetUrl,
+          redirectHeaders: headers,
           redirectEnabled: form.value.redirectEnabled,
         }),
     exclusions,
@@ -243,6 +260,19 @@ function trapFocus(event) {
           <span>{{ t('editor.targetUrl') }}</span>
           <input v-model="form.targetUrl" required autocomplete="off" />
           <small>{{ t('editor.targetUrlHelp') }}</small>
+        </label>
+
+        <label v-if="form.redirectMode === 'static'" class="editor-field">
+          <span>{{ t('editor.redirectHeaders') }}</span>
+          <textarea
+            v-model="form.headersText"
+            data-testid="redirect-headers"
+            rows="5"
+            spellcheck="false"
+            autocomplete="off"
+            :aria-describedby="'redirect-headers-help redirect-editor-error'"
+          />
+          <small id="redirect-headers-help">{{ t('editor.redirectHeadersHelp') }}</small>
         </label>
 
         <div v-else class="editor-field function-response-fields">

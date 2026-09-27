@@ -6,6 +6,7 @@ import {
   V3_BACKUP_PREVIOUS_VERSION,
   V3_BACKUP_REDIRECT_EXCLUSIONS_VERSION,
   V3_BACKUP_REDIRECT_FUNCTION_VERSION,
+  V3_BACKUP_STATIC_REDIRECT_HEADERS_VERSION,
   V3_BACKUP_VERSION,
 } from './backupVersion'
 import type { JsonValue, V3ResponseFunctionResult, V3Rule, V3Tag } from './rules'
@@ -18,6 +19,7 @@ export {
   V3_BACKUP_PREVIOUS_VERSION,
   V3_BACKUP_REDIRECT_EXCLUSIONS_VERSION,
   V3_BACKUP_REDIRECT_FUNCTION_VERSION,
+  V3_BACKUP_STATIC_REDIRECT_HEADERS_VERSION,
   V3_BACKUP_VERSION,
 }
 export const V3_BACKUP_MAX_BYTES = 5 * 1024 * 1024
@@ -49,7 +51,7 @@ export type V3Language = 'zh-CN' | 'en'
 
 export interface V3Backup {
   format: typeof V3_BACKUP_FORMAT
-  formatVersion: 3 | 4 | 5 | 6 | 7
+  formatVersion: 3 | 4 | 5 | 6 | 7 | 8
   settings: {
     globalEnabled: boolean
     mode: V3Mode
@@ -141,7 +143,20 @@ function isHeaderValue(value: string) {
   return !/[\r\n\0-\x08\x0B\x0C\x0E-\x1F\x7F]/.test(value)
 }
 
-function validateHeaders(value: unknown, path: string, issues: V3ValidationIssue[]) {
+function isByteString(value: string) {
+  for (let index = 0; index < value.length; index += 1) {
+    if (value.charCodeAt(index) > 0xff) return false
+  }
+  return true
+}
+
+function validateHeaders(
+  value: unknown,
+  path: string,
+  issues: V3ValidationIssue[],
+  requireCaseInsensitiveUniqueNames = false,
+  requireByteStringValues = false
+) {
   if (!isObject(value)) {
     addIssue(issues, path, 'Expected a header map.')
     return
@@ -151,6 +166,7 @@ function validateHeaders(value: unknown, path: string, issues: V3ValidationIssue
     addIssue(issues, path, `At most ${MAX_HEADERS} headers are allowed.`)
   }
   let totalBytes = 0
+  const seenNames = new Set<string>()
   entries.forEach(([name, headerValue]) => {
     totalBytes += new TextEncoder().encode(name).length
     if (typeof headerValue === 'string') totalBytes += new TextEncoder().encode(headerValue).length
@@ -160,6 +176,14 @@ function validateHeaders(value: unknown, path: string, issues: V3ValidationIssue
         path,
         `Header names must be valid HTTP tokens up to ${MAX_HEADER_NAME_LENGTH} characters.`
       )
+    }
+    if (requireCaseInsensitiveUniqueNames) {
+      const normalizedName = name.toLowerCase()
+      if (seenNames.has(normalizedName)) {
+        addIssue(issues, path, 'Header names must be unique ignoring case.')
+      } else {
+        seenNames.add(normalizedName)
+      }
     }
     if (
       typeof headerValue !== 'string' ||
@@ -171,6 +195,8 @@ function validateHeaders(value: unknown, path: string, issues: V3ValidationIssue
         path,
         `Header values must be safe strings up to ${MAX_HEADER_VALUE_LENGTH} characters.`
       )
+    } else if (requireByteStringValues && !isByteString(headerValue)) {
+      addIssue(issues, path, 'Request header values must be browser-compatible ByteStrings.')
     }
   })
   if (totalBytes > MAX_HEADER_BYTES) {
@@ -295,11 +321,13 @@ function validateRule(
     const payloadPath = `${actionPath}.${payloadName}`
     const allowedPayloadKeys =
       actionName === 'request'
-        ? formatVersion >= V3_BACKUP_REDIRECT_FUNCTION_VERSION
-          ? ['url', 'exclusions', 'type', 'code']
-          : formatVersion >= V3_BACKUP_REDIRECT_EXCLUSIONS_VERSION
-            ? ['url', 'exclusions']
-            : ['url']
+        ? formatVersion >= V3_BACKUP_STATIC_REDIRECT_HEADERS_VERSION
+          ? ['url', 'exclusions', 'type', 'code', 'headers']
+          : formatVersion >= V3_BACKUP_REDIRECT_FUNCTION_VERSION
+            ? ['url', 'exclusions', 'type', 'code']
+            : formatVersion >= V3_BACKUP_REDIRECT_EXCLUSIONS_VERSION
+              ? ['url', 'exclusions']
+              : ['url']
         : ['status', 'headers', 'body', 'code']
     if (!isObject(payload) || !hasOnlyKeys(payload, allowedPayloadKeys)) {
       addIssue(issues, payloadPath, 'Expected an action payload with supported fields only.')
@@ -308,7 +336,12 @@ function validateRule(
     if (actionName === 'request') {
       const isFunctionRedirect = payload.type === 'function'
       if (formatVersion >= V3_BACKUP_REDIRECT_FUNCTION_VERSION && isFunctionRedirect) {
-        if ('url' in payload || typeof payload.code !== 'string' || !payload.code.trim()) {
+        if (
+          'url' in payload ||
+          'headers' in payload ||
+          typeof payload.code !== 'string' ||
+          !payload.code.trim()
+        ) {
           addIssue(
             issues,
             payloadPath,
@@ -344,6 +377,17 @@ function validateRule(
           }
         } catch {
           addIssue(issues, `${payloadPath}.url`, 'Expected a valid HTTP(S) or relative URL.')
+        }
+      }
+      if (payload.headers !== undefined) {
+        if (formatVersion < V3_BACKUP_STATIC_REDIRECT_HEADERS_VERSION || isFunctionRedirect) {
+          addIssue(
+            issues,
+            `${payloadPath}.headers`,
+            'Headers are supported only on static redirects in backup version 8 or later.'
+          )
+        } else {
+          validateHeaders(payload.headers, `${payloadPath}.headers`, issues, true, true)
         }
       }
       if (payload.exclusions !== undefined) {
@@ -453,12 +497,13 @@ function validateV3BackupUnchecked(value: unknown): V3BackupValidation {
     value.formatVersion !== V3_BACKUP_PREVIOUS_VERSION &&
     value.formatVersion !== V3_BACKUP_EXACT_MATCH_VERSION &&
     value.formatVersion !== V3_BACKUP_DISABLED_ORIGINS_VERSION &&
+    value.formatVersion !== V3_BACKUP_REDIRECT_EXCLUSIONS_VERSION &&
     value.formatVersion !== V3_BACKUP_LEGACY_VERSION
   ) {
     addIssue(
       issues,
       'formatVersion',
-      `Expected version ${V3_BACKUP_LEGACY_VERSION}, ${V3_BACKUP_EXACT_MATCH_VERSION}, ${V3_BACKUP_DISABLED_ORIGINS_VERSION}, ${V3_BACKUP_REDIRECT_EXCLUSIONS_VERSION}, or ${V3_BACKUP_VERSION}.`
+      `Expected backup version from ${V3_BACKUP_LEGACY_VERSION} through ${V3_BACKUP_VERSION}.`
     )
   }
   if (

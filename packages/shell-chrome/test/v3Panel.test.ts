@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { NoticeFrom, NoticeTo, StorageKey, V3PanelMessageKey } from '@proxy/protocol'
+import { V3_BACKUP_VERSION } from '@proxy/v3-domain'
 import type { V3PanelStorage } from '../src/service-worker/v3Panel'
 import {
   createV3PanelMessageHandler,
@@ -91,7 +92,7 @@ describe('V3 panel configuration adapter', () => {
     await expect(readV3PanelSnapshot(storage)).resolves.toMatchObject({
       ok: true,
       snapshot: {
-        config: { ...backup, formatVersion: 7, disabledOrigins: [] },
+        config: { ...backup, formatVersion: V3_BACKUP_VERSION, disabledOrigins: [] },
         hitCounters: { 'rule-1': 5 },
         revision: expect.stringMatching(/^sha256:[a-f0-9]{64}$/),
       },
@@ -161,7 +162,7 @@ describe('V3 panel configuration adapter', () => {
     expect(storage.write).toHaveBeenCalledOnce()
     expect(storage.write).toHaveBeenCalledWith(StorageKey.V3_CONFIG, {
       ...backup,
-      formatVersion: 7,
+      formatVersion: V3_BACKUP_VERSION,
       disabledOrigins: [],
     })
     expect(storage.write).not.toHaveBeenCalledWith(StorageKey.INTERCEPT_LIST, expect.anything())
@@ -260,7 +261,7 @@ describe('V3 panel configuration adapter', () => {
     )
     expect(storage.write).toHaveBeenCalledWith(StorageKey.V3_CONFIG, {
       ...backup,
-      formatVersion: 7,
+      formatVersion: V3_BACKUP_VERSION,
       disabledOrigins: [],
     })
   })
@@ -285,7 +286,7 @@ describe('V3 panel configuration adapter', () => {
     )
     expect(storage.write).toHaveBeenCalledExactlyOnceWith(StorageKey.V3_CONFIG, {
       ...backup,
-      formatVersion: 7,
+      formatVersion: V3_BACKUP_VERSION,
       disabledOrigins: [],
     })
     expect(storage.read).toHaveBeenCalledExactlyOnceWith(StorageKey.V3_CONFIG, null)
@@ -313,7 +314,7 @@ describe('V3 panel configuration adapter', () => {
       error: 'config-conflict',
       current: { revision: expect.stringMatching(/^sha256:/) },
     })
-    expect(conflict.current.config.formatVersion).toBe(7)
+    expect(conflict.current.config.formatVersion).toBe(V3_BACKUP_VERSION)
     expect(conflict.current.config.settings.globalEnabled).toBe(results[0].ok)
     const success = results.find((result) => result.ok)
     expect(success && conflict.current.revision).toBe(success?.revision)
@@ -362,7 +363,7 @@ describe('V3 panel configuration adapter', () => {
     )
     expect(storage.write).toHaveBeenCalledWith(StorageKey.V3_CONFIG, {
       ...backup,
-      formatVersion: 7,
+      formatVersion: V3_BACKUP_VERSION,
       disabledOrigins: [],
     })
   })

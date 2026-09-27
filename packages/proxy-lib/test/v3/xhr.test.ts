@@ -34,6 +34,7 @@ class FakeXHR extends EventTarget {
       throw new Error('native open failed')
     }
     this.openArgs = args
+    this.requestHeaders = []
     this.readyState = 1
   })
   setRequestHeader = vi.fn((name: string, value: string) => {
@@ -101,6 +102,68 @@ function makeXHR(
 }
 
 describe('createV3XHR', () => {
+  it('overrides caller headers on static redirects and strips sensitive headers cross-origin', () => {
+    const selectedRule = rule('static-redirect-headers', {
+      request: {
+        enabled: true,
+        redirect: {
+          url: 'https://target.test/api',
+          headers: {
+            'X-Override': 'configured',
+            'X-Empty': '',
+            authorization: 'configured-auth',
+            'proxy-authorization': 'configured-proxy-auth',
+            cookie: 'configured-cookie',
+            cookie2: 'configured-cookie2',
+          },
+        },
+      },
+    })
+    const xhr = makeXHR([selectedRule])
+
+    xhr.open('POST', 'https://example.test/api', true)
+    xhr.setRequestHeader('x-override', 'page-value')
+    xhr.setRequestHeader('x-empty', 'page-value')
+    xhr.setRequestHeader('X-Page', 'preserved')
+    xhr.setRequestHeader('Authorization', 'page-auth')
+    xhr.send()
+
+    expect(xhr.openArgs).toEqual(['POST', 'https://target.test/api', true])
+    expect(xhr.requestHeaders).toEqual([
+      ['X-Page', 'preserved'],
+      ['X-Override', 'configured'],
+      ['X-Empty', ''],
+    ])
+  })
+
+  it('keeps configured sensitive headers on same-origin redirects and resets them on open reuse', () => {
+    const selectedRule = rule('same-origin-static-redirect-headers', {
+      match: { url: '/api', method: 'POST' },
+      request: {
+        enabled: true,
+        redirect: {
+          url: 'https://example.test/redirected',
+          headers: { authorization: 'configured-auth', cookie: '' },
+        },
+      },
+    })
+    const xhr = makeXHR([selectedRule])
+
+    xhr.open('POST', 'https://example.test/api', true)
+    xhr.setRequestHeader('Authorization', 'page-auth')
+    xhr.send()
+    expect(xhr.requestHeaders).toEqual([
+      ['authorization', 'configured-auth'],
+      ['cookie', ''],
+    ])
+
+    xhr.open('POST', 'https://example.test/elsewhere', true)
+    xhr.setRequestHeader('Authorization', 'page-auth')
+    xhr.send()
+    expect(xhr.openArgs).toEqual(['POST', 'https://example.test/elsewhere', true])
+    expect(xhr.requestHeaders).toEqual([['Authorization', 'page-auth']])
+  })
+
   it('preserves synchronous open arguments without applying rules', () => {
     const onNoMatch = vi.fn()
     const xhr = makeXHR(

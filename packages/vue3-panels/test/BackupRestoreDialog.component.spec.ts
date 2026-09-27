@@ -1,5 +1,6 @@
 import { mount } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { V3_BACKUP_VERSION } from '@proxy/v3-domain'
 import BackupRestoreDialog from '../src/components/BackupRestoreDialog.vue'
 import { i18n } from '../src/i18n/index.js'
 
@@ -48,7 +49,7 @@ describe('BackupRestoreDialog', () => {
       [
         {
           ...backupWithFunctionRule,
-          formatVersion: 7,
+          formatVersion: V3_BACKUP_VERSION,
           disabledOrigins: [],
           rules: [
             {
@@ -167,7 +168,7 @@ describe('BackupRestoreDialog', () => {
     await importButton.trigger('click')
     expect(wrapper.emitted('import-rules')).toHaveLength(1)
     expect(wrapper.emitted('import-rules')?.[0]?.[0]).toMatchObject({
-      formatVersion: 7,
+      formatVersion: V3_BACKUP_VERSION,
       disabledOrigins: [],
       rules: [{ id: 'tagged-rule', tagIds: ['tag-1'] }],
     })

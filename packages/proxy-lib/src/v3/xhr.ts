@@ -121,6 +121,8 @@ export function createV3XHR(NativeXHR: V3XHRConstructor, options: V3XHROptions):
       let requestOutcome: { outcome: V3FetchOutcomeStatus; reason: V3XHROutcomeReason } | undefined
       let correlationId: string | undefined
       let stripSensitiveHeaders = false
+      let redirectHeaders: Record<string, string> | undefined
+      let redirectHeadersApplied = false
       const listenerWrappers = new WeakMap<object, Map<string, Map<boolean, EventListener>>>()
       const handlerProperties = new Map<
         PropertyKey,
@@ -181,6 +183,8 @@ export function createV3XHR(NativeXHR: V3XHRConstructor, options: V3XHROptions):
               requestOutcome = undefined
               correlationId = undefined
               stripSensitiveHeaders = false
+              redirectHeaders = undefined
+              redirectHeadersApplied = false
 
               // Synchronous XHR has different response and event timing. Leave it native.
               if (async === false) {
@@ -221,6 +225,10 @@ export function createV3XHR(NativeXHR: V3XHRConstructor, options: V3XHROptions):
                 ? isV3RedirectExcluded(selected, originalUrl)
                 : false
               const redirectConfig = redirect?.redirect
+              const configuredHeaders =
+                redirectConfig && !isFunctionRedirect(redirectConfig)
+                  ? redirectConfig.headers
+                  : undefined
               const redirectValue =
                 redirectConfig && !isFunctionRedirect(redirectConfig)
                   ? redirectConfig.url
@@ -243,6 +251,7 @@ export function createV3XHR(NativeXHR: V3XHRConstructor, options: V3XHROptions):
               try {
                 stripSensitiveHeaders = new URL(targetUrl).origin !== new URL(originalUrl).origin
                 const result = target.open(...args)
+                redirectHeaders = configuredHeaders ? { ...configuredHeaders } : undefined
                 requestOutcome = { outcome: 'applied', reason: 'redirect-applied' }
                 return result
               } catch {
@@ -268,6 +277,20 @@ export function createV3XHR(NativeXHR: V3XHRConstructor, options: V3XHROptions):
                 }
               }
               try {
+                if (redirectHeaders && !redirectHeadersApplied) {
+                  redirectHeadersApplied = true
+                  for (const [name, value] of Object.entries(redirectHeaders)) {
+                    if (
+                      stripSensitiveHeaders &&
+                      ['authorization', 'proxy-authorization', 'cookie', 'cookie2'].includes(
+                        name.toLowerCase()
+                      )
+                    ) {
+                      continue
+                    }
+                    target.setRequestHeader(name, value)
+                  }
+                }
                 const result = target.send(...args)
                 if (requestOutcome && selected && correlationId) {
                   outcomeReason(
@@ -300,6 +323,14 @@ export function createV3XHR(NativeXHR: V3XHRConstructor, options: V3XHROptions):
 
           if (property === 'setRequestHeader') {
             return (name: string, value: string) => {
+              if (
+                redirectHeaders &&
+                Object.keys(redirectHeaders).some(
+                  (configuredName) => configuredName.toLowerCase() === name.toLowerCase()
+                )
+              ) {
+                return
+              }
               if (
                 stripSensitiveHeaders &&
                 ['authorization', 'proxy-authorization', 'cookie', 'cookie2'].includes(

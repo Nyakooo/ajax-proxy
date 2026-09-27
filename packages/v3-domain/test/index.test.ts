@@ -40,7 +40,7 @@ describe('V3 backup schema', () => {
     expect(validateV3Backup(exactBackup)).toMatchObject({ ok: true })
     expect(parseV3BackupJson(JSON.stringify(exactBackup))).toMatchObject({
       ok: true,
-      data: { formatVersion: 7, disabledOrigins: [], rules: [{ match: { type: 'exact' } }] },
+      data: { formatVersion: 8, disabledOrigins: [], rules: [{ match: { type: 'exact' } }] },
     })
 
     const unsupportedLegacyExactBackup = structuredClone(validBackup)
@@ -57,11 +57,11 @@ describe('V3 backup schema', () => {
       const validation = validateV3Backup(backup)
       expect(validation).toMatchObject({
         ok: true,
-        data: { formatVersion: 7, disabledOrigins: [] },
+        data: { formatVersion: 8, disabledOrigins: [] },
       })
       expect(parseV3BackupJson(JSON.stringify(backup))).toMatchObject({
         ok: true,
-        data: { formatVersion: 7, disabledOrigins: [] },
+        data: { formatVersion: 8, disabledOrigins: [] },
       })
     }
   })
@@ -74,11 +74,11 @@ describe('V3 backup schema', () => {
     }
     expect(validateV3Backup(backup)).toMatchObject({
       ok: true,
-      data: { formatVersion: 7, disabledOrigins: backup.disabledOrigins },
+      data: { formatVersion: 8, disabledOrigins: backup.disabledOrigins },
     })
     expect(parseV3BackupJson(JSON.stringify(backup))).toMatchObject({
       ok: true,
-      data: { formatVersion: 7, disabledOrigins: backup.disabledOrigins },
+      data: { formatVersion: 8, disabledOrigins: backup.disabledOrigins },
     })
   })
 
@@ -126,11 +126,11 @@ describe('V3 backup schema', () => {
     }
     expect(validateV3Backup(backup)).toMatchObject({
       ok: true,
-      data: { formatVersion: 7, rules: [{ request: backup.rules[0].request }] },
+      data: { formatVersion: 8, rules: [{ request: backup.rules[0].request }] },
     })
     expect(parseV3BackupJson(JSON.stringify(backup))).toMatchObject({
       ok: true,
-      data: { formatVersion: 7, rules: [{ request: backup.rules[0].request }] },
+      data: { formatVersion: 8, rules: [{ request: backup.rules[0].request }] },
     })
 
     for (const formatVersion of [3, 4, 5]) {
@@ -200,7 +200,7 @@ describe('V3 backup schema', () => {
     }
     expect(validateV3Backup(base)).toMatchObject({
       ok: true,
-      data: { formatVersion: 7, rules: [{ request: base.rules[0].request }] },
+      data: { formatVersion: 8, rules: [{ request: base.rules[0].request }] },
     })
 
     const maxLengthCode = structuredClone(base)
@@ -227,6 +227,132 @@ describe('V3 backup schema', () => {
     const preV7 = structuredClone(base)
     preV7.formatVersion = 6
     expect(validateV3Backup(preV7)).toMatchObject({ ok: false })
+  })
+
+  it('accepts headers only on V8 static redirects and keeps V3 through V7 strict', () => {
+    const backup = {
+      ...structuredClone(validBackup),
+      formatVersion: 8,
+      disabledOrigins: [],
+      rules: [
+        {
+          ...structuredClone(validBackup.rules[0]),
+          request: {
+            enabled: true,
+            redirect: { url: '/target', headers: { 'X-Proxy': 'ok', 'X-Trace': 'trace' } },
+          },
+        },
+      ],
+    }
+    expect(validateV3Backup(backup)).toMatchObject({
+      ok: true,
+      data: { formatVersion: 8, rules: [{ request: backup.rules[0].request }] },
+    })
+    expect(parseV3BackupJson(JSON.stringify(backup))).toMatchObject({
+      ok: true,
+      data: { formatVersion: 8, rules: [{ request: backup.rules[0].request }] },
+    })
+
+    for (const formatVersion of [3, 4, 5, 6, 7]) {
+      const legacy = structuredClone(backup)
+      legacy.formatVersion = formatVersion
+      if (formatVersion < 5) delete (legacy as { disabledOrigins?: string[] }).disabledOrigins
+      expect(validateV3Backup(legacy)).toMatchObject({
+        ok: false,
+        issues: expect.arrayContaining([
+          expect.objectContaining({ path: 'rules[0].request.redirect' }),
+        ]),
+      })
+    }
+
+    const functionRedirect = structuredClone(backup)
+    ;(functionRedirect.rules[0].request.redirect as unknown) = {
+      type: 'function',
+      code: 'return { url: request.url }',
+      headers: { 'X-Proxy': 'ignored' },
+    }
+    expect(validateV3Backup(functionRedirect)).toMatchObject({ ok: false })
+  })
+
+  it('applies header safety limits and case-insensitive uniqueness only to redirect headers', () => {
+    const base = {
+      ...structuredClone(validBackup),
+      formatVersion: 8,
+      disabledOrigins: [],
+      rules: [
+        {
+          ...structuredClone(validBackup.rules[0]),
+          request: {
+            enabled: true,
+            redirect: { url: '/target', headers: {} as unknown },
+          },
+        },
+      ],
+    }
+    const invalidHeaders: unknown[] = [
+      null,
+      { 'bad header': 'value' },
+      { 'X-Test': 'line1\rline2' },
+      { 'X-Test': 'é'.repeat(8193) },
+      Object.fromEntries(Array.from({ length: 101 }, (_, index) => [`x-header-${index}`, 'ok'])),
+      {
+        'x-first': 'a'.repeat(8192),
+        'x-second': 'b'.repeat(8192),
+        'x-third': 'c'.repeat(8192),
+        'x-fourth': 'd'.repeat(8192),
+        'x-fifth': 'e'.repeat(8192),
+      },
+      { 'X-Test': 'one', 'x-test': 'two' },
+    ]
+
+    for (const headers of invalidHeaders) {
+      const candidate = structuredClone(base)
+      ;(candidate.rules[0].request.redirect as Record<string, unknown>).headers = headers
+      expect(validateV3Backup(candidate)).toMatchObject({ ok: false })
+    }
+
+    const nonByteString = structuredClone(base)
+    ;(nonByteString.rules[0].request.redirect as Record<string, unknown>).headers = {
+      'X-Test': 'Ā',
+    }
+    expect(validateV3Backup(nonByteString)).toMatchObject({
+      ok: false,
+      issues: expect.arrayContaining([
+        expect.objectContaining({
+          path: 'rules[0].request.redirect.headers',
+          message: 'Request header values must be browser-compatible ByteStrings.',
+        }),
+      ]),
+    })
+
+    const byteStringBoundary = structuredClone(base)
+    ;(byteStringBoundary.rules[0].request.redirect as Record<string, unknown>).headers = {
+      'X-Test': 'ÿ',
+    }
+    expect(validateV3Backup(byteStringBoundary)).toMatchObject({ ok: true })
+
+    const legacyResponseHeaders = structuredClone(validBackup)
+    legacyResponseHeaders.formatVersion = 7
+    ;(
+      legacyResponseHeaders as typeof legacyResponseHeaders & { disabledOrigins: string[] }
+    ).disabledOrigins = []
+    ;(legacyResponseHeaders.rules[0].response.replace as Record<string, unknown>).headers = {
+      'X-Test': 'first',
+      'x-test': 'second',
+      'X-Unicode': 'Ā',
+    }
+    expect(validateV3Backup(legacyResponseHeaders)).toMatchObject({ ok: true })
+
+    const v8ResponseHeaders = structuredClone(validBackup)
+    v8ResponseHeaders.formatVersion = 8
+    ;(
+      v8ResponseHeaders as typeof v8ResponseHeaders & { disabledOrigins: string[] }
+    ).disabledOrigins = []
+    ;(v8ResponseHeaders.rules[0].response.replace as Record<string, unknown>).headers = {
+      'X-Test': 'first',
+      'x-test': 'second',
+    }
+    expect(validateV3Backup(v8ResponseHeaders)).toMatchObject({ ok: true })
   })
 
   it('disarms imported redirect functions while preserving combined response actions', () => {

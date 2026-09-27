@@ -14,6 +14,7 @@ export interface V3Tag {
 export type V3RedirectConfig = {
     url: string;
     exclusions?: string[];
+    headers?: Record<string, string>;
 } | {
     type: 'function';
     code: string;

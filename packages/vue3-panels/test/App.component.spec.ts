@@ -5,6 +5,7 @@ import { defineComponent, h } from 'vue'
 import { V3_BACKUP_VERSION } from '@proxy/v3-domain'
 import { NoticeFrom, NoticeKey, NoticeTo, V3PanelMessageKey } from '@proxy/protocol'
 import { i18n } from '../src/i18n/index.js'
+import RedirectRuleEditor from '../src/components/RedirectRuleEditor.vue'
 
 const AppButton = defineComponent({
   props: { label: { type: String, default: '' } },
@@ -1030,12 +1031,16 @@ describe('App redirect exclusion persistence flow', () => {
       .findAll('input:not([type="checkbox"]):not([type="radio"])')[1]
       .setValue('/target')
     await wrapper.get('[data-testid="redirect-exclusions"]').setValue('/health\nskip=1')
+    await wrapper
+      .get('[data-testid="redirect-headers"]')
+      .setValue('{"X-Trace":"configured","X-Empty":""}')
     await wrapper.get('.rule-editor form').trigger('submit')
     await flushPromises()
 
     const save = sentMessages.find((message) => message.key === V3PanelMessageKey.SAVE_CONFIG)
     expect(save.value.config.rules[0].request.redirect).toEqual({
       url: '/target',
+      headers: { 'X-Trace': 'configured', 'X-Empty': '' },
       exclusions: ['/health', 'skip=1'],
     })
   })
@@ -1062,12 +1067,56 @@ describe('App redirect exclusion persistence flow', () => {
     await flushPromises()
 
     const save = sentMessages.find((message) => message.key === V3PanelMessageKey.SAVE_CONFIG)
-    expect(save.value.config.formatVersion).toBe(7)
+    expect(save.value.config.formatVersion).toBe(V3_BACKUP_VERSION)
     expect(save.value.config.rules[0].request).toEqual({
       enabled: false,
       redirect: { type: 'function', code: 'return request.url' },
     })
     expect(globalThis.confirm).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('RedirectRuleEditor static request headers', () => {
+  it('loads and saves string header values including empty strings', async () => {
+    const wrapper = mount(RedirectRuleEditor, {
+      props: {
+        open: true,
+        rule: {
+          match: { url: '/api', type: 'normal', method: 'ANY' },
+          request: {
+            enabled: true,
+            redirect: { url: '/target', headers: { 'X-Trace': '', Accept: 'application/json' } },
+          },
+        },
+      },
+      global: { plugins: [i18n] },
+    })
+    expect(wrapper.get('[data-testid="redirect-headers"]').element.value).toContain('"X-Trace": ""')
+    await wrapper.get('[data-testid="redirect-headers"]').setValue('{"X-Trace":"","X-New":"yes"}')
+    await wrapper.get('form').trigger('submit')
+    expect(wrapper.emitted('save')?.[0][0].redirectHeaders).toEqual({
+      'X-Trace': '',
+      'X-New': 'yes',
+    })
+    wrapper.unmount()
+  })
+
+  it('shows a local validation error for invalid header JSON and hides headers for function redirects', async () => {
+    const wrapper = mount(RedirectRuleEditor, {
+      props: { open: true },
+      global: { plugins: [i18n] },
+    })
+    await wrapper.get('input[name="redirect-mode"][value="function"]').setValue(true)
+    expect(wrapper.find('[data-testid="redirect-headers"]').exists()).toBe(false)
+    await wrapper.get('input[name="redirect-mode"][value="static"]').setValue(true)
+    const inputs = wrapper.findAll('input:not([type="checkbox"]):not([type="radio"])')
+    await inputs[0].setValue('/api')
+    await inputs[1].setValue('/target')
+    await wrapper.get('[data-testid="redirect-headers"]').setValue('{bad')
+    await wrapper.get('form').trigger('submit')
+    expect(wrapper.get('[role="alert"]').text()).toContain('有效 JSON')
+    expect(wrapper.emitted('save')).toBeUndefined()
+    wrapper.unmount()
   })
 })
 

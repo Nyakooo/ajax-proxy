@@ -98,7 +98,8 @@ function resolveRedirectFunctionTarget(value: unknown, originalUrl: string): str
 async function redirectRequest(
   request: Request,
   targetUrl: string,
-  preserveStreamingBody: boolean
+  preserveStreamingBody: boolean,
+  configuredHeaders?: Record<string, string>
 ): Promise<Request> {
   const destination = new URL(targetUrl, request.url)
   if (destination.protocol !== 'http:' && destination.protocol !== 'https:') {
@@ -110,6 +111,9 @@ async function redirectRequest(
       : await request.clone().arrayBuffer()
     : undefined
   const headers = new Headers(request.headers)
+  for (const [name, value] of Object.entries(configuredHeaders ?? {})) {
+    headers.set(name, value)
+  }
   if (destination.origin !== new URL(request.url).origin) {
     for (const name of ['authorization', 'proxy-authorization', 'cookie', 'cookie2']) {
       headers.delete(name)
@@ -170,6 +174,7 @@ export function createV3Fetch(fetcher: V3Fetch, options: V3FetchOptions): V3Fetc
     let redirectAttempted = false
     let redirectFailedBeforeNetwork = false
     let redirectTarget: string | undefined
+    let redirectHeaders: Record<string, string> | undefined
     if (redirect?.enabled && !isV3RedirectExcluded(selection.rule, originalRequest.url)) {
       redirectAttempted = true
       if (isFunctionRedirect(redirect.redirect)) {
@@ -203,6 +208,7 @@ export function createV3Fetch(fetcher: V3Fetch, options: V3FetchOptions): V3Fetc
         }
       } else {
         redirectTarget = redirect.redirect.url
+        redirectHeaders = redirect.redirect.headers
       }
       if (redirectFailedBeforeNetwork) {
         reportOutcome(
@@ -220,7 +226,8 @@ export function createV3Fetch(fetcher: V3Fetch, options: V3FetchOptions): V3Fetc
         requestForResponse = await redirectRequest(
           originalRequest,
           redirectTarget,
-          isReadableStreamBody(init?.body)
+          isReadableStreamBody(init?.body),
+          redirectHeaders
         )
       } catch {
         // A construction/body replay failure can safely fall back before network dispatch.

@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { isV3FunctionError, NoticeTo } from '@proxy/protocol'
+import { V3_BACKUP_VERSION } from '@proxy/v3-domain'
 import { createV3RuntimeController } from '../../src/v3/runtimeController'
 
 afterEach(() => vi.unstubAllGlobals())
@@ -57,7 +58,7 @@ describe('createV3RuntimeController', () => {
     expect(controller.backup).toBeNull()
     expect(controller.update(backup)).toEqual({ ok: true, status: 'updated' })
     const active = controller.backup
-    expect(active).toEqual({ ...backup, formatVersion: 7, disabledOrigins: [] })
+    expect(active).toEqual({ ...backup, formatVersion: V3_BACKUP_VERSION, disabledOrigins: [] })
 
     const invalidUpdate = controller.update({ ...backup, formatVersion: 2 })
     expect(invalidUpdate).toMatchObject({

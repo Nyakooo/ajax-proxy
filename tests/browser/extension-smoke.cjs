@@ -150,6 +150,7 @@ async function main() {
             body: Buffer.concat(chunks).toString(),
             path: request.url,
             originalHeader: request.headers['x-original'],
+            ...(request.headers['x-keep'] ? { keptHeader: request.headers['x-keep'] } : {}),
             redirectedHeader: request.headers['x-redirected'],
             cookie: request.headers.cookie,
           })
@@ -282,9 +283,16 @@ async function main() {
     const page = await context.newPage()
     const secondPage = await context.newPage()
     page.on('pageerror', (error) => console.error('Extension smoke page error:', error))
+    secondPage.on('pageerror', (error) =>
+      console.error('Extension smoke second page error:', error)
+    )
     page.on('console', (message) => {
       if (message.type() === 'error')
         console.error('Extension smoke console error:', message.text())
+    })
+    secondPage.on('console', (message) => {
+      if (message.type() === 'error')
+        console.error('Extension smoke second page console error:', message.text())
     })
     page.on('requestfailed', (request) => {
       if (request.url().includes('/api/stream') || request.url().includes('/mock/echo')) {
@@ -393,9 +401,19 @@ async function main() {
     )
 
     await secondPage.locator('#xhr').click()
-    await secondPage.waitForFunction(() =>
-      document.querySelector('#result').textContent.startsWith('{"kind":"xhr"')
-    )
+    await secondPage
+      .waitForFunction(
+        () => document.querySelector('#result').textContent.startsWith('{"kind":"xhr"'),
+        null,
+        { timeout: 5000 }
+      )
+      .catch(async (error) => {
+        console.error('Second-page XHR diagnostics:', {
+          result: await secondPage.locator('#result').textContent(),
+          requests,
+        })
+        throw error
+      })
     assert.equal(
       JSON.parse(await secondPage.locator('#result').textContent()).body,
       expectedResponseJson
@@ -944,7 +962,7 @@ async function main() {
       async (key) => (await chrome.storage.local.get(key))[key],
       'ajax-proxy:storage:v3-config'
     )
-    assert.equal(disabledSiteConfig.formatVersion, 7)
+    assert.equal(disabledSiteConfig.formatVersion, 8)
     assert.deepEqual(disabledSiteConfig.disabledOrigins, [siteSwitchOrigin])
     await staleGlobalSwitch.click()
     await staleV3Panel
@@ -1511,7 +1529,7 @@ async function main() {
     ])
     const exportedBackup = JSON.parse(fs.readFileSync(await backupDownload.path(), 'utf8'))
     assert.equal(exportedBackup.format, 'ajax-proxy-backup')
-    assert.equal(exportedBackup.formatVersion, 7)
+    assert.equal(exportedBackup.formatVersion, 8)
     assert.deepEqual(exportedBackup.disabledOrigins, [])
     assert.deepEqual(exportedBackup.rules, backupConfigBefore.rules)
     assert.equal('hitCounters' in exportedBackup, false)
@@ -2032,7 +2050,7 @@ async function main() {
       async (key) => (await chrome.storage.local.get(key))[key].formatVersion,
       'ajax-proxy:storage:v3-config'
     )
-    assert.equal(exactBackupVersion, 7, 'saving an exact matcher keeps the latest backup format')
+    assert.equal(exactBackupVersion, 8, 'saving an exact matcher keeps the latest backup format')
     assert.deepEqual(quickCreatedRule.response, {
       enabled: true,
       replace: { status: 200, body: {} },
@@ -2192,6 +2210,18 @@ async function main() {
             },
           },
           {
+            id: 'v3-static-redirect-headers-extension-smoke',
+            enabled: true,
+            match: { url: '/api/v3-header-redirect', method: 'POST', type: 'normal' },
+            request: {
+              enabled: true,
+              redirect: {
+                url: `http://127.0.0.1:${port}/mock/echo`,
+                headers: { 'x-original': 'rule-value', 'x-redirected': 'configured-value' },
+              },
+            },
+          },
+          {
             id: 'v3-redirect-exclusion-extension-smoke',
             enabled: true,
             match,
@@ -2228,7 +2258,7 @@ async function main() {
         await chrome.storage.local.set({
           [key]: {
             ...config,
-            formatVersion: 7,
+            formatVersion: 8,
             disabledOrigins: [],
             rules: [...rules, ...config.rules],
           },
@@ -2272,6 +2302,37 @@ async function main() {
     )
     assert.equal(functionRedirectXhr.body.method, 'POST')
     assert.equal(functionRedirectXhr.body.body, 'dynamic redirect XHR')
+    const staticHeaderRedirectFetch = await restartedPage.evaluate(async () => {
+      const response = await fetch('/api/v3-header-redirect', {
+        method: 'POST',
+        body: 'static redirect headers Fetch',
+        headers: { 'x-original': 'caller-value', 'x-keep': 'preserved-value' },
+      })
+      return { url: response.url, body: await response.json() }
+    })
+    assert.equal(staticHeaderRedirectFetch.url, `http://127.0.0.1:${port}/mock/echo`)
+    assert.equal(staticHeaderRedirectFetch.body.body, 'static redirect headers Fetch')
+    assert.equal(staticHeaderRedirectFetch.body.originalHeader, 'rule-value')
+    assert.equal(staticHeaderRedirectFetch.body.redirectedHeader, 'configured-value')
+    assert.equal(staticHeaderRedirectFetch.body.keptHeader, 'preserved-value')
+    const staticHeaderRedirectXhr = await restartedPage.evaluate(
+      () =>
+        new Promise((resolve, reject) => {
+          const request = new XMLHttpRequest()
+          request.onload = () =>
+            resolve({ url: request.responseURL, body: JSON.parse(request.responseText) })
+          request.onerror = () => reject(new Error('static redirect headers XHR failed'))
+          request.open('POST', '/api/v3-header-redirect')
+          request.setRequestHeader('x-original', 'caller-value')
+          request.setRequestHeader('x-keep', 'preserved-value')
+          request.send('static redirect headers XHR')
+        })
+    )
+    assert.equal(staticHeaderRedirectXhr.url, `http://127.0.0.1:${port}/mock/echo`)
+    assert.equal(staticHeaderRedirectXhr.body.body, 'static redirect headers XHR')
+    assert.equal(staticHeaderRedirectXhr.body.originalHeader, 'rule-value')
+    assert.equal(staticHeaderRedirectXhr.body.redirectedHeader, 'configured-value')
+    assert.equal(staticHeaderRedirectXhr.body.keptHeader, 'preserved-value')
     const excludedFetchResult = await restartedPage.evaluate(async () => {
       const response = await fetch('/api/v3-exclusion?skip=1', {
         method: 'POST',
@@ -2331,7 +2392,7 @@ async function main() {
     )
 
     console.log(
-      'Unpacked extension V2 and V3 panel persistence, exact-origin site switches, safe rule templates, JSON and function Fetch interception, XHR, iframe, redirect, and service worker restart smoke passed'
+      'Unpacked extension V2 and V3 panel persistence, static redirect Fetch/XHR header overrides, exact-origin site switches, safe rule templates, JSON and function Fetch interception, XHR, iframe, redirect, and service worker restart smoke passed'
     )
   } finally {
     await context?.close()

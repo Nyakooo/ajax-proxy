@@ -270,6 +270,12 @@ export const messages = {
       method: '请求方法',
       targetUrl: '跳转目标 URL',
       targetUrlHelp: '可填写 HTTP(S) 完整地址或相对地址；匹配规则只把请求直接跳转到此目标。',
+      redirectHeaders: '请求 headers（JSON 对象）',
+      redirectHeadersHelp:
+        '只用于静态重定向。header 名称按大小写不敏感方式覆盖原请求；跨源重定向会剔除敏感 headers。跨源请求的 CORS 行为由浏览器决定。值必须是字符串，可使用空字符串。',
+      redirectHeadersInvalidJson: 'Headers 必须是有效 JSON。',
+      redirectHeadersObjectRequired: 'Headers 必须是 JSON 对象。',
+      redirectHeadersStringValues: '每个 header 值都必须是字符串。',
       functionCode: '函数体代码',
       functionCodeHelp:
         '输入函数体，参数 request 只包含 url 和 method；返回 HTTP(S) URL 字符串，可返回相对 URL。代码最多 65,536 个字符。',
@@ -679,6 +685,12 @@ export const messages = {
       targetUrl: 'Redirect target URL',
       targetUrlHelp:
         'Use an absolute HTTP(S) URL or a relative URL. A match redirects directly to this target.',
+      redirectHeaders: 'Request headers (JSON object)',
+      redirectHeadersHelp:
+        'For static redirects only. Header names override original request headers case-insensitively; sensitive headers are removed on cross-origin redirects. The browser determines CORS behavior for cross-origin requests. Values must be strings; empty strings are allowed.',
+      redirectHeadersInvalidJson: 'Headers must be valid JSON.',
+      redirectHeadersObjectRequired: 'Headers must be a JSON object.',
+      redirectHeadersStringValues: 'Every header value must be a string.',
       functionCode: 'Function body code',
       functionCodeHelp:
         'Enter a function body. Its request parameter contains only url and method. Return an HTTP(S) URL string; relative URLs are allowed. Maximum 65,536 characters.',
