@@ -280,6 +280,54 @@ describe('App visible selection and bulk rule actions', () => {
   })
 })
 
+describe('App filtered rule priority ordering', () => {
+  it('disables priority controls while filtered and reorders rules when filters clear', async () => {
+    const makeRule = (id: string, url: string, enabled: boolean) => ({
+      id,
+      enabled,
+      match: { url, method: 'POST', type: 'normal' },
+      response: { enabled: true, replace: { body: { id } } },
+    })
+    const startingConfig = {
+      ...initialConfig(),
+      rules: [
+        makeRule('enabled-rule', '/api/enabled', true),
+        makeRule('first-disabled-rule', '/api/first-disabled', false),
+        makeRule('second-disabled-rule', '/api/second-disabled', false),
+      ],
+    }
+    const { wrapper, sentMessages } = await mountApp([], startingConfig)
+
+    await buttonByText(wrapper, '筛选').trigger('click')
+    await wrapper.get('input[name="rule-status-filter"][value="disabled"]').trigger('change')
+    await flushPromises()
+
+    const moveUp = () =>
+      wrapper.get('button[aria-label="提高规则「/api/second-disabled」的优先级"]')
+    expect(moveUp().attributes('disabled')).toBeDefined()
+    expect(moveUp().attributes('title')).toBe('清除搜索和筛选后可调整规则顺序。')
+
+    await wrapper.get('input[name="rule-status-filter"][value="all"]').trigger('change')
+    await flushPromises()
+    expect(moveUp().attributes('disabled')).toBeUndefined()
+    await moveUp().trigger('click')
+    await flushPromises()
+
+    const saves = sentMessages.filter((message) => message.key === V3PanelMessageKey.SAVE_CONFIG)
+    expect(saves).toHaveLength(1)
+    expect(saves[0].value.config.rules.map(({ id }) => id)).toEqual([
+      'enabled-rule',
+      'second-disabled-rule',
+      'first-disabled-rule',
+    ])
+    expect(wrapper.findAll('.rule-row').map((row) => row.text())).toEqual([
+      expect.stringContaining('/api/enabled'),
+      expect.stringContaining('/api/second-disabled'),
+      expect.stringContaining('/api/first-disabled'),
+    ])
+  })
+})
+
 describe('App no-match diagnostics localization', () => {
   it('localizes no-match controls and reason labels in the selected language', async () => {
     const startingConfig = {
