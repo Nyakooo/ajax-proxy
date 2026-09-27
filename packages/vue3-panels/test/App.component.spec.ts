@@ -453,6 +453,80 @@ describe('App visible selection and bulk rule actions', () => {
   })
 })
 
+describe('App rule duplication persistence flow', () => {
+  it('inserts a disabled copy after its source without copying the hit counter', async () => {
+    const tag = { id: 'tag-duplicate', name: 'Duplicate', used: true }
+    const sourceRule = {
+      id: 'source-rule',
+      enabled: true,
+      tagIds: [tag.id],
+      match: { url: '/api/source', method: 'POST', type: 'normal' },
+      request: { enabled: true, redirect: { url: '/api/target' } },
+      response: {
+        enabled: true,
+        replace: { status: 201, headers: { 'x-copy': 'kept' }, body: { copied: true } },
+      },
+    }
+    const nextRule = {
+      id: 'next-rule',
+      enabled: true,
+      match: { url: '/api/next', method: 'GET', type: 'normal' },
+      response: { enabled: true, replace: { body: { next: true } } },
+    }
+    const startingConfig = {
+      ...initialConfig(),
+      tags: [tag],
+      rules: [sourceRule, nextRule],
+    }
+    const { wrapper, sentMessages, sendExtensionMessage } = await mountApp([], startingConfig)
+
+    sendExtensionMessage({
+      from: NoticeFrom.SERVICE_WORKER,
+      to: NoticeTo.PANELS,
+      key: NoticeKey.V3_HIT,
+      value: {
+        rule_id: sourceRule.id,
+        count: 7,
+        match_url: sourceRule.match.url,
+        method: sourceRule.match.method,
+        url: sourceRule.match.url,
+      },
+    })
+    await flushPromises()
+    expect(wrapper.findAll('.rule-row')[0].get('.hit-count strong').text()).toBe('7')
+
+    const sourceRow = wrapper.findAll('.rule-row')[0]
+    await buttonByText(sourceRow, '复制').trigger('click')
+    await flushPromises()
+
+    const saves = sentMessages.filter((message) => message.key === V3PanelMessageKey.SAVE_CONFIG)
+    expect(saves).toHaveLength(1)
+    const savedRules = saves[0].value.config.rules
+    expect(savedRules.map((rule) => rule.id)).toEqual([
+      sourceRule.id,
+      expect.stringMatching(/^rule-/),
+      nextRule.id,
+    ])
+    const duplicate = savedRules[1]
+    expect(duplicate).toEqual({ ...sourceRule, id: duplicate.id, enabled: false })
+    expect(duplicate.id).not.toBe(sourceRule.id)
+    expect(savedRules[0]).toEqual(sourceRule)
+    expect(saves[0].value.config.tags).toEqual([tag])
+    expect(saves[0].value.config).not.toHaveProperty('hitCounters')
+    expect(wrapper.findAll('.rule-row').map((row) => row.get('.hit-count strong').text())).toEqual([
+      '7',
+      '0',
+      '0',
+    ])
+    expect(
+      wrapper.get('[role="switch"][aria-label="启用规则 /api/source"]').attributes('aria-checked')
+    ).toBe('true')
+    expect(wrapper.findAll('.rule-row')[1].get('[role="switch"]').attributes('aria-checked')).toBe(
+      'false'
+    )
+  })
+})
+
 describe('App filtered rule priority ordering', () => {
   it('disables priority controls while filtered and reorders rules when filters clear', async () => {
     const makeRule = (id: string, url: string, enabled: boolean) => ({
