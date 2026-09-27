@@ -7,7 +7,9 @@ const os = require('node:os')
 const path = require('node:path')
 const { chromium } = require('playwright')
 
-const extensionPath = path.resolve(__dirname, '../../packages/shell-chrome/build')
+const extensionPath = path.resolve(
+  process.env.AJAX_PROXY_EXTENSION_PATH || path.join(__dirname, '../../packages/shell-chrome/build')
+)
 const manifest = JSON.parse(fs.readFileSync(path.join(extensionPath, 'manifest.json'), 'utf8'))
 
 assert.ok(

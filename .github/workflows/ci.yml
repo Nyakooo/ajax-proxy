@@ -142,3 +142,7 @@ jobs:
         run: pnpm editor:smoke
       - name: Verify Fetch and XHR extension interception
         run: pnpm extension:smoke
+      - name: Verify Vite prototype Fetch and XHR extension interception
+        env:
+          AJAX_PROXY_EXTENSION_PATH: ${{ github.workspace }}/packages/shell-chrome/build-vite
+        run: pnpm extension:smoke
