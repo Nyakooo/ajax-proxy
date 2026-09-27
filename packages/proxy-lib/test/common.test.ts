@@ -95,6 +95,10 @@ describe('matchIgnoresAndRule', () => {
   it('matches when no ignore entry applies', () => {
     expect(matchIgnoresAndRule('https://example.com/api/users', '/api/', 'normal', [])).toBe(true)
   })
+
+  it('rejects request URLs over the matching input limit', () => {
+    expect(matchIgnoresAndRule('x'.repeat(65537), 'x', 'normal', [])).toBe(false)
+  })
 })
 
 describe('finalRedirectUrl', () => {
@@ -119,5 +123,11 @@ describe('finalRedirectUrl', () => {
     expect(finalRedirectUrl('https://example.com/api', '(?=api)', '/mock', 'regex')).toBe(
       'https://example.com/api'
     )
+  })
+
+  it('leaves request URLs over the matching input limit unchanged', () => {
+    const url = 'x'.repeat(65537)
+
+    expect(finalRedirectUrl(url, 'x', 'replacement')).toBe(url)
   })
 })
