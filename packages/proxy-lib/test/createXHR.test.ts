@@ -542,6 +542,38 @@ describe('CustomXHR rule selection', () => {
     expect(request.requestHeaders).toEqual({ 'x-user': ['preserved'] })
   })
 
+  it('rejects redirect callback results with a non-string URL', async () => {
+    vi.stubGlobal('XMLHttpRequest', FakeXMLHttpRequest)
+    vi.stubGlobal('window', { XMLHttpRequest: FakeXMLHttpRequest, eval })
+    const { default: CustomRedirectXHR, initRedirectXHRState } = await import('../src/redirectXHR')
+    initRedirectXHRState({
+      value: {
+        global_on: true,
+        mode: 'redirector',
+        interceptor_matching_content: [],
+        redirector_matching_content: [
+          {
+            switch_on: true,
+            domain: 'https://example.test/api',
+            redirect_url: '',
+            method: 'POST',
+            redirect_type: 'function',
+            redirect_func:
+              'function(req, next) { next({ url: 42, headers: { "x-rule": "must-not-apply" } }) }',
+          },
+        ],
+      },
+    })
+    const request = new CustomRedirectXHR()
+
+    request.open('POST', 'https://example.test/api/users')
+    request.setRequestHeader('x-user', 'preserved')
+    request.send('request body')
+
+    expect(request.responseURL).toBe('https://example.test/api/users')
+    expect(request.requestHeaders).toEqual({ 'x-user': ['preserved'] })
+  })
+
   it('does not leak redirect headers when an XHR instance is reused', async () => {
     vi.stubGlobal('XMLHttpRequest', FakeXMLHttpRequest)
     vi.stubGlobal('window', { XMLHttpRequest: FakeXMLHttpRequest, eval })
