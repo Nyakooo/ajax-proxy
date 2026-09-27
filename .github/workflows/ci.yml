@@ -43,9 +43,13 @@ jobs:
         run: pnpm build
       - name: Verify the production Vite output layout
         run: pnpm production:smoke
-      - name: Verify the production extension in the stable browser
+      - name: Install extension-compatible Playwright Chromium
+        if: matrix.browser == 'chrome'
+        run: pnpm exec playwright install chromium
+      - name: Verify the production extension in Playwright Chromium
+        if: matrix.browser == 'chrome'
         env:
-          BROWSER_CHANNEL: ${{ matrix.browser }}
+          BROWSER_CHANNEL: chromium
         run: pnpm extension:smoke
       - name: Verify V3 rule workspace and panel window in the stable browser
         env:

@@ -1094,3 +1094,11 @@ V3 静态 JSON Mock 已完成 Fetch / XHR runtime、V3 backup v9 校验及回读
 ## JSON 编辑器可调尺寸修复（2026-09-27）
 
 Stable Chrome / Edge 的原生 CSS `resize` 把手被 CodeMirror 子元素覆盖，远端拖动无法改变高度。响应 JSON 编辑器现启用自定义拖动把手，使用 pointer capture 限制高度在 190px 至 65vh，并提供键盘方向键、Home / End 调整与 ARIA 标注；其它 CodeMirror 编辑器不启用。Vue 3 组件 14 个文件 / 128 项、Vite 构建、响应式桌面拖动与键盘 smoke、400px / 360px smoke、改动文件 ESLint / Prettier 均通过。该修复仍需新的 Chrome / Edge Stable 远端 CI 确认；此前最新 Chrome / Edge 最低版本 smoke 和全量测试覆盖已通过。
+
+## 规则列表空状态提示修复（2026-09-27）
+
+当规则数据存在、但当前响应 / 重定向分类为空时，不再错误显示“还没有规则”；改为“此分类暂无规则”，并提示规则位于另一分类。真正全局零规则仍保留创建引导，搜索或筛选无结果继续显示筛选空态。新增跨分类回归用例通过；改动文件 ESLint / Prettier、Vite 生产构建通过。该项已提交 `265363d` 并推送 `refactor/v3`。
+
+## 品牌浏览器与扩展 smoke 的 CI 启动方式（2026-09-27）
+
+最新 Chrome Stable CI 在 Playwright persistent context 中启动后未加载扩展 service worker。检查发现 Playwright 的扩展侧载命令行流程面向其 Chromium；品牌 Chrome / Edge Stable 的运行时和面板 smoke 继续直接验证品牌浏览器，扩展 Fetch / XHR smoke 使用 Playwright Chromium，最低版本矩阵继续使用固定 Chrome for Testing / Edge executable 验证实际扩展。CI 已改为仅在 Chrome 矩阵安装 Playwright Chromium 并运行该扩展 smoke。待新 CI 全绿后关闭此门禁项；品牌 Chrome 上独立弹窗的用户侧验收仍单独记录。
