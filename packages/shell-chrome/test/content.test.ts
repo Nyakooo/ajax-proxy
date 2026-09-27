@@ -163,6 +163,30 @@ describe('content page-event bridge', () => {
     expect(addEventListener.mock.calls.some(([type]) => type === 'to-content')).toBe(true)
   })
 
+  it('does not initialize the bridge after storage initialization fails', async () => {
+    mocks.initStorage.mockRejectedValue(new Error('storage unavailable'))
+    const runtimeConnect = vi.fn()
+    vi.stubGlobal('chrome', {
+      runtime: {
+        connect: runtimeConnect,
+        getURL: (path: string) => `chrome-extension://test/${path}`,
+      },
+      storage: { onChanged: { addListener: mocks.onChangedAddListener } },
+    })
+    const addEventListener = trackContentEventListeners()
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    await importContent()
+    await vi.waitFor(() => expect(consoleError).toHaveBeenCalledOnce())
+
+    expect(mocks.onChangedAddListener).not.toHaveBeenCalled()
+    expect(addEventListener.mock.calls.some(([type]) => type === 'to-content')).toBe(false)
+    expect(runtimeConnect).not.toHaveBeenCalled()
+    expect(mocks.getStorageSnapshot).not.toHaveBeenCalled()
+    expect(mocks.noticeDocumentByContent).not.toHaveBeenCalled()
+    expect(mocks.noticeServiceWorkerByContent).not.toHaveBeenCalled()
+  })
+
   it('forwards valid legacy and V3 page events using their corresponding notice keys', async () => {
     mocks.initStorage.mockResolvedValue(undefined)
     mocks.getStorageSnapshot.mockReturnValue({})
