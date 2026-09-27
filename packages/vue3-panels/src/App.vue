@@ -377,6 +377,8 @@ function focusSearchWithShortcut(event) {
     return
   }
 
+  if (document.querySelector('[role="dialog"][aria-modal="true"]')) return
+
   const target = event.target
   const isEditingField =
     target instanceof HTMLElement &&

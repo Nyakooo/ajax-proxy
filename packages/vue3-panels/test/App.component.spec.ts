@@ -210,6 +210,27 @@ describe('App rule filter focus return', () => {
 })
 
 describe('App search keyboard shortcut', () => {
+  it('does not move focus outside an open modal dialog', async () => {
+    const { wrapper } = await mountApp()
+    await buttonByText(wrapper, '备份 / 恢复').trigger('click')
+    await flushPromises()
+
+    const dialog = wrapper.get('.backup-dialog')
+    const closeButton = dialog.get('.editor-close').element as HTMLButtonElement
+    closeButton.focus()
+    const shortcut = new KeyboardEvent('keydown', {
+      key: 'k',
+      ctrlKey: true,
+      bubbles: true,
+      cancelable: true,
+    })
+    closeButton.dispatchEvent(shortcut)
+
+    expect(shortcut.defaultPrevented).toBe(false)
+    expect(dialog.element.contains(document.activeElement)).toBe(true)
+    expect(document.activeElement).toBe(closeButton)
+  })
+
   it('focuses search with either platform modifier and leaves other editors alone', async () => {
     const { wrapper } = await mountApp()
     const searchInput = wrapper.get('input[placeholder="搜索 URL、method 或备注"]')
