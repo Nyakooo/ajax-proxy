@@ -34,7 +34,8 @@ onConnectByServiceWorker(
       current_port = port
     }
   },
-  () => {
+  (port) => {
+    if (current_port !== port) return
     // 长链接断开
     current_port = undefined
     // 通知 panels 清空 title

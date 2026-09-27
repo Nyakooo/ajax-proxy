@@ -82,7 +82,7 @@ export function noticePanelsByServiceWorker(key: NoticeKey, value?: any) {
 /** service-worker 长链接监听 */
 export function onConnectByServiceWorker(
   onConnectFn: (port: chrome.runtime.Port) => void,
-  onDisconnectFn: () => void
+  onDisconnectFn: (port: chrome.runtime.Port) => void
 ) {
   // 长链接
   // 好处是可以实现无刷新更新拦截器代理
@@ -95,7 +95,7 @@ export function onConnectByServiceWorker(
     }
     onConnectFn(port)
     // 监听长链接 被断开
-    port.onDisconnect.addListener(() => onDisconnectFn())
+    port.onDisconnect.addListener(() => onDisconnectFn(port))
   })
 }
 

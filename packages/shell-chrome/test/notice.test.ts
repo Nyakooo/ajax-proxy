@@ -95,6 +95,16 @@ describe('Chrome native notifications', () => {
       'refresh',
       'again'
     )
+
+    const onDisconnect = mocks.onConnectByServiceWorker.mock.calls[0][1]
+    onDisconnect(otherPort)
+    expect(useCurrentTitle()).toBe('Current page')
+    noticeContent('refresh', 'after unrelated disconnect')
+    expect(mocks.noticeContentByServiceWorker).toHaveBeenLastCalledWith(
+      matchingPort,
+      'refresh',
+      'after unrelated disconnect'
+    )
   })
 
   it('clears the current title on disconnect and forwards current tab title changes', async () => {
@@ -105,9 +115,10 @@ describe('Chrome native notifications', () => {
     const onDisconnect = mocks.onConnectByServiceWorker.mock.calls[0][1]
     const onTabChanged = mocks.onCurrentTabChanged.mock.calls[0][0]
 
-    onConnect({ name: CONNECT_NAME, sender: { tab: { title: 'Before disconnect' } } })
+    const matchingPort = { name: CONNECT_NAME, sender: { tab: { title: 'Before disconnect' } } }
+    onConnect(matchingPort)
     expect(useCurrentTitle()).toBe('Before disconnect')
-    onDisconnect()
+    onDisconnect(matchingPort)
     expect(useCurrentTitle()).toBeUndefined()
     expect(mocks.noticePanelsByServiceWorker).toHaveBeenCalledWith(NoticeKey.GET_CURRENT_TITLE, '')
 

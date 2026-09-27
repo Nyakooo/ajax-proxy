@@ -20,7 +20,7 @@ export declare function noticeServiceWorkerByPanels(key: any, value: any): void;
  */
 export declare function noticePanelsByServiceWorker(key: NoticeKey, value?: any): void;
 /** service-worker 长链接监听 */
-export declare function onConnectByServiceWorker(onConnectFn: (port: chrome.runtime.Port) => void, onDisconnectFn: () => void): void;
+export declare function onConnectByServiceWorker(onConnectFn: (port: chrome.runtime.Port) => void, onDisconnectFn: (port: chrome.runtime.Port) => void): void;
 /**
  * 通知 service-worker -> content
  */

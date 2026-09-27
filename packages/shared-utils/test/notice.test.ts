@@ -70,7 +70,7 @@ describe('service worker content connections', () => {
     expect(onConnectFn).toHaveBeenCalledWith(validPort)
     expect(addDisconnectListener).toHaveBeenCalledOnce()
     disconnectListener?.()
-    expect(onDisconnectFn).toHaveBeenCalledOnce()
+    expect(onDisconnectFn).toHaveBeenCalledExactlyOnceWith(validPort)
   })
 })
 
