@@ -132,6 +132,8 @@ jobs:
         run: pnpm build
       - name: Build isolated Vite shell prototype
         run: pnpm build:chrome:vite-prototype
+      - name: Verify Vite prototype ZIP archive
+        run: unzip -t zip/ajax-proxy-vite-prototype.zip
       - name: Verify generated type declarations
         run: pnpm check:generated-types
       - name: Package extension and report sizes
