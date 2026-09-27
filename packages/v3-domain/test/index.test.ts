@@ -483,7 +483,7 @@ describe('V3 backup schema', () => {
     expect(validateV3Backup(tooMuchCode)).toMatchObject({ ok: false })
   })
 
-  it('enforces regex, header, and disabled-origin collection limits', () => {
+  it('enforces regex, tag, header, and disabled-origin collection limits', () => {
     const tooManyRegexRules = structuredClone(validBackup)
     tooManyRegexRules.rules = Array.from({ length: 101 }, (_, index) => ({
       ...validBackup.rules[0],
@@ -496,6 +496,30 @@ describe('V3 backup schema', () => {
         expect.objectContaining({
           path: 'rules',
           message: 'At most 100 regular expression rules are allowed.',
+        }),
+      ]),
+    })
+
+    const maxTags = {
+      ...structuredClone(validBackup),
+      tags: Array.from({ length: 500 }, (_, index) => ({
+        id: `tag-${index}`,
+        name: `Tag ${index}`,
+        used: false,
+      })),
+    }
+    expect(validateV3Backup(maxTags)).toMatchObject({ ok: true })
+
+    const tooManyTags = {
+      ...maxTags,
+      tags: [...maxTags.tags, { id: 'tag-500', name: 'Tag 500', used: false }],
+    }
+    expect(validateV3Backup(tooManyTags)).toMatchObject({
+      ok: false,
+      issues: expect.arrayContaining([
+        expect.objectContaining({
+          path: 'tags',
+          message: 'At most 500 tags are allowed.',
         }),
       ]),
     })
