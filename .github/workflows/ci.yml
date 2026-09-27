@@ -98,6 +98,13 @@ jobs:
         env:
           BROWSER_EXECUTABLE_PATH: ${{ matrix.browser == 'chrome' && steps.browser.outputs.executable-path || steps.edge.outputs.executable-path }}
         run: pnpm extension:smoke
+      - name: Build isolated Vite shell prototype
+        run: pnpm build:chrome:vite-prototype
+      - name: Verify Vite prototype on minimum-version browser
+        env:
+          AJAX_PROXY_EXTENSION_PATH: ${{ github.workspace }}/packages/shell-chrome/build-vite
+          BROWSER_EXECUTABLE_PATH: ${{ matrix.browser == 'chrome' && steps.browser.outputs.executable-path || steps.edge.outputs.executable-path }}
+        run: pnpm extension:smoke
 
   build:
     runs-on: ubuntu-latest
