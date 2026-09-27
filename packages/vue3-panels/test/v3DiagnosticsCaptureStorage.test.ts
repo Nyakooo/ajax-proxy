@@ -89,8 +89,22 @@ describe('V3 diagnostics capture storage', () => {
     const service = createV3DiagnosticsCaptureStorage(null)
 
     expect(service.available).toBe(false)
+    expect(service.canObserveChanges).toBe(false)
     await expect(service.getState()).resolves.toBeNull()
     const remove = service.subscribe(vi.fn())
     expect(remove()).toBeUndefined()
+  })
+
+  it('keeps writes available when local storage has no change event API', async () => {
+    const harness = createStorage()
+    const service = createV3DiagnosticsCaptureStorage({ local: harness.local })
+
+    expect(service.available).toBe(true)
+    expect(service.canObserveChanges).toBe(false)
+    await service.setNoMatchCaptureArmed(true)
+    expect(harness.local.set).toHaveBeenCalledWith({
+      [StorageKey.V3_DIAGNOSTICS_ARMED]: true,
+    })
+    await expect(service.getState()).resolves.toBeNull()
   })
 })

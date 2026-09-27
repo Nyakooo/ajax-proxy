@@ -428,11 +428,19 @@ function runRuleDiagnostics() {
 let removeExtensionMessageListener
 let removeDiagnosticsStorageListener
 
+function getDiagnosticsCaptureStorage() {
+  if (!diagnosticsCaptureStorage?.available) {
+    diagnosticsCaptureStorage = createV3DiagnosticsCaptureStorage()
+  }
+  return diagnosticsCaptureStorage
+}
+
 async function setNoMatchCapture(armed) {
-  if (memoryOnly.value || !globalThis.chrome?.storage?.local) return
+  if (memoryOnly.value) return
   try {
-    diagnosticsCaptureStorage ??= createV3DiagnosticsCaptureStorage()
-    await diagnosticsCaptureStorage.setNoMatchCaptureArmed(armed)
+    const storage = getDiagnosticsCaptureStorage()
+    if (!storage.available) return
+    await storage.setNoMatchCaptureArmed(armed)
     noMatchCaptureArmed.value = armed
   } catch {
     operationError.value = t('editor.saveFailed', { error: 'storage-unavailable' })
@@ -444,10 +452,11 @@ function cancelNoMatchCapture() {
 }
 
 async function setFetchOutcomeCapture(armed) {
-  if (memoryOnly.value || !globalThis.chrome?.storage?.local) return
+  if (memoryOnly.value) return
   try {
-    diagnosticsCaptureStorage ??= createV3DiagnosticsCaptureStorage()
-    await diagnosticsCaptureStorage.setFetchOutcomeCaptureArmed(armed)
+    const storage = getDiagnosticsCaptureStorage()
+    if (!storage.available) return
+    await storage.setFetchOutcomeCaptureArmed(armed)
     fetchOutcomeCaptureArmed.value = armed
   } catch {
     operationError.value = t('editor.saveFailed', { error: 'storage-unavailable' })
@@ -539,13 +548,12 @@ onMounted(async () => {
       extensionRuntime.onMessage?.addListener(receiveExtensionMessage)
       removeExtensionMessageListener = () =>
         extensionRuntime.onMessage?.removeListener(receiveExtensionMessage)
-      const storage = globalThis.chrome?.storage
-      if (storage?.local && storage?.onChanged) {
-        diagnosticsCaptureStorage = createV3DiagnosticsCaptureStorage(storage)
-        const state = await diagnosticsCaptureStorage.getState()
+      const captureStorage = getDiagnosticsCaptureStorage()
+      if (captureStorage.canObserveChanges) {
+        const state = await captureStorage.getState()
         noMatchCaptureArmed.value = state.noMatchCaptureArmed
         fetchOutcomeCaptureArmed.value = state.fetchOutcomeCaptureArmed
-        removeDiagnosticsStorageListener = diagnosticsCaptureStorage.subscribe((changed) => {
+        removeDiagnosticsStorageListener = captureStorage.subscribe((changed) => {
           if (Object.hasOwn(changed, 'noMatchCaptureArmed')) {
             noMatchCaptureArmed.value = changed.noMatchCaptureArmed
           }

@@ -11,7 +11,8 @@ export function createV3DiagnosticsCaptureStorage(storage = globalThis.chrome?.s
   const onChanged = storage?.onChanged
 
   return {
-    available: Boolean(local && onChanged),
+    available: Boolean(local),
+    canObserveChanges: Boolean(local && onChanged),
 
     async getState() {
       if (!local || !onChanged) return null
