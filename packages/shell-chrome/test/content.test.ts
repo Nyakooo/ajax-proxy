@@ -256,6 +256,74 @@ describe('content page-event bridge', () => {
     expect(mocks.noticeDocumentByContent).toHaveBeenCalledWith('fetch-outcomes-armed', false)
   })
 
+  it('restores the V3 function sandbox iframe when the page removes or changes it', async () => {
+    mocks.initStorage.mockResolvedValue(undefined)
+    mocks.getStorageSnapshot.mockReturnValue({})
+    mocks.getStorage.mockReturnValue(null)
+    vi.stubGlobal('chrome', {
+      runtime: {
+        connect: vi.fn(),
+        getURL: (path: string) => `chrome-extension://test/${path}`,
+      },
+      storage: { onChanged: { addListener: mocks.onChangedAddListener } },
+    })
+    trackContentEventListeners()
+
+    await importContent()
+    await vi.waitFor(() => expect(mocks.onChangedAddListener).toHaveBeenCalledOnce())
+
+    const onChanged = mocks.onChangedAddListener.mock.calls[0][0]
+    const enabledFunctionConfig = {
+      settings: { globalEnabled: true },
+      rules: [
+        {
+          enabled: true,
+          request: {
+            enabled: true,
+            redirect: { type: 'function', code: 'return url' },
+          },
+        },
+      ],
+    }
+    mocks.getStorage.mockReturnValue(enabledFunctionConfig)
+    onChanged({ 'v3-config': { newValue: enabledFunctionConfig } }, 'local')
+
+    const originalFrame = document.getElementById('ajax-proxy-v3-function-sandbox')
+    expect(originalFrame?.getAttribute('src')).toBe(
+      'chrome-extension://test/v3-sandbox/sandbox.html'
+    )
+    originalFrame?.remove()
+
+    await vi.waitFor(() => {
+      const restoredFrame = document.getElementById('ajax-proxy-v3-function-sandbox')
+      expect(restoredFrame).not.toBeNull()
+      expect(restoredFrame).not.toBe(originalFrame)
+      expect(restoredFrame?.getAttribute('src')).toBe(
+        'chrome-extension://test/v3-sandbox/sandbox.html'
+      )
+    })
+
+    const restoredFrame = document.getElementById('ajax-proxy-v3-function-sandbox')
+    restoredFrame?.setAttribute('src', 'https://example.test/forged-frame.html')
+
+    await vi.waitFor(() => {
+      const trustedFrame = document.getElementById('ajax-proxy-v3-function-sandbox')
+      expect(trustedFrame).not.toBeNull()
+      expect(trustedFrame).not.toBe(restoredFrame)
+      expect(trustedFrame?.getAttribute('src')).toBe(
+        'chrome-extension://test/v3-sandbox/sandbox.html'
+      )
+    })
+
+    mocks.getStorage.mockReturnValue(null)
+    onChanged({ 'v3-config': { newValue: null } }, 'local')
+    const disabledFrame = document.getElementById('ajax-proxy-v3-function-sandbox')
+    expect(disabledFrame).toBeNull()
+
+    await Promise.resolve()
+    expect(document.getElementById('ajax-proxy-v3-function-sandbox')).toBeNull()
+  })
+
   it('persists converted V2 state and removes only its legacy storage keys', async () => {
     mocks.initStorage.mockResolvedValue(undefined)
     const legacySnapshot = {
