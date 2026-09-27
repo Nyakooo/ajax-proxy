@@ -283,6 +283,7 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - [x] 为 V2 XHR 覆盖 `responseType=json` 的 JSON 对象替换结果与 `responseText` `InvalidStateError` 语义。
 - [x] 为自定义函数覆盖同步、异步、异常、未回调和超时场景。
 - [x] 为 shared-utils Chrome storage 与网页 localStorage 缓存操作（初始化、读取、写入、删除、清空）覆盖成功和失败回归；删除 / 清空失败须拒绝、保留缓存并派发错误事件。
+- [x] 为 shared-utils notice 覆盖 document / runtime 消息 envelope、发送失败、service-worker content port 和活动页签标题保留 / 清除路径。
 - [x] 为页面启动配置快照复用覆盖初始化期间 storage 变更合并与快照隔离；content script 复用 `initStorage()` 已填充的深拷贝缓存，避免重复发起 Chrome storage 全量读取。
 - [x] 为 content script 页面事件桥接覆盖 storage 初始化前不注册监听 / 转发，以及合法 badge、V3 hit、函数错误、no-match、Fetch / XHR outcome 的正确路由和畸形 / 伪造 payload 拒绝。
 - [x] 为 content script storage 初始化失败增加 fail-closed 回归：不得注册页面 / storage listener、连接 service worker、读取快照或发送通知。
@@ -872,4 +873,5 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - 2026-09-27：使用 Node `vm` 执行真实 `v3-sandbox/sandbox.js` 并覆盖 parent source / envelope 边界：伪造来源、缺字段和额外字段均不创建 Worker；精确合法 redirect 请求创建 Worker，且只转发白名单字段。定向测试 2 项、全量 Vitest 41 个文件 / 386 项通过；改动文件 ESLint / Prettier 与 diff 检查通过。完成 371 / 405 项（91.6%）。
 - 2026-09-27：为旧 Service Worker 面板窗口控制补生命周期回归：首次打开创建、已有窗口聚焦、关闭后重建，及 fullscreen / resize 状态循环；窗口 ID 不匹配时不更新其他窗口。定向测试 5 项、全量 Vitest 41 个文件 / 386 项通过；改动文件 ESLint / Prettier 与 diff 检查通过。完成 372 / 406 项（91.6%）。
 - 2026-09-27：补 Service Worker notice 生命周期 / 错误回归：仅匹配 CONNECT_NAME 的端口成为当前端口；disconnect 清除标题并通知面板，tab 标题变化和 content notice 使用当前端口；无关 notification click 被忽略，Chrome API lastError 写日志。定向测试 5 项、全量 Vitest 41 个文件 / 390 项通过；改动文件 ESLint / Prettier 与 diff 检查通过。完成 373 / 407 项（91.6%）。
+- 2026-09-27：补 shared-utils notice 转发回归：验证 document / runtime envelope、Chrome 消息 reject 安全消化、无 runtime 时 no-op、service-worker content port 的成功 / 空值 / 异常路径，以及 HTTP(S) 标题保留、非网页清空和 tabs.get 拒绝。定向测试 11 项、全量 Vitest 41 个文件 / 399 项通过；改动文件 ESLint / Prettier 与 diff 检查通过。完成 374 / 408 项（91.7%）。
 - GitHub 里程碑：[阶段 0](https://github.com/Nyakooo/ajax-proxy/milestone/1)、[阶段 1](https://github.com/Nyakooo/ajax-proxy/milestone/2)、[阶段 2](https://github.com/Nyakooo/ajax-proxy/milestone/3)、[阶段 3](https://github.com/Nyakooo/ajax-proxy/milestone/4)、[阶段 4](https://github.com/Nyakooo/ajax-proxy/milestone/5)、[阶段 5](https://github.com/Nyakooo/ajax-proxy/milestone/6)、[阶段 6](https://github.com/Nyakooo/ajax-proxy/milestone/7)、[阶段 7](https://github.com/Nyakooo/ajax-proxy/milestone/8)；已复现缺陷：[issue #56](https://github.com/Nyakooo/ajax-proxy/issues/56)。
