@@ -816,6 +816,47 @@ describe('createV3Fetch', () => {
     ])
   })
 
+  it('fails open when applying a valid response function result cannot construct a Response', async () => {
+    const selectedRule = rule('function-response-construction-failure', {
+      response: { enabled: true, replace: { code: 'return { body: "replacement" }' } },
+    })
+    const response = new Response('native')
+    const onFunctionError = vi.fn()
+    const onFetchOutcome = vi.fn()
+    const executeResponseFunction = vi.fn(async () => ({ body: 'replacement' }))
+    const fetch = createV3Fetch(async () => response, {
+      getRules: () => [selectedRule],
+      executeResponseFunction,
+      onFunctionError,
+      isFetchOutcomeDiagnosticsArmed: () => true,
+      onFetchOutcome,
+    })
+
+    vi.stubGlobal(
+      'Response',
+      class {
+        constructor() {
+          throw new TypeError('response construction failed')
+        }
+      }
+    )
+    try {
+      const result = await fetch('https://example.test/api', { method: 'POST' })
+
+      expect(executeResponseFunction).toHaveBeenCalledOnce()
+      expect(result).toBe(response)
+      expect(await result.text()).toBe('native')
+      expect(onFunctionError.mock.calls.map(([, , code]) => code)).toEqual([
+        'response-construction-failed',
+      ])
+      expect(onFetchOutcome.mock.calls.map((call) => call.slice(2))).toEqual([
+        ['response', 'fallback', 'response-replacement-failed'],
+      ])
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+
   it('reports request fallback and response success with one temporary correlation ID', async () => {
     const selectedRule = rule('redirect', {
       request: { enabled: true, redirect: { url: 'javascript:alert(1)' } },
