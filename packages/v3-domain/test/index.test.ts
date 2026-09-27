@@ -26,6 +26,13 @@ const validBackup = {
   ],
 }
 
+describe('V3 package root exports', () => {
+  it('continues to export site-origin helpers', () => {
+    expect(normalizeV3Origin('https://Example.com/path')).toBe('https://example.com')
+    expect(isV3OriginDisabled('https://example.com/path', ['https://example.com'])).toBe(true)
+  })
+})
+
 describe('V3 backup schema', () => {
   it('accepts a versioned V3 full snapshot, including an empty rule list', () => {
     expect(validateV3Backup({ ...validBackup, rules: [] })).toMatchObject({ ok: true })
@@ -394,17 +401,6 @@ describe('V3 backup schema', () => {
         ],
       },
     })
-  })
-
-  it('normalizes HTTP(S) URLs to origins and checks disabled origins exactly', () => {
-    expect(normalizeV3Origin('https://Example.com:443/path?q=1')).toBe('https://example.com')
-    expect(normalizeV3Origin('http://localhost:8080/a')).toBe('http://localhost:8080')
-    expect(normalizeV3Origin('file:///tmp/data')).toBeNull()
-    expect(normalizeV3Origin('not a URL')).toBeNull()
-    expect(normalizeV3Origin(null)).toBeNull()
-    expect(isV3OriginDisabled('https://example.com/a', ['https://example.com'])).toBe(true)
-    expect(isV3OriginDisabled('https://sub.example.com', ['https://example.com'])).toBe(false)
-    expect(isV3OriginDisabled('http://example.com', ['https://example.com'])).toBe(false)
   })
 
   it('accepts rules referencing multiple existing tags and older rules without tagIds', () => {

@@ -10,6 +10,9 @@ import {
   V3_BACKUP_VERSION,
 } from './backupVersion'
 import type { JsonValue, V3ResponseFunctionResult, V3Rule, V3Tag } from './rules'
+import { normalizeV3Origin } from './siteSettings'
+
+export { isV3OriginDisabled, normalizeV3Origin } from './siteSettings'
 
 export const V3_BACKUP_FORMAT = 'ajax-proxy-backup' as const
 export {
@@ -60,24 +63,6 @@ export interface V3Backup {
   tags: V3Tag[]
   rules: V3Rule[]
   disabledOrigins: string[]
-}
-
-/** Normalize an absolute HTTP(S) URL to its exact origin. */
-export function normalizeV3Origin(value: unknown): string | null {
-  if (typeof value !== 'string') return null
-  try {
-    const url = new URL(value)
-    if (url.protocol !== 'http:' && url.protocol !== 'https:') return null
-    return url.origin
-  } catch {
-    return null
-  }
-}
-
-/** Check whether an exact HTTP(S) origin is present in a disabled-origin list. */
-export function isV3OriginDisabled(origin: string, disabledOrigins: readonly string[]): boolean {
-  const normalizedOrigin = normalizeV3Origin(origin)
-  return normalizedOrigin !== null && disabledOrigins.includes(normalizedOrigin)
 }
 
 export interface V3ValidationIssue {
