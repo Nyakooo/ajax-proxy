@@ -36,6 +36,21 @@ describe('maybeMatching', () => {
     ).toBe(true)
   })
 
+  it('keeps regex matching correct after the cache exceeds its capacity', () => {
+    const patterns = Array.from({ length: 257 }, (_, index) => `^cache-entry-${index}$`)
+
+    for (const pattern of patterns) {
+      expect(maybeMatching(pattern.slice(1, -1), pattern, 'regex')).toBe(true)
+    }
+
+    const retainedPattern = patterns[10]
+    expect(maybeMatching(retainedPattern.slice(1, -1), retainedPattern, 'regex')).toBe(true)
+
+    const extraPattern = '^cache-entry-extra$'
+    expect(maybeMatching('cache-entry-extra', extraPattern, 'regex')).toBe(true)
+    expect(maybeMatching(retainedPattern.slice(1, -1), retainedPattern, 'regex')).toBe(true)
+  })
+
   it('returns false for an invalid regular expression', () => {
     expect(maybeMatching('https://example.com/api', '[', 'regex')).toBe(false)
   })

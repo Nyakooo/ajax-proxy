@@ -342,6 +342,48 @@ describe('CustomXHR rule selection', () => {
     expect(warning).toHaveBeenCalledOnce()
   })
 
+  it('logs rejected Promise-based XHR redirect functions after falling back synchronously', async () => {
+    vi.stubGlobal('XMLHttpRequest', FakeXMLHttpRequest)
+    vi.stubGlobal('window', { XMLHttpRequest: FakeXMLHttpRequest, eval })
+    const warning = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const { default: CustomRedirectXHR, initRedirectXHRState } = await import('../src/redirectXHR')
+    initRedirectXHRState({
+      value: {
+        global_on: true,
+        mode: 'redirector',
+        interceptor_matching_content: [],
+        redirector_matching_content: [
+          {
+            switch_on: true,
+            domain: 'https://example.test/api',
+            redirect_url: '',
+            method: 'POST',
+            redirect_type: 'function',
+            redirect_func: 'async function() { throw new Error("failed") }',
+          },
+        ],
+      },
+    })
+    const request = new CustomRedirectXHR()
+
+    const result = request.open('POST', 'https://example.test/api/users')
+
+    expect(result).toBeUndefined()
+    expect(request.responseURL).toBe('https://example.test/api/users')
+    expect(warning).toHaveBeenCalledOnce()
+    expect(warning).toHaveBeenCalledWith(
+      '[AjaxProxy] Async redirect functions are not supported by XMLHttpRequest.open; using the original URL'
+    )
+    await vi.waitFor(() =>
+      expect(error).toHaveBeenCalledWith(
+        '[AjaxProxy][error] XHR redirect function rejected',
+        expect.any(Error)
+      )
+    )
+    expect(error).toHaveBeenCalledOnce()
+  })
+
   it('applies callback-based redirect functions when they complete synchronously', async () => {
     vi.stubGlobal('XMLHttpRequest', FakeXMLHttpRequest)
     vi.stubGlobal('window', { XMLHttpRequest: FakeXMLHttpRequest, eval })
