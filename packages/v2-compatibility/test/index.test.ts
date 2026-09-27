@@ -141,4 +141,25 @@ describe('V2 data compatibility', () => {
     expect(result.data.interceptor_matching_content).toBe(interceptors)
     expect(result.data.redirector_matching_content).toBe(redirectors)
   })
+
+  it('preserves falsy and non-array legacy list values', () => {
+    const loadResult = onLoadForDataConversion({
+      globalSwitchOn: true,
+      proxy_routes: null,
+      redirect: { redirect_url: 'https://already-current.test' },
+    })
+
+    expect(loadResult.data.interceptor_matching_content).toBeNull()
+    expect(loadResult.data.redirector_matching_content).toEqual({
+      redirect_url: 'https://already-current.test',
+    })
+
+    const uploadResult = onUploadForDataConversion({
+      proxy_routes: false,
+      redirect: '',
+    } as unknown as Parameters<typeof onUploadForDataConversion>[0])
+
+    expect(uploadResult.interceptors).toBe(false)
+    expect(uploadResult.redirectors).toBe('')
+  })
 })
