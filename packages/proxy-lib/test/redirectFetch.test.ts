@@ -32,7 +32,7 @@ async function createRedirectHarness(
     },
   }
   initRedirectFetchState(state)
-  return { customFetch, originFetch, getForwardedRequest: () => forwardedRequest }
+  return { customFetch, originFetch, getForwardedRequest: () => forwardedRequest, state }
 }
 
 afterEach(() => {
@@ -124,6 +124,18 @@ describe('RedirectFetch Request input', () => {
     expect(originFetch).toHaveBeenCalledTimes(1)
     expect(originFetch).toHaveBeenCalledWith(input, init)
     expect(getForwardedRequest()?.url).toBe('https://example.test/api/internal/users')
+  })
+
+  it('passes requests through unchanged while the v3 runtime is active', async () => {
+    const { customFetch, originFetch, state } = await createRedirectHarness()
+    const request = new Request('https://example.test/api/users', { method: 'POST' })
+    const init = { headers: { 'x-original': 'preserved' } }
+    // v3_active is supplied by the newer runtime and bypasses this legacy redirect layer.
+    state.v3_active = true
+    await customFetch(request, init)
+
+    expect(originFetch).toHaveBeenCalledTimes(1)
+    expect(originFetch).toHaveBeenCalledWith(request, init)
   })
 
   it('sends the original request when a redirect function throws', async () => {
