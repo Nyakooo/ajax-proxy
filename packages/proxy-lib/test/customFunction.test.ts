@@ -56,6 +56,15 @@ describe('custom function completion', () => {
     ).resolves.toEqual({ override: 'promised', status: 202 })
   })
 
+  it('normalizes an object returned synchronously by an interceptor function', async () => {
+    setupWindow()
+    const { execSetup } = await import('../src/overrideFunc')
+
+    await expect(
+      execSetup(context, 'function(req, res) { return { override: "synchronous" } }')
+    ).resolves.toEqual({ override: 'synchronous', status: '201' })
+  })
+
   it('uses the original redirect target when the callback never completes', async () => {
     setupWindow()
     vi.useFakeTimers()
