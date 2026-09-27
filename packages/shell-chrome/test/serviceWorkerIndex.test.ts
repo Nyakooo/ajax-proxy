@@ -39,6 +39,7 @@ describe('service worker message entry', () => {
     const storageReady = deferred<void>()
     const runtimeListeners: MessageListener[] = []
     const noticePanelsByServiceWorker = vi.fn()
+    const useCurrentTitle = vi.fn(() => 'Current page title')
     const notifyV3FunctionError = vi.fn().mockRejectedValue(new Error('notification failed'))
     const notifyV3NoMatch = vi.fn().mockResolvedValue(undefined)
     const notifyV3FetchOutcome = vi.fn().mockResolvedValue(undefined)
@@ -88,7 +89,7 @@ describe('service worker message entry', () => {
         noticePanelsByServiceWorker,
       }
     })
-    vi.doMock('../src/service-worker/notice', () => ({ useCurrentTitle: vi.fn(() => '') }))
+    vi.doMock('../src/service-worker/notice', () => ({ useCurrentTitle }))
     vi.doMock('../src/service-worker/init', () => ({ initDefaultSth: vi.fn() }))
     vi.doMock('../src/service-worker/badge', () => ({ chromeBadge }))
     vi.doMock('../src/service-worker/v3Hit', () => ({ chromeBadgeV3 }))
@@ -147,6 +148,84 @@ describe('service worker message entry', () => {
     } as chrome.runtime.MessageSender)
     expect(chromeMock.action.setIcon).toHaveBeenCalledExactlyOnceWith({ path: 'icons/128g.png' })
     expect(chromeBadge).toHaveBeenCalledOnce()
+
+    chromeBadge.mockClear()
+    chromeMock.action.setIcon.mockClear()
+    listener(
+      {
+        from: NoticeFrom.PANELS,
+        to: NoticeTo.SERVICE_WORKER,
+        key: NoticeKey.GLOBAL_SWITCH,
+        value: true,
+      },
+      {
+        id: 'test-extension',
+        url: 'chrome-extension://test-extension/panels/index.html',
+      } as chrome.runtime.MessageSender
+    )
+    expect(chromeMock.action.setIcon).toHaveBeenCalledExactlyOnceWith({ path: 'icons/128.png' })
+    expect(chromeBadge).toHaveBeenCalledOnce()
+
+    chromeBadge.mockClear()
+    chromeMock.action.setIcon.mockClear()
+    const trustedPanelSender = {
+      id: 'test-extension',
+      url: 'chrome-extension://test-extension/panels/index.html',
+    } as chrome.runtime.MessageSender
+    for (const [key, value] of [
+      [NoticeKey.BADGE_STATUS, null],
+      [NoticeKey.MODE, 'interceptor'],
+      [NoticeKey.INTERCEPT_LIST, [{ match_url: '/api', switch_on: true }]],
+      [
+        NoticeKey.REDIRECT_LIST,
+        [{ domain: 'example.test', redirect_url: '/new', switch_on: true }],
+      ],
+    ] as const) {
+      listener(
+        { from: NoticeFrom.PANELS, to: NoticeTo.SERVICE_WORKER, key, value },
+        trustedPanelSender
+      )
+    }
+    expect(chromeBadge).toHaveBeenCalledTimes(4)
+    expect(chromeBadge.mock.calls).toEqual([[], [], [], []])
+    expect(chromeMock.action.setIcon).not.toHaveBeenCalled()
+
+    chromeBadge.mockClear()
+    const invalidPanelMessages = [
+      { key: NoticeKey.MODE, value: 'invalid-mode' },
+      { key: NoticeKey.INTERCEPT_LIST, value: [{ match_url: '/api', switch_on: 'yes' }] },
+      {
+        key: NoticeKey.REDIRECT_LIST,
+        value: [{ domain: 'example.test', redirect_url: '', switch_on: true }],
+      },
+      { key: NoticeKey.GLOBAL_SWITCH, value: 'true' },
+    ]
+    for (const { key, value } of invalidPanelMessages) {
+      listener(
+        { from: NoticeFrom.PANELS, to: NoticeTo.SERVICE_WORKER, key, value },
+        trustedPanelSender
+      )
+    }
+    expect(chromeBadge).not.toHaveBeenCalled()
+    expect(chromeMock.action.setIcon).not.toHaveBeenCalled()
+
+    useCurrentTitle.mockClear()
+    noticePanelsByServiceWorker.mockClear()
+    listener(
+      {
+        from: NoticeFrom.PANELS,
+        to: NoticeTo.SERVICE_WORKER,
+        key: NoticeKey.GET_CURRENT_TITLE,
+        value: undefined,
+      },
+      trustedPanelSender
+    )
+    expect(useCurrentTitle).toHaveBeenCalledOnce()
+    expect(noticePanelsByServiceWorker).toHaveBeenCalledExactlyOnceWith(
+      NoticeKey.GET_CURRENT_TITLE,
+      'Current page title'
+    )
+    noticePanelsByServiceWorker.mockClear()
 
     const contentSender = { id: 'test-extension', tab: { id: 1 } }
     chromeBadge.mockClear()
