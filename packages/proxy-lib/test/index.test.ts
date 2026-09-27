@@ -35,6 +35,55 @@ afterEach(() => {
 })
 
 describe('proxy lifecycle and page wrappers', () => {
+  it('emits no-match diagnostics only while V3 diagnostics are armed for Fetch', async () => {
+    vi.stubGlobal('XMLHttpRequest', ExistingXMLHttpRequest)
+    const dispatchedRequests: string[] = []
+    const pageFetch = vi.fn(async (input: RequestInfo | URL) => {
+      const request = input instanceof Request ? input : new Request(input)
+      dispatchedRequests.push(request.url)
+      return new Response('native')
+    })
+    const dispatchEvent = vi.fn()
+    vi.stubGlobal('window', {
+      XMLHttpRequest: ExistingXMLHttpRequest,
+      fetch: pageFetch,
+      dispatchEvent,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      eval,
+    })
+    const { default: lib } = await import('../src/index')
+    const backup = {
+      format: 'ajax-proxy-backup',
+      formatVersion: 3,
+      settings: { globalEnabled: true, mode: 'interceptor', language: 'en' },
+      tags: [],
+      rules: [],
+    }
+    expect(lib.updateV3(backup)).toEqual({ ok: true, status: 'updated' })
+
+    lib.updateV3DiagnosticsArmed(true)
+    const firstResponse = await window.fetch('https://example.test/no-match')
+    expect(await firstResponse.text()).toBe('native')
+    expect(dispatchedRequests).toEqual(['https://example.test/no-match'])
+    expect(pageFetch).toHaveBeenCalledOnce()
+    expect(dispatchEvent.mock.calls.map(([event]) => (event as CustomEvent).detail)).toEqual([
+      { kind: 'v3-no-match', method: 'GET', rules: [], truncated: false },
+    ])
+
+    lib.updateV3DiagnosticsArmed(false)
+    const secondResponse = await window.fetch('https://example.test/still-no-match')
+    expect(await secondResponse.text()).toBe('native')
+    expect(dispatchedRequests).toEqual([
+      'https://example.test/no-match',
+      'https://example.test/still-no-match',
+    ])
+    expect(pageFetch).toHaveBeenCalledTimes(2)
+    expect(dispatchEvent.mock.calls.map(([event]) => (event as CustomEvent).detail)).toEqual([
+      { kind: 'v3-no-match', method: 'GET', rules: [], truncated: false },
+    ])
+  })
+
   it('mounts the validated V3 backup on both Fetch and XHR', async () => {
     vi.stubGlobal('XMLHttpRequest', ExistingXMLHttpRequest)
     const dispatchedRequests: Array<{ url: string; body: string }> = []

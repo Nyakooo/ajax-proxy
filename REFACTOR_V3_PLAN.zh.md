@@ -346,6 +346,7 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - [x] 为 V3 domain 正则匹配器覆盖缓存复用、LRU 上限淘汰和淘汰后重新编译。
 - [x] 为 V3 domain 运行时 matcher 覆盖非法匹配类型、超长正则和异常 matcher 对象；匹配异常应继续检查后续规则。
 - [x] 为 V3 no-match Service Worker 队列覆盖 storage 读取异常；失败不得消耗一次性诊断开关或污染后续排队事件。
+- [x] 为 proxy-lib 公开 `updateV3DiagnosticsArmed` 覆盖 Fetch 诊断开关：arm 时产生 no-match 事件，disarm 后不再派发，原请求均正常到达 Fetch。
 - [x] 为 V3 backup 校验覆盖 regex 数量、header 数量 / UTF-8 总字节数和 disabled origin 数量上限。
 - [x] 为 V3 response function 覆盖超出 512 KiB 快照上限后的 fail-open；不执行函数，保留完整原响应并记录固定错误类别。
 - [x] 为 V3 response function 覆盖请求体快照超过 512 KiB 时 fail-open；不执行函数，保留完整原响应并报告 `snapshot-too-large`。
@@ -886,4 +887,5 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - 2026-09-27：为 content -> Service Worker 标题转发补长度边界：8192 字符标题转发，8193 字符标题不通知面板。`serviceWorkerIndex` 定向组件测试和全量 Vitest 42 个文件 / 406 项通过；改动文件 ESLint / Prettier 与 diff 检查通过。完成 378 / 412 项（91.7%）。
 - 2026-09-27：补 legacy badge 的提醒间隔与零命中路径：确认命中 101 不提醒、120 再次提醒；未知语言回退英文，累计徽章只加有效规则命中；零计数清空 badge。定向测试 12 项、全量 Vitest 42 个文件 / 408 项通过；改动文件 ESLint / Prettier 与 diff 检查通过。完成 379 / 413 项（91.8%）。
 - 2026-09-27：为 Service Worker content message router 补命中与 outcome 集成回归：合法 page badge / V3 hit / no-match / Fetch outcome 转发到对应处理器；extra field 与 lowercase method 的 hit payload 被拒绝。定向测试 1 项、全量 Vitest 42 个文件 / 409 项通过；改动文件 ESLint / Prettier 与 diff 检查通过。完成 380 / 414 项（91.8%）。
+- 2026-09-27：为 proxy-lib 公开 `updateV3DiagnosticsArmed` 增加 Fetch 集成回归：有效 V3 空规则配置下 arm 时派发 no-match，disarm 后后续请求不再派发；两次 Fetch 都到达原实现并返回原始 body。定向 index 测试 6 项、全量 Vitest 42 个文件 / 409 项通过；改动文件 ESLint / Prettier 与 diff 检查通过。完成 381 / 415 项（91.8%）。
 - GitHub 里程碑：[阶段 0](https://github.com/Nyakooo/ajax-proxy/milestone/1)、[阶段 1](https://github.com/Nyakooo/ajax-proxy/milestone/2)、[阶段 2](https://github.com/Nyakooo/ajax-proxy/milestone/3)、[阶段 3](https://github.com/Nyakooo/ajax-proxy/milestone/4)、[阶段 4](https://github.com/Nyakooo/ajax-proxy/milestone/5)、[阶段 5](https://github.com/Nyakooo/ajax-proxy/milestone/6)、[阶段 6](https://github.com/Nyakooo/ajax-proxy/milestone/7)、[阶段 7](https://github.com/Nyakooo/ajax-proxy/milestone/8)；已复现缺陷：[issue #56](https://github.com/Nyakooo/ajax-proxy/issues/56)。
