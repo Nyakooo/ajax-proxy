@@ -199,6 +199,32 @@ describe('service worker message entry', () => {
       'After rejection'
     )
 
+    listener(
+      {
+        from: NoticeFrom.CONTENT,
+        to: NoticeTo.SERVICE_WORKER,
+        key: INIT_CURRENT_TITLE,
+        value: 'a'.repeat(8192),
+      },
+      contentSender
+    )
+    expect(noticePanelsByServiceWorker).toHaveBeenNthCalledWith(
+      2,
+      NoticeKey.GET_CURRENT_TITLE,
+      'a'.repeat(8192)
+    )
+
+    listener(
+      {
+        from: NoticeFrom.CONTENT,
+        to: NoticeTo.SERVICE_WORKER,
+        key: INIT_CURRENT_TITLE,
+        value: 'a'.repeat(8193),
+      },
+      contentSender
+    )
+    expect(noticePanelsByServiceWorker).toHaveBeenCalledTimes(2)
+
     const xhrOutcome = {
       kind: 'v3-xhr-outcome',
       correlation_id: 'xhr-1',
