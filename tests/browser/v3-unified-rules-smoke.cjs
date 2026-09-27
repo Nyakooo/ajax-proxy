@@ -62,6 +62,24 @@ async function main() {
     await popup.goto(`chrome-extension://${id}/panels-v3/popup.html`)
     await popup.locator('.rule-card').nth(34).waitFor()
     assert.equal(await popup.locator('.rule-card').count(), 35)
+    // Chrome starts an action popup with a tiny viewport before measuring its document.
+    // Its intrinsic size must not depend on that viewport (100vh collapses the popup).
+    await popup.setViewportSize({ width: 400, height: 39 })
+    assert.equal(
+      await popup.locator('.popup').evaluate((el) => el.getBoundingClientRect().height),
+      560
+    )
+    assert.equal(
+      await popup.locator('html').evaluate((el) => el.getBoundingClientRect().height),
+      560
+    )
+    await popup.setViewportSize({ width: 400, height: 560 })
+    assert.ok(
+      await popup
+        .locator('.popup-footer')
+        .evaluate((el) => el.getBoundingClientRect().bottom <= 560)
+    )
+    assert.ok(await popup.locator('.brand-row').evaluate((el) => el.scrollWidth <= el.clientWidth))
     const headerBefore = await popup.locator('.popup-header').boundingBox()
     await popup.locator('.rule-scroll').evaluate((element) => {
       element.scrollTop = 10000

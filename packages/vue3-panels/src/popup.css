@@ -9,7 +9,8 @@
 }
 
 * { box-sizing: border-box; }
-body { margin: 0; min-width: 390px; width: 400px; }
+html, body, #app { width: 400px; height: 560px; margin: 0; }
+body { overflow: hidden; }
 button, input { font: inherit; }
 button { color: inherit; }
 
@@ -17,7 +18,6 @@ button { color: inherit; }
   display: flex;
   width: 400px;
   height: 560px;
-  max-height: 100vh;
   flex-direction: column;
   overflow: hidden;
   background: #f7f9f9;
@@ -33,13 +33,13 @@ button { color: inherit; }
   box-shadow: 0 2px 8px rgb(24 64 67 / 4%);
 }
 
-.brand-row { display: flex; align-items: center; gap: 9px; height: 34px; }
+.brand-row { display: flex; align-items: center; gap: 9px; min-height: 34px; flex-wrap: wrap; }
 .brand-mark { width: 27px; height: 27px; object-fit: contain; }
 .brand-row > strong { font-size: 14px; letter-spacing: -.02em; }
-.theme-select { display: inline-flex; align-items: center; margin-left: 2px; }
+.theme-select { display: inline-flex; align-items: center; margin-left: auto; }
 .theme-select select { max-width: 91px; padding: 4px 16px 4px 6px; border: 1px solid #dce5e5; border-radius: 6px; background: #fff; color: #526365; font-size: 10px; cursor: pointer; }
 .theme-select select:focus-visible { outline: 3px solid #77cbca; outline-offset: 1px; }
-.global-switch { margin-left: auto; display: inline-flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 600; cursor: pointer; }
+.global-switch { flex: 0 0 100%; justify-content: flex-end; margin-left: auto; display: inline-flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 600; cursor: pointer; }
 .global-switch input, .rule-switch input { position: absolute; opacity: 0; width: 1px; height: 1px; }
 .switch-track { position: relative; display: inline-block; width: 34px; height: 19px; flex: 0 0 34px; border-radius: 20px; background: #c3cecf; transition: background .15s ease; }
 .switch-track::after { content: ""; position: absolute; top: 3px; left: 3px; width: 13px; height: 13px; border-radius: 50%; background: white; box-shadow: 0 1px 3px rgb(0 0 0 / 18%); transition: transform .15s ease; }
