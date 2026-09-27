@@ -130,6 +130,7 @@ function trapFocus(event) {
           <button
             class="editor-button editor-button-secondary"
             type="button"
+            :aria-label="`${t('ruleTags.remove')} ${tag.name}`"
             :disabled="saving"
             @click="emit('remove', tag)"
           >

@@ -42,6 +42,28 @@ describe('RuleTagsDialog', () => {
     expect(wrapper.emitted('rename')).toEqual([['tag-a', 'Platform Team']])
   })
 
+  it('names each remove button with its tag and emits the selected tag unless saving', async () => {
+    const tags = [
+      { id: 'tag-a', name: 'Platform' },
+      { id: 'tag-b', name: 'Urgent' },
+    ]
+    const wrapper = mount(RuleTagsDialog, {
+      props: { open: true, tags },
+      global: { plugins: [i18n] },
+    })
+    const removeButtons = wrapper.findAll('.rule-tags-list li button:last-child')
+
+    expect(removeButtons.map((button) => button.attributes('aria-label'))).toEqual([
+      expect.stringContaining('Platform'),
+      expect.stringContaining('Urgent'),
+    ])
+    await removeButtons[1].trigger('click')
+    expect(wrapper.emitted('remove')).toEqual([[tags[1]]])
+
+    await wrapper.setProps({ saving: true })
+    expect(removeButtons.every((button) => button.attributes('disabled') !== undefined)).toBe(true)
+  })
+
   it('focuses on open, traps Tab at both ends, exposes dialog naming, and closes on Escape', async () => {
     const wrapper = mount(RuleTagsDialog, {
       attachTo: document.body,
