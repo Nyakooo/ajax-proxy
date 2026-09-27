@@ -152,16 +152,18 @@ initStorage()
     if (getGlobalSwtich) noticeDocumentByContent(NOTICE_KEY_REFRESH_GLOBAL_STATE, getData)
     // V3 is stored independently from V2, and must also deliver a disabled
     // configuration so the MAIN-world runtime can keep it cached without mounting.
-    const initialV3Config = getData[StorageKey.V3_CONFIG] ?? null
+    // V2 conversion can replace the legacy snapshot with a narrower shape.
+    // V3 state lives beside those keys and must be read from the original snapshot.
+    const initialV3Config = data[StorageKey.V3_CONFIG] ?? null
     updateV3FunctionSandbox(initialV3Config)
     noticeDocumentByContent(NoticeKey.V3_CONFIG, initialV3Config)
     noticeDocumentByContent(
       NoticeKey.V3_DIAGNOSTICS_ARMED,
-      getData[StorageKey.V3_DIAGNOSTICS_ARMED] === true
+      data[StorageKey.V3_DIAGNOSTICS_ARMED] === true
     )
     noticeDocumentByContent(
       NoticeKey.V3_FETCH_OUTCOMES_ARMED,
-      getData[StorageKey.V3_FETCH_OUTCOMES_ARMED] === true
+      data[StorageKey.V3_FETCH_OUTCOMES_ARMED] === true
     )
 
     // 长链接通信接收 service-worker -> document。BFCache 恢复后只重建一次连接；

@@ -8,6 +8,7 @@ const root = path.resolve(__dirname, '../..')
 const channel = process.env.BROWSER_CHANNEL || 'chromium'
 const executablePath = process.env.BROWSER_EXECUTABLE_PATH
 const label = process.env.BROWSER_LABEL || channel
+const createResponseRuleButtonName = /^(?:Create response rule|创建响应规则)$/
 
 async function reservePort() {
   const server = net.createServer()
@@ -147,19 +148,15 @@ async function assertPageFits(page, width, locale) {
 async function main() {
   const port = await reservePort()
   const previewUrl = `http://127.0.0.1:${port}/`
+  const viteCli = path.join(root, 'node_modules/vite/bin/vite.js')
   const previewProcess = spawn(
-    'pnpm',
-    [
-      '-C',
-      'packages/vue3-panels',
-      'preview',
-      '--host',
-      '127.0.0.1',
-      '--port',
-      String(port),
-      '--strictPort',
-    ],
-    { cwd: root, detached: process.platform !== 'win32', stdio: 'ignore' }
+    process.execPath,
+    [viteCli, 'preview', '--host', '127.0.0.1', '--port', String(port), '--strictPort'],
+    {
+      cwd: path.join(root, 'packages/vue3-panels'),
+      detached: process.platform !== 'win32',
+      stdio: 'ignore',
+    }
   )
   let browser
 
@@ -171,8 +168,12 @@ async function main() {
       headless: true,
     })
 
-    for (const width of [400, 360]) {
-      const page = await browser.newPage({ viewport: { width, height: 900 } })
+    for (const { width, height } of [
+      { width: 1200, height: 900 },
+      { width: 400, height: 560 },
+      { width: 360, height: 560 },
+    ]) {
+      const page = await browser.newPage({ viewport: { width, height } })
       const pageErrors = []
       page.on('pageerror', (error) => pageErrors.push(error.message))
 
@@ -180,7 +181,7 @@ async function main() {
       assert.equal(response?.status(), 200)
       await page.locator('.rule-row').nth(2).waitFor()
       assert.equal(await page.locator('.rule-row').count(), 3)
-      await assertPageFits(page, width, 'zh-CN')
+      if (width < 1200) await assertPageFits(page, width, 'zh-CN')
 
       const search = page.locator('.search-box input')
       assert.ok(await search.isVisible())
@@ -190,20 +191,72 @@ async function main() {
       assert.equal(await page.locator('.rule-row').count(), 3)
 
       await page.locator('.language-toggle button[aria-label="English"]').click()
-      await assertPageFits(page, width, 'en')
+      if (width < 1200) await assertPageFits(page, width, 'en')
 
-      await page.locator('.content-heading > button').click()
-      await page.getByRole('dialog').getByRole('button', { name: 'Create intercept rule' }).click()
+      await page.locator('.sidebar .nav-item').first().click()
+      await page.getByRole('button', { name: createResponseRuleButtonName }).click()
       const dialog = page.locator('.response-rule-editor[role="dialog"]')
       await dialog.waitFor({ state: 'visible' })
       assert.match(await dialog.locator('h2').innerText(), /Create JSON response rule/)
       const dialogBox = await dialog.boundingBox()
       assert.ok(dialogBox, 'Response rule dialog should have a visible bounding box')
       assert.ok(dialogBox.x >= 0 && dialogBox.x + dialogBox.width <= width)
-      assert.ok(dialogBox.width >= 280, `Dialog is too narrow at ${width}px: ${dialogBox.width}px`)
+      assert.ok(dialogBox.y >= 0 && dialogBox.y + dialogBox.height <= height)
+      if (width >= 1200) {
+        assert.ok(
+          dialogBox.width >= 740,
+          `Response rule dialog should expand beyond 620px at ${width}px: ${dialogBox.width}px`
+        )
+      } else {
+        assert.ok(
+          dialogBox.width >= 280,
+          `Dialog is too narrow at ${width}px: ${dialogBox.width}px`
+        )
+      }
+
+      const resizableEditor = dialog.locator('.codemirror-json-editor.response-json-input')
+      await resizableEditor.waitFor({ state: 'visible' })
+      assert.equal(
+        await resizableEditor.evaluate((element) => getComputedStyle(element).resize),
+        'vertical',
+        'Response JSON editor should expose a vertical resize handle'
+      )
+      if (width >= 1200) {
+        const editorBox = await resizableEditor.boundingBox()
+        assert.ok(editorBox)
+        await page.mouse.move(editorBox.x + editorBox.width - 6, editorBox.y + editorBox.height - 6)
+        await page.mouse.down()
+        await page.mouse.move(
+          editorBox.x + editorBox.width - 6,
+          editorBox.y + editorBox.height + 48,
+          { steps: 4 }
+        )
+        await page.mouse.up()
+        const resizedEditorBox = await resizableEditor.boundingBox()
+        assert.ok(
+          resizedEditorBox.height > editorBox.height,
+          `Response JSON editor did not grow after dragging its resize handle: ${editorBox.height}px -> ${resizedEditorBox.height}px`
+        )
+      }
 
       const matchUrl = dialog.locator('.editor-field input').first()
       assert.ok(await matchUrl.isVisible())
+      const focusGeometry = await matchUrl.evaluate((input) => {
+        const scrollport = input.closest('.response-rule-editor > .editor-form')
+        const inputRect = input.getBoundingClientRect()
+        const scrollportRect = scrollport.getBoundingClientRect()
+        const style = getComputedStyle(input)
+        return {
+          inset: inputRect.left - scrollportRect.left,
+          focusRing: Number.parseFloat(style.outlineWidth) + Number.parseFloat(style.outlineOffset),
+          focused: document.activeElement === input,
+        }
+      })
+      assert.ok(focusGeometry.focused, 'The first response input should receive focus on open')
+      assert.ok(
+        focusGeometry.inset >= focusGeometry.focusRing,
+        `Focused response input ring is clipped on the left: ${JSON.stringify(focusGeometry)}`
+      )
       await matchUrl.fill('/responsive-layout-smoke')
       assert.equal(await matchUrl.inputValue(), '/responsive-layout-smoke')
       await page.keyboard.press('Escape')

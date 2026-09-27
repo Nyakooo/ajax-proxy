@@ -24,14 +24,19 @@ async function main() {
     })
     const worker = context.serviceWorkers()[0] || (await context.waitForEvent('serviceworker'))
     const id = new URL(worker.url()).hostname
-    const rules = Array.from({ length: 35 }, (_, index) => ({
+    const rules = Array.from({ length: 46 }, (_, index) => ({
       id: `verify-rule-${index}`,
       enabled: true,
       pinned: index < 30,
       match: { url: `/verify/${String(index).padStart(2, '0')}`, method: 'GET' },
-      ...(index % 2
-        ? { request: { enabled: true, redirect: { url: '/target' } } }
-        : { response: { enabled: true, replace: { body: { index } } } }),
+      ...(index === 45
+        ? {
+            request: { enabled: true, redirect: { url: '/target' } },
+            response: { enabled: true, replace: { body: { index } } },
+          }
+        : index % 2
+          ? { request: { enabled: true, redirect: { url: '/target' } } }
+          : { response: { enabled: true, replace: { body: { index } } } }),
     }))
     await worker.evaluate(
       async (config) => chrome.storage.local.set({ 'ajax-proxy:storage:v3-config': config }),
@@ -44,24 +49,31 @@ async function main() {
         rules,
       }
     )
-    const panel = await context.newPage()
+    let panel = await context.newPage()
     await panel.goto(`chrome-extension://${id}/panels-v3/index.html`)
     await panel.locator('.rule-row').nth(19).waitFor()
     assert.equal(await panel.locator('.rule-row').count(), 20)
-    assert.equal(await panel.locator('.sidebar .nav-item').count(), 1)
+    assert.equal(await panel.locator('.sidebar .nav-item').count(), 2)
+    assert.match(await panel.locator('h1').innerText(), /Response rules/)
     await panel.getByRole('button', { name: 'Next', exact: true }).click()
-    assert.equal(await panel.locator('.rule-row').count(), 15)
+    assert.equal(await panel.locator('.rule-row').count(), 4)
     await panel.locator('.search-box input').fill('method:GET pinned:true')
     const previous = panel.getByRole('button', { name: 'Previous', exact: true })
     if ((await previous.isVisible()) && (await previous.isEnabled())) await previous.click()
-    assert.equal(await panel.locator('.rule-row').count(), 20)
+    assert.equal(await panel.locator('.rule-row').count(), 15)
     await panel.locator('.search-box input').fill('/verify/34')
+    assert.equal(await panel.locator('.rule-row').count(), 1)
+    await panel.locator('.sidebar .nav-item').nth(1).click()
+    assert.match(await panel.locator('h1').innerText(), /Redirect rules/)
+    await panel.locator('.search-box input').fill('')
+    assert.equal(await panel.locator('.rule-row').count(), 20)
+    await panel.locator('.search-box input').fill('/verify/45')
     assert.equal(await panel.locator('.rule-row').count(), 1)
 
     const popup = await context.newPage()
     await popup.goto(`chrome-extension://${id}/panels-v3/popup.html`)
-    await popup.locator('.rule-card').nth(34).waitFor()
-    assert.equal(await popup.locator('.rule-card').count(), 35)
+    await popup.locator('.rule-card').nth(45).waitFor()
+    assert.equal(await popup.locator('.rule-card').count(), 46)
     // Chrome starts an action popup with a tiny viewport before measuring its document.
     // Its intrinsic size must not depend on that viewport (100vh collapses the popup).
     await popup.setViewportSize({ width: 400, height: 39 })
@@ -90,6 +102,34 @@ async function main() {
     await popup.locator('.rule-scroll').evaluate((element) => {
       element.scrollTop = 0
     })
+    await panel.close()
+    const [fullPanel] = await Promise.all([
+      context.waitForEvent('page', { timeout: 8000 }),
+      popup.getByRole('button', { name: 'Open full panel', exact: true }).click(),
+    ])
+    await fullPanel.locator('.rule-row').nth(19).waitFor({ timeout: 8000 })
+    assert.equal(await fullPanel.locator('.rule-row').count(), 20)
+    assert.match(await fullPanel.locator('h1').innerText(), /Response rules/)
+    panel = fullPanel
+    const assertVisiblePanel = (url) =>
+      worker.evaluate(async (targetUrl) => {
+        for (let attempt = 0; attempt < 100; attempt++) {
+          const tabs = (await chrome.tabs.query({})).filter((tab) => tab.url === targetUrl)
+          if (tabs.length > 1) throw new Error('Duplicate V3 panel tabs')
+          if (tabs[0]?.active) {
+            const window = await chrome.windows.get(tabs[0].windowId)
+            if (window.type === 'popup' && window.focused && window.state === 'normal') return
+          }
+          await new Promise((resolve) => setTimeout(resolve, 20))
+        }
+        throw new Error('V3 panel was not activated in a visible independent popup window')
+      }, url)
+    await assertVisiblePanel(panel.url())
+    const pageCount = context.pages().length
+    await popup.bringToFront()
+    await popup.getByRole('button', { name: 'Open full panel', exact: true }).click()
+    await assertVisiblePanel(panel.url())
+    assert.equal(context.pages().length, pageCount)
     await popup.screenshot({ path: '/tmp/ajax-proxy-popup-unified.png' })
     assert.ok(
       await popup.locator('html').evaluate((element) => element.classList.contains('app-dark'))
@@ -99,6 +139,26 @@ async function main() {
     await popup.waitForFunction(() => !document.documentElement.classList.contains('app-dark'))
     await popup.getByRole('searchbox').fill('pinned:true type:redirect')
     assert.equal(await popup.locator('.rule-card').count(), 15)
+    await popup.getByRole('searchbox').fill('')
+    const actionFilter = popup.getByRole('combobox', { name: 'Rule type', exact: true })
+    await actionFilter.selectOption('response')
+    assert.equal(await popup.locator('.rule-card').count(), 24)
+    await actionFilter.selectOption('redirect')
+    assert.equal(await popup.locator('.rule-card').count(), 23)
+    await popup.getByRole('searchbox').fill('/verify/45')
+    const combinedRuleRow = popup.locator('.rule-card')
+    await combinedRuleRow
+      .getByRole('button', { name: 'Edit rule: /verify/45', exact: true })
+      .click()
+    await panel.locator('.redirect-rule-editor').waitFor({ state: 'visible' })
+    await panel.keyboard.press('Escape')
+    await actionFilter.selectOption('response')
+    await combinedRuleRow
+      .getByRole('button', { name: 'Edit rule: /verify/45', exact: true })
+      .click()
+    await panel.locator('.response-rule-editor').waitFor({ state: 'visible' })
+    await panel.keyboard.press('Escape')
+    await actionFilter.selectOption('all')
     await popup.getByRole('searchbox').fill('/verify/34')
     const row = popup.locator('.rule-card')
     await row.locator('.rule-switch').click()
@@ -113,17 +173,8 @@ async function main() {
     })
     await row.getByRole('button', { name: 'Pin rule', exact: true }).click()
     await row.getByRole('button', { name: 'Unpin rule', exact: true }).waitFor()
-    const [editorPage] = await Promise.all([
-      context.waitForEvent('page', { timeout: 8000 }).catch(async (error) => {
-        console.error(
-          'Popup editor handoff:',
-          await popup.locator('body').innerText(),
-          context.pages().map((page) => page.url())
-        )
-        throw error
-      }),
-      row.getByRole('button', { name: 'Edit rule: /verify/34', exact: true }).click(),
-    ])
+    await row.getByRole('button', { name: 'Edit rule: /verify/34', exact: true }).click()
+    const editorPage = panel
     await editorPage
       .locator('.response-rule-editor')
       .waitFor({ timeout: 8000 })
@@ -150,7 +201,7 @@ async function main() {
       .click()
     await popup.getByText('No matching rules', { exact: true }).waitFor()
     console.log(
-      'Unified rules pagination, 30 pinned rules, popup scrolling/search/toggle/pin/delete and editor handoff passed'
+      'Independent popup panel creation/reuse, separate response/redirect views, popup action filtering, 30 pinned rules, combined-rule editing, scrolling/search/toggle/pin/delete passed'
     )
   } finally {
     await context?.close()

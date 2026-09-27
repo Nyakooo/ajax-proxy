@@ -157,5 +157,13 @@ jobs:
         env:
           AJAX_PROXY_EXTENSION_PATH: ${{ github.workspace }}/packages/shell-chrome/build-vite
         run: pnpm extension:smoke
+      - name: Verify V3 rules workspace, popup and editor handoff
+        env:
+          AJAX_PROXY_EXTENSION_PATH: ${{ github.workspace }}/packages/shell-chrome/build-vite
+        run: node tests/browser/v3-unified-rules-smoke.cjs
+      - name: Verify independent V3 panel and manual tab option
+        env:
+          AJAX_PROXY_EXTENSION_PATH: ${{ github.workspace }}/packages/shell-chrome/build-vite
+        run: node tests/browser/v3-panel-open-smoke.cjs
       - name: Verify Vite watch rebuild and extension reload workflow
         run: pnpm verify:chrome:vite-watch

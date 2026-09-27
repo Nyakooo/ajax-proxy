@@ -7,6 +7,8 @@ const os = require('node:os')
 const path = require('node:path')
 const { chromium } = require('playwright')
 
+const createResponseRuleButtonName = /^(?:Create response rule|创建响应规则)$/
+const createRedirectRuleButtonName = /^(?:Create redirect rule|创建重定向规则)$/
 const extensionPath = path.resolve(
   process.env.AJAX_PROXY_EXTENSION_PATH || path.join(__dirname, '../../packages/shell-chrome/build')
 )
@@ -996,8 +998,8 @@ async function main() {
       await englishButton.click()
       await v3Panel.reload()
     }
-    await v3Panel.getByRole('button', { name: 'Create rule', exact: true }).click()
-    await v3Panel.getByRole('dialog').getByRole('button', { name: 'Create intercept rule' }).click()
+    await v3Panel.locator('.sidebar .nav-item').first().click()
+    await v3Panel.getByRole('button', { name: createResponseRuleButtonName }).click()
     const responseEditor = v3Panel.getByRole('dialog')
     await responseEditor
       .locator('.cm-content[contenteditable="true"]')
@@ -1427,20 +1429,42 @@ async function main() {
     )
 
     v3Panel.on('dialog', (dialog) => dialog.accept())
-    await v3Panel.getByRole('button', { name: 'Create rule', exact: true }).click()
-    await v3Panel.getByRole('dialog').getByRole('button', { name: 'Create intercept rule' }).click()
+    await v3Panel.locator('.sidebar .nav-item').first().click()
+    await v3Panel.getByRole('button', { name: createResponseRuleButtonName }).click()
     const functionEditor = v3Panel.getByRole('dialog')
-    await functionEditor.locator('label.editor-field').nth(0).locator('input').fill('/api/function')
+    const functionUiUrl = '/api/ui-function'
+    await functionEditor.locator('label.editor-field').nth(0).locator('input').fill(functionUiUrl)
     await functionEditor.locator('.editor-field-row select').nth(1).selectOption('POST')
     await functionEditor.locator('input[name="response-mode"][value="function"]').check({
       force: true,
     })
     const functionCode =
       "return { status: 209, body: { source: 'v3-function-ui', requestBody: request.body, response: JSON.parse(response.body) } }"
-    await functionEditor
-      .locator('.response-function-input .cm-content[contenteditable="true"]')
-      .fill(functionCode)
-    await functionEditor.locator('.function-enabled input').check({ force: true })
+    const functionCodeEditor = functionEditor.locator(
+      '.response-function-input .cm-content[contenteditable="true"]'
+    )
+    await functionCodeEditor.click()
+    await functionCodeEditor.press('ControlOrMeta+A')
+    await functionCodeEditor.pressSequentially(functionCode)
+    await v3Panel.waitForFunction(
+      (expected) =>
+        document.querySelector('.response-function-input .cm-content')?.textContent === expected,
+      functionCode
+    )
+    const functionEnabledCheckbox = functionEditor.getByRole('checkbox', {
+      name: /^(?:Enable function response \(explicit confirmation required\)|启用函数响应（需明确确认）)$/,
+    })
+    assert.equal(await functionEnabledCheckbox.isChecked(), false)
+    const enableFunctionConfirmation = v3Panel.waitForEvent('dialog')
+    await functionEnabledCheckbox.click()
+    assert.equal((await enableFunctionConfirmation).type(), 'confirm')
+    assert.equal(await functionEnabledCheckbox.isChecked(), true)
+    await functionEnabledCheckbox.click()
+    assert.equal(await functionEnabledCheckbox.isChecked(), false)
+    const reenableFunctionConfirmation = v3Panel.waitForEvent('dialog')
+    await functionEnabledCheckbox.click()
+    assert.equal((await reenableFunctionConfirmation).type(), 'confirm')
+    assert.equal(await functionEnabledCheckbox.isChecked(), true)
     await functionEditor.getByRole('button', { name: 'Save' }).click()
     await functionEditor.waitFor({ state: 'hidden' })
 
@@ -1450,7 +1474,7 @@ async function main() {
         async (key) => (await chrome.storage.local.get(key))[key],
         'ajax-proxy:storage:v3-config'
       )
-      functionUiRule = currentConfig.rules.find((rule) => rule.match.url === '/api/function')
+      functionUiRule = currentConfig.rules.find((rule) => rule.match.url === functionUiUrl)
       if (functionUiRule) break
       await new Promise((resolve) => setTimeout(resolve, 50))
     }
@@ -1461,10 +1485,10 @@ async function main() {
     await restartedPage.waitForFunction(() =>
       Boolean(document.getElementById('ajax-proxy-v3-function-sandbox'))
     )
-    const functionUiFetchResult = await restartedPage.evaluate(async () => {
-      const response = await fetch('/api/function', { method: 'POST', body: 'function request' })
+    const functionUiFetchResult = await restartedPage.evaluate(async (url) => {
+      const response = await fetch(url, { method: 'POST', body: 'function request' })
       return { status: response.status, body: await response.json() }
-    })
+    }, functionUiUrl)
     assert.deepEqual(functionUiFetchResult, {
       status: 209,
       body: {
@@ -1474,7 +1498,7 @@ async function main() {
       },
     })
     const functionUiXhrResult = await restartedPage.evaluate(
-      () =>
+      (url) =>
         new Promise((resolve) => {
           const request = new XMLHttpRequest()
           request.onload = () =>
@@ -1482,9 +1506,10 @@ async function main() {
               status: request.status,
               body: JSON.parse(request.responseText),
             })
-          request.open('POST', '/api/function')
+          request.open('POST', url)
           request.send('function request')
-        })
+        }),
+      functionUiUrl
     )
     assert.deepEqual(functionUiXhrResult, {
       status: 200,
@@ -1601,11 +1626,11 @@ async function main() {
       'deleting a unified rule removes all its actions'
     )
 
-    const importedFunctionRows = v3Panel.locator('.rule-row').filter({ hasText: '/api/function' })
+    const importedFunctionRows = v3Panel.locator('.rule-row').filter({ hasText: functionUiUrl })
     await importedFunctionRows.first().waitFor()
     assert.equal(
       await importedFunctionRows.count(),
-      backupConfigBefore.rules.filter((rule) => rule.match.url === '/api/function').length
+      backupConfigBefore.rules.filter((rule) => rule.match.url === functionUiUrl).length
     )
     await importedFunctionRows.first().locator('.action-disabled').getByText('Disabled').waitFor()
     await importedFunctionRows.first().getByRole('button', { name: 'Edit' }).click()
@@ -1621,10 +1646,10 @@ async function main() {
     await importedFunctionEditor.getByRole('button', { name: 'Cancel' }).click()
 
     const v3RuleSearch = v3Panel.getByPlaceholder('Search URL, method, or note')
-    await v3RuleSearch.fill('/api/function')
+    await v3RuleSearch.fill(functionUiUrl)
     assert.equal(
       await v3Panel.locator('.rule-row').count(),
-      backupConfigBefore.rules.filter((rule) => rule.match.url === '/api/function').length
+      backupConfigBefore.rules.filter((rule) => rule.match.url === functionUiUrl).length
     )
     await v3RuleSearch.fill('')
 
@@ -1914,8 +1939,8 @@ async function main() {
     )
     await conflictingTagDialog.getByRole('button', { name: 'Cancel', exact: true }).click()
 
-    await v3Panel.getByRole('button', { name: 'Create rule', exact: true }).click()
-    await v3Panel.getByRole('dialog').getByRole('button', { name: 'Create redirect rule' }).click()
+    await v3Panel.locator('.sidebar .nav-item').nth(1).click()
+    await v3Panel.getByRole('button', { name: createRedirectRuleButtonName }).click()
     const taggedRedirectEditor = v3Panel.locator('.rule-editor[role="dialog"]')
     await taggedRedirectEditor
       .locator('label.editor-field')
@@ -2001,14 +2026,54 @@ async function main() {
       'deleting a tag removes its references from all rules'
     )
 
-    await restartedPage.evaluate(async () => {
-      await fetch('/api/echo?quick-create=smoke', { method: 'POST', body: 'quick create source' })
+    await v3Panel.locator('.sidebar .nav-item').first().click()
+    const quickCreateSourceRule = {
+      id: 'v3-quick-create-source-smoke',
+      enabled: true,
+      match: { url: '/api/quick-create-source', method: 'POST' },
+      response: {
+        enabled: true,
+        replace: { status: 201, body: { source: 'quick-create-source' } },
+      },
+    }
+    await restartedWorker.evaluate(
+      async ({ key, rule }) => {
+        const config = (await chrome.storage.local.get(key))[key]
+        await chrome.storage.local.set({ [key]: { ...config, rules: [...config.rules, rule] } })
+      },
+      { key: 'ajax-proxy:storage:v3-config', rule: quickCreateSourceRule }
+    )
+    await v3Panel.reload()
+    await v3Panel.locator('.rule-row').filter({ hasText: '/api/quick-create-source' }).waitFor()
+    const quickCreateResponse = await restartedPage.evaluate(async () => {
+      const response = await fetch('/api/quick-create-source?case=smoke', {
+        method: 'POST',
+        body: 'quick create source',
+      })
+      return { status: response.status, body: await response.json() }
+    })
+    assert.deepEqual(quickCreateResponse, {
+      status: 201,
+      body: { source: 'quick-create-source' },
     })
     const quickCreateSource = v3Panel
       .locator('.recent-matches-list li')
-      .filter({ hasText: '/api/echo?quick-create=smoke' })
+      .filter({ hasText: '/api/quick-create-source?case=smoke' })
       .first()
     await quickCreateSource.waitFor()
+    const quickCreateSourceRuleRow = v3Panel
+      .locator('.rule-row')
+      .filter({ hasText: '/api/quick-create-source' })
+    await quickCreateSourceRuleRow.getByRole('switch').click()
+    await restartedWorker.evaluate(async (ruleId) => {
+      const key = 'ajax-proxy:storage:v3-config'
+      for (let attempt = 0; attempt < 100; attempt += 1) {
+        const config = (await chrome.storage.local.get(key))[key]
+        if (config.rules.find((rule) => rule.id === ruleId)?.enabled === false) return
+        await new Promise((resolve) => setTimeout(resolve, 20))
+      }
+      throw new Error('Quick-create source rule was not disabled')
+    }, quickCreateSourceRule.id)
     await quickCreateSource
       .getByRole('button', { name: /Create a response rule from POST/ })
       .click()
@@ -2035,7 +2100,7 @@ async function main() {
         'ajax-proxy:storage:v3-config'
       )
       quickCreatedRule = currentConfig.rules.find(
-        (rule) => rule.match.url === `http://127.0.0.1:${port}/api/echo?quick-create=smoke`
+        (rule) => rule.match.url === `http://127.0.0.1:${port}/api/quick-create-source?case=smoke`
       )
       if (quickCreatedRule) break
       await new Promise((resolve) => setTimeout(resolve, 50))
@@ -2044,7 +2109,7 @@ async function main() {
     assert.equal(quickCreatedRule.enabled, false)
     assert.equal(quickCreatedRule.match.type, 'exact')
     assert.deepEqual(quickCreatedRule.match, {
-      url: `http://127.0.0.1:${port}/api/echo?quick-create=smoke`,
+      url: `http://127.0.0.1:${port}/api/quick-create-source?case=smoke`,
       method: 'POST',
       type: 'exact',
     })
@@ -2069,7 +2134,23 @@ async function main() {
 
     const quickCreatedRuleRow = v3Panel
       .locator('.rule-row')
-      .filter({ hasText: '/api/echo?quick-create=smoke' })
+      .filter({ hasText: '/api/quick-create-source?case=smoke' })
+    await quickCreatedRuleRow.getByRole('button', { name: /^Pin rule/ }).click()
+    let quickCreatedRulePinned = false
+    for (let attempt = 0; attempt < 40; attempt += 1) {
+      const currentConfig = await restartedWorker.evaluate(
+        async (key) => (await chrome.storage.local.get(key))[key],
+        'ajax-proxy:storage:v3-config'
+      )
+      const pinnedRule = currentConfig.rules.find((rule) => rule.id === quickCreatedRule.id)
+      quickCreatedRulePinned = pinnedRule?.pinned === true
+      if (quickCreatedRulePinned) {
+        quickCreatedRule = pinnedRule
+        break
+      }
+      await new Promise((resolve) => setTimeout(resolve, 50))
+    }
+    assert.equal(quickCreatedRulePinned, true)
     await quickCreatedRuleRow.getByRole('switch').click()
     let quickCreatedRuleEnabled = false
     for (let attempt = 0; attempt < 40; attempt += 1) {
@@ -2087,23 +2168,29 @@ async function main() {
     await restartedPage.reload()
     await restartedPage.locator('#fetch').waitFor()
     const exactMatchResponse = await restartedPage.evaluate(async () => {
-      const response = await fetch('/api/echo?quick-create=smoke', {
-        method: 'POST',
-        body: 'exact request',
-      })
-      return { status: response.status, body: await response.json() }
+      let result
+      for (let attempt = 0; attempt < 40; attempt += 1) {
+        const response = await fetch('/api/quick-create-source?case=smoke', {
+          method: 'POST',
+          body: 'exact request',
+        })
+        result = { status: response.status, body: await response.json() }
+        if (result.body.source !== 'server') return result
+        await new Promise((resolve) => setTimeout(resolve, 50))
+      }
+      return result
     })
     assert.deepEqual(exactMatchResponse, { status: 200, body: {} })
     const nearMatchResponse = await restartedPage.evaluate(async () => {
-      const response = await fetch('/api/echo?quick-create=smoke&extra=1', {
+      const response = await fetch('/api/quick-create-source?case=smoke&extra=1', {
         method: 'POST',
         body: 'near match request',
       })
       return { status: response.status, body: await response.json() }
     })
     assert.deepEqual(nearMatchResponse, {
-      status: 202,
-      body: { source: 'v3-intercepted', ok: true },
+      status: 200,
+      body: { source: 'server', method: 'POST', body: 'near match request' },
     })
 
     await quickCreatedRuleRow.getByRole('switch').click()
@@ -2122,13 +2209,16 @@ async function main() {
     await restartedPage.reload()
     await restartedPage.locator('#fetch').waitFor()
     const disabledExactResponse = await restartedPage.evaluate(async () => {
-      const response = await fetch('/api/echo?quick-create=smoke', {
+      const response = await fetch('/api/quick-create-source?case=smoke', {
         method: 'POST',
         body: 'disabled exact request',
       })
       return { status: response.status, body: await response.json() }
     })
-    assert.deepEqual(disabledExactResponse, { status: 202, body: v3ResponseBody })
+    assert.deepEqual(disabledExactResponse, {
+      status: 200,
+      body: { source: 'server', method: 'POST', body: 'disabled exact request' },
+    })
 
     await restartedPage.reload()
     await restartedPage.waitForFunction(

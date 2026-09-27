@@ -421,6 +421,16 @@ describe('content page-event bridge', () => {
       mode: 'redirector',
       proxy_routes: [{ match: '/old-api' }],
       redirect: [{ redirect: 'https://target.test/' }],
+      'v3-config': {
+        format: 'ajax-proxy-backup',
+        formatVersion: 8,
+        settings: { globalEnabled: true, mode: 'interceptor', language: 'en' },
+        disabledOrigins: [],
+        tags: [],
+        rules: [],
+      },
+      'diagnostics-armed': true,
+      'fetch-outcomes-armed': true,
     }
     const convertedState = {
       global_on: true,
@@ -455,6 +465,12 @@ describe('content page-event bridge', () => {
       ['redirect-list', convertedState.redirector_matching_content],
     ])
     expect(mocks.removeStorage).toHaveBeenCalledExactlyOnceWith(legacyKeys)
+    expect(mocks.noticeDocumentByContent).toHaveBeenCalledWith(
+      'v3-config',
+      legacySnapshot['v3-config']
+    )
+    expect(mocks.noticeDocumentByContent).toHaveBeenCalledWith('diagnostics-armed', true)
+    expect(mocks.noticeDocumentByContent).toHaveBeenCalledWith('fetch-outcomes-armed', true)
   })
 
   it('forwards valid legacy and V3 page events using their corresponding notice keys', async () => {

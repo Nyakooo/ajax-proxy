@@ -1058,3 +1058,7 @@ panel / popup / tabPanel 定向测试 29 项、shell TypeScript、改动文件�
 用户批准默认独立弹窗、手动标签页备用入口。V3 创建窗口使用绝对扩展 URL、popup 类型、normal 状态和当前显示器范围内的初始尺寸；复用时先恢复状态，再重设位置 / 尺寸并聚焦。后台重启后重新发现 popup 面板，忽略普通页签中的面板；打开串行化避免重复窗口。popup 的“在标签页打开”显式指定 tab；编辑操作默认进入独立弹窗，按目标 tab ID 隔离投递，避免两个面板同时弹出编辑器。
 
 窗口 / popup 消息 / tab / 旧 panel 定向测试 41 项、全量代码测试 557 项、Vue 3 组件 115 项、shell TypeScript、零告警 ESLint 和格式检查通过。build-vite、build-vite-dev、ZIP 均已更新；两份成品的独立 popup 创建 / 聚焦 / 复用、手动标签页与编辑隔离 smoke 通过，统一规则 smoke 和完整 V2 / V3 扩展 smoke 通过。此前用户只确认了普通标签页可见，不能算作独立弹窗验收；最新独立窗口的实际 Chrome 重载结果仍待用户确认。整体计划仍为 468 / 497（94.2%）。
+
+## 验证门禁与迁移修复检查点（2026-09-27）
+
+提交 V2 数据转换后从原始 storage 快照继续传递 V3 配置和诊断开关的修复，避免旧格式转换丢失独立 V3 状态。统一规则和独立 popup / 手动 tab 浏览器回归加入 CI，响应式 smoke 同步两个规则入口；ESLint 排除生成的 build-vite-dev 目录。557 项代码测试、115 项组件测试、完整 V2 / V3 extension smoke、统一规则 smoke、独立面板 smoke、400px / 360px 响应式 smoke，以及改动范围 ESLint / Prettier / diff 检查通过。两份构建的 service_worker.js 内容一致。CI 门禁已配置，远端新一轮运行结果待推送后确认；实际 Chrome 独立弹窗确认仍待用户回复。整体计划仍为 468 / 497（94.2%）。

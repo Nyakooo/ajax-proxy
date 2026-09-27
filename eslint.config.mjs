@@ -11,6 +11,7 @@ export default tseslint.config(
       '**/lib/**',
       '**/build/**',
       '**/build-vite/**',
+      '**/build-vite-dev/**',
       '**/dist/**',
       '**/dist-editor-prototype/**',
       '**/*.d.ts',
