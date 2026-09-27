@@ -28,6 +28,7 @@ describe('service worker content connections', () => {
     }
     let listener: ((port: TestPort) => void) | undefined
     let disconnectListener: (() => void) | undefined
+    const readLastError = vi.fn(() => ({ message: 'Port closed' }))
     const chrome = {
       runtime: {
         id: 'extension-id',
@@ -38,6 +39,7 @@ describe('service worker content connections', () => {
         },
       },
     }
+    Object.defineProperty(chrome.runtime, 'lastError', { get: readLastError })
     vi.stubGlobal('chrome', chrome)
     const onConnectFn = vi.fn()
     const onDisconnectFn = vi.fn()
@@ -71,6 +73,7 @@ describe('service worker content connections', () => {
     expect(addDisconnectListener).toHaveBeenCalledOnce()
     disconnectListener?.()
     expect(onDisconnectFn).toHaveBeenCalledExactlyOnceWith(validPort)
+    expect(readLastError).toHaveBeenCalledOnce()
   })
 })
 

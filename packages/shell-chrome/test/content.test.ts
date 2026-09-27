@@ -17,6 +17,7 @@ const mocks = vi.hoisted(() => ({
   })),
 }))
 const contentEventListeners = new Set<EventListener>()
+const pageShowEventListeners = new Set<EventListener>()
 
 vi.mock('@proxy/shared-utils', () => ({
   initStorage: mocks.initStorage,
@@ -62,6 +63,16 @@ function deferred<T>() {
   return { promise, resolve, reject }
 }
 
+function createRuntimePort() {
+  const disconnectListeners: Array<() => void> = []
+  return {
+    disconnect: vi.fn(() => disconnectListeners.forEach((listener) => listener())),
+    onDisconnect: {
+      addListener: vi.fn((listener: () => void) => disconnectListeners.push(listener)),
+    },
+  }
+}
+
 async function importContent() {
   await import('../src/content')
   await Promise.resolve()
@@ -70,8 +81,9 @@ async function importContent() {
 function trackContentEventListeners() {
   const addEventListener = window.addEventListener.bind(window)
   return vi.spyOn(window, 'addEventListener').mockImplementation((type, listener, options) => {
-    if (type === 'to-content' && typeof listener === 'function') {
-      contentEventListeners.add(listener as EventListener)
+    if (typeof listener === 'function') {
+      if (type === 'to-content') contentEventListeners.add(listener as EventListener)
+      if (type === 'pageshow') pageShowEventListeners.add(listener as EventListener)
     }
     addEventListener(type, listener, options)
   })
@@ -130,6 +142,8 @@ const validEvents = [
 afterEach(() => {
   for (const listener of contentEventListeners) window.removeEventListener('to-content', listener)
   contentEventListeners.clear()
+  for (const listener of pageShowEventListeners) window.removeEventListener('pageshow', listener)
+  pageShowEventListeners.clear()
   vi.restoreAllMocks()
   vi.unstubAllGlobals()
   vi.resetModules()
@@ -138,11 +152,32 @@ afterEach(() => {
 })
 
 describe('content page-event bridge', () => {
+  it('reconnects once when a page is restored from BFCache', async () => {
+    mocks.initStorage.mockResolvedValue(undefined)
+    mocks.getStorageSnapshot.mockReturnValue({})
+    const runtimeConnect = vi.fn(() => createRuntimePort())
+    vi.stubGlobal('chrome', {
+      runtime: { connect: runtimeConnect, getURL: (path: string) => path },
+      storage: { onChanged: { addListener: mocks.onChangedAddListener } },
+    })
+    trackContentEventListeners()
+
+    await importContent()
+    await vi.waitFor(() => expect(runtimeConnect).toHaveBeenCalledOnce())
+    const pageshow = new Event('pageshow')
+    Object.defineProperty(pageshow, 'persisted', { value: true })
+    window.dispatchEvent(pageshow)
+
+    expect(runtimeConnect).toHaveBeenCalledTimes(2)
+    window.dispatchEvent(new Event('pageshow'))
+    expect(runtimeConnect).toHaveBeenCalledTimes(2)
+  })
+
   it('waits for storage initialization before registering listeners or sending notices', async () => {
     const storageReady = deferred<void>()
     mocks.initStorage.mockReturnValue(storageReady.promise)
     mocks.getStorageSnapshot.mockReturnValue({})
-    const runtimeConnect = vi.fn()
+    const runtimeConnect = vi.fn(() => createRuntimePort())
     const runtimeGetURL = vi.fn((path: string) => `chrome-extension://test/${path}`)
     vi.stubGlobal('chrome', {
       runtime: { connect: runtimeConnect, getURL: runtimeGetURL },
@@ -160,13 +195,14 @@ describe('content page-event bridge', () => {
 
     storageReady.resolve()
     await vi.waitFor(() => expect(runtimeConnect).toHaveBeenCalledOnce())
+    expect(runtimeConnect).toHaveBeenCalledWith({ name: 'ajax-proxy:connect:custom:name' })
     expect(mocks.onChangedAddListener).toHaveBeenCalledOnce()
     expect(addEventListener.mock.calls.some(([type]) => type === 'to-content')).toBe(true)
   })
 
   it('does not initialize the bridge after storage initialization fails', async () => {
     mocks.initStorage.mockRejectedValue(new Error('storage unavailable'))
-    const runtimeConnect = vi.fn()
+    const runtimeConnect = vi.fn(() => createRuntimePort())
     vi.stubGlobal('chrome', {
       runtime: {
         connect: runtimeConnect,
@@ -213,7 +249,7 @@ describe('content page-event bridge', () => {
     )
     vi.stubGlobal('chrome', {
       runtime: {
-        connect: vi.fn(),
+        connect: vi.fn(() => createRuntimePort()),
         getURL: (path: string) => `chrome-extension://test/${path}`,
       },
       storage: { onChanged: { addListener: mocks.onChangedAddListener } },
@@ -262,7 +298,7 @@ describe('content page-event bridge', () => {
     mocks.getStorage.mockReturnValue(null)
     vi.stubGlobal('chrome', {
       runtime: {
-        connect: vi.fn(),
+        connect: vi.fn(() => createRuntimePort()),
         getURL: (path: string) => `chrome-extension://test/${path}`,
       },
       storage: { onChanged: { addListener: mocks.onChangedAddListener } },
@@ -330,7 +366,7 @@ describe('content page-event bridge', () => {
     mocks.getStorage.mockReturnValue(null)
     vi.stubGlobal('chrome', {
       runtime: {
-        connect: vi.fn(),
+        connect: vi.fn(() => createRuntimePort()),
         getURL: (path: string) => `chrome-extension://test/${path}`,
       },
       storage: { onChanged: { addListener: mocks.onChangedAddListener } },
@@ -401,7 +437,7 @@ describe('content page-event bridge', () => {
     })
     vi.stubGlobal('chrome', {
       runtime: {
-        connect: vi.fn(),
+        connect: vi.fn(() => createRuntimePort()),
         getURL: (path: string) => `chrome-extension://test/${path}`,
       },
       storage: { onChanged: { addListener: mocks.onChangedAddListener } },
@@ -426,7 +462,7 @@ describe('content page-event bridge', () => {
     mocks.getStorageSnapshot.mockReturnValue({})
     vi.stubGlobal('chrome', {
       runtime: {
-        connect: vi.fn(),
+        connect: vi.fn(() => createRuntimePort()),
         getURL: (path: string) => `chrome-extension://test/${path}`,
       },
       storage: { onChanged: { addListener: mocks.onChangedAddListener } },
@@ -449,7 +485,7 @@ describe('content page-event bridge', () => {
     mocks.getStorageSnapshot.mockReturnValue({})
     vi.stubGlobal('chrome', {
       runtime: {
-        connect: vi.fn(),
+        connect: vi.fn(() => createRuntimePort()),
         getURL: (path: string) => `chrome-extension://test/${path}`,
       },
       storage: { onChanged: { addListener: mocks.onChangedAddListener } },

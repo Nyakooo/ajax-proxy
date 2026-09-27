@@ -164,8 +164,29 @@ initStorage()
       getData[StorageKey.V3_FETCH_OUTCOMES_ARMED] === true
     )
 
-    // 长链接通信接收 service-worker -> document
-    chrome.runtime.connect({ name: CONNECT_NAME })
+    // 长链接通信接收 service-worker -> document。BFCache 恢复后只重建一次连接；
+    // 其他断开不自动重试，避免后台不可用时形成重连循环。
+    let serviceWorkerPort: chrome.runtime.Port | undefined
+    const connectToServiceWorker = () => {
+      if (serviceWorkerPort) return
+      const port = chrome.runtime.connect({ name: CONNECT_NAME })
+      serviceWorkerPort = port
+      port.onDisconnect.addListener(() => {
+        // Chrome 在页面进入 BFCache 时会关闭端口，并通过 lastError 报告原因。
+        // 读取该属性即可消费 runtime.lastError，避免控制台出现 unchecked 错误。
+        void chrome.runtime.lastError
+        if (serviceWorkerPort === port) serviceWorkerPort = undefined
+      })
+    }
+    connectToServiceWorker()
+    window.addEventListener('pageshow', (event) => {
+      if (!event.persisted) return
+      // 若旧端口的 disconnect 事件尚未派发，也先丢弃它再建立恢复后的连接。
+      const stalePort = serviceWorkerPort
+      serviceWorkerPort = undefined
+      stalePort?.disconnect()
+      connectToServiceWorker()
+    })
     // 接收lib 传来的信息 转发给 service-worker
     // 没有from 属性
     window.addEventListener(

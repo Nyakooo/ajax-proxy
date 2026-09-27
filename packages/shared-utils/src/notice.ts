@@ -95,7 +95,13 @@ export function onConnectByServiceWorker(
     }
     onConnectFn(port)
     // 监听长链接 被断开
-    port.onDisconnect.addListener(() => onDisconnectFn(port))
+    port.onDisconnect.addListener(() => {
+      // runtime.lastError is only set during this callback. Read it even when
+      // callers do not need the disconnect reason, otherwise Chrome reports
+      // an unchecked runtime.lastError for normal port closure (for example BFCache).
+      void chrome.runtime.lastError
+      onDisconnectFn(port)
+    })
   })
 }
 
