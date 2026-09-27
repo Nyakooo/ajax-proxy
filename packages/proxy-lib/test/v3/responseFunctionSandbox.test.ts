@@ -16,6 +16,27 @@ afterEach(() => {
 })
 
 describe('createV3ResponseFunctionExecutor', () => {
+  it('does not send request or response snapshots to a frame with a spoofed id', async () => {
+    vi.stubGlobal('HTMLIFrameElement', FakeIFrameElement)
+    const frame = new FakeIFrameElement()
+    frame.src = 'https://attacker.example/v3-sandbox/sandbox.html'
+    const host = {
+      document: { getElementById: vi.fn(() => frame) },
+      addEventListener: vi.fn(),
+      crypto: { randomUUID: () => 'spoofed-frame-execution-id' },
+    } as unknown as Window
+    const execute = createV3ResponseFunctionExecutor(host)
+
+    await expect(
+      execute(
+        'return response.body',
+        { url: '/private', method: 'POST', body: 'request secret' },
+        { status: 200, statusText: 'OK', headers: {}, body: 'response secret' }
+      )
+    ).rejects.toThrow('Function sandbox is unavailable on this page.')
+    expect(frame.contentWindow.postMessage).not.toHaveBeenCalled()
+  })
+
   it('runs redirect functions with only a request snapshot in the shared sandbox', async () => {
     vi.stubGlobal('HTMLIFrameElement', FakeIFrameElement)
     const frame = new FakeIFrameElement()
