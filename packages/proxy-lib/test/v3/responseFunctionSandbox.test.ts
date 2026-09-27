@@ -808,6 +808,7 @@ describe('createV3ResponseFunctionExecutor', () => {
   it.each([
     'https://example.test/v3-sandbox/sandbox.html',
     'chrome-extension://test-extension/other.html',
+    'chrome-extension://test-extension/prefix/v3-sandbox/sandbox.html',
   ])(
     'rejects non-extension URLs or extension resources outside the sandbox path: %s',
     async (src) => {

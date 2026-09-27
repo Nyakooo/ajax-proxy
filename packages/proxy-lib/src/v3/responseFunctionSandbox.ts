@@ -60,7 +60,7 @@ function isSandboxFrame(value: Element | null): value is HTMLIFrameElement {
   if (!(value instanceof HTMLIFrameElement)) return false
   try {
     const url = new URL(value.src)
-    return url.protocol === 'chrome-extension:' && url.pathname.endsWith(SANDBOX_PATH)
+    return url.protocol === 'chrome-extension:' && url.pathname === SANDBOX_PATH
   } catch {
     return false
   }
