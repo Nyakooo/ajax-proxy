@@ -55,6 +55,8 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 
 - [x] 将项目开发、CI 和发布环境升级到选定的最新 Node.js LTS（Node 24.21.0，`.nvmrc`、engines 与 CI 一致）。
 - [x] 更新 pnpm、TypeScript、Vue CLI 构建工具及相关插件；并选定 Vitest / Vue Test Utils / Playwright 测试工具（见 `docs/V3-TESTING.zh.md`）。
+- [ ] 将 V3 最终生产构建统一到 Vite，逐步替换扩展宿主中的 Webpack，以及旧 Vue CLI / Webpack 面板和编辑器构建；迁移期间允许新旧构建并存，完成切换后移除 Webpack、Vue CLI 及专用 loader / copy 插件等冗余依赖。
+- [ ] 先为 `shell-chrome` 建立 Vite 构建原型，验证 Manifest V3、service worker、content script、独立入口、静态资源复制、扩展内相对路径、开发热更新和最终 ZIP；只有真实浏览器 smoke 与打包产物通过后才替换现有构建。
 - [x] 验证 workspace 全量构建的依赖顺序；各包独立入口仍需后续梳理。
 - [x] 为 TypeScript 包、测试和生产构建提供统一命令（`pnpm typecheck`、`pnpm test`、`pnpm test:coverage`、`pnpm build`）；Vue SFC 类型检查尚未覆盖。
 - [x] 为 lint 和格式检查提供统一命令：Prettier 3.9.9 `pnpm format:check`、ESLint 10.11.0 `pnpm lint` 已接入 CI 并覆盖全包。现有 Vue / JS 源码零 error，保留 378 条告警预算；50 个历史格式文件登记基线且门禁禁止债务增加，新增脚本 / 测试 / 配置严格零告警并严格格式检查。
@@ -86,6 +88,7 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - 包和目录职责可从结构中辨认，依赖方向无循环；新开发环境从干净检出即可构建和运行测试。
 - 测试可在本地和 CI 运行，并产生可查看的覆盖率基线。
 - workspace 包之间的依赖和构建顺序清晰、可重复。
+- 最终 V3 生产产物可由 Vite 工作流构建；扩展 service worker / content script 在 Chrome 与 Edge 目标版本中通过实际加载和功能 smoke，且无残留 Webpack 构建依赖。
 
 阶段 1 验收记录（2026-09-25）：Node 24.21.0 / pnpm 12.6.0 冻结安装、8 包边界检查、完整 clean build、五个 TS package 类型检查、7 项单元测试、全包 lint / 格式债务门禁、Chrome 141 最低版扩展 smoke、生产 JSON 编辑器交互与错误定位 smoke、ZIP 体积报告均通过。本机无法运行 Microsoft Edge 140 Linux 包；精确版本 runtime + extension smoke 已纳入 CI，首次远端运行待确认。V2 包与现有交互验证作为迁移阶段的基线，不代表 V3 schema、UI 或编辑器按需加载已经实现。
 
@@ -503,6 +506,7 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - [ ] 界面是否需要暗色模式、窄屏适配及特定设计风格？
 - [ ] 是否有目标发布日期或分阶段公开预览计划？
 - [x] V3 国际化语言范围：只维护简体中文和英文；切换控件采用直接可见的双选分段按钮，不使用下拉菜单。
+- [x] V3 构建工具方向：最终生产构建优先统一到 Vite；扩展宿主的 Manifest、service worker 与 content script 需先完成原型和目标浏览器验收，迁移期可暂留 Webpack，全部入口切换后再清理旧工具链。
 - [ ] V3 最终采用怎样的 monorepo 包边界和包内目录约定？阶段 0 完成依赖图及迁移提案，阶段 2 按小步重构落实。
 
 ## 7. 已识别的问题清单
@@ -577,6 +581,7 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - 2026-09-24：补充编辑器评估原则：JSON 的结构化、直观调整是产品需求，不能为减少依赖而退化成纯文本编辑。阶段 4 将比较 CodeMirror 6、裁剪 JSONEditor 及轻量树形方案，并支持两种编辑器按需组合；以交互原型和最终生产包数据决定。
 - 2026-09-25：新增 V3 目录结构专项评估与迁移任务。现有顶层包大致按运行职责拆分，但 Vue 面板内部仍有 `common` 聚合目录、编辑器独立包、旧版 `compatibility` 包及分散测试 / fixture；需结合新的组合规则模型、Vue 3 UI、测试分层和 V2 不兼容策略重新核实边界，暂不预设必须整体推倒重排。
 - 2026-09-25：按维护者补充，将 V3 国际化范围限定为简体中文和英文；语言切换改为始终可见、点击即生效的双选分段控件，并纳入非目标语言资源清理、中英文文案完整性、选择持久化和编辑器语言同步验收。
+- 2026-09-27：补充 V3 构建工具评估：当前 `proxy-lib` 与 Vue 3 面板已经使用 Vite，Webpack 主要用于旧 Vue 2 面板 / 编辑器和 `shell-chrome` 扩展宿主。目标是最终生产构建统一迁到 Vite；扩展宿主先验证 Manifest V3、service worker、content script、静态资源和真实浏览器打包行为，再切换并删除过渡依赖。参考：[Vite 多页面构建](https://vite.dev/guide/build)、[CRXJS content scripts](https://crxjs.dev/concepts/content/)、[CRXJS service worker](https://crxjs.dev/concepts/background/)。
 - 2026-09-25：阶段 1 增加 Vitest 5 + V8 覆盖率工具、根级测试命令、源码 alias、CI 覆盖率步骤及 `docs/V3-TESTING.zh.md`；首批 7 项规则匹配 / 静态重定向回归用例已通过。记录 workspace TS 源码初始覆盖率（statements 8.46%、branches 4.69%、functions 5.55%、lines 8.39%），详见测试基线文档。Vue Test Utils + jsdom 与 Playwright 定为后续工具，尚未安装 / 验证；CI 实际浏览器矩阵、lint / 格式检查、包边界与目录职责仍未完成，本阶段暂不验收或提交。
 - 2026-09-25：阶段 0 问题登记补充到 `docs/V3-ISSUES.zh.md`。通过临时 Vitest 调用实际 Fetch 拦截包装器复现：以 `Request` 传入 POST 而省略 `init` 时，POST 规则未生效，因为 method 只从 `init.method` 读取；临时用例已删除，持久化修复与回归测试安排在阶段 2。其余静态审查线索仍标为待复现。
 - 2026-09-25：完成首轮 V3 目录结构、跨包依赖、声明 / 构建产物、编辑器加载和测试夹具归属评估，迁移建议、clean-build 风险及验收标准见 `docs/V3-ARCHITECTURE-ASSESSMENT.zh.md`。这是方案交付，不代表已执行包迁移；V3 schema / core 分层和 `compatibility` 去留需在阶段 1 / 2 分步处理。
@@ -898,4 +903,5 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - 2026-09-27：补 V3 response-function sandbox iframe 身份回归：普通 HTTPS 页面即使冒用预期 iframe ID，也会在发送前拒绝执行，不向伪造 frame 投递 request / response 快照。定向 sandbox 测试 21 项、整合后全量 Vitest 42 个文件 / 417 项通过；ESLint、Prettier 与 diff 检查通过。完成 388 / 422 项（91.9%）。
 - 2026-09-27：清理 Vue 2 面板中无源码引用的 Vue CLI Router / Vuex 插件，并由 pnpm 12.6.0 同步锁文件。冻结安装、完整 workspace build、Vue 2 面板生产构建与开发服务器 HTTP 200、包边界 / V3 隔离及生成声明检查通过；官方审计仍为 2 条 Vue 2 告警（0 高、1 中、1 低），留待工具链迁移关闭。完成 389 / 423 项（92.0%）。
 - 2026-09-27：补 legacy interceptor 函数同步返回对象的回归：`override` 正常化且未提供 status 时采用配置的 `customStatus`。定向 custom function 测试 7 项、整合后全量 Vitest 42 个文件 / 419 项通过；整体覆盖率语句 / 分支 / 函数 / 行 94.36% / 91.61% / 96.07% / 96.33%，ESLint、Prettier 与 diff 检查通过。完成 390 / 424 项（92.0%）。
+- 2026-09-27：补 legacy Fetch 自定义响应函数成功路径：函数替换 body 与 status 201，且仅发出一次包含 URL、match URL、method 和规则索引的命中通知。定向 createFetch 测试 12 项、整合后全量 Vitest 42 个文件 / 419 项通过；ESLint、Prettier 与 diff 检查通过。完成 391 / 425 项（92.0%）。
 - GitHub 里程碑：[阶段 0](https://github.com/Nyakooo/ajax-proxy/milestone/1)、[阶段 1](https://github.com/Nyakooo/ajax-proxy/milestone/2)、[阶段 2](https://github.com/Nyakooo/ajax-proxy/milestone/3)、[阶段 3](https://github.com/Nyakooo/ajax-proxy/milestone/4)、[阶段 4](https://github.com/Nyakooo/ajax-proxy/milestone/5)、[阶段 5](https://github.com/Nyakooo/ajax-proxy/milestone/6)、[阶段 6](https://github.com/Nyakooo/ajax-proxy/milestone/7)、[阶段 7](https://github.com/Nyakooo/ajax-proxy/milestone/8)；已复现缺陷：[issue #56](https://github.com/Nyakooo/ajax-proxy/issues/56)。

@@ -117,6 +117,27 @@ describe('CustomFetch Request input', () => {
     expect(dispatchEvent).not.toHaveBeenCalled()
   })
 
+  it('replaces the response when a legacy custom function returns an override', async () => {
+    const { customFetch, dispatchEvent } = await createFetchHarness({
+      method: 'POST',
+      matchUrl: '/api/original',
+      overrideType: 'function',
+      overrideFunc: 'function() { return { override: "legacy function response", status: 201 } }',
+    })
+
+    const response = await customFetch('https://example.test/api/original', { method: 'POST' })
+
+    expect(response.status).toBe(201)
+    expect(await response.text()).toBe('legacy function response')
+    expect(dispatchEvent).toHaveBeenCalledOnce()
+    expect(dispatchEvent.mock.calls[0][0].detail).toMatchObject({
+      url: 'https://example.test/api/original',
+      match_url: '/api/original',
+      method: 'POST',
+      rule_index: 0,
+    })
+  })
+
   it.each([204, 205, 304])('replaces status %i with a bodyless response', async (statusCode) => {
     const { customFetch } = await createFetchHarness({
       method: 'GET',
