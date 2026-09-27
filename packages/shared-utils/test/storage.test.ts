@@ -396,6 +396,39 @@ describe('shared storage cache', () => {
     expect(await getStorageAll()).toEqual({})
   })
 
+  it('preserves plain-text localStorage values during initialization, direct reads, and change events', async () => {
+    const values: Record<string, string> = { mode: 'interceptor' }
+    const localStorage = Object.create(null)
+    Object.defineProperty(localStorage, 'mode', { value: true, enumerable: true })
+    Object.defineProperties(localStorage, {
+      getItem: { value: (key: string) => values[key] ?? null },
+      setItem: { value: vi.fn() },
+      removeItem: { value: vi.fn() },
+      clear: { value: vi.fn() },
+    })
+    let storageListener: ((event: StorageEvent) => void) | undefined
+    vi.stubGlobal('chrome', undefined)
+    vi.stubGlobal('localStorage', localStorage)
+    vi.stubGlobal('addEventListener', (type: string, listener: (event: StorageEvent) => void) => {
+      if (type === 'storage') storageListener = listener
+    })
+    const { getRealStorage, getStorage, initStorage } = await import('../src/storage')
+    await initStorage()
+
+    expect(getStorage('mode')).toBe('interceptor')
+
+    values.mode = 'redirector'
+    await expect(getRealStorage('mode' as StorageKey)).resolves.toBe('redirector')
+    expect(getStorage('mode')).toBe('redirector')
+
+    storageListener?.({
+      key: 'mode',
+      newValue: 'manual',
+      storageArea: localStorage,
+    } as StorageEvent)
+    expect(getStorage('mode')).toBe('manual')
+  })
+
   it('returns the default and clears the cache when a direct localStorage read misses', async () => {
     let storedValue: string | null = '"cached"'
     const localStorage = Object.create(null)
