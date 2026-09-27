@@ -1101,4 +1101,4 @@ Stable Chrome / Edge 的原生 CSS `resize` 把手被 CodeMirror 子元素覆盖
 
 ## 品牌浏览器与扩展 smoke 的 CI 启动方式（2026-09-27）
 
-最新 Chrome Stable CI 在 Playwright persistent context 中启动后未加载扩展 service worker。检查发现 Playwright 的扩展侧载命令行流程面向其 Chromium；品牌 Chrome / Edge Stable 的运行时和面板 smoke 继续直接验证品牌浏览器，扩展 Fetch / XHR smoke 使用 Playwright Chromium，最低版本矩阵继续使用固定 Chrome for Testing / Edge executable 验证实际扩展。CI 已改为仅在 Chrome 矩阵安装 Playwright Chromium 并运行该扩展 smoke。待新 CI 全绿后关闭此门禁项；品牌 Chrome 上独立弹窗的用户侧验收仍单独记录。
+最新 Chrome Stable CI 在 Playwright persistent context 中启动后未加载扩展 service worker。检查发现 Playwright 的扩展侧载命令行流程面向其 Chromium；品牌 Chrome / Edge Stable 的运行时和窄视口面板 smoke 继续直接验证品牌浏览器，扩展 Fetch / XHR、规则 popup 与面板打开 smoke 使用 Playwright Chromium，最低版本矩阵继续使用固定 Chrome for Testing / Edge executable 验证实际扩展。CI 已改为安装 Playwright Chromium 并将扩展侧载 smoke 指向该版本。待新 CI 全绿后关闭此门禁项；品牌 Chrome 上独立弹窗的用户侧验收仍单独记录。
