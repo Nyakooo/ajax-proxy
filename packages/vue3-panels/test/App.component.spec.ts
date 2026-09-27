@@ -613,6 +613,8 @@ describe('App no-match diagnostics localization', () => {
       ],
     }
     const { wrapper, sendExtensionMessage } = await mountApp([], startingConfig)
+    const matchTimestamp = Date.UTC(2026, 8, 27, 15, 4, 5)
+    vi.spyOn(Date, 'now').mockReturnValue(matchTimestamp)
 
     expect(document.documentElement.lang).toBe('zh-CN')
     expect(
@@ -628,6 +630,18 @@ describe('App no-match diagnostics localization', () => {
         method: 'GET',
         rules: [{ rule_id: 'known-rule', reason: 'method-mismatch' }],
         truncated: false,
+      },
+    })
+    sendExtensionMessage({
+      from: NoticeFrom.SERVICE_WORKER,
+      to: NoticeTo.PANELS,
+      key: NoticeKey.V3_HIT,
+      value: {
+        rule_id: 'known-rule',
+        count: 12345,
+        match_url: '/expected',
+        method: 'POST',
+        url: '/expected',
       },
     })
     sendExtensionMessage({
@@ -671,6 +685,17 @@ describe('App no-match diagnostics localization', () => {
     expect(outcomes.text()).toContain('XHR · 响应阶段 · 失败 · 响应替换失败，已使用原始响应')
     expect(outcomes.text()).not.toContain('response-replacement-applied')
     expect(outcomes.text()).not.toContain('response-replacement-failed')
+    const timeOptions: Intl.DateTimeFormatOptions = {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+    }
+    expect(wrapper.get('.recent-matches-list time').text()).toBe(
+      new Intl.DateTimeFormat('zh-CN', timeOptions).format(matchTimestamp)
+    )
+    expect(wrapper.get('.hit-count strong').text()).toBe(
+      new Intl.NumberFormat('zh-CN').format(12345)
+    )
 
     await wrapper.get('.language-toggle button[aria-label="English"]').trigger('click')
 
@@ -688,6 +713,10 @@ describe('App no-match diagnostics localization', () => {
     expect(outcomes.text()).toContain('Correlation ID:')
     expect(outcomes.text()).not.toContain('response-replacement-applied')
     expect(outcomes.text()).not.toContain('response-replacement-failed')
+    expect(wrapper.get('.recent-matches-list time').text()).toBe(
+      new Intl.DateTimeFormat('en', timeOptions).format(matchTimestamp)
+    )
+    expect(wrapper.get('.hit-count strong').text()).toBe(new Intl.NumberFormat('en').format(12345))
   })
 })
 

@@ -383,6 +383,10 @@ function formatMatchTime(timestamp) {
   }).format(timestamp)
 }
 
+function formatHitCount(count) {
+  return new Intl.NumberFormat(locale.value).format(count)
+}
+
 function runRuleDiagnostics() {
   const url = diagnosticUrl.value.trim()
   if (!url || !ruleOperations) {
@@ -1679,7 +1683,7 @@ async function moveRule(rule, targetRule) {
                 </div>
               </div>
               <div class="hit-count">
-                <strong>{{ hitCounters[rule.id] ?? 0 }}</strong>
+                <strong>{{ formatHitCount(hitCounters[rule.id] ?? 0) }}</strong>
                 <span>{{ t('rules.hits') }}</span>
               </div>
               <div class="rule-actions">

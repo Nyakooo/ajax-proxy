@@ -207,6 +207,7 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - [x] 锁定首次启动语言策略：无偏好、无效偏好或存储读取失败时使用简体中文，只恢复支持的 `en` 偏好。
 - [x] 将语言切换从下拉框改为始终可见的双选分段控件，明确显示“简体中文”和“English”；当前语言有清晰选中态，点击后立即切换并持久化，不需要额外确认。Vue 3 候选面板已通过 `vue-i18n` Composition API 实现，偏好保存在隔离的原型 localStorage 键中。
 - [ ] 统一应用文案、组件库、日期 / 数字格式和 JSON 编辑器语言为当前选择；检查中英文键值完整、术语一致、布局无截断。
+- [x] 最近命中时间与命中计数使用当前界面语言进行 Intl 日期和数字格式化，并由 App 回归覆盖中英文切换。
 - [ ] 检查键盘操作、焦点顺序、可读性和不同窗口尺寸下的布局。
 - [x] 关闭备份 / 恢复、规则模板和站点管理弹窗后，将键盘焦点送回原打开按钮；由 App 层组件回归覆盖 Escape 关闭。
 - [x] 关闭规则筛选 popover 后将键盘焦点送回筛选触发按钮；Escape 和触发按钮上的 Escape 都走统一关闭处理。
@@ -833,4 +834,5 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - 2026-09-27：补 App 级标签管理集成回归：创建名称首尾空白会清理，大小写不敏感的重复标签不落盘，关闭管理弹窗后焦点回到标签筛选按钮。全量 Vitest 36 个文件 / 368 项、Vue 3 UI 8 个文件 / 58 项、改动文件 ESLint / Prettier 通过。完成 352 / 386 项（91.2%）。
 - 2026-09-27：补删除标签确认与引用清理集成回归：取消确认时不保存；确认后移除目标标签、仅清理其规则引用并解除已删除标签筛选。全量 Vitest 36 个文件 / 368 项、Vue 3 UI 8 个文件 / 59 项、改动文件 ESLint / Prettier 通过。完成 353 / 387 项（91.2%）。
 - 2026-09-27：补标签重命名集成回归：名称会修剪首尾空白，更新后规则仍引用原 tag ID，大小写不敏感重名会被拒绝且不再次保存。全量 Vitest 36 个文件 / 368 项、Vue 3 UI 8 个文件 / 60 项、改动文件 ESLint / Prettier 通过。完成 354 / 388 项（91.2%）。
+- 2026-09-27：让最近命中时间和计数均按当前 V3 locale 使用 Intl 格式化，并在 App 中以固定时间 / 大计数回归中英文切换结果。全量 Vitest 36 个文件 / 368 项、Vue 3 UI 8 个文件 / 60 项、V3 面板生产构建、改动文件 ESLint / Prettier 通过。完成 355 / 389 项（91.3%）。
 - GitHub 里程碑：[阶段 0](https://github.com/Nyakooo/ajax-proxy/milestone/1)、[阶段 1](https://github.com/Nyakooo/ajax-proxy/milestone/2)、[阶段 2](https://github.com/Nyakooo/ajax-proxy/milestone/3)、[阶段 3](https://github.com/Nyakooo/ajax-proxy/milestone/4)、[阶段 4](https://github.com/Nyakooo/ajax-proxy/milestone/5)、[阶段 5](https://github.com/Nyakooo/ajax-proxy/milestone/6)、[阶段 6](https://github.com/Nyakooo/ajax-proxy/milestone/7)、[阶段 7](https://github.com/Nyakooo/ajax-proxy/milestone/8)；已复现缺陷：[issue #56](https://github.com/Nyakooo/ajax-proxy/issues/56)。
