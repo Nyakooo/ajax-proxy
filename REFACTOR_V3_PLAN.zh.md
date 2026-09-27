@@ -121,6 +121,7 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - [x] 将 V3 backup schema / validation 放到 domain package 的 `backup.ts`，通过 `index.ts` 稳定导出入口；规则 matcher 从 `backup.ts` 单向依赖规则类型，避免 barrel 与匹配器互相导入。
 - [x] 将纯 V3 规则模型类型从 backup 校验实现拆到 `rules.ts`；backup validator 与 matcher 直接依赖领域类型，包根入口继续导出原有类型 API。
 - [x] 将共享的 V3 匹配判定 / 正则缓存、运行时首条规则选择和手工诊断分析分到独立领域模块；Fetch / XHR 与 UI 诊断仍共用同一匹配语义，包根函数与类型导出保持稳定。
+- [x] 将 HTTP(S) origin 规范化与 disabled-origin 判定从 backup schema 实现拆到 `siteSettings.ts`；backup validator 和原有 package / backup 导出路径保持兼容。
 - [x] 将 V3 命中规则复核、counter sanitize、总计和安全递增等纯领域逻辑放入 `v3-domain/hitCounters.ts`；service worker 只负责串行队列、storage、徽章和 panel notification。
 - [x] 将 V3 面板临时诊断与 Fetch / XHR outcome 采集偏好的 Chrome storage 读写和 `onChanged` 订阅封装到 service；App 只同步视图状态，适配器单测覆盖读取、启停、区域过滤和清理。
 - [x] 将 V3 面板活动标签页查询、HTTP(S) origin 规范化及 `tabs.onActivated` / `tabs.onUpdated` 订阅封装到 service；App 只消费当前 origin，并在卸载时释放订阅。
@@ -361,6 +362,7 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - [x] 为 Vue 3 RedirectRuleEditor 覆盖必填 / 首尾空格校验及 regex、method、target、tag IDs 保存 payload。
 - [x] 为 Vue 3 BackupRestoreDialog 覆盖函数规则恢复确认及编辑 source 后使旧预览失效。
 - [x] 为 Vue 3 RuleTagsDialog 覆盖创建后清空输入及重命名空值 / 相同值禁用和新值事件。
+- [x] 为 Vue 3 RuleTagsDialog 覆盖按标签命名的移除按钮、正确的 remove 事件参数及保存中禁用状态。
 - [x] 为 Vue 3 RuleTagsDialog 覆盖打开焦点、Tab / Shift+Tab 回绕、Escape 关闭及 dialog 可访问名称。
 - [x] 为 Vue 3 RuleFilterPopover 覆盖筛选 props 的单选状态、状态 / 匹配方式更新事件、清除、关闭按钮、Escape 和关闭时隐藏。
 - [x] 为 Vue 3 RuleTagPicker 覆盖初始选中、取消并保留其余 tag、追加 tag 和空列表状态。
@@ -1002,4 +1004,5 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - 2026-09-27：将 `v3-domain` 共享规则匹配判定与正则缓存、运行时首条规则选择、手工诊断分析拆分到明确模块，package root 保持现有函数与类型 API；补充架构评估映射。domain 规则校验 / matcher 测试 45 项、domain TypeScript 检查、包边界、严格 ESLint、Prettier 和 diff 检查通过。完成 453 / 487 项（93.0%）。
 - 2026-09-27：为 Vue 3 `RuleTagPicker` 新增组件回归，覆盖初始选中、取消后保留其他选择、追加选择及无 tag 空状态。组件测试 10 个文件 / 82 项通过；新测试 ESLint 零告警、Prettier 与 diff 检查通过。完成 454 / 488 项（93.0%）。
 - 2026-09-27：架构拆分提交的首次 CI 检出新增模块的 TypeScript 声明文件尚未生成并提交；已补齐声明并通过生成声明检查，修复后 CI run [36302741194](https://github.com/Nyakooo/ajax-proxy/actions/runs/36302741194) 全部通过。RuleTagPicker 新增组件回归的 CI run [36302873930](https://github.com/Nyakooo/ajax-proxy/actions/runs/36302873930) 也全部通过，包含 Vite watch 重建和 Stable / 最低版本浏览器 smoke。当前计划核对项为 454 / 488（93.0%）。
+- 2026-09-27：将 disabled-origin 的规范化与精确判定拆至独立 `siteSettings.ts`，保持 package root 和 `backup` 导出兼容；domain 测试 46 项、TypeScript 构建 / 类型检查、声明提交后的 `check-generated-types`、严格 ESLint 和格式检查通过，提交 `d4b61f0`。为 RuleTagsDialog 的移除按钮补上包含标签名的本地化可访问名称，并覆盖正确事件参数与保存中禁用；定向组件测试 4 项及严格 ESLint / Prettier 通过，提交 `657f8c1`。计划核对项为 456 / 491（92.9%）；Vite clean-build CI 门禁仍在运行。
 - GitHub 里程碑：[阶段 0](https://github.com/Nyakooo/ajax-proxy/milestone/1)、[阶段 1](https://github.com/Nyakooo/ajax-proxy/milestone/2)、[阶段 2](https://github.com/Nyakooo/ajax-proxy/milestone/3)、[阶段 3](https://github.com/Nyakooo/ajax-proxy/milestone/4)、[阶段 4](https://github.com/Nyakooo/ajax-proxy/milestone/5)、[阶段 5](https://github.com/Nyakooo/ajax-proxy/milestone/6)、[阶段 6](https://github.com/Nyakooo/ajax-proxy/milestone/7)、[阶段 7](https://github.com/Nyakooo/ajax-proxy/milestone/8)；已复现缺陷：[issue #56](https://github.com/Nyakooo/ajax-proxy/issues/56)。
