@@ -1072,3 +1072,7 @@ panel / popup / tabPanel 定向测试 29 项、shell TypeScript、改动文件�
 按用户要求，响应 / 重定向编辑表单以及站点、标签、备份这些包含输入内容的表单，只通过确认 / 保存、取消或关闭按钮结束；遮罩点击和 Escape 不关闭，Tab 焦点循环保持。主面板两个分类统一使用单行“创建规则”按钮（34px 高），按当前分类创建对应动作；移除空列表重复的“创建第一条规则”按钮。
 
 119 项 Vue 3 组件测试通过；400px / 360px 响应式浏览器回归验证按钮不换行、点击遮罩 / Escape 保持表单和输入值、关闭按钮仍正常关闭。完整扩展 Fetch / XHR、统一规则 popup 与编辑直达、开发产物的独立弹窗 / 手动标签页隔离 smoke 均通过。build-vite、build-vite-dev 和 ZIP 已重建。整体计划仍为 468 / 497（94.2%），实际 Chrome 独立窗口验收仍等待此前问答结果。
+
+## 远端 CI 验收（2026-09-27）
+
+提交 `1bdd721` 的 CI run [36322960152](https://github.com/Nyakooo/ajax-proxy/actions/runs/36322960152) 全部通过：Chrome / Edge Stable 与 Chrome 141 / Edge 140 最低版本 smoke、单元与组件测试、Vite 原型独立构建及 ZIP、Fetch / XHR 扩展 smoke、popup 到独立面板与手动标签页流程、Vite watch 重建验收。品牌 Chrome 中重新加载后对独立弹窗实际表现的确认仍需用户提供；CI 不替代这项桌面验收。
