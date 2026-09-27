@@ -647,6 +647,63 @@ describe('createV3ResponseFunctionExecutor', () => {
     expect(frame.remove).toHaveBeenCalledOnce()
   })
 
+  it('keeps a newer execution when an older duplicate-id cleanup timer fires', async () => {
+    vi.useFakeTimers()
+    vi.stubGlobal('HTMLIFrameElement', FakeIFrameElement)
+    const frame = new FakeIFrameElement()
+    let onMessage: ((event: MessageEvent) => void) | undefined
+    const host = {
+      document: { getElementById: vi.fn(() => frame) },
+      addEventListener: vi.fn((_type: string, listener: EventListenerOrEventListenerObject) => {
+        if (typeof listener === 'function') onMessage = listener as (event: MessageEvent) => void
+      }),
+      crypto: { randomUUID: () => 'duplicate-execution-id' },
+    } as unknown as Window
+    const execute = createV3ResponseFunctionExecutor(host)
+    const request = { url: '/api', method: 'GET' }
+    const response = { status: 200, statusText: 'OK', headers: {}, body: 'native' }
+    const deliver = (data: unknown) =>
+      onMessage?.({ origin: 'null', source: frame.contentWindow, data } as MessageEvent)
+    const firstExecution = execute('return response.body', request, response)
+    const firstRejection = expect(firstExecution).rejects.toThrow(
+      'Function response timed out after 5 seconds.'
+    )
+
+    deliver({ channel: 'ajax-proxy-v3-function-sandbox', type: 'ready' })
+    await Promise.resolve()
+    await Promise.resolve()
+    expect(frame.contentWindow.postMessage).toHaveBeenCalledOnce()
+
+    await vi.advanceTimersByTimeAsync(5000)
+    await firstRejection
+    expect(frame.contentWindow.postMessage).toHaveBeenLastCalledWith(
+      {
+        channel: 'ajax-proxy-v3-function-sandbox',
+        type: 'cancel',
+        id: 'duplicate-execution-id',
+      },
+      '*'
+    )
+
+    const secondExecution = execute('return response.body', request, response)
+    await Promise.resolve()
+    await Promise.resolve()
+    expect(frame.contentWindow.postMessage).toHaveBeenCalledTimes(3)
+
+    await vi.advanceTimersByTimeAsync(100)
+    expect(frame.remove).not.toHaveBeenCalled()
+    deliver({
+      channel: 'ajax-proxy-v3-function-sandbox',
+      type: 'result',
+      id: 'duplicate-execution-id',
+      ok: true,
+      result: 'new execution',
+    })
+
+    await expect(secondExecution).resolves.toBe('new execution')
+    expect(frame.remove).not.toHaveBeenCalled()
+  })
+
   it('removes the sandbox after timeout even when sending cancel fails', async () => {
     vi.useFakeTimers()
     vi.stubGlobal('HTMLIFrameElement', FakeIFrameElement)

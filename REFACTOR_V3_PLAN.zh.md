@@ -336,6 +336,7 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - [x] 为 V3 面板配置保存覆盖当前存储配置本身无效的 fail-closed 分支；返回精确校验 issues，且不得写入新配置覆盖损坏状态。
 - [x] 为 V3 response function executor 覆盖 iframe `ready` / `result` 可信往返；错误 source 不得触发执行，正确 source 与 opaque origin 才能完成结果。
 - [x] 覆盖 sandbox `ready` 恰好在加载 waiter 注册期间到达的竞态；该调用仍应执行并完成，不能丢失握手或误超时。
+- [x] 覆盖超时执行 ID 重复时的延迟清理保护；旧执行的 grace timer 不得删除同 ID 的较新 pending 调用。
 - [x] 验证 response sandbox 对合法 null-prototype ready / result 消息记录的处理，并完成正常执行往返。
 - [x] 为 V3 response function executor 覆盖 sandbox 合法失败响应；协议校验通过的错误结果应 reject Promise 并保留错误信息。
 - [x] 为 V3 response function executor 覆盖硬超时与取消：5 秒后拒绝并发送 cancel，宽限期后移除 sandbox iframe。
@@ -989,4 +990,5 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - 2026-09-27：补仅启用 request 函数重定向时的 content script sandbox 生命周期回归：即使 response action 关闭仍创建 sandbox，request action 停用后移除 iframe。content 定向测试 8 项、全量 Vitest 45 个文件 / 511 项通过；总体语句 / 分支 / 函数 / 行覆盖率维持 97.87% / 94.85% / 98.40% / 99.12%。严格 ESLint、Prettier 与 diff 检查通过。完成 447 / 481 项（92.9%）。
 - 2026-09-27：补 response function sandbox ready 恰在 waiter 注册窗口到达的竞态回归；握手不能丢失，执行仍投递给当前 iframe 并完成。定向 sandbox 测试 25 项、全量 Vitest 45 个文件 / 512 项通过；总体语句 / 分支 / 函数 / 行覆盖率为 97.9% / 94.89% / 98.4% / 99.12%，sandbox 分支覆盖率升至 90.21%。严格 ESLint、Prettier 与 diff 检查通过。完成 448 / 482 项（92.9%）。
 - 2026-09-27：覆盖 response sandbox 对 null-prototype ready 与 result 数据记录的支持：合法握手可启动执行，合法结果可完成 Promise。定向 sandbox 测试 27 项、全量 Vitest 45 个文件 / 514 项通过；总体语句 / 分支 / 函数 / 行覆盖率为 97.98% / 94.97% / 98.4% / 99.16%，sandbox 分支覆盖率升至 92.39%。严格 ESLint、Prettier 与 diff 检查通过。完成 449 / 483 项（93.0%）。
+- 2026-09-27：覆盖响应 sandbox 重复执行 ID 的超时清理竞态：旧执行的 100ms grace callback 不会移除较新 pending 调用，后者仍能正常接收结果。定向 sandbox 测试 28 项、全量 Vitest 45 个文件 / 515 项通过；总体语句 / 分支 / 函数 / 行覆盖率为 98.01% / 95.01% / 98.4% / 99.16%，sandbox 分支覆盖率升至 93.47%。严格 ESLint、Prettier 与 diff 检查通过。完成 450 / 484 项（93.0%）。
 - GitHub 里程碑：[阶段 0](https://github.com/Nyakooo/ajax-proxy/milestone/1)、[阶段 1](https://github.com/Nyakooo/ajax-proxy/milestone/2)、[阶段 2](https://github.com/Nyakooo/ajax-proxy/milestone/3)、[阶段 3](https://github.com/Nyakooo/ajax-proxy/milestone/4)、[阶段 4](https://github.com/Nyakooo/ajax-proxy/milestone/5)、[阶段 5](https://github.com/Nyakooo/ajax-proxy/milestone/6)、[阶段 6](https://github.com/Nyakooo/ajax-proxy/milestone/7)、[阶段 7](https://github.com/Nyakooo/ajax-proxy/milestone/8)；已复现缺陷：[issue #56](https://github.com/Nyakooo/ajax-proxy/issues/56)。
