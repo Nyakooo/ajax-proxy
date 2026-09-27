@@ -360,6 +360,7 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - [x] 为 Vue 3 BackupRestoreDialog 覆盖函数规则恢复确认及编辑 source 后使旧预览失效。
 - [x] 为 Vue 3 RuleTagsDialog 覆盖创建后清空输入及重命名空值 / 相同值禁用和新值事件。
 - [x] 为 Vue 3 RuleTagsDialog 覆盖打开焦点、Tab / Shift+Tab 回绕、Escape 关闭及 dialog 可访问名称。
+- [x] 为 Vue 3 RuleFilterPopover 覆盖筛选 props 的单选状态、状态 / 匹配方式更新事件、清除、关闭按钮、Escape 和关闭时隐藏。
 - [x] 为 V3 函数响应规则补 App 层创建 / 持久化集成回归：确认函数源码、匹配条件和标签进入保存 payload，首次保存的 response action 默认关闭，成功后编辑器关闭。
 - [x] 为 V3 函数响应规则补 App 层编辑和失败路径回归：编辑组合 redirect / function 规则时保留 rule ID、redirect 和 tagIds；保存拒绝时现有配置不变、编辑器保持打开并显示错误。
 - [x] 为 JSON 响应补 App 层创建 / 编辑保存闭环：正确持久化 match、method、status 和 body；编辑组合规则时保留 rule ID、redirect、tagIds 和自定义 response headers，保存失败不应用草稿。
@@ -994,4 +995,5 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - 2026-09-27：覆盖 response sandbox 对 null-prototype ready 与 result 数据记录的支持：合法握手可启动执行，合法结果可完成 Promise。定向 sandbox 测试 27 项、全量 Vitest 45 个文件 / 514 项通过；总体语句 / 分支 / 函数 / 行覆盖率为 97.98% / 94.97% / 98.4% / 99.16%，sandbox 分支覆盖率升至 92.39%。严格 ESLint、Prettier 与 diff 检查通过。完成 449 / 483 项（93.0%）。
 - 2026-09-27：覆盖响应 sandbox 重复执行 ID 的超时清理竞态：旧执行的 100ms grace callback 不会移除较新 pending 调用，后者仍能正常接收结果。定向 sandbox 测试 28 项、全量 Vitest 45 个文件 / 515 项通过；总体语句 / 分支 / 函数 / 行覆盖率为 98.01% / 95.01% / 98.4% / 99.16%，sandbox 分支覆盖率升至 93.47%。严格 ESLint、Prettier 与 diff 检查通过。完成 450 / 484 项（93.0%）。
 - 2026-09-27：为 shell Vite 原型提供隔离的 Rollup watch 输出 `build-vite-dev` 和 Fetch / XHR 重载验收脚本；本机 Chromium 验证首次加载及 `document.ts` 改动触发 `document.js` 重建后的 smoke 均通过。复核后固定并保护输出目录，确保启动 / 静态资源校验失败时关闭全部 watcher，并在触发重建前校验源码 mtime 与内容、退出后仅在文件未被修改时恢复时间戳。旧生产 Vite 原型 clean build、Manifest / 资源校验、ZIP 完整性和扩展 smoke 通过；包边界、脚本零告警 ESLint、Prettier、CI YAML 解析与 diff 检查通过。CI run [36301672668](https://github.com/Nyakooo/ajax-proxy/actions/runs/36301672668) 全部通过，包括 watch 重建循环、Chrome / Edge Stable 浏览器 smoke 和 Chrome 141 / Edge 140 最低版本扩展 smoke。品牌版浏览器手动加载扩展仍待验收。开发循环需要重载扩展与页面，不提供页面内 HMR。完成 451 / 485 项（93.0%）。
+- 2026-09-27：为 Vue 3 `RuleFilterPopover` 新增组件回归，覆盖初始筛选选中态、status / matchType 更新、清除、关闭按钮、Escape 和 `open=false` 隐藏。组件测试 9 个文件 / 80 项通过；新测试 ESLint 零告警、Prettier 与 diff 检查通过。完成 452 / 486 项（93.0%）。
 - GitHub 里程碑：[阶段 0](https://github.com/Nyakooo/ajax-proxy/milestone/1)、[阶段 1](https://github.com/Nyakooo/ajax-proxy/milestone/2)、[阶段 2](https://github.com/Nyakooo/ajax-proxy/milestone/3)、[阶段 3](https://github.com/Nyakooo/ajax-proxy/milestone/4)、[阶段 4](https://github.com/Nyakooo/ajax-proxy/milestone/5)、[阶段 5](https://github.com/Nyakooo/ajax-proxy/milestone/6)、[阶段 6](https://github.com/Nyakooo/ajax-proxy/milestone/7)、[阶段 7](https://github.com/Nyakooo/ajax-proxy/milestone/8)；已复现缺陷：[issue #56](https://github.com/Nyakooo/ajax-proxy/issues/56)。
