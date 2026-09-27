@@ -7,6 +7,18 @@ afterEach(() => {
 })
 
 describe('shared storage cache', () => {
+  it('guards synchronous cache access until storage is initialized', async () => {
+    vi.stubGlobal('chrome', undefined)
+    vi.stubGlobal('localStorage', { getItem: () => null })
+    const { getStorage, getStorageSnapshot, setStorage } = await import('../src/storage')
+
+    expect(() => getStorage('mode')).toThrow("Storage wasn't initialized with 'init()'")
+    expect(() => getStorageSnapshot()).toThrow("Storage wasn't initialized with 'init()'")
+    expect(() => setStorage('mode', 'interceptor')).toThrow(
+      "Storage wasn't initialized with 'init()'"
+    )
+  })
+
   it('applies local storage change events and ignores other storage areas', async () => {
     const listeners: Array<
       (changes: Record<string, { newValue?: unknown }>, area: string) => void
@@ -76,6 +88,69 @@ describe('shared storage cache', () => {
     expect(read).toHaveBeenCalledOnce()
     expect({ ...snapshot, rules }).toEqual({ mode: 'interceptor', rules: [1, 2, 3] })
     expect(getStorageSnapshot()).toEqual({ mode: 'interceptor', rules: [1, 2] })
+  })
+
+  it('refreshes the cache from a successful Chrome getStorageAll read', async () => {
+    let stored = { mode: 'interceptor' }
+    const read = vi.fn((_key: unknown, callback: (data: typeof stored) => void) => callback(stored))
+    vi.stubGlobal('chrome', {
+      runtime: {},
+      storage: {
+        onChanged: { addListener: vi.fn() },
+        local: { get: read },
+      },
+    })
+    const { getStorage, getStorageAll, initStorage } = await import('../src/storage')
+    await initStorage()
+    stored = { mode: 'redirector' }
+
+    await expect(getStorageAll()).resolves.toEqual({ mode: 'redirector' })
+
+    expect(read).toHaveBeenLastCalledWith(null, expect.any(Function))
+    expect(getStorage('mode')).toBe('redirector')
+  })
+
+  it('reports a failed Chrome getStorageAll read and preserves the initialized cache', async () => {
+    let inCallback = false
+    let fullReadCount = 0
+    const storageError = { message: 'storage unavailable' }
+    const errorLog = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const dispatchEvent = vi.fn()
+    vi.stubGlobal('dispatchEvent', dispatchEvent)
+    vi.stubGlobal('chrome', {
+      runtime: {
+        get lastError() {
+          return inCallback ? storageError : undefined
+        },
+      },
+      storage: {
+        onChanged: { addListener: vi.fn() },
+        local: {
+          get: (key: unknown, callback: (data: Record<string, unknown>) => void) => {
+            if (key === null) {
+              fullReadCount += 1
+              if (fullReadCount > 1) inCallback = true
+              callback({ mode: 'interceptor' })
+              inCallback = false
+            } else {
+              callback({ mode: 'redirector' })
+            }
+          },
+        },
+      },
+    })
+    const { getStorage, getStorageAll, initStorage } = await import('../src/storage')
+    await initStorage()
+
+    await expect(getStorageAll()).rejects.toThrow('Storage read failed: storage unavailable')
+
+    expect(getStorage('mode')).toBe('interceptor')
+    expect(errorLog).toHaveBeenCalled()
+    expect(dispatchEvent).toHaveBeenCalledOnce()
+    expect(dispatchEvent.mock.calls[0][0]).toMatchObject({
+      type: 'ajax-proxy:storage-error',
+      detail: { operation: 'read', message: 'Storage read failed: storage unavailable' },
+    })
   })
 
   it('clears a stale Chrome cache entry when a direct read finds the key missing', async () => {
