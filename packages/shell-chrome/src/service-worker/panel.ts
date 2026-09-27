@@ -1,5 +1,7 @@
 declare const __AJAX_PROXY_PANEL_PATH__: string | undefined
 
+import { changeTabPanelSize, closeTabPanel, openTabPanel } from './tabPanel'
+
 let current_window_id: number | undefined
 let current_tab_id: number | undefined
 let current_tab_window_id: number | undefined
@@ -92,6 +94,10 @@ function sendEditRule(ruleId?: string, ruleAction?: 'response' | 'redirect') {
 
 /**创建视图 */
 export async function createPanel(ruleId?: string, ruleAction?: 'response' | 'redirect') {
+  if (panelPath === 'panels-v3/index.html') {
+    await openTabPanel(panelPath, ruleId, ruleAction)
+    return
+  }
   const _createFunc = async function () {
     const params = new URLSearchParams()
     if (ruleId) params.set('edit', ruleId)
@@ -178,6 +184,7 @@ export async function createPanel(ruleId?: string, ruleAction?: 'response' | 're
 
 /**关闭视图 */
 export async function closePanel() {
+  if (panelPath === 'panels-v3/index.html') return closeTabPanel(panelPath)
   if (current_window_id) {
     chrome.windows.remove(current_window_id)
     current_window_id = undefined
@@ -191,6 +198,7 @@ export async function closePanel() {
 
 /**全屏 */
 export async function fullScreenPanel() {
+  if (panelPath === 'panels-v3/index.html') return changeTabPanelSize(panelPath, true)
   if (current_window_id) {
     chrome.windows.getCurrent(function (current) {
       if (current.id && current.id === current_window_id) {
@@ -209,6 +217,7 @@ export async function fullScreenPanel() {
 
 /**修改 panels 窗口大小 */
 export async function resizeWindow() {
+  if (panelPath === 'panels-v3/index.html') return changeTabPanelSize(panelPath, false)
   if (current_window_id) {
     chrome.windows.getCurrent(function (current) {
       // normal", "minimized", "maximized", or "fullscreen"
