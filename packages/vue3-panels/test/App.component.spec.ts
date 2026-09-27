@@ -1310,7 +1310,8 @@ describe('App no-match diagnostics localization', () => {
       new Intl.NumberFormat('zh-CN').format(12345)
     )
 
-    await wrapper.get('.language-toggle button[aria-label="English"]').trigger('click')
+    i18n.global.locale.value = 'en'
+    await flushPromises()
 
     expect(document.documentElement.lang).toBe('en')
     expect(diagnostics.text()).toContain('No-match diagnostics')

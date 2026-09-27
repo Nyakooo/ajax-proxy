@@ -1099,6 +1099,8 @@ Stable Chrome / Edge 的原生 CSS `resize` 把手被 CodeMirror 子元素覆盖
 
 当规则数据存在、但当前响应 / 重定向分类为空时，不再错误显示“还没有规则”；改为“此分类暂无规则”，并提示规则位于另一分类。真正全局零规则仍保留创建引导，搜索或筛选无结果继续显示筛选空态。新增跨分类回归用例通过；改动文件 ESLint / Prettier、Vite 生产构建通过。该项已提交 `265363d` 并推送 `refactor/v3`。
 
+为避免 Vue Test Utils 对该语言按钮 DOM click 的不稳定事件派发影响翻译内容回归，将翻译套件改为通过 Vue I18n Composer 的公开 locale 状态设置验证中英文渲染。Vue 3 组件全量 14 个文件 / 129 项通过。
+
 ## 品牌浏览器与扩展 smoke 的 CI 启动方式（2026-09-27）
 
 最新 Chrome Stable CI 在 Playwright persistent context 中启动后未加载扩展 service worker。检查发现 Playwright 的扩展侧载命令行流程面向其 Chromium；品牌 Chrome / Edge Stable 的运行时和窄视口面板 smoke 继续直接验证品牌浏览器，扩展 Fetch / XHR、规则 popup 与面板打开 smoke 使用 Playwright Chromium，最低版本矩阵继续使用固定 Chrome for Testing / Edge executable 验证实际扩展。CI 已改为安装 Playwright Chromium 并将扩展侧载 smoke 指向该版本。待新 CI 全绿后关闭此门禁项；品牌 Chrome 上独立弹窗的用户侧验收仍单独记录。
