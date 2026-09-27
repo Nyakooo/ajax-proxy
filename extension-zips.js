@@ -5,11 +5,13 @@ const archiver = require('archiver')
 const IS_CI = !!(process.env.CIRCLECI || process.env.GITHUB_ACTIONS)
 const ProgressBar = require('progress')
 const readDirGlob = require('readdir-glob')
-const PKG = require("./package.json")
+const PKG = require('./package.json')
 
 const INCLUDE_GLOBS = [
   'icons/**',
   'panels/**',
+  'panels-v3/**',
+  'v3-sandbox/**',
   'content.js',
   'document.js',
   'manifest.json',
@@ -25,7 +27,7 @@ function bytesToSize(bytes) {
   return Math.round(bytes / Math.pow(1024, i), 2) + ' ' + sizes[i]
 }
 
-(async () => {
+;(async () => {
   await writeZip(`ajax-proxy-${PKG.version}.zip`, 'shell-chrome/build')
 
   async function writeZip(fileName, packageDir) {
@@ -46,12 +48,16 @@ function bytesToSize(bytes) {
 
       async function parseFileStats() {
         return new Promise((resolve, reject) => {
-          const globber = readDirGlob(path.join('packages', packageDir),
-            { pattern: INCLUDE_GLOBS, skip: SKIP_DIR_GLOBS, mark: true, stat: true })
-          globber.on('match', match => {
+          const globber = readDirGlob(path.join('packages', packageDir), {
+            pattern: INCLUDE_GLOBS,
+            skip: SKIP_DIR_GLOBS,
+            mark: true,
+            stat: true,
+          })
+          globber.on('match', (match) => {
             if (!match.stat.isDirectory()) status.total++
           })
-          globber.on('error', err => {
+          globber.on('error', (err) => {
             reject(err)
           })
           globber.on('end', () => {
@@ -59,25 +65,26 @@ function bytesToSize(bytes) {
           })
         })
       }
-      await parseFileStats().catch(err => {
+      await parseFileStats().catch((err) => {
         console.error(err)
         process.exit(1)
       })
 
-      const bar = new ProgressBar(`${fileName} @ :tSize [:bar] :current/:total :percent +:cFile@:cSize`, {
-        width: 18,
-        incomplete: ' ',
-        total: status.total,
-      })
+      const bar = new ProgressBar(
+        `${fileName} @ :tSize [:bar] :current/:total :percent +:cFile@:cSize`,
+        {
+          width: 18,
+          incomplete: ' ',
+          total: status.total,
+        }
+      )
       bar.tick(0, status)
 
       archive.on('entry', (entry) => {
         if (!entry.stats.isDirectory()) {
           const n = entry.name
           status.written++
-          status.cFile = n.length > 14
-            ? '...' + n.slice(n.length - 11)
-            : n
+          status.cFile = n.length > 14 ? '...' + n.slice(n.length - 11) : n
           status.cSize = bytesToSize(entry.stats.size)
           status.tBytes += entry.stats.size
           status.tSize = bytesToSize(status.tBytes)
@@ -122,7 +129,7 @@ function bytesToSize(bytes) {
     // pipe archive data to the file
     archive.pipe(output)
 
-    INCLUDE_GLOBS.forEach(glob => {
+    INCLUDE_GLOBS.forEach((glob) => {
       // append files from a glob pattern
       archive.glob(glob, { cwd: path.join('packages', packageDir), skip: SKIP_DIR_GLOBS })
     })

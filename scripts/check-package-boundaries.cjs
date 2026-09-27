@@ -68,6 +68,7 @@ function walk(directory) {
       entry.name === 'lib' ||
       entry.name === 'types' ||
       entry.name === 'build' ||
+      entry.name === 'build-webpack' ||
       entry.name === 'build-vite' ||
       entry.name === 'build-vite-dev' ||
       entry.name === 'dist' ||

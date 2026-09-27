@@ -1,15 +1,10 @@
 const fs = require('node:fs')
 const path = require('node:path')
-const { createWriteStream } = require('node:fs')
-const archiver = require('archiver')
 
 const root = path.resolve(__dirname, '..')
 const extensionRoot = path.join(root, 'packages/shell-chrome')
 const watchMode = process.argv.includes('--watch')
-if (process.argv.includes('--output-dir')) {
-  throw new Error('--output-dir is not supported; use the isolated Vite output directories.')
-}
-const outputDir = path.join(extensionRoot, watchMode ? 'build-vite-dev' : 'build-vite')
+const outputDir = path.join(extensionRoot, watchMode ? 'build-vite-dev' : 'build')
 const watchers = []
 let closeWatchersPromise
 let shutdownRequested = false
@@ -137,25 +132,6 @@ function validateManifestAssets() {
   }
 }
 
-async function createPrototypeZip() {
-  const zipDir = path.join(root, 'zip')
-  const zipPath = path.join(zipDir, 'ajax-proxy-vite-prototype.zip')
-  fs.mkdirSync(zipDir, { recursive: true })
-
-  await new Promise((resolve, reject) => {
-    const output = createWriteStream(zipPath)
-    const archive = archiver('zip', { zlib: { level: 9 } })
-    output.on('close', resolve)
-    output.on('error', reject)
-    archive.on('error', reject)
-    archive.pipe(output)
-    archive.directory(outputDir, false)
-    archive.finalize()
-  })
-
-  console.log(`Vite prototype ZIP: ${path.relative(root, zipPath)}`)
-}
-
 async function main() {
   const { build } = await import('vite')
   fs.rmSync(outputDir, { recursive: true, force: true })
@@ -260,9 +236,8 @@ async function main() {
   if (shutdownRequested) return
   await copyStaticAssets()
   validateManifestAssets()
-  console.log('Verified manifest paths and static extension assets')
+  console.log(`Verified Vite extension build: ${path.relative(root, outputDir)}`)
   if (!watchMode) {
-    await createPrototypeZip()
     return
   }
 

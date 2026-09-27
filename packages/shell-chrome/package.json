@@ -4,7 +4,8 @@
   "description": "",
   "private": true,
   "scripts": {
-    "build": "rm -rf build && webpack --config webpack.config.js"
+    "build": "node ../../scripts/build-shell-vite.cjs",
+    "build:webpack": "cross-env SHELL_CHROME_BUILD_DIR=build-webpack webpack --config webpack.config.js"
   },
   "keywords": [],
   "author": {

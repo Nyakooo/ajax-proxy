@@ -39,6 +39,18 @@ jobs:
         env:
           BROWSER_CHANNEL: ${{ matrix.browser }}
         run: pnpm v3:panel:responsive:smoke
+      - name: Build the production Vite extension
+        run: pnpm build
+      - name: Verify the production Vite output layout
+        run: pnpm production:smoke
+      - name: Verify the production extension in the stable browser
+        env:
+          BROWSER_CHANNEL: ${{ matrix.browser }}
+        run: pnpm extension:smoke
+      - name: Verify V3 rule workspace and panel window in the stable browser
+        env:
+          BROWSER_CHANNEL: ${{ matrix.browser }}
+        run: node tests/browser/v3-unified-rules-smoke.cjs && node tests/browser/v3-panel-open-smoke.cjs
 
   minimum-browser-smoke:
     runs-on: ubuntu-latest
@@ -94,17 +106,16 @@ jobs:
         run: pnpm v3:browser:smoke
       - name: Build extension
         run: pnpm build
+      - name: Verify production extension layout
+        run: pnpm production:smoke
       - name: Verify extension Fetch and XHR interception
         env:
           BROWSER_EXECUTABLE_PATH: ${{ matrix.browser == 'chrome' && steps.browser.outputs.executable-path || steps.edge.outputs.executable-path }}
         run: pnpm extension:smoke
-      - name: Build isolated Vite shell prototype
-        run: pnpm build:chrome:vite-prototype
-      - name: Verify Vite prototype on minimum-version browser
+      - name: Verify production V3 rule workspace and panel on minimum-version browser
         env:
-          AJAX_PROXY_EXTENSION_PATH: ${{ github.workspace }}/packages/shell-chrome/build-vite
           BROWSER_EXECUTABLE_PATH: ${{ matrix.browser == 'chrome' && steps.browser.outputs.executable-path || steps.edge.outputs.executable-path }}
-        run: pnpm extension:smoke
+        run: node tests/browser/v3-unified-rules-smoke.cjs && node tests/browser/v3-panel-open-smoke.cjs
 
   build:
     runs-on: ubuntu-latest
@@ -135,35 +146,32 @@ jobs:
         run: pnpm test:coverage
       - name: Run Vue 3 component tests
         run: pnpm test:v3-ui
-      - name: Clean generated outputs before isolated Vite build
+      - name: Clean generated outputs before production Vite build
         run: pnpm clean:build
-      - name: Build isolated Vite shell prototype
-        run: pnpm build:chrome:vite-prototype
-      - name: Verify Vite prototype ZIP archive
-        run: unzip -t zip/ajax-proxy-vite-prototype.zip
       - name: Build production extension
         run: pnpm build
+      - name: Verify production extension layout
+        run: pnpm production:smoke
       - name: Verify generated type declarations
         run: pnpm check:generated-types
       - name: Package extension and report sizes
         run: pnpm zip && pnpm size:report
+      - name: Verify production extension ZIP archive
+        run: |
+          for archive in zip/ajax-proxy-*.zip; do
+            unzip -t "$archive"
+            unzip -Z1 "$archive" | grep -Fx 'panels-v3/popup.html'
+            unzip -Z1 "$archive" | grep -Fx 'v3-sandbox/sandbox.html'
+          done
       - name: Install Chromium for extension E2E
         run: pnpm exec playwright install --with-deps chromium
       - name: Verify JSON editor syntax error position
         run: pnpm editor:smoke
       - name: Verify Fetch and XHR extension interception
         run: pnpm extension:smoke
-      - name: Verify Vite prototype Fetch and XHR extension interception
-        env:
-          AJAX_PROXY_EXTENSION_PATH: ${{ github.workspace }}/packages/shell-chrome/build-vite
-        run: pnpm extension:smoke
       - name: Verify V3 rules workspace, popup and editor handoff
-        env:
-          AJAX_PROXY_EXTENSION_PATH: ${{ github.workspace }}/packages/shell-chrome/build-vite
         run: node tests/browser/v3-unified-rules-smoke.cjs
       - name: Verify independent V3 panel and manual tab option
-        env:
-          AJAX_PROXY_EXTENSION_PATH: ${{ github.workspace }}/packages/shell-chrome/build-vite
         run: node tests/browser/v3-panel-open-smoke.cjs
       - name: Verify Vite watch rebuild and extension reload workflow
         run: pnpm verify:chrome:vite-watch

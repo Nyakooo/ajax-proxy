@@ -3,11 +3,11 @@ const fs = require('node:fs')
 const os = require('node:os')
 const path = require('node:path')
 const { chromium } = require('playwright')
-const V3_BACKUP_VERSION = 8
+const V3_BACKUP_VERSION = 9
 
 async function main() {
   const extensionPath = path.resolve(
-    process.env.AJAX_PROXY_EXTENSION_PATH || 'packages/shell-chrome/build-vite'
+    process.env.AJAX_PROXY_EXTENSION_PATH || 'packages/shell-chrome/build'
   )
   const manifest = JSON.parse(fs.readFileSync(path.join(extensionPath, 'manifest.json'), 'utf8'))
   assert.equal(manifest.action.default_popup, 'panels-v3/popup.html')
@@ -17,7 +17,10 @@ async function main() {
   let context
   try {
     context = await chromium.launchPersistentContext(profile, {
-      channel: 'chromium',
+      channel: process.env.BROWSER_EXECUTABLE_PATH
+        ? undefined
+        : process.env.BROWSER_CHANNEL || 'chromium',
+      executablePath: process.env.BROWSER_EXECUTABLE_PATH,
       headless: true,
       colorScheme: 'dark',
       args: [`--disable-extensions-except=${extensionPath}`, `--load-extension=${extensionPath}`],

@@ -1078,3 +1078,7 @@ panel / popup / tabPanel 定向测试 29 项、shell TypeScript、改动文件�
 ## 远端 CI 验收（2026-09-27）
 
 提交 `1bdd721` 的 CI run [36322960152](https://github.com/Nyakooo/ajax-proxy/actions/runs/36322960152) 全部通过：Chrome / Edge Stable 与 Chrome 141 / Edge 140 最低版本 smoke、单元与组件测试、Vite 原型独立构建及 ZIP、Fetch / XHR 扩展 smoke、popup 到独立面板与手动标签页流程、Vite watch 重建验收。品牌 Chrome 中重新加载后对独立弹窗实际表现的确认仍需用户提供；CI 不替代这项桌面验收。
+
+## Vite 正式 shell 切换检查点（2026-09-27）
+
+根 `pnpm build` / `pnpm build:chrome` 已改为使用正式 Vite shell 产物，默认指向 Vue 3 面板；Webpack 扩展构建保留为 `pnpm build:chrome:webpack` 独立回退入口。正式包已补齐 V3 popup 与 sandbox 路径，并加入产物布局 smoke；Chrome / Edge Stable 与最低版本 CI 配置已改为加载正式 Vite 产物。V3 面板、Vite shell 构建、ZIP 解压、Webpack 回退构建及包边界 / 格式门禁通过。旧 Vue 2 面板及编辑器仍作为随包的独立路径保留，其构建退役和依赖清理尚未完成；品牌浏览器新矩阵需待本次推送后确认，extension E2E 最近匹配通知 smoke 也待 Mock UI 合并后复跑。

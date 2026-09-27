@@ -183,7 +183,9 @@ async function main() {
   let streamOrigin
   let certificateDir
   const contextOptions = {
-    channel: process.env.BROWSER_EXECUTABLE_PATH ? undefined : 'chromium',
+    channel: process.env.BROWSER_EXECUTABLE_PATH
+      ? undefined
+      : process.env.BROWSER_CHANNEL || 'chromium',
     executablePath: process.env.BROWSER_EXECUTABLE_PATH,
     headless: process.env.EXTENSION_SMOKE_HEADLESS !== '0',
     acceptDownloads: true,
@@ -964,7 +966,7 @@ async function main() {
       async (key) => (await chrome.storage.local.get(key))[key],
       'ajax-proxy:storage:v3-config'
     )
-    assert.equal(disabledSiteConfig.formatVersion, 8)
+    assert.equal(disabledSiteConfig.formatVersion, 9)
     assert.deepEqual(disabledSiteConfig.disabledOrigins, [siteSwitchOrigin])
     await staleGlobalSwitch.click()
     await staleV3Panel
@@ -1556,7 +1558,7 @@ async function main() {
     ])
     const exportedBackup = JSON.parse(fs.readFileSync(await backupDownload.path(), 'utf8'))
     assert.equal(exportedBackup.format, 'ajax-proxy-backup')
-    assert.equal(exportedBackup.formatVersion, 8)
+    assert.equal(exportedBackup.formatVersion, 9)
     assert.deepEqual(exportedBackup.disabledOrigins, [])
     assert.deepEqual(exportedBackup.rules, backupConfigBefore.rules)
     assert.equal('hitCounters' in exportedBackup, false)
@@ -2117,7 +2119,7 @@ async function main() {
       async (key) => (await chrome.storage.local.get(key))[key].formatVersion,
       'ajax-proxy:storage:v3-config'
     )
-    assert.equal(exactBackupVersion, 8, 'saving an exact matcher keeps the latest backup format')
+    assert.equal(exactBackupVersion, 9, 'saving an exact matcher keeps the latest backup format')
     assert.deepEqual(quickCreatedRule.response, {
       enabled: true,
       replace: { status: 200, body: {} },

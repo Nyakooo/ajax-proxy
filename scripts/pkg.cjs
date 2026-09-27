@@ -2,7 +2,11 @@ const fs = require('node:fs')
 const path = require('node:path')
 
 const root = path.resolve(__dirname, '..')
-const extensionBuild = path.join(root, 'packages/shell-chrome/build')
+const extensionBuild = path.join(
+  root,
+  'packages/shell-chrome',
+  process.env.SHELL_CHROME_BUILD_DIR || 'build'
+)
 const panels = [
   { source: 'packages/vue-panels/dist', target: 'panels' },
   { source: 'packages/vue3-panels/dist', target: 'panels-v3' },

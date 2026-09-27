@@ -5,7 +5,7 @@ const path = require('node:path')
 const { createHash } = require('node:crypto')
 
 const root = path.resolve(__dirname, '..')
-const watcherScript = path.join(__dirname, 'build-shell-vite-prototype.cjs')
+const watcherScript = path.join(__dirname, 'build-shell-vite.cjs')
 const extensionPath = path.join(root, 'packages/shell-chrome/build-vite-dev')
 const watchedSource = path.join(root, 'packages/shell-chrome/src/document.ts')
 const smokeScript = path.join(root, 'tests/browser/extension-smoke.cjs')
