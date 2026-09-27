@@ -35,6 +35,10 @@ jobs:
         env:
           BROWSER_CHANNEL: ${{ matrix.browser }}
         run: pnpm v3:browser:smoke
+      - name: Verify production V3 panel at narrow viewports
+        env:
+          BROWSER_CHANNEL: ${{ matrix.browser }}
+        run: pnpm v3:panel:responsive:smoke
 
   minimum-browser-smoke:
     runs-on: ubuntu-latest

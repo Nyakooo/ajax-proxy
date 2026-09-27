@@ -38,6 +38,7 @@
     "browser:smoke": "node ./tests/browser/runtime-smoke.cjs",
     "v3:browser:smoke": "pnpm build:protocol && pnpm -C packages/v3-domain build && node ./tests/browser/v3-runtime-smoke.cjs",
     "v3:function:smoke": "node ./tests/browser/v3-function-smoke.cjs",
+    "v3:panel:responsive:smoke": "pnpm build:v3-panels && node ./tests/browser/v3-panel-responsive-smoke.cjs",
     "extension:smoke": "node ./tests/browser/extension-smoke.cjs",
     "sandbox:smoke": "pnpm build:panels && pnpm build:chrome && pnpm run pkg && node ./tests/browser/v3-sandbox-smoke.cjs",
     "brand:icons": "node scripts/render-brand-icons.cjs",

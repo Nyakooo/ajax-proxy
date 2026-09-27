@@ -198,6 +198,7 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - [x] 将语言切换从下拉框改为始终可见的双选分段控件，明确显示“简体中文”和“English”；当前语言有清晰选中态，点击后立即切换并持久化，不需要额外确认。Vue 3 候选面板已通过 `vue-i18n` Composition API 实现，偏好保存在隔离的原型 localStorage 键中。
 - [ ] 统一应用文案、组件库、日期 / 数字格式和 JSON 编辑器语言为当前选择；检查中英文键值完整、术语一致、布局无截断，首次启动语言默认策略明确。
 - [ ] 检查键盘操作、焦点顺序、可读性和不同窗口尺寸下的布局。
+- [x] 在生产 V3 面板构建上验证 400px 与最低 360px 视口的中文 / 英文主界面、搜索、规则列表和响应编辑弹窗；关键控件无水平溢出且可以交互，CI 使用 Chrome 与 Edge Stable 运行 smoke。
 
 **阶段验收**
 
@@ -806,4 +807,5 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - 2026-09-27：补齐 V3 RuleTagsDialog 键盘与命名回归：打开弹窗后聚焦新建输入框，Tab / Shift+Tab 两端回绕，Escape 触发关闭，ARIA modal 与标题关联有组件断言。全量 Vue 3 UI 组件测试 8 文件 / 49 项通过，改动文件 ESLint / Prettier 和 diff 检查通过；上一代码提交 CI run [36279787533](https://github.com/Nyakooo/ajax-proxy/actions/runs/36279787533) 全部通过。整体完成 338 / 373 项（90.6%）。
 - 2026-09-27：统一临时 no-match 与 Fetch / 异步 XHR outcome 诊断的中英文文案：规则原因、请求 / 响应阶段、结果和固定失败原因均映射到用户可读标签；扩展 smoke 断言真实 Fetch / XHR 两阶段结果、关联 ID 与隐私过滤。更新规则模型文档，明确 action outcome 捕获范围及同步 XHR / 原生 XHR error、timeout、abort 的排除边界。Vue 3 UI 8 文件 / 50 项、V3 面板生产构建、`pnpm pkg`、`pnpm extension:smoke`、改动文件 ESLint / Prettier 与 diff 检查全部通过。整体完成 340 / 374 项（90.9%）。
 - 2026-09-27：补齐中英文 message tree 守卫，自动检查仅保留 zh-CN / en、键路径一致、插值参数一致且无空文案；将 Fetch / XHR 诊断中的“关联 ID”改为 catalog 文案，并在 App 组件回归中验证切换语言。全量 Vitest 36 个文件 / 367 项、Vue 3 UI 8 个文件 / 50 项、V3 面板生产构建、改动文件 ESLint / Prettier 通过。完成 341 / 375 项（90.9%）。
+- 2026-09-27：为生产 V3 面板增加 400px / 360px 响应式 Playwright smoke，验证中英文切换、搜索过滤、规则行与响应编辑弹窗的边界和操作；接入 Chrome / Edge Stable CI 矩阵，不加载扩展或使用本机扩展页面。完成 342 / 376 项（91.0%）。
 - GitHub 里程碑：[阶段 0](https://github.com/Nyakooo/ajax-proxy/milestone/1)、[阶段 1](https://github.com/Nyakooo/ajax-proxy/milestone/2)、[阶段 2](https://github.com/Nyakooo/ajax-proxy/milestone/3)、[阶段 3](https://github.com/Nyakooo/ajax-proxy/milestone/4)、[阶段 4](https://github.com/Nyakooo/ajax-proxy/milestone/5)、[阶段 5](https://github.com/Nyakooo/ajax-proxy/milestone/6)、[阶段 6](https://github.com/Nyakooo/ajax-proxy/milestone/7)、[阶段 7](https://github.com/Nyakooo/ajax-proxy/milestone/8)；已复现缺陷：[issue #56](https://github.com/Nyakooo/ajax-proxy/issues/56)。
