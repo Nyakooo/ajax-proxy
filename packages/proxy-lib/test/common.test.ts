@@ -1,5 +1,28 @@
-import { describe, expect, it } from 'vitest'
-import { finalRedirectUrl, matchIgnoresAndRule, maybeMatching } from '../src/common'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { NoticeTo } from '@proxy/protocol'
+import { finalRedirectUrl, matchIgnoresAndRule, maybeMatching, notice } from '../src/common'
+
+afterEach(() => {
+  vi.unstubAllGlobals()
+})
+
+describe('notice', () => {
+  it('dispatches the content event with the request details', () => {
+    const dispatchEvent = vi.fn()
+    vi.stubGlobal('window', { dispatchEvent })
+
+    notice('https://example.com/api?lang=en', '/api', 'POST')
+
+    expect(dispatchEvent).toHaveBeenCalledOnce()
+    const event = dispatchEvent.mock.calls[0][0] as CustomEvent
+    expect(event.type).toBe(NoticeTo.CONTENT)
+    expect(event.detail).toEqual({
+      url: 'https://example.com/api?lang=en',
+      match_url: '/api',
+      method: 'POST',
+    })
+  })
+})
 
 describe('maybeMatching', () => {
   it('matches a normal rule as a case-sensitive substring', () => {

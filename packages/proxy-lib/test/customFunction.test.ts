@@ -138,6 +138,18 @@ describe('custom function completion', () => {
     ).resolves.toEqual({ override: 'synchronous', status: '201' })
   })
 
+  it('returns the configured interceptor fallback when evaluation does not produce a function', async () => {
+    setupWindow()
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const { execSetup } = await import('../src/overrideFunc')
+
+    const fallback = await execSetup(context, '42')
+
+    expect(fallback).toEqual({ override: '', status: '201' })
+    expect(Reflect.get(fallback, Symbol.for('ajax-proxy.custom-function-fail-open'))).toBe(true)
+    expect(errorSpy).toHaveBeenCalledWith('[AjaxProxy][error] Invalid interceptor function')
+  })
+
   it('uses the original redirect target when the callback never completes', async () => {
     setupWindow()
     vi.useFakeTimers()
