@@ -30,6 +30,7 @@ import { buildV3ResponseRule } from './services/v3ResponseDraft.js'
 import { validateFunctionResponseDraft } from './services/v3FunctionResponseDraft.js'
 import { cloneV3RuleTemplate } from './services/v3RuleTemplateCatalog.js'
 import { createV3DiagnosticsCaptureStorage } from './services/v3DiagnosticsCaptureStorage.js'
+import { createActiveTabOriginService } from './services/activeTabOrigin.js'
 import lightMark from '../../shell-chrome/icons/128.png'
 import darkMark from '../../../docs/brand/ajax-proxy-mark-dark.png'
 
@@ -47,7 +48,6 @@ const search = ref('')
 const searchBox = ref(null)
 const { locale, t } = useI18n({ useScope: 'global' })
 const extensionRuntime = globalThis.chrome?.runtime
-const browserTabs = globalThis.chrome?.tabs
 let configService
 let diagnosticsCaptureStorage
 let ruleOperations
@@ -93,8 +93,7 @@ const recentNoMatches = ref([])
 const fetchOutcomeCaptureArmed = ref(false)
 const recentFetchOutcomes = ref([])
 const currentSiteOrigin = ref('')
-let tabActivatedListener
-let tabUpdatedListener
+let removeActiveTabOriginListener
 const unstyledMode = import.meta.env.VITE_UI_UNSTYLED === 'true'
 const comparePassThrough =
   new URLSearchParams(window.location.search).get('pt') === '1' || unstyledMode
@@ -138,26 +137,6 @@ function createPreviewConfig() {
         response: { enabled: true, replace: { body: { ok: false } } },
       },
     ],
-  }
-}
-
-function normalizeSiteOrigin(value) {
-  if (typeof value !== 'string') return ''
-  try {
-    const url = new URL(value)
-    return url.protocol === 'http:' || url.protocol === 'https:' ? url.origin : ''
-  } catch {
-    return ''
-  }
-}
-
-async function refreshCurrentSiteOrigin() {
-  if (!browserTabs?.query) return
-  try {
-    const tabs = await browserTabs.query({ active: true, lastFocusedWindow: true })
-    currentSiteOrigin.value = normalizeSiteOrigin(tabs?.[0]?.url)
-  } catch {
-    currentSiteOrigin.value = ''
   }
 }
 
@@ -496,13 +475,9 @@ watch(
 
 onMounted(async () => {
   window.addEventListener('keydown', focusSearchWithShortcut)
-  void refreshCurrentSiteOrigin()
-  tabActivatedListener = () => void refreshCurrentSiteOrigin()
-  tabUpdatedListener = (_tabId, _changeInfo, tab) => {
-    if (tab.active || tab.url) void refreshCurrentSiteOrigin()
-  }
-  browserTabs?.onActivated?.addListener(tabActivatedListener)
-  browserTabs?.onUpdated?.addListener(tabUpdatedListener)
+  removeActiveTabOriginListener = createActiveTabOriginService().subscribe((origin) => {
+    currentSiteOrigin.value = origin
+  })
   try {
     const {
       analyzeV3RuleMatches,
@@ -580,10 +555,9 @@ onBeforeUnmount(() => {
   cancelFetchOutcomeCapture()
   removeExtensionMessageListener?.()
   removeDiagnosticsStorageListener?.()
+  removeActiveTabOriginListener?.()
   window.removeEventListener('pagehide', cancelNoMatchCapture)
   window.removeEventListener('pagehide', cancelFetchOutcomeCapture)
-  if (tabActivatedListener) browserTabs?.onActivated?.removeListener(tabActivatedListener)
-  if (tabUpdatedListener) browserTabs?.onUpdated?.removeListener(tabUpdatedListener)
 })
 
 async function persistConfig(nextConfig) {
