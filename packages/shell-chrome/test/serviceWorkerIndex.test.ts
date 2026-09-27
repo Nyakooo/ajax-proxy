@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { NoticeFrom, NoticeKey, NoticeTo, StorageKey } from '@proxy/shared-utils'
+import { V3PanelMessageKey } from '@proxy/protocol'
 import { INIT_CURRENT_TITLE } from '../src/consts'
 
 type MessageListener = (
@@ -287,6 +288,16 @@ describe('service worker message entry', () => {
       id: 'test-extension',
       url: 'chrome-extension://test-extension/panels/index.html',
     } as chrome.runtime.MessageSender
+    const v3PanelSnapshotRequest = {
+      from: NoticeFrom.PANELS,
+      to: NoticeTo.SERVICE_WORKER,
+      key: V3PanelMessageKey.GET_SNAPSHOT,
+    }
+    listener(v3PanelSnapshotRequest, trustedPanelSender)
+    expect(chromeBadge).not.toHaveBeenCalled()
+    expect(useCurrentTitle).not.toHaveBeenCalled()
+    expect(noticePanelsByServiceWorker).not.toHaveBeenCalled()
+
     for (const [key, value] of [
       [NoticeKey.BADGE_STATUS, null],
       [NoticeKey.MODE, 'interceptor'],
