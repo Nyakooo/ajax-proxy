@@ -24,15 +24,19 @@ function installRuntime() {
 }
 
 describe('quick popup panel requests', () => {
-  it('opens a requested editor from the trusted popup', async () => {
+  it('opens the selected action editor from the trusted popup', async () => {
     installRuntime()
     createPanel.mockResolvedValue(undefined)
     const reply = vi.fn()
     expect(
-      handlePopupMessage({ type: 'ajax-proxy:open-panel', ruleId: 'rule-1' }, sender, reply)
+      handlePopupMessage(
+        { type: 'ajax-proxy:open-panel', ruleId: 'rule-1', action: 'redirect' },
+        sender,
+        reply
+      )
     ).toBe(true)
     await vi.waitFor(() => expect(reply).toHaveBeenCalledWith({ ok: true }))
-    expect(createPanel).toHaveBeenCalledWith('rule-1')
+    expect(createPanel).toHaveBeenCalledWith('rule-1', 'redirect')
   })
 
   it('rejects web content, other extensions, invalid IDs and extra fields', () => {
@@ -45,17 +49,25 @@ describe('quick popup panel requests', () => {
     expect(handlePopupMessage(request, { ...sender, id: 'another' }, reply)).toBe(false)
     expect(handlePopupMessage({ ...request, ruleId: '' }, sender, reply)).toBe(false)
     expect(handlePopupMessage({ ...request, ruleId: 1 }, sender, reply)).toBe(false)
+    expect(handlePopupMessage({ ...request, action: 'redirect' }, sender, reply)).toBe(false)
+    expect(
+      handlePopupMessage({ ...request, ruleId: 'rule-1', action: 'other' }, sender, reply)
+    ).toBe(false)
     expect(handlePopupMessage({ ...request, unexpected: true }, sender, reply)).toBe(false)
     expect(createPanel).not.toHaveBeenCalled()
   })
 
   it('reports a panel opening failure without an unhandled rejection', async () => {
     installRuntime()
-    createPanel.mockRejectedValue(new Error('unavailable'))
+    createPanel.mockRejectedValue(new Error('window denied; tab denied'))
     const reply = vi.fn()
     handlePopupMessage({ type: 'ajax-proxy:open-panel' }, sender, reply)
     await vi.waitFor(() =>
-      expect(reply).toHaveBeenCalledWith({ ok: false, error: 'panel-open-failed' })
+      expect(reply).toHaveBeenCalledWith({
+        ok: false,
+        error: 'panel-open-failed',
+        details: 'window denied; tab denied',
+      })
     )
   })
 })

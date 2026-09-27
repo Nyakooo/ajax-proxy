@@ -12,14 +12,25 @@ export function handlePopupMessage(
     sender.id !== chrome.runtime.id ||
     sender.url !== chrome.runtime.getURL('panels-v3/popup.html') ||
     request.type !== 'ajax-proxy:open-panel' ||
-    Object.keys(request).some((key) => key !== 'type' && key !== 'ruleId') ||
+    Object.keys(request).some((key) => !['type', 'ruleId', 'action'].includes(key)) ||
     (request.ruleId !== undefined &&
-      (typeof request.ruleId !== 'string' || !request.ruleId.trim() || request.ruleId.length > 256))
+      (typeof request.ruleId !== 'string' ||
+        !request.ruleId.trim() ||
+        request.ruleId.length > 256)) ||
+    (request.action !== undefined &&
+      (request.ruleId === undefined || !['response', 'redirect'].includes(String(request.action))))
   )
     return false
 
-  void createPanel(request.ruleId as string | undefined)
+  void createPanel(
+    request.ruleId as string | undefined,
+    request.action as 'response' | 'redirect' | undefined
+  )
     .then(() => sendResponse({ ok: true }))
-    .catch(() => sendResponse({ ok: false, error: 'panel-open-failed' }))
+    .catch((error: unknown) => {
+      const details = error instanceof Error ? error.message : String(error ?? 'Unknown error')
+      console.error('[AjaxProxy] Could not open the full panel', error)
+      sendResponse({ ok: false, error: 'panel-open-failed', details })
+    })
   return true
 }
