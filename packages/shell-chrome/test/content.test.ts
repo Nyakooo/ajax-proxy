@@ -187,6 +187,74 @@ describe('content page-event bridge', () => {
     expect(mocks.noticeServiceWorkerByContent).not.toHaveBeenCalled()
   })
 
+  it('forwards local storage changes and manages the V3 function sandbox lifecycle', async () => {
+    mocks.initStorage.mockResolvedValue(undefined)
+    const enabledFunctionConfig = {
+      settings: { globalEnabled: true },
+      rules: [
+        {
+          enabled: true,
+          response: { enabled: true, replace: { code: 'return { body: "ok" }' } },
+        },
+      ],
+    }
+    const storedValues: Record<string, unknown> = {
+      'global-switch': true,
+      mode: 'interceptor',
+      'intercept-list': [{ url: '/api/items' }],
+      'redirect-list': [],
+      'v3-config': enabledFunctionConfig,
+      'diagnostics-armed': true,
+      'fetch-outcomes-armed': false,
+    }
+    mocks.getStorage.mockImplementation((key: string, fallback: unknown) =>
+      Object.hasOwn(storedValues, key) ? storedValues[key] : fallback
+    )
+    vi.stubGlobal('chrome', {
+      runtime: {
+        connect: vi.fn(),
+        getURL: (path: string) => `chrome-extension://test/${path}`,
+      },
+      storage: { onChanged: { addListener: mocks.onChangedAddListener } },
+    })
+    trackContentEventListeners()
+
+    await importContent()
+    await vi.waitFor(() => expect(mocks.onChangedAddListener).toHaveBeenCalledOnce())
+    const onChanged = mocks.onChangedAddListener.mock.calls[0][0]
+    mocks.noticeDocumentByContent.mockClear()
+
+    onChanged({ 'global-switch': { newValue: true } }, 'sync')
+    expect(mocks.noticeDocumentByContent).not.toHaveBeenCalled()
+
+    onChanged({ 'global-switch': { newValue: true } }, 'local')
+    expect(mocks.noticeDocumentByContent).toHaveBeenCalledWith(
+      'ajax-proxy:notice:refresh:global-state',
+      {
+        'global-switch': true,
+        mode: 'interceptor',
+        'intercept-list': [{ url: '/api/items' }],
+        'redirect-list': [],
+      }
+    )
+
+    onChanged({ 'v3-config': { newValue: enabledFunctionConfig } }, 'local')
+    expect(document.getElementById('ajax-proxy-v3-function-sandbox')?.getAttribute('src')).toBe(
+      'chrome-extension://test/v3-sandbox/sandbox.html'
+    )
+    expect(mocks.noticeDocumentByContent).toHaveBeenCalledWith('v3-config', enabledFunctionConfig)
+
+    storedValues['v3-config'] = null
+    onChanged({ 'v3-config': { newValue: null } }, 'local')
+    expect(document.getElementById('ajax-proxy-v3-function-sandbox')).toBeNull()
+    expect(mocks.noticeDocumentByContent).toHaveBeenCalledWith('v3-config', null)
+
+    onChanged({ 'diagnostics-armed': { newValue: true } }, 'local')
+    onChanged({ 'fetch-outcomes-armed': { newValue: false } }, 'local')
+    expect(mocks.noticeDocumentByContent).toHaveBeenCalledWith('diagnostics-armed', true)
+    expect(mocks.noticeDocumentByContent).toHaveBeenCalledWith('fetch-outcomes-armed', false)
+  })
+
   it('forwards valid legacy and V3 page events using their corresponding notice keys', async () => {
     mocks.initStorage.mockResolvedValue(undefined)
     mocks.getStorageSnapshot.mockReturnValue({})
