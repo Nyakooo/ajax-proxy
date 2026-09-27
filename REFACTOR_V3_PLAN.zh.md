@@ -1016,3 +1016,14 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - 2026-09-27：在用户现有 Chrome 加载的 V3 扩展中手动验证 JSON 编辑模式切换、规则保存与刷新持久化，真实 Fetch / 异步 XHR 返回配置 JSON、命中计数为 2；全局关闭后两者恢复原始响应。临时验收规则已删除，全局启用状态已恢复。修复工具栏图标仅读取 V2 开关的问题，启动和 V3 配置变更时优先读取有效 V3 全局开关；6 项定向测试及 shell TypeScript 检查通过，build-vite 和 ZIP 已重建。用户确认后已在现有 Chrome 重载最新扩展，工具栏点击直接打开 V3；实测全局关闭时工具栏图标变灰，重新启用后恢复彩色，最终恢复启用状态。整体计划仍为 463 / 492（94.1%）。
 
 - 2026-09-27：读取 Chrome 扩展唯一错误：`Unchecked runtime.lastError: The page keeping the extension port is moved into back/forward cache, so the message channel is closed.`。content 与 service-worker 两端在端口断开回调消费 lastError；content 在 pageshow.persisted 时重建一次端口，其他断开不自动重试。20 项定向测试、两个包的 TypeScript 检查通过，build-vite 和 ZIP 已重建。Chrome 重载后执行本地页面跳转与后退，错误列表无新增记录；缓存恢复分支另由定向测试覆盖。整体计划仍为 463 / 492（94.1%）。
+
+## 10. 统一请求规则与快捷 popup（2026-09-27 新增）
+
+用户批准将重定向与响应拦截合并为请求规则：默认单动作，已有双动作保留；统一按执行优先级展示，置顶优先但不突破分页。主面板默认每页 20 条，可选 50 / 100，批量选择当前页；popup 全量滚动，搜索栏固定。搜索普通词按空格 AND、忽略大小写，覆盖 URL、method、ID、目标地址、关联标签与已有备注字段，支持 method:GET、type:redirect、type:response、status:enabled、pinned:true 等条件。popup 提供启停、置顶、删除确认、直接打开大面板编辑及浏览器快捷键设置入口。
+
+- [x] 共享规则浏览逻辑：可选 pinned 字段兼容旧 V3 备份、置顶执行优先、共享搜索；60 项 domain 测试通过。
+- [ ] 主面板统一入口、动作选择、分页、当前页批量操作、置顶及编辑直达。
+- [ ] 快捷 popup、固定搜索、全量滚动、规则快捷操作与大面板 / 快捷键入口；Vite 和扩展宿主集成。
+- [ ] 集成测试、编译打包及浏览器验收。
+
+新增需求以此前计划记录 463 / 492 为基数，加入 4 项后当前为 464 / 496（93.5%）；本次新增范围完成 1 / 4 个阶段。增加需求导致分母增加，并非已完成成果回退。

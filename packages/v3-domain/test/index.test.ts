@@ -4,6 +4,8 @@ import {
   formatV3ValidationIssues,
   isV3OriginDisabled,
   normalizeV3Origin,
+  matchesRuleSearch,
+  orderPinnedRules,
   parseV3BackupJson,
   selectV3Rule,
   validateV3Backup,
@@ -36,6 +38,29 @@ describe('V3 package root exports', () => {
 describe('V3 backup schema', () => {
   it('accepts a versioned V3 full snapshot, including an empty rule list', () => {
     expect(validateV3Backup({ ...validBackup, rules: [] })).toMatchObject({ ok: true })
+  })
+
+  it('accepts, rejects invalid, and preserves optional pinned flags through backup validation and import', () => {
+    const backup = structuredClone(validBackup)
+    ;(backup.rules[0] as (typeof backup.rules)[number] & { pinned?: boolean }).pinned = true
+    expect(validateV3Backup(backup)).toMatchObject({
+      ok: true,
+      data: { rules: [{ pinned: true }] },
+    })
+    expect(parseV3BackupJson(JSON.stringify(backup))).toMatchObject({
+      ok: true,
+      data: { rules: [{ pinned: true }] },
+    })
+    for (const pinned of ['yes', 1, null, undefined]) {
+      const invalid = structuredClone(backup)
+      ;(invalid.rules[0] as unknown as Record<string, unknown>).pinned = pinned
+      expect(validateV3Backup(invalid)).toMatchObject({
+        ok: false,
+        issues: expect.arrayContaining([expect.objectContaining({ path: 'rules[0].pinned' })]),
+      })
+    }
+    const legacy = structuredClone(validBackup)
+    expect(validateV3Backup(legacy)).toMatchObject({ ok: true })
   })
 
   it('reads legacy V3 backups while reserving exact URL matching for format version 4', () => {
@@ -900,6 +925,41 @@ describe('V3 rule selection', () => {
     })
   })
 
+  it('executes pinned rules first with stable order and leaves the source list unchanged', () => {
+    const rules = [
+      { ...requestRule('ordinary-a', '/api'), pinned: false },
+      { ...requestRule('pinned-a', '/api'), pinned: true },
+      requestRule('legacy-ordinary', '/api'),
+      { ...requestRule('pinned-b', '/api'), pinned: true },
+    ]
+    const ordered = orderPinnedRules(rules)
+    expect(ordered.map(({ id }) => id)).toEqual([
+      'pinned-a',
+      'pinned-b',
+      'ordinary-a',
+      'legacy-ordinary',
+    ])
+    expect(rules.map(({ id }) => id)).toEqual([
+      'ordinary-a',
+      'pinned-a',
+      'legacy-ordinary',
+      'pinned-b',
+    ])
+    expect(selectV3Rule(rules, { url: '/api', method: 'GET' })).toMatchObject({
+      rule: rules[1],
+      index: 0,
+    })
+    expect(analyzeV3RuleMatches(rules, { url: '/api', method: 'GET' })).toEqual({
+      selectedRuleId: 'pinned-a',
+      results: [
+        { ruleId: 'pinned-a', index: 0, reason: 'matched' },
+        { ruleId: 'pinned-b', index: 1, reason: 'lower-priority' },
+        { ruleId: 'ordinary-a', index: 2, reason: 'lower-priority' },
+        { ruleId: 'legacy-ordinary', index: 3, reason: 'lower-priority' },
+      ],
+    })
+  })
+
   it('skips disabled rules and rules without an enabled action', () => {
     const disabledRule = { ...requestRule('disabled', '/api'), enabled: false }
     const noEnabledAction = {
@@ -1126,5 +1186,43 @@ describe('V3 rule selection', () => {
       )
     ).toEqual(['invalid-match-type', 'invalid-regex', 'matcher-error', 'matched'])
     expect(selectV3Rule(rules, { url: '/api', method: 'GET' })?.rule).toBe(laterRule)
+  })
+})
+
+describe('V3 rule search', () => {
+  const rule = {
+    id: 'rule-42',
+    enabled: true,
+    pinned: true,
+    tagIds: ['tag-1'],
+    note: 'primary API route',
+    match: { url: '/v2/Orders', method: 'GET' },
+    request: { enabled: true, redirect: { url: 'https://target.example/Orders' } },
+    response: { enabled: false, replace: { body: { ok: true } } },
+  }
+
+  it('ANDs ordinary terms across URL, note, ID, target address, and provided labels', () => {
+    expect(matchesRuleSearch(rule, 'orders primary', ['Commerce'])).toBe(true)
+    expect(matchesRuleSearch(rule, 'ORDERS missing')).toBe(false)
+    expect(matchesRuleSearch(rule, 'commerce', [{ id: 'tag-1', name: 'Commerce' }])).toBe(true)
+    expect(matchesRuleSearch(rule, 'unrelated', [{ id: 'tag-2', name: 'Unrelated' }])).toBe(false)
+    expect(matchesRuleSearch(rule, 'get')).toBe(true)
+    expect(matchesRuleSearch(rule, 'target.example')).toBe(true)
+    expect(matchesRuleSearch(rule, 'rule-42')).toBe(true)
+    expect(matchesRuleSearch(rule, '')).toBe(true)
+  })
+
+  it('supports method, type, status, and pinned filters, including coexisting actions', () => {
+    expect(
+      matchesRuleSearch(rule, 'method:GET type:redirect type:response status:enabled pinned:true')
+    ).toBe(true)
+    expect(matchesRuleSearch(rule, 'method:POST')).toBe(false)
+    expect(matchesRuleSearch({ ...rule, enabled: false }, 'type:response status:disabled')).toBe(
+      true
+    )
+    expect(matchesRuleSearch({ ...rule, pinned: false }, 'pinned:false')).toBe(true)
+    const legacy = { ...rule, pinned: undefined }
+    expect(matchesRuleSearch(legacy, 'pinned:false')).toBe(true)
+    expect(matchesRuleSearch(legacy, 'pinned:true')).toBe(false)
   })
 })

@@ -1,6 +1,7 @@
 import { MAX_MATCH_INPUT_LENGTH, getV3RuleMatchReason } from './ruleMatcher'
 import type { V3RequestMatchInput, V3RuleMatchReason } from './ruleMatcher'
 import type { V3Rule } from './rules'
+import { orderPinnedRules } from './rulePriority'
 
 export interface V3RuleMatchAnalysis {
   selectedRuleId?: string
@@ -13,16 +14,21 @@ export function analyzeV3RuleMatches(
   request: V3RequestMatchInput,
   globalEnabled = true
 ): V3RuleMatchAnalysis {
+  const executionRules = orderPinnedRules(rules)
   const results: V3RuleMatchAnalysis['results'] = []
   if (request.url.length > MAX_MATCH_INPUT_LENGTH) {
     return {
-      results: rules.map((rule, index) => ({ ruleId: rule.id, index, reason: 'request-too-long' })),
+      results: executionRules.map((rule, index) => ({
+        ruleId: rule.id,
+        index,
+        reason: 'request-too-long',
+      })),
     }
   }
   const normalizedRequest = { ...request, method: request.method.toUpperCase() }
   let selectedRuleId: string | undefined
-  for (let index = 0; index < rules.length; index += 1) {
-    const rule = rules[index]
+  for (let index = 0; index < executionRules.length; index += 1) {
+    const rule = executionRules[index]
     let reason: V3RuleMatchReason
     if (!globalEnabled) reason = 'global-disabled'
     else if (selectedRuleId) reason = 'lower-priority'

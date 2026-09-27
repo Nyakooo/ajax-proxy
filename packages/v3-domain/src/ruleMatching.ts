@@ -1,6 +1,7 @@
 import { MAX_MATCH_INPUT_LENGTH, getV3RuleMatchReason } from './ruleMatcher'
 import type { V3RequestMatchInput } from './ruleMatcher'
 import type { V3Rule } from './rules'
+import { orderPinnedRules } from './rulePriority'
 
 export type { V3RequestMatchInput } from './ruleMatcher'
 
@@ -21,9 +22,10 @@ export function selectV3Rule(
 ): V3RuleSelection | undefined {
   if (request.url.length > MAX_MATCH_INPUT_LENGTH) return undefined
   const method = request.method.toUpperCase()
+  const executionRules = orderPinnedRules(rules)
 
-  for (let index = 0; index < rules.length; index += 1) {
-    const rule = rules[index]
+  for (let index = 0; index < executionRules.length; index += 1) {
+    const rule = executionRules[index]
     const reason = getV3RuleMatchReason(rule, { url: request.url, method })
     if (reason === 'matched' || reason === 'matched-request-excluded') {
       return {

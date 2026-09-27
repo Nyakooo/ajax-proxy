@@ -206,8 +206,11 @@ function validateRule(
     addIssue(issues, path, 'Expected a rule object.')
     return
   }
-  if (!hasOnlyKeys(value, ['id', 'enabled', 'tagIds', 'match', 'request', 'response'])) {
+  if (!hasOnlyKeys(value, ['id', 'enabled', 'pinned', 'tagIds', 'match', 'request', 'response'])) {
     addIssue(issues, path, 'Rule contains an unsupported field.')
+  }
+  if ('pinned' in value && typeof value.pinned !== 'boolean') {
+    addIssue(issues, `${path}.pinned`, 'Expected a boolean.')
   }
   if (value.tagIds !== undefined) {
     if (!Array.isArray(value.tagIds)) {
