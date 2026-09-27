@@ -5,7 +5,14 @@ const archiver = require('archiver')
 
 const root = path.resolve(__dirname, '..')
 const extensionRoot = path.join(root, 'packages/shell-chrome')
-const outputDir = path.join(extensionRoot, 'build-vite')
+const watchMode = process.argv.includes('--watch')
+if (process.argv.includes('--output-dir')) {
+  throw new Error('--output-dir is not supported; use the isolated Vite output directories.')
+}
+const outputDir = path.join(extensionRoot, watchMode ? 'build-vite-dev' : 'build-vite')
+const watchers = []
+let closeWatchersPromise
+let shutdownRequested = false
 const entries = [
   { file: 'content', source: 'src/content.ts', globalName: 'AjaxProxyContent' },
   { file: 'document', source: 'src/document.ts', globalName: 'AjaxProxyDocument' },
@@ -15,6 +22,33 @@ const entries = [
     globalName: 'AjaxProxyServiceWorker',
   },
 ]
+
+function closeWatchers() {
+  if (!closeWatchersPromise) {
+    closeWatchersPromise = Promise.allSettled(
+      watchers.map((watcher) => Promise.resolve().then(() => watcher.close()))
+    ).then((results) => {
+      const rejected = results.find((result) => result.status === 'rejected')
+      if (rejected) throw rejected.reason
+    })
+  }
+  return closeWatchersPromise
+}
+
+async function handleShutdownSignal(signal) {
+  shutdownRequested = true
+  try {
+    await closeWatchers()
+  } catch (error) {
+    console.error(`Failed to close Vite watchers after ${signal}:`, error)
+    process.exitCode = 1
+  }
+}
+
+if (watchMode) {
+  process.once('SIGINT', () => void handleShutdownSignal('SIGINT'))
+  process.once('SIGTERM', () => void handleShutdownSignal('SIGTERM'))
+}
 
 async function copyStaticAssets() {
   fs.copyFileSync(path.join(extensionRoot, 'manifest.json'), path.join(outputDir, 'manifest.json'))
@@ -111,10 +145,20 @@ async function main() {
   fs.mkdirSync(outputDir, { recursive: true })
 
   for (const entry of entries) {
-    await build({
+    if (shutdownRequested) return
+    let resolveInitialBuild
+    let rejectInitialBuild
+    let initialBuildCompleted = false
+    const initialBuild = watchMode
+      ? new Promise((resolve, reject) => {
+          resolveInitialBuild = resolve
+          rejectInitialBuild = reject
+        })
+      : undefined
+    const watcherOrOutput = await build({
       configFile: false,
       root: extensionRoot,
-      mode: 'production',
+      mode: watchMode ? 'development' : 'production',
       base: './',
       publicDir: false,
       logLevel: 'info',
@@ -143,6 +187,7 @@ async function main() {
         target: 'chrome141',
         minify: 'esbuild',
         cssCodeSplit: false,
+        watch: watchMode ? {} : null,
         lib: {
           entry: path.join(extensionRoot, entry.source),
           name: entry.globalName,
@@ -156,16 +201,61 @@ async function main() {
         },
       },
     })
-    console.log(`Verified ${entry.file}.js: single IIFE bundle`)
+
+    if (watchMode) {
+      if (!watcherOrOutput || typeof watcherOrOutput.on !== 'function') {
+        throw new Error(`Vite did not start a watcher for ${entry.file}.js`)
+      }
+      const watcher = watcherOrOutput
+      watchers.push(watcher)
+      if (shutdownRequested) {
+        await watcher.close()
+        return
+      }
+      watcher.on('event', (event) => {
+        if (event.code === 'BUNDLE_START') {
+          console.log(`Rebuilding ${entry.file}.js…`)
+        } else if (event.code === 'BUNDLE_END') {
+          console.log(`Rebuilt ${entry.file}.js`)
+          initialBuildCompleted = true
+          resolveInitialBuild()
+        } else if (event.code === 'ERROR') {
+          if (!initialBuildCompleted) {
+            rejectInitialBuild(event.error)
+          } else {
+            console.error(
+              `Vite rebuild failed for ${entry.file}.js; watcher remains active for the next source change:`,
+              event.error
+            )
+          }
+        }
+      })
+      await initialBuild
+    } else {
+      console.log(`Verified ${entry.file}.js: single IIFE bundle`)
+    }
   }
 
+  if (shutdownRequested) return
   await copyStaticAssets()
   validateManifestAssets()
   console.log('Verified manifest paths and static extension assets')
-  await createPrototypeZip()
+  if (!watchMode) {
+    await createPrototypeZip()
+    return
+  }
+
+  console.log(
+    `Watching shell sources. Reload the unpacked extension and page after each rebuild: ${path.relative(root, outputDir)}`
+  )
 }
 
-main().catch((error) => {
+main().catch(async (error) => {
   console.error(error)
+  try {
+    await closeWatchers()
+  } catch (closeError) {
+    console.error('Failed to close Vite watchers:', closeError)
+  }
   process.exitCode = 1
 })

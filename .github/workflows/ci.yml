@@ -155,3 +155,5 @@ jobs:
         env:
           AJAX_PROXY_EXTENSION_PATH: ${{ github.workspace }}/packages/shell-chrome/build-vite
         run: pnpm extension:smoke
+      - name: Verify Vite watch rebuild and extension reload workflow
+        run: pnpm verify:chrome:vite-watch
