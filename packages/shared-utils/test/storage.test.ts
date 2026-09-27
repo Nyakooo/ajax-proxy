@@ -439,6 +439,13 @@ describe('shared storage cache', () => {
     storageListener?.({
       key: 'mode',
       newValue: '"redirector"',
+      storageArea: {},
+    } as StorageEvent)
+    expect(getStorage('mode', 'initial')).toBe('initial')
+
+    storageListener?.({
+      key: 'mode',
+      newValue: '"redirector"',
       storageArea: localStorage,
     } as StorageEvent)
 
