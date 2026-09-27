@@ -85,7 +85,7 @@ afterEach(() => {
   document.body.innerHTML = ''
 })
 
-async function mountApp(saveResponses = [], startingConfig = initialConfig()) {
+async function mountApp(saveResponses = [], startingConfig = initialConfig(), stubs = {}) {
   i18n.global.locale.value = 'zh-CN'
   previousChrome = globalThis.chrome
   let storedConfig = structuredClone(startingConfig)
@@ -142,6 +142,7 @@ async function mountApp(saveResponses = [], startingConfig = initialConfig()) {
         ToggleSwitch,
         InputText,
       },
+      stubs,
     },
   })
   await flushPromises()
@@ -934,6 +935,45 @@ describe('App rule view navigation accessibility', () => {
 
     expect(interceptButton!.attributes('aria-current')).toBeUndefined()
     expect(redirectButton!.attributes('aria-current')).toBe('page')
+  })
+})
+
+describe('App function response persistence flow', () => {
+  it('persists a confirmed function response as disabled by default', async () => {
+    vi.spyOn(globalThis, 'confirm').mockReturnValue(true)
+    const { wrapper, sentMessages } = await mountApp([], initialConfig(), {
+      CodeMirrorJsonEditor: {
+        props: ['modelValue', 'ariaLabel'],
+        emits: ['update:modelValue'],
+        template:
+          '<textarea :aria-label="ariaLabel" :value="modelValue" @input="$emit(\'update:modelValue\', $event.target.value)" />',
+      },
+    })
+
+    await buttonByText(wrapper, '创建拦截规则').trigger('click')
+    await flushPromises()
+    await wrapper.get('input[name="response-mode"][value="function"]').setValue(true)
+    await wrapper.get('.rule-editor input[autocomplete="off"]').setValue('/api/function')
+    await wrapper.get('textarea[aria-label="函数体代码"]').setValue('return { body: { ok: true } }')
+    await wrapper.get('.editor-form').trigger('submit')
+    await flushPromises()
+
+    const saves = sentMessages.filter((message) => message.key === V3PanelMessageKey.SAVE_CONFIG)
+    expect(globalThis.confirm).toHaveBeenCalledOnce()
+    expect(saves).toHaveLength(1)
+    expect(saves[0].value.config.rules).toEqual([
+      expect.objectContaining({
+        id: expect.stringMatching(/^rule-/),
+        enabled: true,
+        tagIds: [],
+        match: { url: '/api/function', type: 'normal', method: 'ANY' },
+        response: {
+          enabled: false,
+          replace: { code: 'return { body: { ok: true } }' },
+        },
+      }),
+    ])
+    expect(wrapper.find('.rule-editor').exists()).toBe(false)
   })
 })
 
