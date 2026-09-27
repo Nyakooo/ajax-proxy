@@ -246,6 +246,38 @@ describe('App visible selection and bulk rule actions', () => {
     ])
     expect(wrapper.find('.bulk-actions').exists()).toBe(false)
   })
+
+  it('keeps the rule disabled and selected when a bulk enable save fails', async () => {
+    const startingConfig = {
+      ...initialConfig(),
+      rules: [
+        {
+          id: 'selected-rule',
+          enabled: false,
+          match: { url: '/api/selected', method: 'POST', type: 'normal' },
+          response: { enabled: true, replace: { body: { id: 'selected-rule' } } },
+        },
+      ],
+    }
+    const { wrapper, sentMessages } = await mountApp(
+      [{ ok: false, error: 'storage-write-failed' }],
+      startingConfig
+    )
+
+    await wrapper.get('.rule-selection input').setValue(true)
+    await buttonByText(wrapper, '启用所选').trigger('click')
+    await flushPromises()
+
+    const saves = sentMessages.filter((message) => message.key === V3PanelMessageKey.SAVE_CONFIG)
+    expect(saves).toHaveLength(1)
+    expect(saves[0].value.config.rules[0].enabled).toBe(true)
+    expect(
+      wrapper.get('[role="switch"][aria-label="启用规则 /api/selected"]').attributes('aria-checked')
+    ).toBe('false')
+    expect(wrapper.get('.rule-selection input').element.checked).toBe(true)
+    expect(wrapper.get('.bulk-actions').text()).toContain('已选 1 条规则')
+    expect(wrapper.get('.operation-alert').text()).toContain('storage-write-failed')
+  })
 })
 
 describe('App no-match diagnostics localization', () => {
