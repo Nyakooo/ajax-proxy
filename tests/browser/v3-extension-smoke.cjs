@@ -788,10 +788,48 @@ async function main() {
     const siteSwitchOrigin = `http://127.0.0.1:${port}`
     await v3Panel.getByRole('button', { name: 'Site switches' }).click()
     const siteSwitchesDialog = v3Panel.getByRole('dialog', { name: 'Manage site switches' })
-    await siteSwitchesDialog.getByLabel('Site URL or origin').fill(`${siteSwitchOrigin}/settings`)
+    const siteOriginInput = siteSwitchesDialog.getByLabel('Site URL or origin')
+    const enteredSiteUrl = `${siteSwitchOrigin}/settings`
+    await siteOriginInput.fill(enteredSiteUrl)
     await siteSwitchesDialog
       .getByText(`This exact origin will be affected: ${siteSwitchOrigin}`)
       .waitFor()
+    await siteOriginInput.press('Escape')
+    await siteSwitchesDialog.waitFor({ state: 'visible' })
+    assert.equal(
+      await siteOriginInput.inputValue(),
+      enteredSiteUrl,
+      'Escape should leave the site switches dialog open and preserve the entered URL'
+    )
+    const siteSwitchBackdrop = v3Panel.locator('.editor-backdrop').last()
+    const [backdropBox, dialogBox] = await Promise.all([
+      siteSwitchBackdrop.boundingBox(),
+      siteSwitchesDialog.boundingBox(),
+    ])
+    assert.ok(backdropBox && dialogBox, 'site switches dialog and backdrop should be visible')
+    const maskClickPoint = [
+      { x: backdropBox.x + 4, y: backdropBox.y + 4 },
+      { x: backdropBox.x + backdropBox.width - 4, y: backdropBox.y + 4 },
+      { x: backdropBox.x + 4, y: backdropBox.y + backdropBox.height - 4 },
+      {
+        x: backdropBox.x + backdropBox.width - 4,
+        y: backdropBox.y + backdropBox.height - 4,
+      },
+    ].find(
+      ({ x, y }) =>
+        x < dialogBox.x ||
+        x > dialogBox.x + dialogBox.width ||
+        y < dialogBox.y ||
+        y > dialogBox.y + dialogBox.height
+    )
+    assert.ok(maskClickPoint, 'the visible backdrop should have a clickable blank area')
+    await v3Panel.mouse.click(maskClickPoint.x, maskClickPoint.y)
+    await siteSwitchesDialog.waitFor({ state: 'visible' })
+    assert.equal(
+      await siteOriginInput.inputValue(),
+      enteredSiteUrl,
+      'clicking the backdrop should leave the dialog open and preserve the entered URL'
+    )
     await siteSwitchesDialog.getByRole('button', { name: 'Disable this site' }).click()
     await siteSwitchesDialog.waitFor({ state: 'hidden' })
     const disabledSiteConfig = await restartedWorker.evaluate(
