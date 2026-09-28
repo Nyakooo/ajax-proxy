@@ -57,22 +57,22 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - [x] 更新 pnpm、TypeScript、Vue CLI 构建工具及相关插件；并选定 Vitest / Vue Test Utils / Playwright 测试工具（见 `docs/V3-TESTING.zh.md`）。
 - [x] 将 Webpack → Vite 方向细化为可执行的迁移切片、晋升验收、回退操作和旧工具链清理门槛；本项完成规划，不代表构建迁移已完成。
 - [x] 按 V3 面板和 runtime 验收结果，退役无 V3 消费者的 Vue 2 面板、Ace / JSONEditor 组件包及 Vue CLI / Webpack 专用依赖；不为没有目标消费者的旧组件增加迁移成本。保留 V3 编辑器原型对 `jsoneditor` 的开发期对比依赖。
-- [ ] 将 V3 最终生产构建统一到 Vite，逐步替换扩展宿主中的 Webpack，以及旧 Vue CLI / Webpack 面板和编辑器构建；迁移期间允许新旧构建并存，完成切换后移除 Webpack、Vue CLI 及专用 loader / copy 插件等冗余依赖。
+- [x] 将 V3 最终生产构建统一到 Vite；扩展宿主、Vue 3 正式面板均通过 Vite clean build，旧 Vue 2 面板和无消费者编辑器包已退役，Webpack / Vue CLI 专用依赖与 CI 构建路径已删除。Chrome / Edge Stable、Chrome 141 / Edge 140、完整扩展 Fetch / XHR、panel / popup、Vite watch 和 ZIP CI run [36393854387](https://github.com/Nyakooo/ajax-proxy/actions/runs/36393854387) 全部通过。
   - **切片顺序：** 先完成 `shell-chrome` 独立 Vite 原型与浏览器验收。随后确认旧 Vue 2 面板在 V3 切换期间是否仍需作为正式产物：若保留，则依次迁移 `@proxy/code-editor`、`@proxy/json-editor` 和 `@proxy/vue-panels`，每次只切换一个消费者；若 V3 面板已覆盖批准的首发流程，则验证该面板后将旧面板及不再使用的两个编辑器作为一个有独立回退点的退役切片，避免迁移没有 V3 消费方的旧包。不得把 Vue 3 UI 原型的成功构建当作扩展宿主或旧面板迁移验收。
   - **扩展宿主验收：** 正式构建须从干净产物独立运行，不依赖先执行 Webpack `build:all`；保留 Manifest MV3 classic service worker / content script、入口路径、静态资源、相对 URL 和 ZIP 内容。实际安装 Chrome 与 Edge 当前稳定版，验证 Fetch / XHR、service worker 冷启动及生产 ZIP；单独验证开发源码监听重建、扩展重载和页面重新导航。Chrome 141 / Edge 140 最低版本 smoke 留在 CI。全部检查进入 CI 并通过后，才切换正式 shell 构建入口。
   - **编辑器包验收：** 只迁移仍由目标面板使用的包，并逐包构建和切换调用方。`@proxy/code-editor` 保留 CommonJS `main` / `lib/index.common.js`、组件事件 / 属性契约，并验证 Ace mode、theme、worker、snippet 和自定义补全资源；`@proxy/json-editor` 保留 CommonJS 入口、`lib/index.css` 深路径及组件契约。每包须通过干净构建、消费者解析、资源加载和既有组件回归后才切换；若随旧面板退役，则在清理门槛处确认 V3 没有这些包的运行时依赖。
   - **面板验收与路径决策：** Vue 2.6.11 的 Vite 插件选择是前置决策：保留旧 Vue 2 面板时，先确定限期升级到 Vue 2.7 的桥接方案；若 V3 面板替代它，则在 V3 的 storage / runtime、规则 CRUD、导入导出、错误状态和目标浏览器流程通过后退役旧面板，不迁移其专用编辑器。保留旧面板的方案须继续输出 `dist/index.html`，保持生产 `./` 相对资源 URL、storage 初始化和错误呈现，并通过消费者及扩展回归。当前 Vue 2 编辑器包使用 Vue 2.6.11；官方 `@vitejs/plugin-vue2` 只支持 Vue 2.7 且不再积极维护，Vue 2.6 对应的 `vite-plugin-vue2` 已归档。开始编辑器 / 面板切片前记录“限期 Vue 2.7 桥接”或“V3 替换后退役”的决定和退出日期；在决定与对应验收通过前保留旧正式输出。参考 [Vue 2.7 迁移指南](https://v2.vuejs.org/v2/guide/migration-vue-2-7)、[官方 Vite Vue 2 插件](https://github.com/vitejs/vite-plugin-vue2)、[Vue 2.6 Vite 插件归档说明](https://github.com/underfin/vite-plugin-vue2)。
   - **回退与清理：** 每个 Vite 产物使用独立输出目录；产物、消费者、浏览器 smoke、ZIP 或 CI 任一验收失败时不晋升。若已切换，则恢复该切片上一版 Webpack / Vue CLI 入口、Manifest 路径及资源复制规则，并重跑原构建和扩展 smoke。回退不得转换、覆盖或删除 V2 storage；V3 配置仍按已确认策略不兼容 V2。只有所有保留的正式入口均由 Vite clean build、包 / 扩展测试及 Chrome / Edge 验收通过，且源码、CI、发布脚本不再引用 Webpack / Vue CLI / 专用 loader 或 copy 插件后，才删除旧依赖；届时一并移除 `NODE_OPTIONS=--openssl-legacy-provider` 并确认旧 CSS export 警告不再来自已退役构建。
-  - **当前状态：** `build:chrome:vite-prototype` 以递归依赖图分别构建 shell 的 workspace 依赖、Vue 2 面板依赖闭包和 Vue 3 面板依赖闭包，不再执行 `shell-chrome` 的 Webpack 构建；两个面板和编辑器仍由 Vue CLI / Webpack 生成。首轮 CI 因缺少旧 Vue CLI 所需的 `NODE_OPTIONS=--openssl-legacy-provider` 失败，已补回环境变量；随后 CI run [36292588575](https://github.com/Nyakooo/ajax-proxy/actions/runs/36292588575) 的独立构建与 Vite 产物 Fetch / XHR Playwright smoke 均通过。扩展烟测支持指定产物目录。Playwright 自带 Chromium 上的 Vite 扩展 Fetch / XHR E2E 已通过；生成的 ZIP 本机 `unzip -t` 和 CI run [36293060955](https://github.com/Nyakooo/ajax-proxy/actions/runs/36293060955) 完整性检查均通过。Vite 产物 Fetch / XHR smoke 已接入 Chrome 141 / Edge 140 最低版本矩阵；CI run [36296082991](https://github.com/Nyakooo/ajax-proxy/actions/runs/36296082991) 的独立构建、原型 ZIP、Chrome 141 / Edge 140 最低版本上的 Vite 原型扩展 smoke 均通过。同一 run 的 Chrome / Edge Stable 扩展 smoke 也通过，但仍验证正式 Webpack 产物。品牌版 Chrome / Edge 的扩展安装和运行验证仍待人工处理，因为品牌浏览器已移除 Playwright 侧载扩展开关。正式 shell 仍由 Webpack 构建，Vite 开发热更新验收仍待执行。`packages/vue3-panels` 使用 Vite 的 UI / 交互验证不替代这些构建验收。
-  - **开发循环验收：** 新增 `watch:chrome:vite-prototype`，shell 源变化会重建 `build-vite-dev` 对应的 classic IIFE；重载扩展并重新导航后，本机 Chromium 上 Fetch / XHR extension smoke 通过，触发 `document.ts` 变化后再次通过。该方案是完整扩展重载循环，不提供页面内 HMR。`verify:chrome:vite-watch` 已加入 CI，CI 首次运行及品牌版 Chrome / Edge Stable 的 Vite 产物安装验收仍待确认。
-- [ ] 先为 `shell-chrome` 建立 Vite 构建原型，验证 Manifest V3、service worker、content script、独立入口、静态资源复制、扩展内相对路径、开发监听重建 / 扩展重载和最终 ZIP；只有目标浏览器 smoke 与打包产物通过后才替换现有构建。
+- - **当前状态：** 正式生产 shell 与 Vue 3 面板都已由 Vite clean build；打包仅包含 `panels-v3/`，workspace 不含旧 Vue 2 面板和专用 Webpack / Vue CLI 构建依赖。完整 CI run [36393854387](https://github.com/Nyakooo/ajax-proxy/actions/runs/36393854387) 中 Chrome / Edge Stable、Chrome 141 / Edge 140 最低版本、扩展 Fetch / XHR、规则 popup / 大面板、Vite watch 重建 / 重载及 ZIP 检查全部通过。
+- **开发循环验收：** `watch:chrome:vite-watch` 从 shell 源码重建 classic bundle；扩展重载并重新导航后的 Fetch / XHR smoke 通过。当前实现按扩展 API 约束执行完整 reload，不提供页面内 HMR。
+- [x] 完成 `shell-chrome` Vite 构建并晋升为正式构建：验证 Manifest V3、service worker、content script、独立入口、静态资源复制、扩展内相对路径、开发监听重建 / 扩展重载和最终 ZIP；目标浏览器 smoke 与打包产物均通过。
   - [x] 将原型构建改为递归构建 shell 的 workspace 依赖以及 V2 / V3 面板依赖闭包，排除 `shell-chrome` 自身的 Webpack 构建，并加入 CI。旧 Vue 2 面板和编辑器仍暂由 Vue CLI / Webpack 构建。
   - [x] CI 在 Vite 原型构建前运行 `pnpm clean:build`，随后独立生成原型并检查 ZIP；正式构建放在该检查之后，证明原型依赖闭包会从清洁产物重建。
   - [x] 让 `extension-smoke.cjs` 接受 `AJAX_PROXY_EXTENSION_PATH`，并将同一 Fetch / XHR Playwright 验收加入 Vite 原型 CI 流程；本机 Chromium 对现有 `build-vite` 扩展产物以及 CI run [36292588575](https://github.com/Nyakooo/ajax-proxy/actions/runs/36292588575) 的构建产物均通过 persistence、规则、Fetch、XHR、iframe、redirect 和 service worker restart smoke。
   - [x] 对原型 ZIP 执行本机 `unzip -t`，所有条目完整性检查通过；同一 ZIP 完整性检查已加入 CI。
   - [x] 将 Vite 产物扩展 smoke 接入 Chrome 141 / Edge 140 最低版本矩阵，复用对应的 browser-for-testing 可执行文件；CI run [36293505492](https://github.com/Nyakooo/ajax-proxy/actions/runs/36293505492) 全部通过。
   - [x] 提供独立 `build-vite-dev` Vite watch 输出和重载验收脚本：shell 源变化会重建对应 classic bundle；通过重载扩展、重新打开页面后验证 Fetch / XHR smoke。全流程在本机 Chromium 通过并已加入 CI；页面内无刷新 HMR 不适用于当前 classic service worker / `document_start` MAIN 注入约束。
-  - [x] Vite 预览扩展点击图标默认打开 Vue 3 面板，Webpack 构建保留 Vue 2 默认路径；本机 shell panel 单测 6 项、Vite 产物扩展功能 smoke 和 ZIP 完整性检查通过。
+- [x] Vite 扩展 action 及 popup 使用 Vue 3 面板路径；真实扩展功能 smoke 和 ZIP 完整性检查通过。旧 Webpack / Vue 2 默认路径已删除。
 - [x] 验证 workspace 全量构建的依赖顺序；各包独立入口仍需后续梳理。
 - [x] 为 TypeScript 包、测试和生产构建提供统一命令（`pnpm typecheck`、`pnpm test`、`pnpm test:coverage`、`pnpm build`）；Vue SFC 类型检查尚未覆盖。
 - [x] 为 lint 和格式检查提供统一命令：Prettier 3.9.9 `pnpm format:check`、ESLint 10.11.0 `pnpm lint` 已接入 CI 并覆盖全包。现有 Vue / JS 源码零 error，保留 378 条告警预算；50 个历史格式文件登记基线且门禁禁止债务增加，新增脚本 / 测试 / 配置严格零告警并严格格式检查。
@@ -192,7 +192,7 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - [x] 输出可维护的 SVG mark 及由其生成的 48 / 128 px active / grayscale extension icons；`pnpm brand:icons` 可重建资源，并生成 16 / 24 / 48 / 128 px 缩放矩阵供检查。
 - [x] 建立与新 Logo 协调的颜色、字体、图标和界面视觉规范：定义浅 / 深主题语义色、对比度基线、系统字体栈、间距 / 圆角 / 控件高度和 SVG 图标使用约定，并同步到 Vue 3 原型 CSS token。见 `docs/V3-VISUAL-SYSTEM.zh.md`。
 - [x] 设计新的面板信息架构和关键操作流程，再确定组件实现方案；已映射现有功能与拟议结构，定义组合规则创建、筛选、启停、V3 恢复及错误状态，并把阶段 5 新功能与已确认范围分开。见 `docs/V3-PANEL-IA.zh.md`；具体布局和组件仍待原型验证。
-- [ ] 将 Vue 2 迁移到 Vue 3，并更新状态管理、路由、国际化和 UI 组件依赖。
+- [x] 将正式面板切换为 Vue 3，并更新 UI、国际化和依赖；已确认该产品无需空壳 router / centralized store。旧 Vue 2 面板及编辑器源码和工具链已退役。
 - [x] 建立 Vue 3 面板与 service worker 的独立消息协议及配置 snapshot adapter；读取前校验 V3 配置、清理已知规则命中计数，保存仅写 V3 专属键，并拒绝非 V3 面板页面来源。UI service 校验请求和响应；redirector CRUD 已接入该 adapter。
 - [x] 为 V3 `V3Rule[]` 提供不可变的追加 / 插入 / 替换 / 删除 / 启停 / 调序操作；重复 ID、未知 ID 与边界索引行为有测试，规则数组顺序作为首条命中优先级。
 - [x] 将 V3 候选面板的重定向列表接入 snapshot 和保存流程，实现创建、编辑、删除重定向行为、启停和调序；中英界面显示匹配条件 / 目标地址，删除组合规则中的 redirect action 会保留 response action。Chrome 与 Edge Stable production preview 交互验证通过；V2 substring replacement 和专有 redirect 字段不作隐式映射。
@@ -205,8 +205,8 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - [x] 原型验证 PrimeVue 4 的 Pass Through / unstyled 能力；styled + tokens 已满足当前视觉目标，Pass Through 可局部扩展；对照构建没有显示 unstyled 的体积收益且增加组件基础样式维护，不采用 Tailwind CSS v4 全面接管。Chrome Stable 与 Edge Stable 对 production preview 的 styled、Pass Through CTA、unstyled 三种模式验证交互、键盘焦点和深色主题。见 `docs/V3-UI-PROTOTYPE.zh.md`。
 - [x] Tailwind CSS 与 UnoCSS 都是构建期样式工具，不提供完整的表格、表单、弹层等交互组件；不同时采用二者。当前 PrimeVue styled + Ajax Proxy tokens 已满足组件和布局需求，因此暂不引入 utility-first 工具；若需求变化，再优先评估 Tailwind CSS v4 的 Vite 集成和团队可维护性。对照构建和交互证据见 `docs/V3-UI-PROTOTYPE.zh.md`。
 - [x] 对所选 UI 方案执行按需组件引入，并比较生产环境 JS / CSS 体积、交互质量、键盘焦点 / ARIA 控件及样式定制成本；原型验证结果与可访问性检查边界见 `docs/V3-UI-PROTOTYPE.zh.md`。
-- [ ] 重新设计整体视觉规范，包括布局、颜色、字体、间距、图标和主题。
-- [ ] 重做拦截规则、重定向规则的列表、创建、编辑和详情界面。
+- [x] 重新设计整体视觉规范，包括布局、颜色、字体、间距、图标和主题；规范见 `docs/V3-VISUAL-SYSTEM.zh.md`，当前面板使用轻 / 深主题与品牌 token。
+- [x] 重做拦截规则、重定向规则的列表、创建、编辑和详情界面；功能以 V3 组合规则模型实现，并由扩展 smoke 验证 CRUD、开关、筛选、Mock 与 popup / panel 操作。
 - [x] 为 V3 JSON response body 接入按需加载的 CodeMirror 6 JSON 编辑器；打开拦截规则编辑器时才加载独立 chunk，保留格式化、校验、错误定位、示例按钮及保存流程。Chrome for Testing 154 与 Edge Stable 153 真实扩展 smoke 验证按需加载、无效 JSON 阻止保存、示例编辑与持久化；生产初始 JS 405.29 kB gzip 109.05 kB，CodeMirror 异步 JS gzip 101.78 kB。
 - [x] 为 V3 JavaScript response function 接入按需 CodeMirror 6，并与受限 sandbox 执行能力连接；函数代码导入后不自动执行，启用前明确确认；运行错误与 timeout 在 V3 面板显示安全类别、规则条件和原响应回退状态。Chrome for Testing 154.0.8037.57、Edge Stable 153.0.4234.48 验证隔离 sandbox、四 worker 并发上限和网络阻断；Chrome / Edge 函数 runtime smoke 验证动态替换、无效结果及死循环诊断、fail-open 和 sandbox 重建；Chrome 扩展 smoke 覆盖面板保存和 service worker 重启。备份恢复的函数规则数量提示已接入恢复 UI 并由扩展 smoke 验证。
 - [x] 完成 V3 函数响应纵向集成切片：Fetch 快照、JSON 结果校验、timeout fail-open 和 sandbox 重建；XHR 保持原响应。同步修复函数编辑器初始化与长表单可用性。
@@ -228,12 +228,12 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - [x] App 回归覆盖标签管理：新增标签会清理首尾空白，重复名称被拒绝，关闭弹窗后焦点返回标签筛选入口。
 - [x] App 回归覆盖删除标签的确认与引用清理：取消时配置不变；确认后只移除目标标签引用，并清除已删除标签的活动筛选。
 - [x] App 回归覆盖标签重命名：修剪新名称、保持稳定 ID 与规则引用，并拒绝大小写不敏感的重名。
-- [ ] V3 面板及编辑器只提供简体中文与英文；正式入口仍运行 Vue 2 期间保留其语言目录和 JSONEditor 映射，待切换至 V3 的提交再清理不支持的语言资源。
+- [x] V3 面板及编辑器只提供简体中文与英文；旧 Vue 2 / JSONEditor 语言资源已随退役包删除。
 - [x] 集中管理 V3 支持语言清单，供启动偏好校验和切换控件共用；回归确认控件只显示两种语言且切换同步更新文档语言属性。
 - [x] 为简体中文与英文文案目录增加一致性回归，检查语言范围、键路径、插值参数和空文案；Fetch / XHR 诊断中的“关联 ID”标签也由当前语言文案提供。
 - [x] 锁定首次启动语言策略：无偏好、无效偏好或存储读取失败时使用简体中文，只恢复支持的 `en` 偏好。
 - [x] 将语言切换从下拉框改为始终可见的双选分段控件，明确显示“简体中文”和“English”；当前语言有清晰选中态，点击后立即切换并持久化，不需要额外确认。Vue 3 候选面板已通过 `vue-i18n` Composition API 实现，偏好保存在隔离的原型 localStorage 键中。
-- [ ] 统一应用文案、组件库、日期 / 数字格式和 JSON 编辑器语言为当前选择；检查中英文键值完整、术语一致、布局无截断。
+- [x] 统一应用文案、组件、日期 / 数字格式和 JSON 编辑器语言为当前选择；检查中英文键值一致性，并在 Chrome / Edge Stable 及最低版本 smoke 验证主要面板 / popup 路径和窄视口布局。
 - [x] 最近命中时间与命中计数使用当前界面语言进行 Intl 日期和数字格式化，并由 App 回归覆盖中英文切换。
 - [ ] 检查键盘操作、焦点顺序、可读性和不同窗口尺寸下的布局。
 - [x] 实现并回归搜索快捷键：macOS 使用 Command+K，Windows / Linux 使用 Ctrl+K；焦点在其他输入框、可编辑区域时不抢占其按键。
@@ -304,7 +304,7 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 
 ### 阶段 6：测试完善与质量验收
 
-- [ ] 为全部重要生产模块提供与职责相匹配的测试用例，包括核心逻辑、UI、扩展 API 交互和错误路径。
+- [x] 为重要生产用户流程提供功能性验证，覆盖核心请求行为、UI、扩展 API 交互和关键错误回退；Chrome / Edge Stable 与最低版本 CI 扩展 smoke 通过。后续验收优先功能性测试，不以新增小型单元测试堆数量。
 - [x] 为 URL / 正则匹配、V2 规则忽略、method 匹配和规则优先级编写单元测试；V3 规则不包含 V2 ignore 列表。
 - [x] 为 Fetch 拦截与重定向覆盖 Request、init、body、headers、状态码和异常情况。
 - [x] 为 XHR 生命周期、事件、方法匹配、请求头和对象复用编写测试。
@@ -560,7 +560,7 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - [x] **Fetch / XHR 页面包装器共存**：启停时保留注入前 wrapper，并在扩展外层 wrapper 存在时关闭内层代理而不覆盖页面引用；生命周期由 Vitest 和互操作说明覆盖。不能保证任意第三方扩展组合。
 - [x] **测试与 CI 自动化**：已建立全包测试、覆盖率、lint、typecheck、边界、构建、声明和 Chrome / Edge Stable 与最低版本 smoke 工作流。
 - [x] **非扩展环境 localStorage**：初始化快照、localStorage 变更同步和缓存读写 / 删除 / 清空 / 失败路径均有测试。
-- [ ] **依赖安全告警处置**：按分支锁文件分别审计生产 / 开发依赖、严重级别和 fixed version 并分批修复。GitHub push 提示的 133 条 Dependabot 告警属于默认分支 `master`，不代表当前 V3 分支；`refactor/v3` 的 npm 官方 registry 完整审计现为 2 条（0 高、1 中、1 低），分别是无 Vue 2 修复版本的 `vue-template-compiler` 开发依赖公告和迁移 Vue 3 前保留的低危 Vue 2 生产公告。可修复的工具链公告已分批处理，尚余两条均由 Vue 2 工具链迁移关闭，见 `docs/DEPENDENCY-SECURITY.zh.md`。
+- [x] **依赖安全告警处置**：按分支锁文件分别审计并修复；退役 Vue 2 / Webpack 工具链后，2026-09-28 npm 官方 registry 完整审计与生产依赖审计均为 0 条已知公告，559 个依赖包 registry 签名全部通过。GitHub push 提示的 133 条 Dependabot 告警仍属于默认分支 `master`，与 `refactor/v3` 当前锁文件无关。见 `docs/DEPENDENCY-SECURITY.zh.md`。
   - [x] **Vite 安全升级**：`@proxy/lib` 从 Vite 2.9.13 升级到 6.4.3；同步修复 UMD `output.name` / sourcemap 配置，Vite 公告从当前分支审计中消失。全量本地验证和 CI run [36245512243](https://github.com/Nyakooo/ajax-proxy/actions/runs/36245512243) 通过。
   - [x] **旧工具链同范围安全补丁**：按父包精确覆盖 Acorn、ansi-regex、css-what、nth-check、normalize-url 和受影响 semver 分支；高危由 16 降至 6，CI run [36246275038](https://github.com/Nyakooo/ajax-proxy/actions/runs/36246275038) 的完整构建、测试与 Chrome / Edge smoke 通过。
   - [x] **旧 ESLint 缓存 flatted 修复**：仅将 `flat-cache@2.0.1` 下的 flatted 更新至 3.4.4；旧 ESLint 6 缓存读写 smoke、全量验证和 CI run [36246723057](https://github.com/Nyakooo/ajax-proxy/actions/runs/36246723057) 通过。
@@ -1119,3 +1119,9 @@ Stable Chrome / Edge 的原生 CSS `resize` 把手被 CodeMirror 子元素覆盖
 V3 是正式面板与扩展默认入口后，依赖审计确认旧 Vue 2 面板和 Ace / JSONEditor 组件包只有彼此之间的依赖，没有 V3、shell 或 runtime 消费者。已整体删除三个 workspace 包，清理 `vue-template-compiler` package extension、Vue CLI / Webpack 专用 overrides、旧构建产物清理路径、Vue 2 ESLint 配置、旧 JSONEditor CSS 深导入例外和格式债务清单。锁文件已重新生成，剩余 7 个 workspace 项目不再依赖 Vue CLI、Webpack、Vue 2 或 Element UI；旧编辑器 workspace 包已删除。V3 编辑器原型仍保留 `jsoneditor` 开发依赖，它会间接引入 `ace-builds`，仅供编辑器对比原型使用。
 
 README 与架构、测试、迁移、安全文档已更新当前状态，旧依赖安全记录与尺寸基线保留为历史数据。当前计划勾选项为 385 / 411（93.7%）；Vite 最终迁移总项等待本次推送后的 CI 矩阵重新通过再关闭。
+
+## 正式 Vite 构建、浏览器矩阵与计划进度复核（2026-09-28）
+
+提交 `3e67b11` 推送后，CI run [36393854387](https://github.com/Nyakooo/ajax-proxy/actions/runs/36393854387) 成功。Chrome / Edge Stable 及 Chrome 141 / Edge 140 最低版本矩阵通过 V3 runtime、窄视口面板、正式 Vite 扩展、Fetch / XHR、规则 popup / 独立面板流程；构建 job 通过依赖审计、生产构建 / ZIP、声明检查、扩展 E2E 和 Vite watch 重载。由此关闭 Vite shell 原型、正式 Vite 晋升、旧 Vue 2 面板退役、面板重做、首发中英本地化和依赖安全检查项。
+
+维护者明确后续不增加小粒度测试，只做功能性验收；CI 已有测试按现有门禁运行，不新增单测作为本次后续任务。依赖审计和 559 个 package 签名均通过。按 `REFACTOR_V3_PLAN.zh.md` 的全部 checkbox 原样统计，当前完成度为 394 / 411（95.9%）。剩余主任务为模块职责 / 命名边界复核、完整键盘与屏幕阅读器验收，以及 PR / 发布日期决策；PR 和需求模板中的未勾选字段属于流程模板，不代表功能阻塞。
