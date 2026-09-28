@@ -7,6 +7,7 @@ import type {
   V3FunctionResponseSnapshot,
   V3ResponseFunctionExecutor,
 } from './responseFunctionSandbox'
+import { getV3FunctionExecutionFailureCode } from './responseFunctionSandbox'
 
 const MAX_SNAPSHOT_BYTES = 1024 * 1024
 const MAX_SNAPSHOT_PART_BYTES = 512 * 1024
@@ -113,13 +114,6 @@ function snapshotFailureCode(error: unknown): V3FunctionErrorCode {
   return 'snapshot-unsupported'
 }
 
-function executionFailureCode(error: unknown): V3FunctionErrorCode {
-  const message = error instanceof Error ? error.message.toLowerCase() : ''
-  if (message.includes('timed out')) return 'timeout'
-  if (message.includes('sandbox') && message.includes('unavailable')) return 'sandbox-unavailable'
-  return 'execution-failed'
-}
-
 function reportFunctionError(
   report: ((code: V3FunctionErrorCode) => void) | undefined,
   code: V3FunctionErrorCode
@@ -198,7 +192,7 @@ export async function replaceFetchResponse(
     try {
       rawResult = await executeResponseFunction(replace.code, snapshots.request, snapshots.response)
     } catch (error) {
-      reportFunctionError(onFunctionError, executionFailureCode(error))
+      reportFunctionError(onFunctionError, getV3FunctionExecutionFailureCode(error))
       reportOutcome('fallback', 'response-replacement-failed')
       return response
     }

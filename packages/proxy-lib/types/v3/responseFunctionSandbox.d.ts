@@ -1,3 +1,10 @@
+export type V3FunctionExecutionFailureCode = 'sandbox-unavailable' | 'timeout' | 'execution-failed';
+/** Internal typed failure; UI diagnostics must not depend on sandbox error wording. */
+export declare class V3FunctionExecutionError extends Error {
+    readonly code: V3FunctionExecutionFailureCode;
+    constructor(code: V3FunctionExecutionFailureCode, message: string);
+}
+export declare function getV3FunctionExecutionFailureCode(error: unknown): V3FunctionExecutionFailureCode;
 export interface V3FunctionRequestSnapshot {
     url: string;
     method: string;

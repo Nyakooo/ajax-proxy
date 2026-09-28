@@ -129,7 +129,7 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - [x] 将 V3 面板临时诊断与 Fetch / XHR outcome 采集偏好的 Chrome storage 读写和 `onChanged` 订阅封装到 service；App 只同步视图状态，适配器单测覆盖读取、启停、区域过滤和清理。
 - [x] 将 V3 面板活动标签页查询、HTTP(S) origin 规范化及 `tabs.onActivated` / `tabs.onUpdated` 订阅封装到 service；App 只消费当前 origin，并在卸载时释放订阅。
 - [x] 将 Vue 3 面板到 service worker 的 V3 配置请求与 runtime message 订阅统一收拢到 `v3Config` service；App 只处理通过订阅收到的领域事件，service 负责监听清理。
-- [ ] 统一模块命名、公共接口、类型定义和错误处理方式，减少重复实现及跨层耦合。
+- [x] 完成 V3 活跃路径的模块边界、公共入口、线路类型和错误合同审计；修正 Fetch 重定向与响应替换从 sandbox 错误文案推导错误码的重复实现，改由 sandbox 产生稳定的结构化执行失败码并由两条路径共用映射。V2 runtime 保持独立，不纳入此次 V3 审计范围。
 - [x] 规则诊断按稳定规则 ID 读取规则信息；置顶后的执行顺序不再误作原配置索引，只有实际满足条件的后续规则标记为低优先级。生产扩展浏览器功能 smoke 已覆盖置顶、具体未命中原因及重叠规则场景（2026-09-28）。
 - [x] V3 面板消息协议的失败类型使用互斥且完整的判别联合；存储 / 校验 / revision 错误在线路类型中表达，扩展 API 不可用、消息失败和无效回复继续作为 UI service 本地错误处理。生产构建和完整扩展浏览器功能 smoke 通过（2026-09-28）。
 - [x] 绘制并维护项目架构图、包依赖图和关键运行链路说明：`docs/V3-ARCHITECTURE-ASSESSMENT.zh.md` 覆盖当前 6 个 workspace packages，以及面板→storage→content→MAIN proxy 配置同步、代理命中→content→service worker→badge 两条关键链路，并记录消息信任边界。
@@ -1156,3 +1156,7 @@ README 与架构、测试、迁移、安全文档已更新当前状态，旧依�
 ## 规则编辑 / 站点开关弹窗关闭行为验收（2026-09-28）
 
 扩展浏览器功能 smoke 现覆盖重定向编辑表单和站点开关弹窗：Escape 与遮罩空白点击不关闭弹窗、不清除输入；重定向通过显式关闭按钮退出，站点开关仍通过明确操作保存。扩展 Fetch / XHR 等完整 smoke 和规则 popup / 编辑器完整 smoke 均通过，没有运行小粒度单测。当前计划完成度为 400 / 416（96.2%）。
+
+## V3 sandbox 结构化错误码与函数功能验收（2026-09-28）
+
+sandbox 执行器现在以内部 typed error 明确报告 timeout、sandbox unavailable 和 execution failure；Fetch 函数重定向与响应替换共用同一错误码映射，不再依赖错误文案 substring，sandbox 超时重置并取消同 sandbox 的其他调用时也保留 timeout 分类。修正函数浏览器功能 smoke 对当前中英文案、动作前缀及 live region 的过期精确匹配；扩展完整 Fetch / XHR smoke 与函数端到端 smoke 通过，实际覆盖函数响应替换、XHR 原样回退、无效结果诊断、5 秒超时、fail-open 和 sandbox 重建。未新增或运行小粒度单测。全部 checkbox 机械统计为 401 / 416（96.4%）；此比例包含未来 PR / 需求模板，不能解释为产品功能完成度。

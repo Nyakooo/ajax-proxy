@@ -6,6 +6,23 @@ const MAX_CONCURRENT_FUNCTIONS = 4
 const MAX_EXECUTION_MS = 5000
 const CANCEL_GRACE_MS = 100
 
+export type V3FunctionExecutionFailureCode = 'sandbox-unavailable' | 'timeout' | 'execution-failed'
+
+/** Internal typed failure; UI diagnostics must not depend on sandbox error wording. */
+export class V3FunctionExecutionError extends Error {
+  readonly code: V3FunctionExecutionFailureCode
+
+  constructor(code: V3FunctionExecutionFailureCode, message: string) {
+    super(message)
+    this.name = 'V3FunctionExecutionError'
+    this.code = code
+  }
+}
+
+export function getV3FunctionExecutionFailureCode(error: unknown): V3FunctionExecutionFailureCode {
+  return error instanceof V3FunctionExecutionError ? error.code : 'execution-failed'
+}
+
 export interface V3FunctionRequestSnapshot {
   url: string
   method: string
@@ -122,20 +139,29 @@ function createV3FunctionExecutors(host: Window): V3FunctionExecutors {
     }
     if (validSuccess) {
       execution.resolve(result.result)
-    } else execution.reject(new Error(result.error as string))
+    } else {
+      execution.reject(new V3FunctionExecutionError('execution-failed', result.error as string))
+    }
   }
 
   host.addEventListener('message', onMessage)
 
   function waitUntilReady(frame: HTMLIFrameElement, deadline: number): Promise<Window> {
     const frameWindow = frame.contentWindow
-    if (!frameWindow) return Promise.reject(new Error('Function sandbox frame is unavailable.'))
+    if (!frameWindow) {
+      return Promise.reject(
+        new V3FunctionExecutionError(
+          'sandbox-unavailable',
+          'Function sandbox frame is unavailable.'
+        )
+      )
+    }
     if (readyFrames.has(frameWindow)) return Promise.resolve(frameWindow)
 
     return new Promise((resolve, reject) => {
       const remainingMs = deadline - Date.now()
       if (remainingMs <= 0) {
-        reject(new Error('Function sandbox timed out while loading.'))
+        reject(new V3FunctionExecutionError('timeout', 'Function sandbox timed out while loading.'))
         return
       }
       const finish = () => {
@@ -149,7 +175,7 @@ function createV3FunctionExecutors(host: Window): V3FunctionExecutors {
         const waiters = readyWaiters.get(frameWindow)
         waiters?.delete(finish)
         if (waiters?.size === 0) readyWaiters.delete(frameWindow)
-        reject(new Error('Function sandbox timed out while loading.'))
+        reject(new V3FunctionExecutionError('timeout', 'Function sandbox timed out while loading.'))
       }, remainingMs)
       const waiters = readyWaiters.get(frameWindow) ?? new Set<() => void>()
       waiters.add(finish)
@@ -183,13 +209,17 @@ function createV3FunctionExecutors(host: Window): V3FunctionExecutors {
           pending.delete(pendingId)
           if (other.timer) clearTimeout(other.timer)
           if (other.cancelTimer) clearTimeout(other.cancelTimer)
-          other.reject(new Error('Function sandbox was reset after a timeout.'))
+          other.reject(
+            new V3FunctionExecutionError('timeout', 'Function sandbox was reset after a timeout.')
+          )
         }
       }, CANCEL_GRACE_MS)
     } else {
       pending.delete(id)
     }
-    execution.reject(new Error('Function response timed out after 5 seconds.'))
+    execution.reject(
+      new V3FunctionExecutionError('timeout', 'Function response timed out after 5 seconds.')
+    )
   }
 
   let activeCalls = 0
@@ -209,7 +239,12 @@ function createV3FunctionExecutors(host: Window): V3FunctionExecutors {
 
     try {
       const frame = host.document.getElementById(FRAME_ID)
-      if (!isSandboxFrame(frame)) throw new Error('Function sandbox is unavailable on this page.')
+      if (!isSandboxFrame(frame)) {
+        throw new V3FunctionExecutionError(
+          'sandbox-unavailable',
+          'Function sandbox is unavailable on this page.'
+        )
+      }
 
       const id = createId()
       const deadline = Date.now() + MAX_EXECUTION_MS
@@ -229,7 +264,9 @@ function createV3FunctionExecutors(host: Window): V3FunctionExecutors {
         }
         const remainingMs = deadline - Date.now()
         if (remainingMs <= 0) {
-          reject(new Error('Function response timed out after 5 seconds.'))
+          reject(
+            new V3FunctionExecutionError('timeout', 'Function response timed out after 5 seconds.')
+          )
           return
         }
         execution.timer = setTimeout(() => cancelWithFallback(id, execution), remainingMs)

@@ -127,9 +127,13 @@ async function main() {
       'invalid-result'
     )
     await extensionPage
-      .getByText('The function returned an invalid result; the original response was used.', {
-        exact: true,
-      })
+      .getByRole('log')
+      .getByText(
+        'The function returned an invalid result; the browser-native request or response was kept.',
+        {
+          exact: false,
+        }
+      )
       .waitFor({ timeout: 5000 })
 
     await extensionPage.evaluate(async (key) => {
@@ -160,10 +164,11 @@ async function main() {
       { timeout: 10000 }
     )
     await extensionPage
+      .getByRole('log')
       .getByText(
-        'The function exceeded 5 seconds and was stopped; the original response was used.',
+        'The function exceeded 5 seconds and was stopped; the browser-native request or response was kept.',
         {
-          exact: true,
+          exact: false,
         }
       )
       .waitFor()

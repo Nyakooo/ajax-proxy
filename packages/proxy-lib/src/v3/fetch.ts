@@ -8,6 +8,7 @@ import type {
 } from '@proxy/protocol'
 import type { V3RuntimeHostOptions } from './runtimeOptions'
 import { replaceFetchResponse } from './responseAction'
+import { getV3FunctionExecutionFailureCode } from './responseFunctionSandbox'
 
 export type V3Fetch = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>
 export type V3FetchOptions = V3RuntimeHostOptions
@@ -82,13 +83,6 @@ function createMockResponse(request: Request, rule: V3Rule): Response {
   const body = hasBody && bodyAllowed ? JSON.stringify(configuredBody) : null
 
   return new Response(body, { status, headers })
-}
-
-function redirectFunctionFailureCode(error: unknown): V3FunctionErrorCode {
-  const message = error instanceof Error ? error.message.toLowerCase() : ''
-  if (message.includes('timed out')) return 'timeout'
-  if (message.includes('sandbox') && message.includes('unavailable')) return 'sandbox-unavailable'
-  return 'execution-failed'
 }
 
 function resolveRedirectFunctionTarget(value: unknown, originalUrl: string): string | undefined {
@@ -242,7 +236,7 @@ export function createV3Fetch(fetcher: V3Fetch, options: V3FetchOptions): V3Fetc
             redirectTarget = resolveRedirectFunctionTarget(result, originalRequest.url)
             if (!redirectTarget) failureCode = 'redirect-target-invalid'
           } catch (error) {
-            failureCode = redirectFunctionFailureCode(error)
+            failureCode = getV3FunctionExecutionFailureCode(error)
           }
         }
         if (failureCode) {
