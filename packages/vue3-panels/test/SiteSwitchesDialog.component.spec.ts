@@ -180,7 +180,7 @@ describe('ResponseRuleEditor', () => {
     await enable.setValue(true)
     await nextTick()
     expect(enable.element.checked).toBe(true)
-    expect(wrapper.get('.function-safety-warning').exists()).toBe(true)
+    expect(wrapper.get('.function-guide').element.open).toBe(false)
   })
 
   it('blocks invalid JSON, shows its location, and clears the error after correction', async () => {
