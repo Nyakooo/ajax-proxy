@@ -131,8 +131,8 @@ const { t } = useI18n({ useScope: 'global' })
   width: min(20rem, calc(100vw - 2rem));
   max-height: min(32rem, calc(100vh - 2rem));
   overflow: hidden;
-  color: var(--ap-text, #1f2937);
-  background: var(--ap-surface, #fff);
+  color: var(--ap-ink);
+  background: var(--ap-card);
   border: 1px solid var(--ap-border, #d1d5db);
   border-radius: 0.75rem;
   box-shadow: 0 0.75rem 2rem rgb(15 23 42 / 16%);
@@ -196,7 +196,7 @@ label {
 }
 
 input {
-  accent-color: var(--ap-accent, #2563eb);
+  accent-color: var(--ap-teal);
 }
 
 .filter-actions {
@@ -206,7 +206,7 @@ input {
 
 .filter-actions button {
   padding: 0.4rem 0.65rem;
-  color: var(--ap-accent, #2563eb);
+  color: var(--ap-teal);
   background: transparent;
   border: 0;
   border-radius: 0.375rem;
@@ -216,7 +216,7 @@ input {
 
 button:focus-visible,
 input:focus-visible {
-  outline: 2px solid var(--ap-accent, #2563eb);
+  outline: 2px solid var(--ap-teal);
   outline-offset: 2px;
 }
 </style>

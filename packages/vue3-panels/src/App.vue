@@ -271,6 +271,16 @@ function openRuleTagManager() {
   ruleTagsDialogOpen.value = true
 }
 
+function toggleRuleTagFilter() {
+  if (ruleTagFilterOpen.value) {
+    closeRuleTagFilter()
+    return
+  }
+  ruleFiltersOpen.value = false
+  ruleDiagnosticsOpen.value = false
+  ruleTagFilterOpen.value = true
+}
+
 function closeRuleTagFilter() {
   ruleTagFilterOpen.value = false
   nextTick(() => ruleTagsControl.value?.querySelector('button')?.focus())
@@ -281,12 +291,24 @@ function toggleRuleFilters() {
     closeRuleFilters()
     return
   }
+  ruleTagFilterOpen.value = false
+  ruleDiagnosticsOpen.value = false
   ruleFiltersOpen.value = true
 }
 
 function closeRuleFilters() {
   ruleFiltersOpen.value = false
   nextTick(() => ruleFilterControl.value?.querySelector('button')?.focus())
+}
+
+function toggleRuleDiagnostics() {
+  if (ruleDiagnosticsOpen.value) {
+    ruleDiagnosticsOpen.value = false
+    return
+  }
+  ruleFiltersOpen.value = false
+  ruleTagFilterOpen.value = false
+  ruleDiagnosticsOpen.value = true
 }
 
 function closeRuleTagManager() {
@@ -683,6 +705,9 @@ async function persistConfig(nextConfig) {
 }
 
 function openDialog(openState, trigger, event) {
+  ruleFiltersOpen.value = false
+  ruleTagFilterOpen.value = false
+  ruleDiagnosticsOpen.value = false
   trigger.value = event.currentTarget
   openState.value = true
 }
@@ -779,6 +804,9 @@ async function addRuleTemplate(templateId) {
 }
 
 function showEditor(rule = null) {
+  ruleFiltersOpen.value = false
+  ruleTagFilterOpen.value = false
+  ruleDiagnosticsOpen.value = false
   editorIssue.value = ''
   editingRule.value = rule
   editorOpen.value = true
@@ -803,6 +831,9 @@ function createRule() {
 }
 
 function showResponseEditor(rule = null) {
+  ruleFiltersOpen.value = false
+  ruleTagFilterOpen.value = false
+  ruleDiagnosticsOpen.value = false
   responseEditorIssue.value = ''
   editingResponseRule.value = rule
   responseEditorOpen.value = true
@@ -1428,7 +1459,7 @@ async function deleteRule(rule) {
               outlined
               :aria-expanded="ruleDiagnosticsOpen"
               :disabled="loading"
-              @click="ruleDiagnosticsOpen = !ruleDiagnosticsOpen"
+              @click="toggleRuleDiagnostics"
             />
             <div ref="ruleTagsControl" class="filter-control">
               <AppButton
@@ -1441,7 +1472,7 @@ async function deleteRule(rule) {
                 outlined
                 :aria-expanded="ruleTagFilterOpen"
                 aria-controls="rule-tag-filter-popover"
-                @click="ruleTagFilterOpen = !ruleTagFilterOpen"
+                @click="toggleRuleTagFilter"
                 @keydown.esc.stop.prevent="closeRuleTagFilter"
               />
               <RuleTagFilterPopover
