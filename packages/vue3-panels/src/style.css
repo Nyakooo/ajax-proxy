@@ -1391,6 +1391,13 @@ input {
   margin: 0;
 }
 
+.function-guide-content .function-guide-compatibility {
+  padding: 8px 10px;
+  border-left: 2px solid var(--ap-teal);
+  border-radius: 0 var(--ap-radius-control) var(--ap-radius-control) 0;
+  background: color-mix(in srgb, var(--ap-teal) 8%, var(--ap-card));
+}
+
 .function-guide-content dl {
   display: grid;
   gap: 7px;
@@ -1456,14 +1463,6 @@ input {
   font-weight: 400;
   line-height: 1.5;
   overflow-wrap: anywhere;
-}
-
-.function-response-fields .function-safety-warning {
-  padding: 9px 10px;
-  border-left: 3px solid var(--ap-teal);
-  border-radius: 0 var(--ap-radius-control) var(--ap-radius-control) 0;
-  background: color-mix(in srgb, var(--ap-teal) 8%, var(--ap-card));
-  color: var(--ap-ink);
 }
 
 .function-response-fields .function-enabled {

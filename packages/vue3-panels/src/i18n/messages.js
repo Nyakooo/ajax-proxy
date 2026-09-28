@@ -299,7 +299,9 @@ export const messages = {
       functionCode: '函数体代码',
       functionCodeHelp:
         '直接填写函数体，无需声明函数。读取 request.url、request.method，返回目标 URL 字符串。',
-      functionGuideTitle: '查看完整规则与示例',
+      functionGuideTitle: '仅 Fetch · XHR 保留原 URL（规则与原因）',
+      functionGuideCompatibility:
+        'XHR.open() 必须同步返回，而隔离函数可能异步计算目标，因此 XHR 不执行函数重定向。需要重定向异步 XHR 时请选择静态 URL。',
       functionGuideIntro:
         '发送真实 Fetch 请求前执行此函数。可直接 return，也可返回 Promise；不使用 callback。',
       functionGuideRequest:
@@ -312,9 +314,7 @@ export const messages = {
       functionGuideUseExample: '填入编辑器',
       functionExampleReplaceConfirm: '将示例替换当前函数代码？当前代码尚未保存。',
       functionGuideLimits:
-        '仅支持 Fetch；XHR 保留原 URL。代码不能访问页面、扩展 API、网络或外部代码，最多执行 5 秒，最长 65,536 个字符。排除 URL 命中时跳过重定向；保存后需同时启用规则和函数动作。',
-      functionSafetyWarning:
-        '代码在隔离 sandbox 中最多运行 5 秒；不能读取请求体、headers、响应或 cookies。只支持 Fetch；XHR 保留原 URL。编辑器不会执行或编译代码。',
+        '代码不能访问页面、扩展 API、网络或外部代码，最多执行 5 秒，最长 65,536 个字符。编辑器不会执行或编译代码。排除 URL 命中时跳过重定向；保存后需同时启用规则和函数动作。',
       enableFunctionRedirect: '启用函数重定向（需要明确确认）',
       functionEnableConfirm:
         '启用此函数重定向？代码只能读取 URL 和 method，在隔离 sandbox 中最多运行 5 秒；XHR 请求仍使用原 URL。',
@@ -383,7 +383,9 @@ export const messages = {
       functionCode: '函数体代码',
       functionCodeHelp:
         '直接填写函数体，无需声明函数。可读取 request、response，并返回包含 body、status 或 headers 的对象。',
-      functionGuideTitle: '查看完整规则与示例',
+      functionGuideTitle: '仅 Fetch · XHR 保留原响应（规则与原因）',
+      functionGuideCompatibility:
+        'XHR 的响应值和事件时序由浏览器管理；隔离函数可能异步返回，当前不会延迟原生事件，因此 XHR 保留原响应。若要让不存在的异步 XHR 接口返回固定数据，请选静态 JSON Mock。',
       functionGuideIntro:
         '真实 Fetch 请求返回后执行此函数。可直接 return，也可返回 Promise；不使用 callback。',
       functionGuideRequest:
@@ -398,9 +400,7 @@ export const messages = {
       functionGuideUseExample: '填入编辑器',
       functionExampleReplaceConfirm: '将示例替换当前函数代码？当前代码尚未保存。',
       functionGuideLimits:
-        '仅支持 Fetch 和可读取的文本快照；不能访问页面、扩展 API、网络或外部代码。单项正文最多 512 KiB，快照总量最多 1 MiB，执行最多 5 秒。函数代码最多 65,536 个字符；超限或执行失败时保留真实响应。保存后需同时启用规则和函数动作。',
-      functionSafetyWarning:
-        '函数响应仅支持 Fetch；XHR 保留原生响应。代码只读取请求与响应快照（请求头可能含敏感值），在隔离 sandbox 中执行，最长运行 5 秒。此编辑器不会执行或编译代码。',
+        '仅处理可读取的文本快照；不能访问页面、扩展 API、网络或外部代码。请求头可能含敏感值，只启用可信代码。单项正文最多 512 KiB，快照总量最多 1 MiB，执行最多 5 秒。函数代码最多 65,536 个字符；超限或执行失败时保留真实响应。编辑器不会执行或编译代码。保存后需同时启用规则和函数动作。',
       enableFunction: '启用函数响应（需明确确认）',
       functionEnableConfirm:
         '启用函数响应？此代码可读取请求和响应快照；请求头可能含敏感值。代码将在隔离 sandbox 中最多执行 5 秒。XHR 请求仍使用原生响应。',
@@ -762,7 +762,9 @@ export const messages = {
       functionCode: 'Function body code',
       functionCodeHelp:
         'Enter the function body directly, without a declaration. Read request.url and request.method, then return a target URL string.',
-      functionGuideTitle: 'Full rules and example',
+      functionGuideTitle: 'Fetch only · XHR keeps its URL (rules and why)',
+      functionGuideCompatibility:
+        'XHR.open() must return synchronously, but the isolated function may compute the target asynchronously. XHR therefore skips function redirects. Choose a static URL redirect for asynchronous XHR.',
       functionGuideIntro:
         'This code runs before the real Fetch request is sent. Return a value or a Promise; callbacks are not used.',
       functionGuideRequest:
@@ -776,9 +778,7 @@ export const messages = {
       functionExampleReplaceConfirm:
         'Replace the current function code with this example? Your current code is not saved.',
       functionGuideLimits:
-        'Fetch only; XHR keeps the original URL. Code cannot access the page, extension APIs, network, or external code. Execution is limited to 5 seconds and code to 65,536 characters. URL exclusions skip the redirect. Enable both the rule and function action after saving.',
-      functionSafetyWarning:
-        'Code runs in an isolated sandbox for at most 5 seconds. It cannot read the body, headers, response, or cookies. Fetch only; XHR keeps the original URL. This editor never executes or compiles code.',
+        'Code cannot access the page, extension APIs, network, or external code. Execution is limited to 5 seconds and code to 65,536 characters. The editor never runs or compiles code. URL exclusions skip the redirect. Enable both the rule and function action after saving.',
       enableFunctionRedirect: 'Enable function redirect (explicit confirmation required)',
       functionEnableConfirm:
         'Enable this function redirect? It can read only the URL and method and runs in an isolated sandbox for at most 5 seconds. XHR requests keep the original URL.',
@@ -851,7 +851,9 @@ export const messages = {
       functionCode: 'Function body code',
       functionCodeHelp:
         'Enter the function body directly, without a function declaration. Read request and response, then return an object with body, status, or headers.',
-      functionGuideTitle: 'Full rules and example',
+      functionGuideTitle: 'Fetch only · XHR keeps its response (rules and why)',
+      functionGuideCompatibility:
+        'The browser controls XHR response values and event timing. An isolated function may finish asynchronously; the current wrapper does not delay native events, so XHR keeps its original response. For a missing asynchronous XHR endpoint with fixed data, choose static JSON Mock.',
       functionGuideIntro:
         'This code runs after the real Fetch request returns. Return a value or a Promise; callbacks are not used.',
       functionGuideRequest:
@@ -867,9 +869,7 @@ export const messages = {
       functionExampleReplaceConfirm:
         'Replace the current function code with this example? Your current code is not saved.',
       functionGuideLimits:
-        'Fetch only, with readable text snapshots. Code cannot access the page, extension APIs, network, or external code. Each body is limited to 512 KiB, the total snapshot to 1 MiB, execution to 5 seconds, and code to 65,536 characters. Limits or failures keep the real response. Enable both the rule and function action after saving.',
-      functionSafetyWarning:
-        'Function responses support Fetch only; XHR keeps its native response. Code reads request and response snapshots only; request headers may contain sensitive values. It runs in an isolated sandbox for at most 5 seconds. This editor never executes or compiles code.',
+        'Readable text snapshots only. Code cannot access the page, extension APIs, network, or external code. Request headers may contain sensitive values; enable only trusted code. Each body is limited to 512 KiB, the total snapshot to 1 MiB, execution to 5 seconds, and code to 65,536 characters. Limits or failures keep the real response. The editor never runs or compiles code. Enable both the rule and function action after saving.',
       enableFunction: 'Enable function response (explicit confirmation required)',
       functionEnableConfirm:
         'Enable this function response? It can read request and response snapshots; request headers may contain sensitive values. It runs in an isolated sandbox for at most 5 seconds. XHR requests keep their native responses.',

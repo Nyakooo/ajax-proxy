@@ -313,6 +313,9 @@ function trapFocus(event) {
           <details class="function-guide">
             <summary>{{ t('editor.functionGuideTitle') }}</summary>
             <div class="function-guide-content">
+              <p class="function-guide-compatibility">
+                {{ t('editor.functionGuideCompatibility') }}
+              </p>
               <p>{{ t('editor.functionGuideIntro') }}</p>
               <dl>
                 <div>
@@ -342,7 +345,6 @@ function trapFocus(event) {
             :aria-label="t('editor.functionCode')"
             described-by="redirect-function-help redirect-editor-error"
           />
-          <small class="function-safety-warning">{{ t('editor.functionSafetyWarning') }}</small>
           <label class="editor-enabled function-enabled">
             <input :checked="form.redirectEnabled" type="checkbox" @change="setRedirectEnabled" />
             <span>{{ t('editor.enableFunctionRedirect') }}</span>

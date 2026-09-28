@@ -424,6 +424,9 @@ function trapFocus(event) {
           <details class="function-guide">
             <summary>{{ t('responseEditor.functionGuideTitle') }}</summary>
             <div class="function-guide-content">
+              <p class="function-guide-compatibility">
+                {{ t('responseEditor.functionGuideCompatibility') }}
+              </p>
               <p>{{ t('responseEditor.functionGuideIntro') }}</p>
               <dl>
                 <div>
@@ -457,9 +460,6 @@ function trapFocus(event) {
             :aria-label="t('responseEditor.functionCode')"
             described-by="response-function-help response-editor-error"
           />
-          <small class="function-safety-warning">{{
-            t('responseEditor.functionSafetyWarning')
-          }}</small>
           <label class="editor-enabled function-enabled">
             <input :checked="form.functionEnabled" type="checkbox" @change="setFunctionEnabled" />
             <span>{{ t('responseEditor.enableFunction') }}</span>
