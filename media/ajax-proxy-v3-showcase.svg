@@ -1,0 +1,136 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="760" viewBox="0 0 1440 760" fill="none">
+  <title>Ajax Proxy V3 — shape API responses in your browser</title>
+  <desc>An illustrative preview of Ajax Proxy V3: match a browser request, return a JSON mock response, and keep development moving.</desc>
+  <defs>
+    <linearGradient id="background" x1="70" y1="38" x2="1370" y2="760" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#102B34" />
+      <stop offset=".55" stop-color="#163E48" />
+      <stop offset="1" stop-color="#0B202A" />
+    </linearGradient>
+    <linearGradient id="glow" x1="895" y1="122" x2="1292" y2="640" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#25B6A4" stop-opacity=".38" />
+      <stop offset="1" stop-color="#25B6A4" stop-opacity="0" />
+    </linearGradient>
+    <linearGradient id="panel" x1="727" y1="137" x2="1338" y2="668" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F9FCFB" />
+      <stop offset="1" stop-color="#EAF3F2" />
+    </linearGradient>
+    <filter id="shadow" x="650" y="100" width="760" height="640" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse">
+      <feFlood flood-opacity="0" result="backgroundFix" />
+      <feGaussianBlur in="backgroundFix" stdDeviation="24" />
+      <feComposite in2="SourceAlpha" operator="in" result="shadow" />
+      <feOffset dy="22" />
+      <feGaussianBlur stdDeviation="22" />
+      <feColorMatrix values="0 0 0 0 0.01 0 0 0 0 0.08 0 0 0 0 0.1 0 0 0 .38 0" />
+      <feBlend in2="SourceGraphic" result="shape" />
+      <feGaussianBlur stdDeviation="1" />
+    </filter>
+    <pattern id="dots" width="24" height="24" patternUnits="userSpaceOnUse">
+      <circle cx="1" cy="1" r="1" fill="#B4E8DF" fill-opacity=".18" />
+    </pattern>
+  </defs>
+
+  <rect width="1440" height="760" rx="30" fill="url(#background)" />
+  <circle cx="1148" cy="383" r="347" fill="url(#glow)" />
+  <path d="M0 610C228 549 359 715 610 635s484-79 830 37v88H0v-150Z" fill="#0A1D25" fill-opacity=".38" />
+  <path d="M0 0h1440v760H0z" fill="url(#dots)" fill-opacity=".45" />
+
+  <g transform="translate(82 87)">
+    <rect width="58" height="58" rx="17" fill="#F5F9F8" />
+    <path d="M13 22h11c5 0 5 9 10 9h13" stroke="#20AA9A" stroke-linecap="round" stroke-width="4.5" />
+    <path d="m44 26 5 5-5 5" stroke="#20AA9A" stroke-linecap="round" stroke-linejoin="round" stroke-width="3.5" />
+    <path d="M46 39H35c-5 0-5-9-10-9H13" stroke="#F56F68" stroke-linecap="round" stroke-width="4.5" />
+    <path d="m16 26-5 5 5 5" stroke="#F56F68" stroke-linecap="round" stroke-linejoin="round" stroke-width="3.5" />
+    <circle cx="29" cy="31" r="4.5" fill="#F6BD58" stroke="#F5F9F8" stroke-width="2" />
+  </g>
+  <text x="154" y="126" fill="#F5F9F8" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="26" font-weight="700" letter-spacing="-.5">Ajax Proxy</text>
+  <text x="155" y="151" fill="#9BBAB9" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="12" font-weight="600" letter-spacing="2.3">OPEN-SOURCE BROWSER DEVTOOL</text>
+
+  <g font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
+    <rect x="82" y="214" width="224" height="36" rx="18" fill="#1C4B52" stroke="#2E7777" />
+    <circle cx="101" cy="232" r="5" fill="#F6BD58" />
+    <text x="115" y="237" fill="#C8EAE4" font-size="13" font-weight="650" letter-spacing="1.15">V3 DEVELOPER PREVIEW</text>
+
+    <text x="78" y="328" fill="#F5F9F8" font-size="65" font-weight="760" letter-spacing="-2.9">Make every API</text>
+    <text x="78" y="402" fill="#F5F9F8" font-size="65" font-weight="760" letter-spacing="-2.9">ready to build.</text>
+    <text x="82" y="460" fill="#B7D0D0" font-size="21" font-weight="420">Mock missing endpoints. Redirect real requests.</text>
+    <text x="82" y="491" fill="#B7D0D0" font-size="21" font-weight="420">Shape Fetch and XHR responses right in your browser.</text>
+
+    <g font-size="14" font-weight="650">
+      <rect x="82" y="546" width="137" height="43" rx="21.5" fill="#1F5559" />
+      <circle cx="103" cy="567.5" r="5" fill="#20AA9A" />
+      <text x="117" y="573" fill="#E5F7F3">JSON mock</text>
+      <rect x="231" y="546" width="143" height="43" rx="21.5" fill="#1F5559" />
+      <path d="M252 567h16m0 0-5-5m5 5-5 5" stroke="#F56F68" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" />
+      <text x="278" y="573" fill="#E5F7F3">Redirect rules</text>
+      <rect x="386" y="546" width="127" height="43" rx="21.5" fill="#1F5559" />
+      <path d="M407 560v15m-5-5 5 5 5-5" stroke="#F6BD58" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" />
+      <text x="421" y="573" fill="#E5F7F3">V3 backups</text>
+    </g>
+    <text x="82" y="665" fill="#8EADAE" font-size="14" font-weight="520">Chrome &amp; Edge Stable  ·  Local-first  ·  MIT License</text>
+  </g>
+
+  <g filter="url(#shadow)">
+    <rect x="702" y="145" width="626" height="500" rx="20" fill="url(#panel)" />
+  </g>
+  <path d="M722 145h586a20 20 0 0 1 20 20v42H702v-42a20 20 0 0 1 20-20Z" fill="#12343B" />
+  <circle cx="728" cy="174" r="5" fill="#F56F68" />
+  <circle cx="746" cy="174" r="5" fill="#F6BD58" />
+  <circle cx="764" cy="174" r="5" fill="#6F9291" />
+  <rect x="814" y="158" width="348" height="31" rx="15.5" fill="#21484E" />
+  <circle cx="833" cy="173.5" r="4" fill="#20AA9A" />
+  <text x="846" y="178" fill="#C3DAD8" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="12" font-weight="500">Ajax Proxy  /  Rules</text>
+
+  <g font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
+    <text x="735" y="237" fill="#153940" font-size="18" font-weight="750">Rules</text>
+    <rect x="1185" y="215" width="112" height="31" rx="15.5" fill="#DDF3EE" />
+    <circle cx="1202" cy="230.5" r="4.5" fill="#159989" />
+    <text x="1213" y="235" fill="#187267" font-size="11" font-weight="700">ENABLED</text>
+    <rect x="735" y="260" width="560" height="37" rx="9" fill="#F1F7F6" stroke="#D8E7E5" />
+    <circle cx="754" cy="278" r="6" fill="none" stroke="#779394" stroke-width="1.7" />
+    <path d="m758.5 282.5 4 4" stroke="#779394" stroke-linecap="round" stroke-width="1.7" />
+    <text x="773" y="283" fill="#7B9292" font-size="12">Search URL, method, tag…</text>
+    <text x="735" y="326" fill="#71898A" font-size="11" font-weight="700" letter-spacing="1.1">MATCHING RULES</text>
+
+    <rect x="735" y="342" width="560" height="82" rx="11" fill="#FFFFFF" stroke="#CEE1DE" />
+    <rect x="735" y="342" width="4" height="82" rx="2" fill="#20AA9A" />
+    <rect x="753" y="358" width="44" height="21" rx="6" fill="#DFF4EF" />
+    <text x="762" y="373" fill="#147B70" font-size="10" font-weight="750">GET</text>
+    <text x="808" y="373" fill="#24454A" font-size="13" font-weight="650">/api/products</text>
+    <rect x="1197" y="355" width="78" height="24" rx="12" fill="#E3F4EF" />
+    <circle cx="1210" cy="367" r="3.5" fill="#159989" />
+    <text x="1220" y="371" fill="#187267" font-size="9" font-weight="750">ON</text>
+    <text x="753" y="405" fill="#778F90" font-size="11">JSON response</text>
+    <text x="1108" y="405" fill="#A1B1B1" font-size="10">First matching rule</text>
+
+    <rect x="735" y="436" width="560" height="82" rx="11" fill="#FFFFFF" stroke="#DCE8E7" />
+    <rect x="753" y="452" width="44" height="21" rx="6" fill="#FFF0E9" />
+    <text x="760" y="467" fill="#BD654B" font-size="10" font-weight="750">POST</text>
+    <text x="808" y="467" fill="#24454A" font-size="13" font-weight="650">/api/payments</text>
+    <rect x="1197" y="449" width="78" height="24" rx="12" fill="#E3F4EF" />
+    <circle cx="1210" cy="461" r="3.5" fill="#159989" />
+    <text x="1220" y="465" fill="#187267" font-size="9" font-weight="750">ON</text>
+    <text x="753" y="499" fill="#778F90" font-size="11">JSON response</text>
+    <text x="1104" y="499" fill="#A1B1B1" font-size="10">Status 503</text>
+
+    <rect x="735" y="532" width="560" height="91" rx="11" fill="#163A42" />
+    <text x="754" y="557" fill="#A9D4CE" font-size="10" font-weight="700" letter-spacing="1">MOCK RESPONSE</text>
+    <rect x="1208" y="543" width="66" height="22" rx="11" fill="#245C5D" />
+    <text x="1223" y="558" fill="#C8F0E7" font-size="10" font-weight="700">200 OK</text>
+    <text x="754" y="583" fill="#F4C779" font-size="12" font-family="'SFMono-Regular', Consolas, monospace">{</text>
+    <text x="773" y="583" fill="#93DBCE" font-size="12" font-family="'SFMono-Regular', Consolas, monospace">"items"</text>
+    <text x="826" y="583" fill="#E5F1EE" font-size="12" font-family="'SFMono-Regular', Consolas, monospace">:</text>
+    <text x="838" y="583" fill="#F4C779" font-size="12" font-family="'SFMono-Regular', Consolas, monospace">[{</text>
+    <text x="857" y="583" fill="#93DBCE" font-size="12" font-family="'SFMono-Regular', Consolas, monospace">"id"</text>
+    <text x="883" y="583" fill="#E5F1EE" font-size="12" font-family="'SFMono-Regular', Consolas, monospace">:</text>
+    <text x="895" y="583" fill="#E7A18C" font-size="12" font-family="'SFMono-Regular', Consolas, monospace">1</text>
+    <text x="905" y="583" fill="#F4C779" font-size="12" font-family="'SFMono-Regular', Consolas, monospace">}]}</text>
+    <text x="754" y="606" fill="#8FADAD" font-size="10">No server endpoint required. Matching requests are fulfilled locally.</text>
+  </g>
+
+  <g transform="translate(1184 674)">
+    <rect width="144" height="30" rx="15" fill="#244C52" stroke="#397579" />
+    <circle cx="17" cy="15" r="4" fill="#F6BD58" />
+    <text x="29" y="19" fill="#B8D4D2" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="10" font-weight="650" letter-spacing=".8">ILLUSTRATIVE UI</text>
+  </g>
+</svg>

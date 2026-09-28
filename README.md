@@ -1,122 +1,96 @@
-<br>
-
-<h1 align="center">Ajax Proxy</h1>
-
-<br>
-
-<h4 align="center">A browser plugin based on Chromium kernel · Tools for Developers · For the modification of web-side response</h4>
-
-<p align="center">
-  <a href="https://github.com/g0ngjie/ajax-proxy/blob/master/LICENSE">
-    <img alt="GitHub" src="https://img.shields.io/github/license/g0ngjie/ajax-proxy"/>
-  </a>
-  <a href="https://chrome.google.com/webstore/detail/ajax-proxy/jbikjaejnjfbloojafllmdiknfndgljo" target="__blank">
-    <img src="https://img.shields.io/chrome-web-store/v/jbikjaejnjfbloojafllmdiknfndgljo.svg?logo=Google%20Chrome&logoColor=white&color=red&style=flat-square" alt="chrome web store">
-  </a>
-  <a href="https://chrome.google.com/webstore/detail/ajax-proxy/jbikjaejnjfbloojafllmdiknfndgljo" target="__blank">
-    <img src="https://img.shields.io/chrome-web-store/stars/jbikjaejnjfbloojafllmdiknfndgljo.svg?logo=Google%20Chrome&logoColor=white&color=red&style=flat-square" alt="chrome rating">
-  </a>
-  <!-- Temporary badges for edge -->
-  <a href="https://microsoftedge.microsoft.com/addons/detail/ajax-proxy/iladajdkobpmadjfpeginhngnneaoefi" target="__blank">
-    <img src="https://img.shields.io/badge/dynamic/json?label=edge%20add-on&style=flat-square&prefix=v&query=%24.version&url=https%3A%2F%2Fmicrosoftedge.microsoft.com%2Faddons%2Fgetproductdetailsbycrxid%2Filadajdkobpmadjfpeginhngnneaoefi" alt="edge addons">
-  </a>
-  <a href="https://microsoftedge.microsoft.com/addons/detail/ajax-proxy/iladajdkobpmadjfpeginhngnneaoefi" target="__blank">
-    <img src="https://img.shields.io/badge/dynamic/json?label=users&style=flat-square&query=%24.activeInstallCount&url=https%3A%2F%2Fmicrosoftedge.microsoft.com%2Faddons%2Fgetproductdetailsbycrxid%2Filadajdkobpmadjfpeginhngnneaoefi" alt="edge users">
-  </a>
-</p>
-
 <div align="center">
-<strong>
+  <img src="docs/brand/ajax-proxy-mark-dark.png" width="76" height="76" alt="Ajax Proxy logo" />
+  <h1>Ajax Proxy</h1>
+  <p><strong>Shape API responses. Keep development moving.</strong></p>
+  <p>Mock missing endpoints, redirect requests, and test edge cases from your Chromium browser.</p>
 
-English | [中文](README.zh.md)
+  <p>
+    <a href="https://github.com/Nyakooo/ajax-proxy/actions/workflows/ci.yml?query=branch%3Arefactor%2Fv3"><img alt="V3 CI" src="https://img.shields.io/github/actions/workflow/status/Nyakooo/ajax-proxy/ci.yml?branch=refactor%2Fv3&label=V3%20CI"></a>
+    <a href="LICENSE"><img alt="MIT license" src="https://img.shields.io/github/license/Nyakooo/ajax-proxy"></a>
+    <a href="https://github.com/Nyakooo/ajax-proxy/stargazers"><img alt="GitHub stars" src="https://img.shields.io/github/stars/Nyakooo/ajax-proxy?style=social"></a>
+    <a href="https://chrome.google.com/webstore/detail/ajax-proxy/jbikjaejnjfbloojafllmdiknfndgljo"><img alt="Chrome Web Store version" src="https://img.shields.io/chrome-web-store/v/jbikjaejnjfbloojafllmdiknfndgljo?logo=googlechrome&logoColor=white"></a>
+    <a href="https://microsoftedge.microsoft.com/addons/detail/ajax-proxy/iladajdkobpmadjfpeginhngnneaoefi"><img alt="Microsoft Edge Add-ons" src="https://img.shields.io/badge/Edge%20Add--ons-available-0078D7?logo=microsoftedge&logoColor=white"></a>
+  </p>
 
-</strong>
+  <p><strong>V3 developer preview · Chrome and Microsoft Edge Stable</strong><br>V3 is under active development on <code>refactor/v3</code>. The linked store listings are separate published builds.</p>
+  <p>Install the published store version (separate from the V3 preview): <a href="https://chrome.google.com/webstore/detail/ajax-proxy/jbikjaejnjfbloojafllmdiknfndgljo">Chrome Web Store</a> · <a href="https://microsoftedge.microsoft.com/addons/detail/ajax-proxy/iladajdkobpmadjfpeginhngnneaoefi">Edge Add-ons</a></p>
+  <p>
+    <a href="#try-the-v3-developer-preview"><strong>Build and try V3</strong></a> ·
+    <a href="docs/V3-RULE-MODEL.zh.md">Rule model</a> ·
+    <a href="docs/V3-BACKUP-RESTORE.zh.md">Backup &amp; restore</a> ·
+    <a href="https://github.com/Nyakooo/ajax-proxy/issues">Issues</a>
+  </p>
+  <p>English | <a href="README.zh.md">简体中文</a></p>
 </div>
 
-## When to use
+<p align="center">
+  <img src="media/ajax-proxy-v3-showcase.svg" alt="Illustrative preview of Ajax Proxy V3 matching a request and returning a configured JSON mock response" width="100%">
+</p>
 
-- When actual data fails to meet expected results, mocking data is needed.
-- In development or production stages, verification of exceptional scenarios or edge cases is necessary.
-- The frequent changes in interface data hinder the development process.
-- When a certain interface returns a 404 error.
+## Why Ajax Proxy?
 
-## Installation
+A page can request an API before its backend is ready—or when you need to reproduce a failure that is hard to trigger. Ajax Proxy lets you define the response in the browser, so you can keep building and verify the UI without changing application code or waiting for a server fixture.
 
-The links below point to the published Chrome and Edge builds. The V3 work on this development branch is staging only and is not part of that release. The extension's default panel remains Vue 2; to try the V3 staging panel, load a local development build and explicitly open `chrome-extension://<extension-id>/panels-v3/index.html` (replace `<extension-id>` with the ID shown on the browser's extensions page).
+## What you can do
 
-[Microsoft Edge](https://microsoftedge.microsoft.com/addons/detail/ajax-proxy/iladajdkobpmadjfpeginhngnneaoefi)
+- **Mock API responses:** Match a URL and method, then return a configured JSON body and status to Fetch or supported asynchronous XHR calls. The browser request is fulfilled by the extension; the server does not need to implement that endpoint.
+- **Redirect requests:** Send matching requests to another URL, add static request headers, exclude selected URLs, or compute a Fetch redirect with a restricted function.
+- **Cover edge cases:** Reproduce empty data, validation failures, error statuses, and other response scenarios on demand.
+- **Manage rules in context:** Search and filter rules, pin important ones, group with tags, and quickly toggle the extension or rules for the current site. When several rules match, the first enabled match in list order wins.
+- **Inspect confirmed outcomes:** Temporarily enable request diagnostics to see whether an action was applied, fell back, failed, or is unsupported.
+- **Use functions where needed:** V3 can calculate JSON responses and redirect targets with a restricted sandbox. Function actions apply to Fetch; XHR retains its original response or URL.
+- **Back up and restore V3 rules:** Export a portable V3 configuration before moving or resetting your browser profile.
 
-[Google Chrome](https://chrome.google.com/webstore/detail/ajax-proxy/jbikjaejnjfbloojafllmdiknfndgljo)
+Ajax Proxy runs as a browser extension; it does not require an Ajax Proxy account or hosted service. V3 targets Chrome 141+ and Microsoft Edge 140+ on Stable channels; see the [browser compatibility policy](docs/V3-BROWSER-COMPATIBILITY.zh.md) for the support window.
 
-## Examples
+## Try the V3 developer preview
 
-Video: [https://www.youtube.com/watch?v=F\_\_7LXBqnvQ&list=PLniy0-3-8-V1ZhsmG6\_\_HdOJBAschGWSt](https://www.youtube.com/watch?v=F__7LXBqnvQ&list=PLniy0-3-8-V1ZhsmG6__HdOJBAschGWSt)
-
-<!-- ![interceptor](https://github.com/g0ngjie/ajax-proxy/wiki/images/interceptor-1.png) -->
-
-![operation.gif](media/operation.gif)
-
-![zhihu](https://github.com/g0ngjie/ajax-proxy/wiki/images/zhihu-ajaxproxy.png)
-
-## FAQ
-
-1. Data interception in the published V2 version does not work
-   - You can switch between `interceptor` and `redirector` to solve the Ajax referencing problem
-     ![issues_checked](https://github.com/g0ngjie/ajax-proxy/wiki/images/issues_checked.png)
-   - You can select the `Network` section in Developer Tools and disable caching by checking ☑️
-     ![issues_disabled_cache](https://github.com/g0ngjie/ajax-proxy/wiki/images/issues_disabled_cache.png)
-2. [Function-based response explanation](README.func.md)
-3. **Can I use V2 rules or backups in the V3 staging panel?** No. V2 and V3 configuration and backup formats are incompatible, and there is no automatic migration. Keep your V2 backup and recreate any rules you need in V3. See the [V3 backup and restore guide](docs/V3-BACKUP-RESTORE.zh.md) (Chinese).
-4. **What does the V3 panel support?** The V3 panel supports redirect rules with URL exclusions, JSON response rule editing, Fetch response functions, tags, and V3 backup and restore. Function responses apply to Fetch; XHR keeps its original response. V2 backups are rejected; V2-only substring replacement, header overrides, and redirect functions have not been migrated. See the [V3 panel migration notes](docs/V3-PANEL-MIGRATION.zh.md) (Chinese).
-5. **Why does a V3 request not match?** Open the `panels-v3/` page, check that the global and site switches are enabled, and confirm the rule's URL and method match. Only the first matching rule runs, in list order. Response functions apply to Fetch; XHR keeps its original response. See the [V3 rule model](docs/V3-RULE-MODEL.zh.md) (Chinese).
-
-## Monorepo
-
-| Package                                         | Description                                           |
-| ----------------------------------------------- | ----------------------------------------------------- |
-| [@proxy/protocol](./packages/protocol/)         | Shared V2 / V3 message protocols and types            |
-| [@proxy/lib](./packages/proxy-lib/)             | V2 / V3 request matching and Fetch / XHR interception |
-| [@proxy/shared-utils](./packages/shared-utils/) | Public Class Libraries                                |
-| [@proxy/shell-chrome](./packages/shell-chrome/) | Browser Extension Library                             |
-| [@proxy/vue3-panels](./packages/vue3-panels/)   | V3 Vue 3 panel                                        |
-| [@proxy/v3-domain](./packages/v3-domain/)       | V3 configuration schema and domain logic              |
-
-## Use of source code
-
-To try the V3 development build, use the `refactor/v3` branch. It is not a store release; a local production build opens the V3 panel by default.
+> **Development build:** V3 is not the version currently published in the extension stores. Loading this branch installs a separate local build. V2 and V3 rules / backups use incompatible formats; V3 does not automatically migrate V2 data. Keep your V2 backup and recreate any rules you need.
 
 Requirements: Node.js `>=24.21.0 <25` and pnpm `12.6`.
-V3 staging validation targets the current stable versions of Chrome and Edge.
 
-1. Check out the `refactor/v3` branch and install the locked dependencies:
+```sh
+git clone --branch refactor/v3 https://github.com/Nyakooo/ajax-proxy.git
+cd ajax-proxy
+pnpm install --frozen-lockfile
+pnpm build
+```
 
-   ```sh
-   git clone --branch refactor/v3 https://github.com/g0ngjie/ajax-proxy.git
-   cd ajax-proxy
-   pnpm install --frozen-lockfile
-   ```
+Then, in Chrome (`chrome://extensions`) or Edge (`edge://extensions`):
 
-2. Build the extension and V3 panel:
+1. Turn on **Developer mode**.
+2. Select **Load unpacked**.
+3. Choose `packages/shell-chrome/build` in the checkout.
+4. Open the extension popup and choose **Open full panel** to manage rules.
 
-   ```sh
-   pnpm build
-   ```
+The current V3 build is for development and evaluation. It has been functionally validated on Chrome and Edge Stable; see [V3 migration notes](docs/V3-PANEL-MIGRATION.zh.md) and the [test and acceptance record](docs/V3-TESTING.zh.md). Do not treat this branch as a store release.
 
-3. In Chrome or Edge, open the extensions page, enable Developer mode, choose **Load unpacked**, and select `packages/shell-chrome/build`.
-4. The toolbar popup uses the V3 rule interface; its **Open full panel** button opens the management window. To visit that panel directly, copy the extension ID from its details page and open `chrome-extension://<extension-id>/panels-v3/index.html`.
+## Documentation
 
-V2 and V3 configuration and backup files are incompatible; this build does not migrate V2 data automatically. For V3 details and current scope, see the [V3 panel migration notes](docs/V3-PANEL-MIGRATION.zh.md) and [backup and restore guide](docs/V3-BACKUP-RESTORE.zh.md) (Chinese).
+- [V3 rule model and matching priority](docs/V3-RULE-MODEL.zh.md)
+- [V3 backup and restore](docs/V3-BACKUP-RESTORE.zh.md)
+- [V3 migration status and known gaps](docs/V3-PANEL-MIGRATION.zh.md)
+- [V3 browser compatibility](docs/V3-BROWSER-COMPATIBILITY.zh.md)
+- [Custom response functions and sandbox limits](docs/V3-USER-FUNCTIONS.zh.md)
+- [Permissions and security boundaries](docs/V3-PERMISSIONS.zh.md)
+- [Legacy V2 function reference (not for V3)](README.func.md)
 
-## Testing
+Most V3 design and implementation notes are currently maintained in Chinese. Store installation links above refer to the separately published stable builds.
 
-You can test it directly in [Swagger](https://petstore.swagger.io/)
+## Demo
 
-## ⭐ Stargazers
+The animation below shows the **legacy V2 interface** and is kept for historical reference; it is not a screenshot of the V3 preview.
 
-Thanks for your support!
+<details>
+  <summary>Show the legacy V2 demo</summary>
+  <p>See the <a href="https://www.youtube.com/watch?v=F__7LXBqnvQ&list=PLniy0-3-8-V1ZhsmG6__HdOJBAschGWSt">legacy walkthrough videos on YouTube</a>.</p>
+  <p><img src="media/operation.gif" alt="Legacy Ajax Proxy V2 interface demo"></p>
+</details>
 
-[![Stargazers for ajax-proxy](https://reporoster.com/stars/g0ngjie/ajax-proxy)](https://github.com/g0ngjie/ajax-proxy/stargazers)
+## Contributing
+
+Bug reports and feature proposals are welcome through [GitHub Issues](https://github.com/Nyakooo/ajax-proxy/issues). Include browser and extension versions plus minimal reproduction steps. For larger changes, open an issue first to agree on scope; keep pull requests focused and include user-visible behavior and functional verification. Remove real request data, cookies, tokens, personal information, and private function code before sharing logs or backups. The V3 development build and its CI are on the `refactor/v3` branch.
 
 ## License
 
-Ajax Proxy is [MIT licensed](LICENSE).
+Ajax Proxy is released under the [MIT License](LICENSE).
