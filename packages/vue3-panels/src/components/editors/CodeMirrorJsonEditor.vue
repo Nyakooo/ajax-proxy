@@ -247,12 +247,14 @@ onBeforeUnmount(() => {
 
 .codemirror-json-editor--resizable {
   position: relative;
+  z-index: 0;
+  isolation: isolate;
   resize: none !important;
 }
 
 .codemirror-json-editor__resize-handle {
   position: absolute;
-  z-index: 0;
+  z-index: 1;
   right: 2px;
   bottom: 2px;
   width: 34px;
