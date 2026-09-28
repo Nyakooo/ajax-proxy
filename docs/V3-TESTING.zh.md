@@ -2,7 +2,7 @@
 
 ## 当前测试入口
 
-- `pnpm build` / `pnpm build:chrome`：正式构建使用 Vite 输出 `packages/shell-chrome/build`，只复制 Vue 3 V3 面板、扩展入口和 manifest。生产目录默认打开 `panels-v3/`；`pnpm zip` 从该目录生成含 `panels-v3` 与 `v3-sandbox` 的扩展 ZIP。Vue 2 历史源码尚留在 workspace，但不进入正式构建或 CI 验收。
+- `pnpm build` / `pnpm build:chrome`：正式构建使用 Vite 输出 `packages/shell-chrome/build`，只复制 Vue 3 V3 面板、扩展入口和 manifest。生产目录默认打开 `panels-v3/`；`pnpm zip` 从该目录生成含 `panels-v3` 与 `v3-sandbox` 的扩展 ZIP。Vue 2 面板和专用编辑器源码已从 workspace 删除。
 - `pnpm production:smoke`：检查正式构建目录的 V3 popup / panel / worker / sandbox / 图标以及默认 worker 路由。CI 还会在 Chrome Stable、Edge Stable、Chrome 141 和 Edge 140 加载正式构建目录运行扩展 smoke。
 
 - `pnpm test`：单次运行单元测试，包括 Fetch / XHR 第一条规则优先级、通知规则序号和徽章精确计数。
@@ -25,8 +25,8 @@
 ## 工具选择
 
 - **纯逻辑 / TypeScript 单元测试：Vitest 5 + V8 coverage**。当前 Node 24.21.0 符合 Vitest 5 运行要求；项目根通过 Vite 6.4.3 满足 Vitest peer，`@proxy/lib` 也使用 Vite 6.4.3 构建，锁文件解析为同一 Vite 版本。参考 [Vitest 安装要求](https://vitest.dev/guide/) 和 [覆盖率配置](https://vitest.dev/config/coverage)。
-- **Lint：ESLint 10 flat config + `typescript-eslint` + `eslint-plugin-vue`**。Vue 2 源码盘点使用 Vue 2 推荐规则；新代码先在 CI 阻塞检查，旧业务源码通过 `pnpm lint:all` 报告并逐步迁入。参考 [ESLint flat config](https://eslint.org/docs/latest/use/configure/configuration-files) 与 [eslint-plugin-vue Vue 2 配置](https://eslint.vuejs.org/user-guide/)。
-- **Vue 组件测试：Vue Test Utils + jsdom**。当前 Vue 2 面板如需新增组件测试，使用与 Vue 2 匹配的版本；Vue 3 迁移时升级到对应版本，并继续由 Vitest 承载。首批先覆盖不依赖 DOM 的规则逻辑。
+- **Lint：ESLint 10 flat config + `typescript-eslint` + `eslint-plugin-vue`**。Vue 3 源码使用 Vue 推荐 flat config；迁移范围测试与脚本执行零警告检查，业务源码的既有警告按基线跟踪。参考 [ESLint flat config](https://eslint.org/docs/latest/use/configure/configuration-files) 与 [eslint-plugin-vue 配置](https://eslint.vuejs.org/user-guide/)。
+- **Vue 组件测试：Vue Test Utils + jsdom**。当前 Vue 3 组件测试由 Vitest 承载。
 - **扩展集成 / E2E：Playwright**。扩展加载与 service worker / content script 测试使用 Playwright 配套 Chromium 的 persistent context。Playwright 文档指出，Chrome 与 Edge 已移除命令行侧载扩展所需的 flags；品牌浏览器 job 验证网页运行时能力，扩展 E2E 在配套 Chromium 验证。参考 [Playwright 扩展测试说明](https://playwright.dev/docs/chrome-extensions) 和 [浏览器通道说明](https://playwright.dev/docs/browsers)。
 
 ## 测试文件和隔离

@@ -15,18 +15,7 @@ const packages = new Map(
 )
 const failures = []
 const graph = new Map([...packages.keys()].map((name) => [name, []]))
-const forbiddenDependencies = new Map([
-  [
-    '@proxy/lib',
-    new Set([
-      '@proxy/shared-utils',
-      '@proxy/shell-chrome',
-      '@proxy/vue-panels',
-      '@proxy/code-editor',
-      '@proxy/json-editor',
-    ]),
-  ],
-])
+const forbiddenDependencies = new Map([['@proxy/lib', new Set(['@proxy/shared-utils'])]])
 
 for (const [name, { manifest }] of packages) {
   for (const section of [
@@ -111,10 +100,7 @@ function inspectSource(file) {
     if (forbiddenDependencies.get(owner)?.has(dependency)) {
       failures.push(`${relativeFile}: ${owner} must not import ${dependency}`)
     }
-    if (
-      subpath.length > 0 &&
-      !(dependency === '@proxy/json-editor' && subpath.join('/') === 'lib/index.css')
-    ) {
+    if (subpath.length > 0) {
       failures.push(
         `${relativeFile}: deep workspace import "${specifier}" bypasses ${dependency}'s public entry`
       )

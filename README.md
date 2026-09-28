@@ -72,15 +72,14 @@ Video: [https://www.youtube.com/watch?v=F\_\_7LXBqnvQ&list=PLniy0-3-8-V1ZhsmG6\_
 
 ## Monorepo
 
-| Package                                         | Description                                                  |
-| ----------------------------------------------- | ------------------------------------------------------------ |
-| [@proxy/protocol](./packages/protocol/)         | Shared V2 / V3 message protocols and types                   |
-| [@proxy/lib](./packages/proxy-lib/)             | V2 / V3 request matching and Fetch / XHR interception        |
-| [@proxy/shared-utils](./packages/shared-utils/) | Public Class Libraries                                       |
-| [@proxy/shell-chrome](./packages/shell-chrome/) | Browser Extension Library                                    |
-| [@proxy/vue-panels](./packages/vue-panels/)     | Retired Vue 2 panel source (excluded from production builds) |
-| [@proxy/vue3-panels](./packages/vue3-panels/)   | V3 Vue 3 panel                                               |
-| [@proxy/v3-domain](./packages/v3-domain/)       | V3 configuration schema and domain logic                     |
+| Package                                         | Description                                           |
+| ----------------------------------------------- | ----------------------------------------------------- |
+| [@proxy/protocol](./packages/protocol/)         | Shared V2 / V3 message protocols and types            |
+| [@proxy/lib](./packages/proxy-lib/)             | V2 / V3 request matching and Fetch / XHR interception |
+| [@proxy/shared-utils](./packages/shared-utils/) | Public Class Libraries                                |
+| [@proxy/shell-chrome](./packages/shell-chrome/) | Browser Extension Library                             |
+| [@proxy/vue3-panels](./packages/vue3-panels/)   | V3 Vue 3 panel                                        |
+| [@proxy/v3-domain](./packages/v3-domain/)       | V3 configuration schema and domain logic              |
 
 ## Use of source code
 
@@ -97,14 +96,14 @@ V3 staging validation targets the current stable versions of Chrome and Edge.
    pnpm install --frozen-lockfile
    ```
 
-2. Build the extension and both panel outputs:
+2. Build the extension and V3 panel:
 
    ```sh
    pnpm build
    ```
 
 3. In Chrome or Edge, open the extensions page, enable Developer mode, choose **Load unpacked**, and select `packages/shell-chrome/build`.
-4. Copy the extension ID from its details page and open `chrome-extension://<extension-id>/panels-v3/index.html` to access the V3 staging panel. The regular extension entry point continues to open `panels/` (Vue 2).
+4. The toolbar popup uses the V3 rule interface; its **Open full panel** button opens the management window. To visit that panel directly, copy the extension ID from its details page and open `chrome-extension://<extension-id>/panels-v3/index.html`.
 
 V2 and V3 configuration and backup files are incompatible; this build does not migrate V2 data automatically. For V3 details and current scope, see the [V3 panel migration notes](docs/V3-PANEL-MIGRATION.zh.md) and [backup and restore guide](docs/V3-BACKUP-RESTORE.zh.md) (Chinese).
 

@@ -4,7 +4,7 @@
 
 - 首发目标浏览器：Chrome 与 Microsoft Edge 稳定正式版。
 - 不承诺 Beta、Dev、Canary 等预览版本兼容。
-- 初始兼容窗口覆盖发布时点往前最近 12 个月内的稳定版；依据现有 API 盘点，V3 初始最低主版本锁定为 Chrome 141 与 Edge 140。Vue 面板的 Babel / PostCSS 生产目标已设为 Chrome 141+ / Edge 140+；TypeScript 与 Vite 输出语法目标已设为 ES2022。编辑器库保留较旧的保守 Babel 目标，避免 Vue CLI 库模式生成无法解析的 CSS。2026-09-25 的 Node 24.21.0 clean build、类型检查通过。Chrome Stable / Edge Stable 基础运行时 smoke test 已加入 CI；当前 Stable 手动扩展 smoke 已确认 Fetch / XHR 响应拦截成功。Chrome 141 与 Edge 140 最低版本扩展 smoke 均已通过 CI（run 36106005756）。JS Web API / CSS 特性由真实浏览器 smoke 覆盖常用能力，未另设静态扫描器。任何验证发现更高的核心能力下限时，再修订版本并记录依据。
+- 初始兼容窗口覆盖发布时点往前最近 12 个月内的稳定版；依据现有 API 盘点，V3 初始最低主版本锁定为 Chrome 141 与 Edge 140。TypeScript 与 Vite 输出语法目标设为 ES2022。Vue CLI 编辑器目标属于已退役实现，不再参与当前构建。Node 24.21.0 clean build、类型检查通过；Chrome Stable / Edge Stable 基础运行时 smoke test 已加入 CI，Fetch / XHR 响应拦截也已通过扩展 smoke。JS Web API / CSS 特性由真实浏览器 smoke 覆盖常用能力，未另设静态扫描器。任何验证发现更高的核心能力下限时，再修订版本并记录依据。
 - 每季度复核一次支持窗口。停止支持某个版本前，应提前通过发行说明和项目支持文档公告，并说明生效版本。
 - 低于公布最低版本的浏览器不阻塞发布。非核心增强使用能力检测并提供降级行为；核心能力不依赖实验性或刚推出、尚未进入稳定版本的 API。
 

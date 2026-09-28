@@ -56,6 +56,7 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - [x] 将项目开发、CI 和发布环境升级到选定的最新 Node.js LTS（Node 24.21.0，`.nvmrc`、engines 与 CI 一致）。
 - [x] 更新 pnpm、TypeScript、Vue CLI 构建工具及相关插件；并选定 Vitest / Vue Test Utils / Playwright 测试工具（见 `docs/V3-TESTING.zh.md`）。
 - [x] 将 Webpack → Vite 方向细化为可执行的迁移切片、晋升验收、回退操作和旧工具链清理门槛；本项完成规划，不代表构建迁移已完成。
+- [x] 按 V3 面板和 runtime 验收结果，退役无 V3 消费者的 Vue 2 面板、Ace / JSONEditor 组件包及 Vue CLI / Webpack 专用依赖；不为没有目标消费者的旧组件增加迁移成本。保留 V3 编辑器原型对 `jsoneditor` 的开发期对比依赖。
 - [ ] 将 V3 最终生产构建统一到 Vite，逐步替换扩展宿主中的 Webpack，以及旧 Vue CLI / Webpack 面板和编辑器构建；迁移期间允许新旧构建并存，完成切换后移除 Webpack、Vue CLI 及专用 loader / copy 插件等冗余依赖。
   - **切片顺序：** 先完成 `shell-chrome` 独立 Vite 原型与浏览器验收。随后确认旧 Vue 2 面板在 V3 切换期间是否仍需作为正式产物：若保留，则依次迁移 `@proxy/code-editor`、`@proxy/json-editor` 和 `@proxy/vue-panels`，每次只切换一个消费者；若 V3 面板已覆盖批准的首发流程，则验证该面板后将旧面板及不再使用的两个编辑器作为一个有独立回退点的退役切片，避免迁移没有 V3 消费方的旧包。不得把 Vue 3 UI 原型的成功构建当作扩展宿主或旧面板迁移验收。
   - **扩展宿主验收：** 正式构建须从干净产物独立运行，不依赖先执行 Webpack `build:all`；保留 Manifest MV3 classic service worker / content script、入口路径、静态资源、相对 URL 和 ZIP 内容。实际安装 Chrome 与 Edge 当前稳定版，验证 Fetch / XHR、service worker 冷启动及生产 ZIP；单独验证开发源码监听重建、扩展重载和页面重新导航。Chrome 141 / Edge 140 最低版本 smoke 留在 CI。全部检查进入 CI 并通过后，才切换正式 shell 构建入口。
@@ -1109,6 +1110,12 @@ Stable Chrome / Edge 的原生 CSS `resize` 把手被 CodeMirror 子元素覆盖
 
 ## V2 转换退役与 V3-only 构建/CI 检查点（2026-09-28）
 
-按维护者最新决策，V3 使用全新数据，不提供 V2 到 V3 的 storage 或备份转换。已删除 `@proxy/v2-compatibility` 包、扩展启动时转换 / 删除旧 storage key 的逻辑、旧备份入口转换，以及对应 workspace、测试和类型检查引用；V3 对旧格式备份继续给出不兼容校验。正式生产构建现在使用 Vite shell 和 Vue 3 面板，扩展包只包含 `panels-v3/`；旧 Webpack shell 构建、Vue 2 面板及 JSONEditor 浏览器 smoke 已从正式 CI 路径移除，CI 运行 V3 扩展 smoke。Vue 2 面板和两个编辑器包仍作为历史源码留在 workspace，后续独立退役阶段再删除。
+按维护者最新决策，V3 使用全新数据，不提供 V2 到 V3 的 storage 或备份转换。已删除 `@proxy/v2-compatibility` 包、扩展启动时转换 / 删除旧 storage key 的逻辑、旧备份入口转换，以及对应 workspace、测试和类型检查引用；V3 对旧格式备份继续给出不兼容校验。正式生产构建现在使用 Vite shell 和 Vue 3 面板，扩展包只包含 `panels-v3/`；旧 Webpack shell 构建、Vue 2 面板及 JSONEditor 浏览器 smoke 已从正式 CI 路径移除，CI 运行 V3 扩展 smoke。Vue 2 面板和 Ace / JSONEditor 组件包随后已从 workspace 删除，专属依赖和构建器覆盖同步清理。
 
-定向 shell 单测 50 项、完整 Vitest 569 项、Vue 3 组件测试 129 项、类型检查 / 生成声明、包边界、V3 面板隔离、正式构建布局 smoke、V3 扩展 Fetch / XHR / 静态重定向 / popup / service worker smoke 均通过。全量 coverage、lint / format、Vite watch 重建、ZIP 完整性已在同一工作树前序验证通过。当前计划勾选项按本文件统计为 384 / 410（93.7%）；下一阶段剩余工作包括退役 workspace 中的 Vue 2 面板和编辑器源码、更新远端 CI 结果及其它未完成验收项。此检查点在 `refactor/v3` 独立提交并推送。
+定向 shell 单测 50 项、完整 Vitest 569 项、Vue 3 组件测试 129 项、类型检查 / 生成声明、包边界、V3 面板隔离、正式构建布局 smoke、V3 扩展 Fetch / XHR / 静态重定向 / popup / service worker smoke 均通过。全量 coverage、lint / format、Vite watch 重建、ZIP 完整性已在同一工作树前序验证通过。转换退役检查点勾选项为 384 / 410（93.7%）；Vite 正式 CI 复验和 Vue 2 源码清理仍待执行。
+
+## 旧 Vue 2 面板、编辑器与专用构建链退役（2026-09-28）
+
+V3 是正式面板与扩展默认入口后，依赖审计确认旧 Vue 2 面板和 Ace / JSONEditor 组件包只有彼此之间的依赖，没有 V3、shell 或 runtime 消费者。已整体删除三个 workspace 包，清理 `vue-template-compiler` package extension、Vue CLI / Webpack 专用 overrides、旧构建产物清理路径、Vue 2 ESLint 配置、旧 JSONEditor CSS 深导入例外和格式债务清单。锁文件已重新生成，剩余 7 个 workspace 项目不再依赖 Vue CLI、Webpack、Vue 2 或 Element UI；旧编辑器 workspace 包已删除。V3 编辑器原型仍保留 `jsoneditor` 开发依赖，它会间接引入 `ace-builds`，仅供编辑器对比原型使用。
+
+README 与架构、测试、迁移、安全文档已更新当前状态，旧依赖安全记录与尺寸基线保留为历史数据。当前计划勾选项为 385 / 411（93.7%）；Vite 最终迁移总项等待本次推送后的 CI 矩阵重新通过再关闭。

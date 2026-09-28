@@ -2,10 +2,12 @@
 
 ## 审查结果（截至 2026-09-26）
 
+状态更新（2026-09-28）：旧 Vue 2 面板、Ace / JSONEditor workspace 包及 Vue CLI / Webpack 专用构建链已删除。下列 Vue 2 与旧构建器公告、修复和覆盖记录是历史审计轨迹，不代表当前 lockfile 仍含有这些依赖。重建后的锁文件执行 `pnpm audit --registry=https://registry.npmjs.org` 结果为 0 条已知公告。
+
 - `re2js@2.8.6` 从 npm 官方 registry 获取的元数据声明 MIT 许可，仓库地址为 `le0pard/re2js`。npm registry 返回的 SHA-512 integrity 与 `pnpm-lock.yaml` 一致；`pnpm why re2js` 确认仅由 `@proxy/protocol` 与 `@proxy/lib` 直接依赖。当前最新版本也是 2.8.6。
 - 使用 npm 官方 registry 执行 `pnpm audit --json`：当前 `refactor/v3` 锁文件有 2 个公告（0 高、1 中、1 低、0 严重）；其中 1 个属于开发依赖，生产依赖只有下述一个低危 Vue 公告。相较 2026-09-25 的 50 个公告基线，工具链修复后当前总数减少 48；该结果用于跟踪当前分支，不以批量覆盖版本的方式处理。
-- `pnpm audit --prod --json` 得到一个低危 Vue 2 公告 [GHSA-5j4c-8p2g-v4jx](https://github.com/advisories/GHSA-5j4c-8p2g-v4jx)：当前安装 `vue@2.6.11`，公告修复版本为 Vue 3。源码检查未发现 `Vue.compile` 或动态模板调用；当前组件模板通过单文件组件构建。将 Vue 3 迁移完成前保留该低危项并在生产依赖审计中持续报告；如引入动态模板或公告影响范围发生变化，应提前重新评估。
-- 当前还剩一条 Vue 2 模板编译器开发依赖公告 [GHSA-g3ch-rx76-35fx](https://github.com/advisories/GHSA-g3ch-rx76-35fx)：`vue-template-compiler@2.6.11` 被标记为中危，当前只经 code-editor、json-editor、vue-panels 及 Vue CLI / vue-loader 编译链引入，`pnpm audit` 标记为开发依赖；公告没有 Vue 2 修复版本。将其记录为 Vue 2 工具链迁移项，Vue 2 工具链移除前保持可见，不添加全局忽略。
+- 当时 `pnpm audit --prod --json` 报告一个低危 Vue 2 公告 [GHSA-5j4c-8p2g-v4jx](https://github.com/advisories/GHSA-5j4c-8p2g-v4jx)：安装图包含 `vue@2.6.11`，公告修复版本为 Vue 3。源码检查未发现 `Vue.compile` 或动态模板调用；组件模板通过单文件组件构建。旧 Vue 2 面板与构建链现已删除，此项不代表当前安装图状态。
+- 当时还包含一条 Vue 2 模板编译器开发依赖公告 [GHSA-g3ch-rx76-35fx](https://github.com/advisories/GHSA-g3ch-rx76-35fx)：`vue-template-compiler@2.6.11` 由 code-editor、json-editor、vue-panels 及 Vue CLI / vue-loader 编译链引入，公告没有 Vue 2 修复版本。该依赖链已删除；当前是否仍有其他公告须以本次重新生成锁文件后的 audit 结果为准。
 - 为修复 `@proxy/lib` 构建工具链中的 Vite 公告，将其 Vite 从 2.9.13 升级至 6.4.3（GHSA [fx2h-pf6j-xcff](https://github.com/advisories/GHSA-fx2h-pf6j-xcff) 的修复版本）。Vite 6 的 UMD 输出要求显式声明 `output.name`，并将 sourcemap 配置移至 build 层；本地构建与 CI 全量构建、测试及 Chrome / Edge 浏览器矩阵均通过（CI run [36245512243](https://github.com/Nyakooo/ajax-proxy/actions/runs/36245512243)）。当前分支审计已无 Vite 公告。
 - 为旧 Vue CLI / ESLint 开发工具链增加按父包版本限定的 pnpm overrides：`acorn@7.1.0` → `7.1.1`、`ansi-regex` 3 / 4 / 5 分支 → `3.0.1` / `4.1.1` / `5.0.1`、`css-what@5.0.0` → `5.0.1`、`nth-check@2.0.0` → `2.0.1`、`normalize-url@4.5.0` → `4.5.1`，以及受影响的 semver 2 / 5 / 6 分支 → 父包声明范围内的 semver `5.7.2` / `6.3.1`。这些变更只影响开发依赖，不改变生产依赖；全量构建、345 项覆盖测试、typecheck、声明、边界、迁移 lint 和生产审计通过，CI run [36246275038](https://github.com/Nyakooo/ajax-proxy/actions/runs/36246275038) 的 Chrome / Edge Stable 与最低版本扩展 smoke 全部通过。
 - 将旧 ESLint 6 缓存链的 `flat-cache@2.0.1` 子依赖精确替换为 `flatted@3.4.4`，只影响开发期缓存。实际用旧 ESLint 6 执行缓存写入和二次读取；全量 build、345 项覆盖测试、typecheck、声明、边界、迁移 lint、安全审计和签名校验通过，CI run [36246723057](https://github.com/Nyakooo/ajax-proxy/actions/runs/36246723057) 的 Chrome / Edge Stable 与最低版本扩展 smoke 全部通过。

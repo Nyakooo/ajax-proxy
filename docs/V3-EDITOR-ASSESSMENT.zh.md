@@ -4,7 +4,7 @@
 
 ## 现有交互验证
 
-当前 `@proxy/json-editor` 使用 jsoneditor `9.9.2`。拦截规则编辑页以 code 模式打开 JSON，用户可切换 tree、form、text 和 view 模式。Playwright 扩展 smoke 直接打开生产扩展面板并验证：
+历史 `@proxy/json-editor` 使用 jsoneditor `9.9.2`。旧拦截规则编辑页曾以 code 模式打开 JSON，用户可切换 tree、form、text 和 view 模式。以下 Playwright 记录用于说明旧实现行为，不代表当前 V3 编辑器：
 
 - 展开 / 折叠整棵 JSON 树。
 - 显示布尔、数字等类型信息。
@@ -77,6 +77,6 @@ Node `24.21.0`、pnpm `12.6.0` 下完整 clean build 后，执行 `pnpm zip && p
 | 最终扩展 CSS         |     2 个文件，674,392 B 原始，86,598 B 单文件 gzip 合计 |
 | 扩展 ZIP             |                                  741,380 B（724.0 KiB） |
 
-`app` 大小取自 Vue CLI 生产构建文件报告；扩展 JS / CSS 与 ZIP 由根 `size:report` 脚本从最终打包目录测量。gzip 按文件独立压缩后相加。编辑器弹窗打开前与异步编辑器 chunk 当前无法分开统计，因为尚未实现延迟加载。
+`app` 大小取自 Vue CLI 生产构建文件报告；扩展 JS / CSS 与 ZIP 由根 `size:report` 脚本从最终打包目录测量。gzip 按文件独立压缩后相加。以上均为旧 V2 构建历史数字；V3 的 CodeMirror 异步 chunk 由当前构建单独输出，不沿用这组测量值。
 
 基线只用于后续比较，不代表 V3 预算。V3 必须实际拆分并测量首屏 JS、编辑器异步 chunk、最终 ZIP 后再确定预算。

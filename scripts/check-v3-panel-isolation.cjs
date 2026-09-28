@@ -10,13 +10,7 @@ const editorPrototypeConfig = fs.readFileSync(
   'utf8'
 )
 const errors = []
-const forbiddenPackages = [
-  'element-ui',
-  'vue-template-compiler',
-  '@proxy/vue-panels',
-  '@proxy/code-editor',
-  '@proxy/json-editor',
-]
+const forbiddenPackages = ['element-ui', 'vue-template-compiler']
 const requiredEditorPackages = [
   '@codemirror/commands',
   '@codemirror/lang-json',
@@ -64,8 +58,7 @@ if (
   errors.push('Editor prototype output must stay outside the production dist/ directory.')
 }
 
-const forbiddenImport =
-  /(?:element-ui|vue-template-compiler|@proxy\/(?:vue-panels|code-editor|json-editor))/
+const forbiddenImport = /(?:element-ui|vue-template-compiler)/
 function inspectSources(directory) {
   for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
     const filePath = path.join(directory, entry.name)

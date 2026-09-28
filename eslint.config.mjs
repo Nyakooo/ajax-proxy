@@ -29,7 +29,7 @@ export default tseslint.config(
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,
-  ...vue.configs['flat/vue2-recommended'],
+  ...vue.configs['flat/recommended'],
   {
     files: ['packages/**/*.{js,ts,vue}'],
     rules: {

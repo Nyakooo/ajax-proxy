@@ -89,7 +89,6 @@ V3 当前针对 **Chrome / Edge 当前稳定版**开发和验收。要试用 V3�
 | [@proxy/shared-utils](./packages/shared-utils/) | 扩展共享工具与存储能力                      |
 | [@proxy/v3-domain](./packages/v3-domain/)       | V3 配置 schema、校验及规则匹配逻辑          |
 | [@proxy/shell-chrome](./packages/shell-chrome/) | Chromium 扩展、service worker 与构建入口    |
-| [@proxy/vue-panels](./packages/vue-panels/)     | 已退出正式构建的 Vue 2 历史面板源码         |
 | [@proxy/vue3-panels](./packages/vue3-panels/)   | V3 Vue 3 面板                               |
 
 ## 源码使用方式
@@ -111,7 +110,7 @@ pnpm build
 chrome-extension://<扩展 ID>/panels-v3/index.html
 ```
 
-Edge 的扩展页面也使用 `chrome-extension://` scheme。默认工具栏入口仍会打开 Vue 2 的 `panels/`；V3 staging 页面位于独立的 `panels-v3/` 路径。更多步骤及备份说明见 [V3 面板迁移说明](docs/V3-PANEL-MIGRATION.zh.md) 和 [V3 配置备份与恢复](docs/V3-BACKUP-RESTORE.zh.md)。
+Edge 的扩展页面也使用 `chrome-extension://` scheme。工具栏 popup 使用 V3 规则界面，点击“打开大面板”进入完整管理页；也可以直接访问 `panels-v3/`。更多步骤及备份说明见 [V3 面板迁移说明](docs/V3-PANEL-MIGRATION.zh.md) 和 [V3 配置备份与恢复](docs/V3-BACKUP-RESTORE.zh.md)。
 
 ### 加载发布源码
 
