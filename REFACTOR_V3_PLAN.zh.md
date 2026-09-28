@@ -83,7 +83,7 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - [x] 建立按包和风险等级逐步提高覆盖率的策略，当前基线不设全局阻塞阈值（见 `docs/V3-TESTING.zh.md`）。
 - [x] 明确各包的职责、入口、构建产物和类型声明；旧转换包明确重命名为 `@proxy/v2-compatibility`，无效的 shell 包入口移除，并新增纯协议常量叶子包 `@proxy/protocol`。其余包职责及后续边界见 `docs/V3-ARCHITECTURE-ASSESSMENT.zh.md`。
 - [x] 将目录结构调整作为架构任务设计并分步落地：按稳定领域划分包、包内按 feature / domain 组织代码，避免 `common` / `utils` 成为无边界杂物目录。阶段 1 已拆分面板 `common` 聚合目录、区分 app / infrastructure / shared，并把跨包浏览器无关常量提取到 protocol；按业务域的深层拆分与 V3 domain 包留在阶段 2。
-- [x] 明确依赖规则：核心请求引擎不依赖 Vue / UI 或 Chrome storage / badge helper；`pnpm check:boundaries` 检查 8 个 workspace 包依赖有向无环、包间依赖有声明、无私有源码深层引用，并由 CI 运行。平台适配和 UI 的后续窄接口迁移记录于架构评估。
+- [x] 明确依赖规则：核心请求引擎不依赖 Vue / UI 或 Chrome storage / badge helper；`pnpm check:boundaries` 检查当前 6 个 workspace packages 依赖有向无环、包间依赖有声明、无私有源码深层引用，并由 CI 运行。平台适配和 UI 的后续窄接口迁移记录于架构评估。
 - [x] 统一源码、生成声明、构建产物和测试夹具的归属；声明文件采用“生成后随源码提交”，CI 在构建后用 `pnpm check:generated-types` 检查声明漂移；clean build 清理重建全部 package 产物，测试脚本 / fixture 明确归入 `tests/` 与 package test。Node 24.21.0 下冻结安装、空产物 clean build、类型检查、单测与扩展 E2E 均通过。
 - [x] 审查当前 `compatibility` 包：确认 shell 启动与面板导入仍使用其转换逻辑；已重命名为 `@proxy/v2-compatibility` 并明确只负责 V2 数据格式转换。
 - [x] **按最新产品决策彻底移除 V2→V3 数据转换：** V3 使用全新数据，用户不要求继承 V2 配置，因此删除启动时旧 storage key / schema 自动转换、旧备份转换入口、`@proxy/v2-compatibility` 包及其 workspace / CI / 测试引用。保留 V3 自身的备份导入校验；遇到 V2 文件只提示格式不兼容，不提供转换工具。2026-09-28 完成并验证：V3 直接读取独立配置，旧 V2 storage 不迁移 / 不删除；V2 备份仍由 V3 validator 拒绝。
@@ -112,8 +112,8 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 
 ### 阶段 2：代码架构与核心问题修复
 
-- [x] 设计清晰完整的项目目录和包结构，明确各包的职责与边界；`docs/V3-ARCHITECTURE-ASSESSMENT.zh.md` 记录 9 个 workspace 包的当前职责、依赖图、入口、目标边界和渐进迁移约定。
-- [ ] 按领域划分核心模块，明确请求处理、规则匹配、状态管理、存储、消息通信和 UI 之间的依赖方向。
+- [x] 设计清晰完整的项目目录和包结构，明确各包的职责与边界；`docs/V3-ARCHITECTURE-ASSESSMENT.zh.md` 记录当前 6 个 workspace packages 的职责、依赖图、入口、目标边界和渐进迁移约定。
+- [x] 按领域划分 V3 核心模块，明确请求处理、规则匹配、状态管理、存储、消息通信和 UI 之间的依赖方向；`v3-domain`、`protocol`、`proxy-lib/src/v3`、shell adapters 与 Vue 3 UI 的边界和运行链路见架构评估文档，包边界 CI 验收通过。V2 runtime 的历史实现继续作为兼容运行代码单独保留。
 - [x] 将 V3 hit 消息类型和不可信页面事件校验集中到浏览器无关的 `@proxy/protocol`；proxy runtime 按共享类型发出事件，扩展宿主复用同一 guard，避免跨层重复定义 V3 消息契约。
 - [x] 将 service worker 中 V3 命中复核、串行计数和徽章渲染迁到 `v3Hit.ts`；`badge.ts` 保留 V2 统计和 V2/V3 徽章通道协调，不改变存储或计数语义。
 - [x] 将 V3 Fetch / XHR 执行器、单测和 browser smoke entry 收拢到 `proxy-lib/src/v3/` 与 `proxy-lib/test/v3/`，让新增 V3 feature 不与根目录的 V2 runtime 文件混排；不改变运行时 API。
@@ -130,7 +130,7 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - [x] 将 V3 面板活动标签页查询、HTTP(S) origin 规范化及 `tabs.onActivated` / `tabs.onUpdated` 订阅封装到 service；App 只消费当前 origin，并在卸载时释放订阅。
 - [x] 将 Vue 3 面板到 service worker 的 V3 配置请求与 runtime message 订阅统一收拢到 `v3Config` service；App 只处理通过订阅收到的领域事件，service 负责监听清理。
 - [ ] 统一模块命名、公共接口、类型定义和错误处理方式，减少重复实现及跨层耦合。
-- [x] 绘制并维护项目架构图、包依赖图和关键运行链路说明：`docs/V3-ARCHITECTURE-ASSESSMENT.zh.md` 现覆盖全部 9 个 workspace 包，以及面板→storage→content→MAIN proxy 配置同步、代理命中→content→service worker→badge 两条关键链路，并记录消息信任边界。
+- [x] 绘制并维护项目架构图、包依赖图和关键运行链路说明：`docs/V3-ARCHITECTURE-ASSESSMENT.zh.md` 覆盖当前 6 个 workspace packages，以及面板→storage→content→MAIN proxy 配置同步、代理命中→content→service worker→badge 两条关键链路，并记录消息信任边界。
 - [x] 在修改核心行为前，为 Fetch Request method / URL 缺陷补充可复现回归测试；先确认测试失败，再实现修复并保留测试。
 - [x] 设计组合式规则：同一条规则可独立启用请求重定向、响应替换或两者；两项都关闭时规则保持可保存但不参与运行时匹配，适配导入代码默认停用。
 - [x] 明确组合规则的执行阶段和数据流：使用原始 URL / method 选择并锁定第一条完整命中规则，请求 action 在网络前运行，response action 在响应后由同一规则运行；重定向目标不重新匹配。
@@ -1124,4 +1124,6 @@ README 与架构、测试、迁移、安全文档已更新当前状态，旧依�
 
 提交 `3e67b11` 推送后，CI run [36393854387](https://github.com/Nyakooo/ajax-proxy/actions/runs/36393854387) 成功。Chrome / Edge Stable 及 Chrome 141 / Edge 140 最低版本矩阵通过 V3 runtime、窄视口面板、正式 Vite 扩展、Fetch / XHR、规则 popup / 独立面板流程；构建 job 通过依赖审计、生产构建 / ZIP、声明检查、扩展 E2E 和 Vite watch 重载。由此关闭 Vite shell 原型、正式 Vite 晋升、旧 Vue 2 面板退役、面板重做、首发中英本地化和依赖安全检查项。
 
-维护者明确后续不增加小粒度测试，只做功能性验收；CI 已有测试按现有门禁运行，不新增单测作为本次后续任务。依赖审计和 559 个 package 签名均通过。按 `REFACTOR_V3_PLAN.zh.md` 的全部 checkbox 原样统计，当前完成度为 394 / 411（95.9%）。剩余主任务为模块职责 / 命名边界复核、完整键盘与屏幕阅读器验收，以及 PR / 发布日期决策；PR 和需求模板中的未勾选字段属于流程模板，不代表功能阻塞。
+维护者明确后续不增加小粒度测试，只做功能性验收；CI 已有测试按现有门禁运行，不新增单测作为本次后续任务。依赖审计和 559 个 package 签名均通过。按 `REFACTOR_V3_PLAN.zh.md` 的全部 checkbox 原样统计，当前完成度为 394 / 411（95.9%）。剩余主任务为公共 API / 类型 / 错误命名统一、完整键盘与屏幕阅读器验收，以及 PR / 发布日期决策；PR 和需求模板中的未勾选字段属于流程模板，不代表功能阻塞。
+
+架构阶段复核已按 V3 实际代码边界更新计划：domain、protocol、request runtime、宿主 adapter 与 UI 的单向依赖由当前 6 个 workspace packages 和 CI 边界检查共同验证；旧 V2 runtime 仍单独保留。当前计划完成度更新为 395 / 411（96.1%）。
