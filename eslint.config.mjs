@@ -10,7 +10,6 @@ export default tseslint.config(
       '**/coverage/**',
       '**/lib/**',
       '**/build/**',
-      '**/build-webpack/**',
       '**/build-vite/**',
       '**/build-vite-dev/**',
       '**/dist/**',

@@ -16,7 +16,6 @@ const forbiddenPackages = [
   '@proxy/vue-panels',
   '@proxy/code-editor',
   '@proxy/json-editor',
-  '@proxy/v2-compatibility',
 ]
 const requiredEditorPackages = [
   '@codemirror/commands',
@@ -66,7 +65,7 @@ if (
 }
 
 const forbiddenImport =
-  /(?:element-ui|vue-template-compiler|@proxy\/(?:vue-panels|code-editor|json-editor|v2-compatibility))/
+  /(?:element-ui|vue-template-compiler|@proxy\/(?:vue-panels|code-editor|json-editor))/
 function inspectSources(directory) {
   for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
     const filePath = path.join(directory, entry.name)
@@ -89,36 +88,30 @@ const productionPackSource = fs.readFileSync(path.join(root, 'scripts/pkg.cjs'),
 if (!productionPackScript.includes('scripts/pkg.cjs')) {
   errors.push('Production pkg must use the audited package staging script.')
 }
-if (!productionPackSource.includes("source: 'packages/vue-panels/dist'")) {
-  errors.push('Production pkg must continue copying the Vue 2 panel until an explicit cutover.')
-}
-if (!productionPackSource.includes("target: 'panels'")) {
-  errors.push(
-    'Production pkg must keep writing to the existing panels/ directory until an explicit cutover.'
-  )
-}
 if (
   !productionPackSource.includes("source: 'packages/vue3-panels/dist'") ||
   !productionPackSource.includes("target: 'panels-v3'")
 ) {
-  errors.push('Production pkg must stage the Vue 3 candidate panel separately under panels-v3/.')
+  errors.push('Production pkg must stage the V3 panel under panels-v3/.')
+}
+if (
+  productionPackSource.includes('packages/vue-panels/dist') ||
+  productionPackSource.includes("target: 'panels'")
+) {
+  errors.push('Production pkg must not include the retired Vue 2 panel.')
 }
 
 const panelWorker = fs.readFileSync(
   path.join(root, 'packages/shell-chrome/src/service-worker/panel.ts'),
   'utf8'
 )
-if (!panelWorker.includes('panels/index.html')) {
-  errors.push(
-    'Production service worker must keep opening panels/index.html until an explicit cutover.'
-  )
+if (!panelWorker.includes("const panelPath = 'panels-v3/index.html'")) {
+  errors.push('Production service worker must default to panels-v3/index.html.')
 }
 
 if (errors.length) {
   console.error(errors.map((error) => `- ${error}`).join('\n'))
   process.exitCode = 1
 } else {
-  console.log(
-    'Vue 3 panel isolation check passed; Vue 2 production and Vue 3 staging paths are separate.'
-  )
+  console.log('V3 panel isolation check passed; production packages only the V3 panel.')
 }

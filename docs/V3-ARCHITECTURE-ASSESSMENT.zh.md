@@ -1,42 +1,41 @@
 # V3 目录结构与包边界评估
 
-盘点日期：2026-09-25。本文记录当前包职责、稳定依赖方向和逐步迁移目标；V3 明确不迁移 V2 配置，因此历史格式转换实现不应自然地延续为 V3 的核心依赖。架构决策已经明确，现存 Vue 2 面板与 V2 runtime 按 feature 逐步迁移，不把“目标结构”误写成已经落地的实现。
+初次评估日期：2026-09-25；状态更新：2026-09-28。V3 不兼容 V2 配置，自动数据转换和 `@proxy/v2-compatibility` 已退役。正式构建与 CI 使用 Vite 和 Vue 3 面板；Vue 2 面板及其编辑器作为历史源码留在 workspace，不再进入正式构建或浏览器验收。V2 runtime 源码尚未整体退役。
 
 ## 当前包与依赖方向
 
-以下箭头表示左侧包依赖右侧包，依据各包 `package.json` 的 workspace dependencies。图含当前全部 9 个 workspace 包；外部 npm dependencies 不展开。`@proxy/protocol` 提供浏览器无关的消息 / storage key 常量和 V3 命中消息契约；`@proxy/v3-domain` 提供 schema 校验和纯规则选择；`@proxy/lib` 提供 Fetch / XHR runtime，`@proxy/shell-chrome` 将 V3 配置接入该 runtime 并独立路由命中统计。面板仍在使用 V2 规则 UI。
+以下箭头表示左侧包依赖右侧包，依据各包 `package.json` 的 workspace dependencies。图含当前 9 个 workspace 包；外部 npm dependencies 不展开。`@proxy/protocol` 提供浏览器无关的消息 / storage key 常量和 V3 命中消息契约；`@proxy/v3-domain` 提供 schema 校验和纯规则选择；`@proxy/lib` 提供 Fetch / XHR runtime，`@proxy/shell-chrome` 将 V3 配置接入该 runtime 并独立路由命中统计。正式面板使用 V3 规则 UI。
 
 ```mermaid
 flowchart LR
   protocol["@proxy/protocol"]
   proxy["@proxy/lib"]
   shared["@proxy/shared-utils"]
-  compat["@proxy/v2-compatibility"]
   shell["@proxy/shell-chrome"]
   domain["@proxy/v3-domain"]
   panels["@proxy/vue-panels"]
+  panelsV3["@proxy/vue3-panels"]
   code["@proxy/code-editor"]
   json["@proxy/json-editor"]
 
   proxy --> protocol
   proxy --> domain
   shared --> protocol
-  compat --> proxy
   domain --> protocol
   shell --> protocol
   shell --> proxy
   shell --> domain
   shell --> shared
-  shell --> compat
   panels --> shared
-  panels --> compat
   panels --> code
   panels --> json
+  panelsV3 --> protocol
+  panelsV3 --> domain
 ```
 
-`@proxy/protocol` 是不依赖其他 workspace 包的协议基础包，导出消息 / storage key 常量及浏览器无关的 `V3Hit` 类型和 `isV3Hit()` 校验；proxy-lib 按该类型发送页面命中事件，shell-chrome 在转发和累计前使用同一个 guard 校验。shared-utils 重导出消息和 storage key 常量。`@proxy/v3-domain` 只定义 V3 backup / rules 和纯匹配逻辑；`@proxy/lib` 使用它在 MAIN world 运行组合式 Fetch / XHR。shell-chrome 负责读取持久化配置、向页面 runtime 同步配置并校验、累计独立 V3 hit。`@proxy/v2-compatibility` 依赖 `@proxy/lib` 的公开类型入口；shell 和 panels 保留现存 V2 路径，panels 另行使用 shared-utils 与两个 Vue 2 编辑器包。
+`@proxy/protocol` 是不依赖其他 workspace 包的协议基础包，导出消息 / storage key 常量及浏览器无关的 `V3Hit` 类型和 `isV3Hit()` 校验；proxy-lib 按该类型发送页面命中事件，shell-chrome 在转发和累计前使用同一个 guard 校验。shared-utils 重导出消息和 storage key 常量。`@proxy/v3-domain` 只定义 V3 backup / rules 和纯匹配逻辑；`@proxy/lib` 使用它在 MAIN world 运行组合式 Fetch / XHR。shell-chrome 负责读取 V3 持久化配置、向页面 runtime 同步配置并校验、累计独立 V3 hit。V3 面板通过 V3 schema 和宿主 adapter 读写配置；历史 Vue 2 面板和编辑器不进入生产依赖图。
 
-最终拆分后的依赖方向如下。箭头表示左侧模块依赖右侧模块；按 `V3 domain / protocol → request engine / storage and browser adapters → UI and extension host` 拓扑排序，无循环。当前主 world `@proxy/lib` 是纯运行时包；service worker / content script 是 Chrome API 与 storage adapter；未来 V3 面板仅通过领域和宿主 adapter 消费状态，不允许 UI 或 Chrome API 反向进入请求核心。现存 V2 页面逐步迁移，不能在 V3 入口重新引入 converter。每次拆分继续用 clean build 与 package-boundary check 验证。
+目标依赖方向如下。箭头表示左侧模块依赖右侧模块；按 `V3 domain / protocol → request engine / storage and browser adapters → UI and extension host` 拓扑排序，无循环。当前主 world `@proxy/lib` 是纯运行时包；service worker / content script 是 Chrome API 与 storage adapter；V3 面板通过领域和宿主 adapter 消费状态，不允许 UI 或 Chrome API 反向进入请求核心。旧格式只拒绝，不转换。每次拆分继续用 clean build 与 package-boundary check 验证。
 
 ```mermaid
 flowchart TD
@@ -67,12 +66,11 @@ flowchart TD
 | `packages/proxy-lib/src/v3/runtimeController.ts`                                                   | 持有 V3 backup 生命周期，创建组合 Fetch / XHR runtime 并发出共享协议 hit event；更新返回带路径 issue 的结果，根入口投影状态并协调全局挂载                                                                                      | 将配置控制与 V2 全局包装生命周期继续保持单向协调，不在 controller 重复实现 V2 状态                                                 |
 | `v3-domain`                                                                                        | `@proxy/v3-domain`，纯 V3 backup envelope / 规则 schema、JSON 校验、V2 格式识别、规则选择和 hit counter 业务校验                                                                                                               | 扩展为浏览器无关的 V3 规则领域；不依赖扩展宿主、Vue 或 V2 转换                                                                     |
 | `packages/v3-domain/src/{index,backup,rules,ruleMatcher,ruleMatching,ruleAnalysis,hitCounters}.ts` | 包根公共 barrel 汇出 backup validator、规则模型、matcher、诊断分析和纯 hit counter helper；共享匹配判定及正则缓存位于 `ruleMatcher.ts`，运行时首条选择与诊断分析分文件维护；`hitCounters.ts` 不含 storage / badge / 通知副作用 | 保持 public entry 稳定；规则选择与手工诊断共用相同判定逻辑，领域实现依赖规则类型或 protocol contract，不从包根 barrel 导入内部实现 |
-| `v2-compatibility`                                                                                 | V2 字段与现有配置结构转换，类型依赖 proxy-lib；当前由 shell 启动和面板导入路径运行时调用                                                                                                                                       | 该包是 V2 现存路径的真实依赖；迁移期间隔离其职责，V3 用版本识别 / 拒绝提示替代，不把转换能力带入新 schema                          |
-| `shell-chrome`                                                                                     | content script、document script、service worker、manifest 和 Webpack 打包；负责 V2 初始化及 V3 config/hit adapter                                                                                                              | 保留为 Chrome/Edge MV3 平台入口；service worker、content script、消息处理按运行上下文明确拆分                                      |
+| `shell-chrome`                                                                                     | content script、document script、service worker、manifest 和 Vite 打包；负责 V3 config/hit adapter                                                                                                                             | 保留为 Chrome/Edge MV3 平台入口；service worker、content script、消息处理按运行上下文明确拆分                                      |
 | `packages/shell-chrome/src/service-worker/v3Hit.ts`                                                | V3 active backup 复核、独立 hit counter 串行写入和 V3 badge 渲染；`badge.ts` 保留 legacy V2 统计及当前徽章通道协调                                                                                                             | 保持 V3 hit adapter 独立；其他 V3 storage / chrome.action 副作用沿宿主职责拆分                                                     |
-| `vue-panels`                                                                                       | Vue 2 的 V2 UI、store、通知、语言及规则业务视图                                                                                                                                                                                | 迁移到 Vue 3 后按 feature 拆分规则编辑、设置、导入导出和反馈；V3 配置和命中状态经 host adapter 读写                                |
-| `vue3-panels`                                                                                      | Vue 3 候选 UI；`services/v3Config.js` 管理 V3 配置消息与 runtime 订阅，诊断偏好和活动标签页 origin 分别由 `v3DiagnosticsCaptureStorage.js`、`activeTabOrigin.js` 封装 Chrome API                                               | 继续让视图只协调状态；storage / tabs 查询和事件订阅留在 service，核心规则不直接操作平台 API                                        |
-| `code-editor` / `json-editor`                                                                      | 两个独立 Vue 2 组件包，分别打包并由 panels 静态导入                                                                                                                                                                            | 先做编辑器 API 与体积评估；最终 UI 可保留单一编辑器 adapter，但按需载入代码与语言包，结构化 JSON 编辑能力不得退化                  |
+| `vue-panels`                                                                                       | Vue 2 历史 UI 源码；退出正式构建和 CI 浏览器验收                                                                                                                                                                               | 随旧实现清理切片移除，不迁移到 V3                                                                                                  |
+| `vue3-panels`                                                                                      | 正式 V3 UI；`services/v3Config.js` 管理 V3 配置消息与 runtime 订阅，诊断偏好和活动标签页 origin 由 service 封装 Chrome API                                                                                                     | 继续让视图只协调状态；storage / tabs 查询和事件订阅留在 service，核心规则不直接操作平台 API                                        |
+| `code-editor` / `json-editor`                                                                      | Vue 2 历史组件源码；退出正式构建和 CI 编辑器验收                                                                                                                                                                               | 随 Vue 2 面板清理切片移除                                                                                                          |
 | `packages/*/types`                                                                                 | TypeScript 声明由源码生成、随源码提交；build 会清空并重建                                                                                                                                                                      | 继续作为声明构建产物并提交；CI 在 build 后检查声明与源码同步，clean checkout 可按 workspace 依赖顺序重建                           |
 | `packages/*/{lib,build,dist}`                                                                      | 包级构建产物；根 `.gitignore` 忽略同名目录                                                                                                                                                                                     | 继续排除生产产物的手工维护；由 CI / release 从干净源码可重复生成                                                                   |
 | `packages/proxy-lib/test` 与根 `Interceptor.test.json`                                             | 手工 HTML fixture 和 V3 单测混放                                                                                                                                                                                               | 源码单测就近放 `test/`；多包集成和 Playwright 场景放根 `tests/`，fixture 与目的相邻并注明清理 / 使用方式                           |
@@ -80,45 +78,42 @@ flowchart TD
 
 ## 当前包入口与构建产物
 
-| 包                                         | 代码入口 / 类型入口                                                                | 构建产物与消费方式                                                                                              |
-| ------------------------------------------ | ---------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| `@proxy/protocol`                          | `main: lib/index.js`；`types: types/index.d.ts`                                    | 纯 TypeScript 协议叶子包；为 shared-utils 和 proxy-lib 提供可复用常量，不引用平台 API。                         |
-| `@proxy/shared-utils`                      | `main: lib/index.js`；`types: types/index.d.ts`                                    | `tsc` 同步生成 `lib/` 和 `types/`；依赖并重导出 protocol，由扩展宿主与 Vue 面板通过根入口消费。                 |
-| `@proxy/lib`                               | `main: lib/index.umd.js`、`module: lib/index.esm.js`、`typings: types/index.d.ts`  | TypeScript 声明 + Vite UMD / ESM；extension host 打包运行时入口，兼容包仅从根入口导入公开类型。                 |
-| `@proxy/v2-compatibility`                  | `main: lib/index.js`、`types: types/index.d.ts`                                    | `tsc` 生成 CommonJS 与声明；由 shell 初始化和面板旧数据导入路径消费，V3 不应依赖此转换器。                      |
-| `@proxy/shell-chrome`                      | Webpack 多入口：`src/content.ts`、`src/document.ts`、`src/service-worker/index.ts` | 生成 `build/` 扩展目录并复制 manifest / 图标；`package.json` 过去的 `main: index.js` 指向不存在文件，现已移除。 |
-| `@proxy/vue-panels`                        | Vue CLI `src/main.js` / `src/App.vue`                                              | 生成 `dist/` 静态面板，再由根 `pkg` 脚本复制到 `shell-chrome/build/panels`。                                    |
-| `@proxy/code-editor`、`@proxy/json-editor` | Vue CLI library 的 `packages/index.js`，CommonJS `main: lib/index.common.js`       | 私有 workspace 组件，生成 JS 和 CSS 到 `lib/`；CSS 由面板作为静态资源子路径导入，不建立 JS 深层源码依赖。       |
+| 包                                         | 代码入口 / 类型入口                                                               | 构建产物与消费方式                                                                              |
+| ------------------------------------------ | --------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| `@proxy/protocol`                          | `main: lib/index.js`；`types: types/index.d.ts`                                   | 纯 TypeScript 协议叶子包；为 shared-utils 和 proxy-lib 提供可复用常量，不引用平台 API。         |
+| `@proxy/shared-utils`                      | `main: lib/index.js`；`types: types/index.d.ts`                                   | `tsc` 同步生成 `lib/` 和 `types/`；依赖并重导出 protocol，由扩展宿主与 Vue 面板通过根入口消费。 |
+| `@proxy/lib`                               | `main: lib/index.umd.js`、`module: lib/index.esm.js`、`typings: types/index.d.ts` | TypeScript 声明 + Vite UMD / ESM；extension host 打包运行时入口。                               |
+| `@proxy/shell-chrome`                      | Vite 多入口：`src/content.ts`、`src/document.ts`、`src/service-worker/index.ts`   | 生成 V3 `build/` 扩展目录并复制 manifest、图标和 `panels-v3/`。                                 |
+| `@proxy/vue-panels`                        | Vue CLI `src/main.js` / `src/App.vue`                                             | Vue 2 历史源码；已退出正式构建和 CI，后续清理切片将移除。                                       |
+| `@proxy/code-editor`、`@proxy/json-editor` | Vue CLI library 的 `packages/index.js`，CommonJS `main: lib/index.common.js`      | Vue 2 历史组件源码；已退出正式构建和 CI，随旧面板清理切片移除。                                 |
 
 `lib/`、`build/`、`dist/` 都是忽略的构建输出。`types/**/*.d.ts` 是 TypeScript 从源码生成、随源码提交的包声明快照：workspace 的类型检查早于生产构建运行，因此 clean checkout 需要已有声明；CI 构建后执行 `pnpm check:generated-types`，确保生成文件与提交源码一致。面板和编辑器没有独立声明入口，因其只作为私有 workspace 应用 / Vue 组件，不作为 TS SDK 发布。
 
 ## 结构与可重建风险
 
-- 运行职责层面已有可识别顶层包，但 `compatibility` 是以旧配置格式命名的横切包，V3 边界尚不合适。
+- Vue 2 历史面板与编辑器源码仍占据 workspace；当前正式构建与 CI 已不再引用它们，源码删除仍待后续清理切片。
 - UI 面板内部主要按页面的 `interceptor`、`redirector` 划分，状态、Chrome 消息、storage 和编辑器依赖跨层；`common` 名称无法表达依赖方向。
-- `@proxy/v2-compatibility` 过去从 `@proxy/lib/types/types` 深层路径引用内部类型，绕过包入口；现已改为从 `@proxy/lib` 读取公开类型，`proxy-lib` 根入口导出 compatibility 使用的类型。clean build 已确认声明生成按 workspace 依赖顺序成功。
 - `pnpm check:boundaries` 检查 workspace manifest 依赖无环、跨包导入已声明且不绕过公开入口；唯一深层资源例外是 Vue 面板静态导入 JSON 编辑器生成的 CSS。该检查已纳入 CI。
 - `.gitignore` 忽略根下所有同名 `lib`、`build`、`dist` 目录，但 `types/*.d.ts` 受跟踪；已决定它们是由源码生成且随源码提交的声明快照，并由 `pnpm check:generated-types` 阻止 CI 产出漂移。
-- 编辑器是独立 workspace package，却静态进入面板主 JS；结构上的分包没有实现首屏异步加载收益。需以后续构建产物和编辑器交互原型验收。
+- Vue 2 历史编辑器曾静态进入旧面板主 JS；V3 的 JSON 编辑器由 Vue 3 面板实现，不再构建或加载旧组件包。
 - workspace glob 当前是 `packages/**`，跨包 browser smoke / extension E2E 已归入根 `tests/browser/`；包内单测就近放置，测试 / fixture 的生命周期见 `docs/V3-TESTING.zh.md`。
 
 ## 推荐迁移顺序
 
 1. 建立依赖图、公共入口和 clean checkout 产物策略；为每个 package 增加独立 build / typecheck 验收。
-2. 把 V3 schema、规则定义、导入校验与纯规则选择放入独立的 domain package；不让它导入 Chrome、Vue 或旧 compatibility。
+2. 把 V3 schema、规则定义、导入校验与纯规则选择放入独立的 domain package；不让它导入 Chrome、Vue 或旧转换代码。
 3. 明确浏览器平台 adapter 与 core 的窄接口，将 storage、通知和请求上下文注入到执行引擎。
-4. 在确认所有旧格式调用点之后移除或收缩 `compatibility`；V3 importer 只辨认并拒绝 V2，不做字段转换。
-5. 随 Vue 3 UI 一起按 feature 整理 panels 内部目录；迁移一个 feature 即保持构建、类型与关键测试通过。
+4. V3 importer 只辨认并拒绝 V2，不做字段转换；旧自动转换包和调用点已删除。
+5. Vue 3 UI 按 feature 组织；保留的 Vue 2 历史源码后续整片删除，不继续迁移。
 6. 最后按编辑器比较结果拆分异步 chunk，并将单元、集成、浏览器测试移到各自稳定位置。
 
 ## 风险与验收
 
-- 风险：过早拆包会放大 Vite 2、Vue CLI / Webpack、workspace package exports 和声明路径之间的耦合。每次迁移必须用全量与 package-only clean build 验证。
-- 已确认：`compatibility` 不只用于面板导入，也被 shell 的启动路径调用；现已迁至 `packages/v2-compatibility` 并改名为 `@proxy/v2-compatibility`，保留现有 V2 路径。V3 importer 仍须独立实现版本识别 / 拒绝提示。
+- 风险：Vue CLI / Webpack 仍由 Vue 2 历史 workspace 源码间接依赖；删除这些旧源码前需确认生产构建、CI 和 V3 UI 均无引用。
 - 风险：把 storage 和消息通知搬入 core 会带入浏览器副作用；依赖方向检查应阻止此类反向依赖。
 - 验收：dependency graph 无环；core/domain 不依赖 UI、Chrome API 或 V2 converter；包入口及声明所有权明确；干净 checkout 能按文档构建、类型检查和运行测试；产物无需预先存在于工作树；测试与 fixture 的归属有清楚说明。
 
-当前架构约定：协议、V3 领域、请求 runtime、浏览器宿主 adapter、UI 五类职责按上述依赖方向组织；跨包 API 从包根入口暴露，包内按功能域组织，Chrome / storage 副作用由 shell 或 shared-utils 承担。`shared-utils` 与 `proxy-lib` 仍包含 V2 历史实现，V3 不以一次性重命名替代渐进迁移；每次边界迁移都须维护 V2 回归且在 clean checkout 通过构建、类型、测试与边界检查。
+当前架构约定：协议、V3 领域、请求 runtime、浏览器宿主 adapter、UI 五类职责按上述依赖方向组织；跨包 API 从包根入口暴露，包内按功能域组织，Chrome / storage 副作用由 shell 或 shared-utils 承担。`shared-utils` 与 `proxy-lib` 仍包含部分 V2 runtime 实现；V2→V3 数据转换不再提供。
 
 阶段 1 已落实协议叶子包、兼容包命名、面板 common 职责拆分和依赖边界检查；阶段 2 已落地 V3 domain、组合请求 runtime、Chrome config / hit adapter。Vue 3 UI 和 runtime 内部 feature 目录仍在后续阶段按功能迁移，不视作本阶段已完成。
 

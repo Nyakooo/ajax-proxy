@@ -8,7 +8,6 @@ export default defineConfig({
       '@proxy/shared-utils': resolve('packages/shared-utils/src/index.ts'),
       '@proxy/v3-domain': resolve('packages/v3-domain/src/index.ts'),
       '@proxy/protocol': resolve('packages/protocol/src/index.ts'),
-      '@proxy/v2-compatibility': resolve('packages/v2-compatibility/src/index.ts'),
     },
   },
   test: {

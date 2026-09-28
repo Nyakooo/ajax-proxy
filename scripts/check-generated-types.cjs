@@ -1,4 +1,5 @@
 const { spawnSync } = require('node:child_process')
+const fs = require('node:fs')
 
 function git(args) {
   const result = spawnSync('git', args, { encoding: 'utf8' })
@@ -9,8 +10,8 @@ function git(args) {
   return result.stdout.split(/\r?\n/).filter(Boolean)
 }
 
-const changed = git(['diff', '--name-only', 'HEAD', '--', 'packages/']).filter((file) =>
-  /^packages\/[^/]+\/types\/.*\.d\.ts$/.test(file)
+const changed = git(['diff', '--name-only', 'HEAD', '--', 'packages/']).filter(
+  (file) => /^packages\/[^/]+\/types\/.*\.d\.ts$/.test(file) && fs.existsSync(file)
 )
 const untracked = git(['ls-files', '--others', '--exclude-standard', '--', 'packages/']).filter(
   (file) => /^packages\/[^/]+\/types\/.*\.d\.ts$/.test(file)

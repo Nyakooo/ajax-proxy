@@ -282,8 +282,8 @@ async function main() {
     const panel = await context.newPage()
     panel.setDefaultTimeout(10000)
 
-    await panel.goto(`chrome-extension://${extensionId}/panels/index.html`)
-    await panel.locator('.switch-control .el-switch, .global-switch .el-switch').first().click()
+    await panel.goto(`chrome-extension://${extensionId}/panels-v3/index.html`)
+
     const page = await context.newPage()
     const secondPage = await context.newPage()
     page.on('pageerror', (error) => console.error('Extension smoke page error:', error))
@@ -324,177 +324,6 @@ async function main() {
       chrome.tabs.query({ active: true, lastFocusedWindow: true }).then((tabs) => tabs[0])
     )
     assert.equal(activeTab.title, 'Extension Smoke Page')
-    await panel
-      .locator('.response-container > .el-button, .response-container .table-toolbar > .el-button')
-      .first()
-      .click()
-
-    const dialog = panel.locator('.response-modal-container .el-dialog__wrapper')
-    await dialog.waitFor({ state: 'visible' })
-    const fields = dialog.locator('.el-form-item')
-    const regexMatcher = '/api/(echo|items)$'
-    await fields.nth(0).locator('input:not([readonly])').fill(regexMatcher)
-    await fields.nth(0).locator('.el-select').first().click()
-    await panel
-      .locator('.el-select-dropdown:visible .el-select-dropdown__item')
-      .filter({ hasText: /^Regex$/ })
-      .click()
-    await fields.nth(1).locator('input:not([readonly])').fill('Playwright extension smoke')
-    const responseJson = '{"source":"intercepted","details":{"ok":true},"items":[1,2]}'
-    const expectedResponseJson = responseJson
-    await dialog.locator('textarea.el-textarea__inner').fill(responseJson)
-    await dialog.getByRole('button', { name: 'JSON Editor' }).click()
-
-    const jsonDrawer = panel.locator('.json-editor-container .el-drawer__wrapper')
-    await jsonDrawer.waitFor({ state: 'visible' })
-    await jsonDrawer.locator('.jsoneditor-menu button.jsoneditor-modes').click()
-    await jsonDrawer.locator('button.jsoneditor-type-modes[title="Switch to tree editor"]').click()
-    await jsonDrawer.locator('button.jsoneditor-expand-all').click()
-    await jsonDrawer.locator('.jsoneditor-field').filter({ hasText: 'details' }).waitFor()
-    await jsonDrawer.locator('.jsoneditor-field').filter({ hasText: 'ok' }).waitFor()
-    assert.equal(await jsonDrawer.locator('.jsoneditor-value.jsoneditor-boolean').count(), 1)
-    assert.equal(await jsonDrawer.locator('.jsoneditor-value.jsoneditor-number').count(), 2)
-    const numberValues = jsonDrawer.locator('.jsoneditor-value.jsoneditor-number')
-    assert.deepEqual(await numberValues.allTextContents(), ['1', '2'])
-    await jsonDrawer.locator('button.jsoneditor-collapse-all').click()
-
-    await jsonDrawer.locator('.json-editor-drawer__footer button').click()
-    await dialog.getByRole('button', { name: 'OK' }).click()
-    await dialog.waitFor({ state: 'hidden' })
-    await panel.getByText(regexMatcher, { exact: true }).waitFor()
-    await panel.locator('.response-container .el-table__body-wrapper').getByText('Regex').waitFor()
-
-    const result = page.locator('#result')
-
-    const unmatchedRegexResponse = await page.evaluate(async () => {
-      const response = await fetch('/api/nope')
-      return response.json()
-    })
-    assert.deepEqual(unmatchedRegexResponse, {
-      source: 'server',
-      method: 'GET',
-      body: '',
-    })
-
-    const childFrame = page.frameLocator('#child-frame')
-    await childFrame.locator('#frame-fetch').click()
-    await childFrame.locator('#frame-result').getByText('intercepted').waitFor()
-
-    await page.locator('#fetch').click()
-    await result.waitFor({ state: 'visible' })
-    await page.waitForFunction(() =>
-      document.querySelector('#result').textContent.includes('intercepted')
-    )
-    assert.deepEqual(JSON.parse(await result.textContent()), {
-      kind: 'fetch',
-      status: 200,
-      url: `http://127.0.0.1:${port}/api/echo`,
-      redirected: false,
-      type: 'basic',
-      contentLength: null,
-      body: expectedResponseJson,
-    })
-
-    await secondPage.locator('#fetch').click()
-    await secondPage.waitForFunction(() =>
-      document.querySelector('#result').textContent.includes('intercepted')
-    )
-    assert.equal(
-      JSON.parse(await secondPage.locator('#result').textContent()).body,
-      expectedResponseJson
-    )
-
-    await secondPage.locator('#xhr').click()
-    await secondPage
-      .waitForFunction(
-        () => document.querySelector('#result').textContent.startsWith('{"kind":"xhr"'),
-        null,
-        { timeout: 5000 }
-      )
-      .catch(async (error) => {
-        console.error('Second-page XHR diagnostics:', {
-          result: await secondPage.locator('#result').textContent(),
-          requests,
-        })
-        throw error
-      })
-    assert.equal(
-      JSON.parse(await secondPage.locator('#result').textContent()).body,
-      expectedResponseJson
-    )
-
-    await page.locator('#xhr').click()
-    await page.waitForFunction(() =>
-      document.querySelector('#result').textContent.startsWith('{"kind":"xhr"')
-    )
-    const xhrResult = JSON.parse(await result.textContent())
-    assert.equal(xhrResult.kind, 'xhr')
-    assert.equal(xhrResult.status, 200)
-    assert.equal(xhrResult.body, expectedResponseJson)
-    assert.equal(xhrResult.onloadCalled, true)
-    assert.ok(xhrResult.events.some((event) => event.type === 'progress'))
-    assert.ok(xhrResult.events.some((event) => event.type === 'loadstart'))
-    assert.ok(xhrResult.events.some((event) => event.type === 'loadend'))
-    assert.ok(xhrResult.events.every((event) => event.thisIsRequest))
-    assert.ok(xhrResult.events.every((event) => event.targetIsRequest))
-    assert.ok(xhrResult.events.every((event) => event.currentTargetIsRequest))
-    assert.ok(
-      xhrResult.events.findIndex((event) => event.type === 'readystatechange') <
-        xhrResult.events.findIndex((event) => event.type === 'load')
-    )
-
-    await panel.locator('input.el-radio-button__orig-radio[value="redirector"]').check({
-      force: true,
-    })
-    await panel
-      .locator('.request-container > .el-button, .request-container .table-toolbar > .el-button')
-      .first()
-      .click()
-    const redirectDialog = panel.locator('.response-modal-container .el-dialog__wrapper')
-    await redirectDialog.waitFor({ state: 'visible' })
-    const redirectFields = redirectDialog.locator('.el-form-item')
-    await redirectFields.nth(0).locator('input:not([readonly])').first().fill('/api/echo')
-    await redirectFields.nth(1).locator('input:not([readonly])').first().fill('/mock/echo')
-    await redirectFields.nth(0).locator('.el-select').last().click()
-    await panel
-      .locator('.el-select-dropdown:visible .el-select-dropdown__item')
-      .filter({ hasText: /^POST$/ })
-      .click()
-    const redirectHeaders = redirectFields.nth(2)
-    await redirectHeaders.getByRole('button', { name: /Append/ }).click()
-    const redirectHeaderInputs = redirectHeaders.locator('input:not([readonly])')
-    await redirectHeaderInputs.nth(0).fill('x-redirected')
-    await redirectHeaderInputs.nth(1).fill('yes')
-    await redirectDialog.getByRole('button', { name: 'OK' }).click()
-    await redirectDialog.waitFor({ state: 'hidden' })
-    await panel.getByText('/api/echo', { exact: true }).waitFor()
-    await page.locator('#redirect-fetch').click()
-    await page.waitForFunction(() =>
-      /redirect-(fetch|error)/.test(document.querySelector('#result').textContent)
-    )
-    assert.deepEqual(JSON.parse(await result.textContent()), {
-      kind: 'redirect-fetch',
-      status: 200,
-      url: `http://127.0.0.1:${port}/mock/echo`,
-      body: {
-        source: 'server',
-        method: 'POST',
-        body: 'redirected body',
-        path: '/mock/echo',
-        originalHeader: 'preserved',
-        redirectedHeader: 'yes',
-        cookie: 'redirect-smoke=present',
-      },
-    })
-
-    await secondPage.locator('#redirect-fetch').click()
-    await secondPage.waitForFunction(() =>
-      document.querySelector('#result').textContent.startsWith('{"kind":"redirect-fetch"')
-    )
-    assert.equal(
-      JSON.parse(await secondPage.locator('#result').textContent()).url,
-      `http://127.0.0.1:${port}/mock/echo`
-    )
 
     const v3ResponseBody = { source: 'v3-intercepted', ok: true }
     await panel.evaluate(({ key, backup }) => chrome.storage.local.set({ [key]: backup }), {
@@ -643,6 +472,9 @@ async function main() {
       }
     })
     await streamPage.goto(`${streamOrigin}/`)
+    await streamPage.evaluate(() => {
+      document.cookie = 'redirect-smoke=present; path=/'
+    })
     await streamPage.reload()
     let v3Counters = {}
     for (let attempt = 0; attempt < 40; attempt += 1) {
@@ -2546,7 +2378,7 @@ async function main() {
     )
 
     console.log(
-      'Unpacked extension V2 and V3 panel persistence, static redirect Fetch/XHR header overrides, exact-origin site switches, safe rule templates, JSON and function Fetch interception, XHR, iframe, redirect, and service worker restart smoke passed'
+      'Unpacked V3 extension panel persistence, static redirect Fetch/XHR header overrides, exact-origin site switches, safe rule templates, JSON and function Fetch interception, XHR, iframe, redirect, and service worker restart smoke passed'
     )
   } finally {
     await context?.close()

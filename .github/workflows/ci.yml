@@ -49,7 +49,7 @@ jobs:
         if: matrix.browser == 'chrome'
         env:
           BROWSER_CHANNEL: chromium
-        run: pnpm extension:smoke
+        run: pnpm v3:extension:smoke
       - name: Verify V3 rule workspace and panel window in Playwright Chromium
         env:
           BROWSER_CHANNEL: chromium
@@ -114,7 +114,7 @@ jobs:
       - name: Verify extension Fetch and XHR interception
         env:
           BROWSER_EXECUTABLE_PATH: ${{ matrix.browser == 'chrome' && steps.browser.outputs.executable-path || steps.edge.outputs.executable-path }}
-        run: pnpm extension:smoke
+        run: pnpm v3:extension:smoke
       - name: Verify production V3 rule workspace and panel on minimum-version browser
         env:
           BROWSER_EXECUTABLE_PATH: ${{ matrix.browser == 'chrome' && steps.browser.outputs.executable-path || steps.edge.outputs.executable-path }}
@@ -168,10 +168,8 @@ jobs:
           done
       - name: Install Chromium for extension E2E
         run: pnpm exec playwright install --with-deps chromium
-      - name: Verify JSON editor syntax error position
-        run: pnpm editor:smoke
-      - name: Verify Fetch and XHR extension interception
-        run: pnpm extension:smoke
+      - name: Verify V3 extension Fetch and XHR behavior
+        run: pnpm v3:extension:smoke
       - name: Verify V3 rules workspace, popup and editor handoff
         run: node tests/browser/v3-unified-rules-smoke.cjs
       - name: Verify independent V3 panel and manual tab option

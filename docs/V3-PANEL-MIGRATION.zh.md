@@ -2,9 +2,9 @@
 
 ## 当前切片
 
-`packages/vue3-panels` 是独立的 Vue 3 / PrimeVue 候选面板 workspace package。它从已验收的品牌和交互原型演进，配置 service 通过扩展消息读取校验后的 V3 快照、保存或清除 V3 配置。它单独构建到 `packages/vue3-panels/dist/`，可以用 `pnpm build:v3-panels` 构建。
+`packages/vue3-panels` 是正式 V3 Vue 3 / PrimeVue 面板 workspace package。它通过扩展消息读取校验后的 V3 快照、保存或清除 V3 配置，构建到 `packages/vue3-panels/dist/`，也由 `pnpm build` 纳入正式扩展。
 
-现有正式面板仍是 `packages/vue-panels`（Vue 2 + Element UI），service worker 继续打开 `panels/index.html`。根 `pnpm build` 的 `pkg` 步骤会把 Vue 2 复制到 `packages/shell-chrome/build/panels`，并把 Vue 3 候选版本独立暂存到 `packages/shell-chrome/build/panels-v3`，供显式加载和真实扩展验证使用。扩展默认入口及 V2 构建来源保持不变。`pnpm check:boundaries` 包含隔离检查，确保两个面板的依赖和打包路径仍独立。
+正式面板和扩展默认入口现为 `panels-v3/`。Vue 2 的 `packages/vue-panels` 已退出正式构建与 CI 浏览器验收；旧面板源码及其编辑器包后续单独清理。`pnpm check:boundaries` 与生产布局 smoke 确认正式构建不依赖或打包 Vue 2 面板。
 
 两套 Vue 运行时以 package 为边界并存，不能把 Vue 2 组件直接挂到 Vue 3 app，也不在同一个 app bundle 中混用。纯数据、协议和验证逻辑优先沿用 framework-free 包；具体 editor 需要 Vue 3 wrapper 后才接入。
 
@@ -23,14 +23,14 @@ V3 adapter 使用独立的 `GET_SNAPSHOT` / `SAVE_CONFIG` 协议，不复用 con
 3. 先迁独立叶子组件，再逐步接入 redirect CRUD 和 JSON response CRUD；tag 管理、详细命中工具和完整 interceptor 工作流作为后续切片。V3 Fetch 函数响应编辑和备份恢复现已接入 staging 面板。
 4. 分别替换 Vue 2 code / JSON editor wrapper，确认异步加载、语言、键盘编辑、校验定位与生产体积。
 5. 迁移规则创建 / 编辑和全局导入恢复流程。V3 使用独立 schema / 备份格式，不自动迁移 V2 数据；保持计划中已确认的单规则优先级与恢复校验流程。
-6. 创建独立 staging extension output，以 `panels-v3/` 验收 Chrome 与 Edge 当前 Stable。通过所有行为检查后，另开切换提交：只让正式 `pkg` 复制 V3 dist 到既有 `panels/` 地址；再删除 V2 build 输入与不再使用的 Vue 2 依赖。
+6. 已将正式 extension output 切换到 `panels-v3/`，Chrome / Edge Stable 和最低版本浏览器矩阵继续验收；下一步移除 workspace 内不再使用的 Vue 2 面板与编辑器源码及依赖。
 
-V3 staging 已加入根 `pnpm build`，把 Vue 3 build 复制到 `build/panels-v3/`，仍保留 Vue 2 `build/panels/` 为默认路径。扩展 smoke 会从 `panels-v3/` 真实打开面板，通过 UI 保存规则、重载读回，并验证 Fetch 响应及 V3 hit；Chrome for Testing 154 与 Edge Stable 153 已通过。备份恢复 smoke 覆盖导出 envelope、无效 JSON 不写入、函数代码规则计数提示和恢复后保持停用。品牌 Chrome 137 及更新版本已禁用自动化 `--load-extension` 命令行参数，因此本地自动化使用同主版本的 Chrome for Testing。
+V3 正式扩展构建只包含 `build/panels-v3/`。V3 extension smoke 从该页面读写真实配置，并验证 Fetch / XHR、V3 hit、备份恢复、popup 和 panel；Chrome Stable、Edge Stable 与固定最低版本浏览器矩阵由 CI 验收。备份恢复 smoke 覆盖导出 envelope、无效 JSON 不写入、函数代码规则计数提示和恢复后保持停用。Playwright 扩展自动化使用配套 Chromium；浏览器品牌 Stable 仍运行独立的运行时兼容性矩阵。
 
 ## 不变量
 
-- 在单独批准和验收切换之前，默认入口仍为 Vue 2 `panels/index.html`；Vue 3 `panels-v3/index.html` 仅供 staging 验证。
-- staging extension 使用不同输出目录，不清理、覆盖或打包为生产目录。
+- 正式扩展默认入口为 Vue 3 `panels-v3/index.html`；V2 备份与规则不迁移，导入器必须拒绝不兼容格式且不写入数据。
+- 正式构建产物不包含 Vue 2 `panels/`；历史源码仅在清理切片期间留在 workspace。
 - 每个可独立验证的迁移切片在 `refactor/v3` 单独提交、推送；正式切换是后续单独提交，不能和功能迁移混在一起。
 
-迁移前现状盘点和 V2 / Vue 3 风险热点见 Codex 执行记录及 `docs/V3-PANEL-IA.zh.md`。V3 消息与配置 adapter、redirect CRUD 与排除项、schema v7 Fetch-only 函数重定向、v8 静态重定向 headers、JSON response CRUD、Fetch 函数响应编辑、备份恢复、标签管理与关联、独立 staging 打包和扩展内请求验证已接入；V2 旧版规则中的 substring replacement 目前尚无 V3 同等能力，默认面板切换仍待评估或实施。Chrome 与 Edge 当前 Stable 的 staging 扩展及 Fetch / XHR runtime 验收已有记录，切换默认面板前仍须完成完整 UI 验收。
+迁移前现状盘点和 V2 / Vue 3 风险热点见 `docs/V3-PANEL-IA.zh.md`。V3 消息与配置 adapter、redirect CRUD 与排除项、函数重定向、静态重定向 headers、JSON response CRUD、Fetch 函数响应编辑、备份恢复、标签管理与关联，以及扩展内请求验证已接入。V2 旧版 substring replacement 尚无 V3 同等能力；不兼容的 V2 数据只显示拒绝提示，不做自动转换。

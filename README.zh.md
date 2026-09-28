@@ -44,7 +44,7 @@
 
 ## 安装
 
-Chrome 与 Edge 商店链接指向已发布版本。`refactor/v3` 开发分支中的 V3 仍处于 development staging 阶段，尚未纳入该发布版本或替换扩展默认面板入口。
+Chrome 与 Edge 商店链接指向已发布版本。`refactor/v3` 开发分支的本地构建默认使用 V3 面板；商店版本仍以各商店当前发布内容为准。
 
 [Edge 旧稳定版](https://microsoftedge.microsoft.com/addons/detail/ajax-proxy/iladajdkobpmadjfpeginhngnneaoefi)
 
@@ -75,29 +75,28 @@ V3 当前针对 **Chrome / Edge 当前稳定版**开发和验收。要试用 V3�
    - 方法 2: 可以在开发者工具中的`网络（network）`里面，通过 ☑️ 禁用缓存
      ![issues_disabled_cache](https://github.com/g0ngjie/ajax-proxy/wiki/images/issues_disabled_cache.png)
 2. [函数方式响应说明](README.func.md)
-3. **为什么打开的还是旧面板？** V3 仍在 development staging 阶段，扩展默认入口还是 Vue 2 面板。构建并加载本地扩展后，需在地址栏显式打开 `chrome-extension://<扩展 ID>/panels-v3/index.html`；将 `<扩展 ID>` 替换为扩展详情页显示的 ID。
+3. **本地扩展默认打开哪个面板？** `pnpm build` 生成的扩展默认打开 V3 面板；用户配置与备份采用全新的 V3 格式。
 4. **V2 和 V3 配置能否互相导入？** 不能。V2 / V3 规则与备份格式不兼容，也没有自动迁移。请保留 V2 备份，并在 V3 面板中按需重新创建规则。详见 [V3 配置备份与恢复](docs/V3-BACKUP-RESTORE.zh.md#v2-备份不兼容)。
-5. **V3 是否已覆盖 V2 的全部能力？** 尚未。当前 staging 支持 V3 格式的重定向规则及 URL 排除项、JSON 响应规则、Fetch 函数响应及配置备份 / 恢复；函数响应仅作用于 Fetch。V2 文件不自动迁移；substring replacement、请求 header 覆盖和 redirect function 尚未迁移。详见 [V3 面板迁移说明](docs/V3-PANEL-MIGRATION.zh.md)。
+5. **V3 是否已覆盖 V2 的全部能力？** 尚未。V3 支持 V3 格式的重定向规则及 URL 排除项、JSON 响应规则、Fetch 函数响应及配置备份 / 恢复；函数响应仅作用于 Fetch。V2 文件会被拒绝，不提供自动迁移；substring replacement、请求 header 覆盖和 redirect function 尚未迁移。详见 [V3 面板迁移说明](docs/V3-PANEL-MIGRATION.zh.md)。
 6. **V3 请求为什么没有命中规则？** 请确认打开的是 `panels-v3/` 页面、全局和站点开关已启用、规则 URL 与 method 条件匹配。多条规则命中时按列表顺序只应用首条。函数响应仅拦截 Fetch；XHR 保留原生响应。详见 [V3 规则模型](docs/V3-RULE-MODEL.zh.md)。
 
 ## Monorepo
 
-| Package                                                 | Description                                     |
-| ------------------------------------------------------- | ----------------------------------------------- |
-| [@proxy/protocol](./packages/protocol/)                 | V2 / V3 通信协议与类型                          |
-| [@proxy/v2-compatibility](./packages/v2-compatibility/) | V2 配置格式解析与校验；不负责 V2 到 V3 自动迁移 |
-| [@proxy/lib](./packages/proxy-lib/)                     | V2 / V3 请求匹配与 Fetch / XHR 拦截核心逻辑     |
-| [@proxy/shared-utils](./packages/shared-utils/)         | 扩展共享工具与存储能力                          |
-| [@proxy/v3-domain](./packages/v3-domain/)               | V3 配置 schema、校验及规则匹配逻辑              |
-| [@proxy/shell-chrome](./packages/shell-chrome/)         | Chromium 扩展、service worker 与构建入口        |
-| [@proxy/vue-panels](./packages/vue-panels/)             | 当前默认 Vue 2 面板                             |
-| [@proxy/vue3-panels](./packages/vue3-panels/)           | 独立构建的 V3 staging Vue 3 面板                |
+| Package                                         | Description                                 |
+| ----------------------------------------------- | ------------------------------------------- |
+| [@proxy/protocol](./packages/protocol/)         | V2 / V3 通信协议与类型                      |
+| [@proxy/lib](./packages/proxy-lib/)             | V2 / V3 请求匹配与 Fetch / XHR 拦截核心逻辑 |
+| [@proxy/shared-utils](./packages/shared-utils/) | 扩展共享工具与存储能力                      |
+| [@proxy/v3-domain](./packages/v3-domain/)       | V3 配置 schema、校验及规则匹配逻辑          |
+| [@proxy/shell-chrome](./packages/shell-chrome/) | Chromium 扩展、service worker 与构建入口    |
+| [@proxy/vue-panels](./packages/vue-panels/)     | 已退出正式构建的 Vue 2 历史面板源码         |
+| [@proxy/vue3-panels](./packages/vue3-panels/)   | V3 Vue 3 面板                               |
 
 ## 源码使用方式
 
 ### 从源码加载 V3 staging
 
-以下步骤适用于仓库 `refactor/v3` 开发分支；官方商店版本仍是旧稳定版。环境要求：Node.js `>=24.21.0 <25`、pnpm `12.6`。
+以下步骤适用于仓库 `refactor/v3` 开发分支；官方商店版本仍以各商店当前发布内容为准。环境要求：Node.js `>=24.21.0 <25`、pnpm `12.6`。
 
 ```sh
 git clone --branch refactor/v3 https://github.com/g0ngjie/ajax-proxy.git

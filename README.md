@@ -67,25 +67,24 @@ Video: [https://www.youtube.com/watch?v=F\_\_7LXBqnvQ&list=PLniy0-3-8-V1ZhsmG6\_
      ![issues_disabled_cache](https://github.com/g0ngjie/ajax-proxy/wiki/images/issues_disabled_cache.png)
 2. [Function-based response explanation](README.func.md)
 3. **Can I use V2 rules or backups in the V3 staging panel?** No. V2 and V3 configuration and backup formats are incompatible, and there is no automatic migration. Keep your V2 backup and recreate any rules you need in V3. See the [V3 backup and restore guide](docs/V3-BACKUP-RESTORE.zh.md) (Chinese).
-4. **What does the V3 staging panel support?** The current staging scope includes redirect rules with URL exclusions, JSON response rule editing, Fetch response functions, tags, and V3 backup and restore. Function responses apply to Fetch; XHR keeps its original response. V2 backups are not imported automatically; V2-only substring replacement, header overrides, and redirect functions have not been migrated. See the [V3 panel migration notes](docs/V3-PANEL-MIGRATION.zh.md) (Chinese).
+4. **What does the V3 panel support?** The V3 panel supports redirect rules with URL exclusions, JSON response rule editing, Fetch response functions, tags, and V3 backup and restore. Function responses apply to Fetch; XHR keeps its original response. V2 backups are rejected; V2-only substring replacement, header overrides, and redirect functions have not been migrated. See the [V3 panel migration notes](docs/V3-PANEL-MIGRATION.zh.md) (Chinese).
 5. **Why does a V3 request not match?** Open the `panels-v3/` page, check that the global and site switches are enabled, and confirm the rule's URL and method match. Only the first matching rule runs, in list order. Response functions apply to Fetch; XHR keeps its original response. See the [V3 rule model](docs/V3-RULE-MODEL.zh.md) (Chinese).
 
 ## Monorepo
 
-| Package                                                 | Description                                                |
-| ------------------------------------------------------- | ---------------------------------------------------------- |
-| [@proxy/protocol](./packages/protocol/)                 | Shared V2 / V3 message protocols and types                 |
-| [@proxy/v2-compatibility](./packages/v2-compatibility/) | V2 Data Format Conversion Library                          |
-| [@proxy/lib](./packages/proxy-lib/)                     | V2 / V3 request matching and Fetch / XHR interception      |
-| [@proxy/shared-utils](./packages/shared-utils/)         | Public Class Libraries                                     |
-| [@proxy/shell-chrome](./packages/shell-chrome/)         | Browser Extension Library                                  |
-| [@proxy/vue-panels](./packages/vue-panels/)             | Application Operator Panel                                 |
-| [@proxy/vue3-panels](./packages/vue3-panels/)           | V3 development-staging panel (not the default entry point) |
-| [@proxy/v3-domain](./packages/v3-domain/)               | V3 configuration schema and domain logic                   |
+| Package                                         | Description                                                  |
+| ----------------------------------------------- | ------------------------------------------------------------ |
+| [@proxy/protocol](./packages/protocol/)         | Shared V2 / V3 message protocols and types                   |
+| [@proxy/lib](./packages/proxy-lib/)             | V2 / V3 request matching and Fetch / XHR interception        |
+| [@proxy/shared-utils](./packages/shared-utils/) | Public Class Libraries                                       |
+| [@proxy/shell-chrome](./packages/shell-chrome/) | Browser Extension Library                                    |
+| [@proxy/vue-panels](./packages/vue-panels/)     | Retired Vue 2 panel source (excluded from production builds) |
+| [@proxy/vue3-panels](./packages/vue3-panels/)   | V3 Vue 3 panel                                               |
+| [@proxy/v3-domain](./packages/v3-domain/)       | V3 configuration schema and domain logic                     |
 
 ## Use of source code
 
-To try the V3 development staging build, use the `refactor/v3` branch. It is not a store release; the extension's default entry point remains the Vue 2 panel, and the V3 panel must be opened explicitly.
+To try the V3 development build, use the `refactor/v3` branch. It is not a store release; a local production build opens the V3 panel by default.
 
 Requirements: Node.js `>=24.21.0 <25` and pnpm `12.6`.
 V3 staging validation targets the current stable versions of Chrome and Edge.

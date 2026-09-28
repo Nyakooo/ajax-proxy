@@ -9,11 +9,8 @@ import {
   noticeServiceWorkerByContent,
   getStorage,
   getStorageSnapshot,
-  setStorage,
-  removeStorage,
 } from '@proxy/shared-utils'
 import { CONNECT_NAME, INIT_CURRENT_TITLE, NOTICE_KEY_REFRESH_GLOBAL_STATE } from './consts'
-import { onLoadForDataConversion } from '@proxy/v2-compatibility'
 import { isPageBadgeHit } from './messageValidation'
 import {
   isV3FetchOutcome,
@@ -137,23 +134,9 @@ initStorage()
     // document.js 由 manifest 在主世界、document_start 阶段静态注入。
     // 主世界需要看到规则才能代理页面请求，因此同步内容仍按不可信页面输入处理。
     const data = getStorageSnapshot()
-    // 新老数据转换
-    const { changed, data: getData, changeKeywords } = onLoadForDataConversion(data)
-    // 如果有老数据变更新数据，则需要在这里 setStorage
-    if (changed) {
-      setStorage(StorageKey.GLOBAL_SWITCH, getData.global_on)
-      setStorage(StorageKey.MODE, getData.mode)
-      setStorage(StorageKey.INTERCEPT_LIST, getData.interceptor_matching_content)
-      setStorage(StorageKey.REDIRECT_LIST, getData.redirector_matching_content)
-      // 需要清理对应旧数据，不然始终会进到当前判断条件中
-      removeStorage(changeKeywords)
-    }
-    const getGlobalSwtich = getData[StorageKey.GLOBAL_SWITCH] || false
-    if (getGlobalSwtich) noticeDocumentByContent(NOTICE_KEY_REFRESH_GLOBAL_STATE, getData)
-    // V3 is stored independently from V2, and must also deliver a disabled
-    // configuration so the MAIN-world runtime can keep it cached without mounting.
-    // V2 conversion can replace the legacy snapshot with a narrower shape.
-    // V3 state lives beside those keys and must be read from the original snapshot.
+    const globalSwitchOn = data[StorageKey.GLOBAL_SWITCH] || false
+    if (globalSwitchOn) noticeDocumentByContent(NOTICE_KEY_REFRESH_GLOBAL_STATE, data)
+    // V3 uses its own storage schema. Historical keys are neither converted nor removed.
     const initialV3Config = data[StorageKey.V3_CONFIG] ?? null
     updateV3FunctionSandbox(initialV3Config)
     noticeDocumentByContent(NoticeKey.V3_CONFIG, initialV3Config)

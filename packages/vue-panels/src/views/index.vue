@@ -89,7 +89,6 @@ import { typeIs } from '@/shared/data'
 import { Langs } from '@/lang/index'
 import exportFromJSON from 'export-from-json'
 import { NoticeFrom, NoticeTo, NoticeKey, isMessageRecord } from '@proxy/shared-utils'
-import { onUploadForDataConversion } from '@proxy/v2-compatibility'
 export default {
   components: {
     IntercepTable,
@@ -158,9 +157,7 @@ export default {
       reader.readAsText(file.raw)
     },
     setStoreData(target) {
-      // 新老数据转换
-      const getData = onUploadForDataConversion(target)
-      const { language, mode, tags, interceptors, redirectors } = getData
+      const { language, mode, tags, interceptors, redirectors } = target
       const {
         // 你导入了一个空列表
         importEmpty,

@@ -85,7 +85,7 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - [x] 明确依赖规则：核心请求引擎不依赖 Vue / UI 或 Chrome storage / badge helper；`pnpm check:boundaries` 检查 8 个 workspace 包依赖有向无环、包间依赖有声明、无私有源码深层引用，并由 CI 运行。平台适配和 UI 的后续窄接口迁移记录于架构评估。
 - [x] 统一源码、生成声明、构建产物和测试夹具的归属；声明文件采用“生成后随源码提交”，CI 在构建后用 `pnpm check:generated-types` 检查声明漂移；clean build 清理重建全部 package 产物，测试脚本 / fixture 明确归入 `tests/` 与 package test。Node 24.21.0 下冻结安装、空产物 clean build、类型检查、单测与扩展 E2E 均通过。
 - [x] 审查当前 `compatibility` 包：确认 shell 启动与面板导入仍使用其转换逻辑；已重命名为 `@proxy/v2-compatibility` 并明确只负责 V2 数据格式转换。
-- [ ] **按最新产品决策彻底移除 V2→V3 数据转换：** V3 使用全新数据，用户不要求继承 V2 配置，因此删除启动时旧 storage key / schema 自动转换、旧备份转换入口、`@proxy/v2-compatibility` 包及其 workspace / CI / 测试引用。保留 V3 自身的备份导入校验；遇到 V2 文件只提示格式不兼容，不提供转换工具。此项待执行，不代表转换代码已移除。
+- [x] **按最新产品决策彻底移除 V2→V3 数据转换：** V3 使用全新数据，用户不要求继承 V2 配置，因此删除启动时旧 storage key / schema 自动转换、旧备份转换入口、`@proxy/v2-compatibility` 包及其 workspace / CI / 测试引用。保留 V3 自身的备份导入校验；遇到 V2 文件只提示格式不兼容，不提供转换工具。2026-09-28 完成并验证：V3 直接读取独立配置，旧 V2 storage 不迁移 / 不删除；V2 备份仍由 V3 validator 拒绝。
 - [x] 统一测试目录约定：单元 / 组件测试与所属源码就近组织，跨包集成和浏览器端到端测试放在明确的顶层测试区域（`tests/browser/`），fixture 命名及生命周期一致。
 - [x] 每次迁移目录或包边界时保持构建入口、类型声明、扩展打包和发布脚本同步更新，并以依赖图和 clean build 验证没有隐式路径依赖（本次将兼容包类型导入改为代理库公共入口，边界检查纳入 CI；clean build、类型检查和扩展 Fetch / XHR smoke 通过）。
 - [x] 固定 Node / pnpm 并验证冻结安装：Node 24.21.0、pnpm 12.6.0、lockfile v9；全新安装使用 `pnpm install --frozen-lockfile`。
@@ -1106,3 +1106,9 @@ Stable Chrome / Edge 的原生 CSS `resize` 把手被 CodeMirror 子元素覆盖
 ## 品牌浏览器与扩展 smoke 的 CI 启动方式（2026-09-27）
 
 最新 Chrome Stable CI 在 Playwright persistent context 中启动后未加载扩展 service worker。检查发现 Playwright 的扩展侧载命令行流程面向其 Chromium；品牌 Chrome / Edge Stable 的运行时和窄视口面板 smoke 继续直接验证品牌浏览器，扩展 Fetch / XHR、规则 popup 与面板打开 smoke 使用 Playwright Chromium，最低版本矩阵继续使用固定 Chrome for Testing / Edge executable 验证实际扩展。CI 已改为安装 Playwright Chromium 并将扩展侧载 smoke 指向该版本。待新 CI 全绿后关闭此门禁项；品牌 Chrome 上独立弹窗的用户侧验收仍单独记录。
+
+## V2 转换退役与 V3-only 构建/CI 检查点（2026-09-28）
+
+按维护者最新决策，V3 使用全新数据，不提供 V2 到 V3 的 storage 或备份转换。已删除 `@proxy/v2-compatibility` 包、扩展启动时转换 / 删除旧 storage key 的逻辑、旧备份入口转换，以及对应 workspace、测试和类型检查引用；V3 对旧格式备份继续给出不兼容校验。正式生产构建现在使用 Vite shell 和 Vue 3 面板，扩展包只包含 `panels-v3/`；旧 Webpack shell 构建、Vue 2 面板及 JSONEditor 浏览器 smoke 已从正式 CI 路径移除，CI 运行 V3 扩展 smoke。Vue 2 面板和两个编辑器包仍作为历史源码留在 workspace，后续独立退役阶段再删除。
+
+定向 shell 单测 50 项、完整 Vitest 569 项、Vue 3 组件测试 129 项、类型检查 / 生成声明、包边界、V3 面板隔离、正式构建布局 smoke、V3 扩展 Fetch / XHR / 静态重定向 / popup / service worker smoke 均通过。全量 coverage、lint / format、Vite watch 重建、ZIP 完整性已在同一工作树前序验证通过。当前计划勾选项按本文件统计为 384 / 410（93.7%）；下一阶段剩余工作包括退役 workspace 中的 Vue 2 面板和编辑器源码、更新远端 CI 结果及其它未完成验收项。此检查点在 `refactor/v3` 独立提交并推送。

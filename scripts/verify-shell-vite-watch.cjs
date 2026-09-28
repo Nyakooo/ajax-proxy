@@ -8,7 +8,7 @@ const root = path.resolve(__dirname, '..')
 const watcherScript = path.join(__dirname, 'build-shell-vite.cjs')
 const extensionPath = path.join(root, 'packages/shell-chrome/build-vite-dev')
 const watchedSource = path.join(root, 'packages/shell-chrome/src/document.ts')
-const smokeScript = path.join(root, 'tests/browser/extension-smoke.cjs')
+const smokeScript = path.join(root, 'tests/browser/v3-extension-smoke.cjs')
 
 function waitForOutput(watcher, getOutput, predicate, description) {
   return new Promise((resolve, reject) => {

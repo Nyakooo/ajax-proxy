@@ -2,7 +2,7 @@
 
 ## 当前测试入口
 
-- `pnpm build` / `pnpm build:chrome`：正式构建使用 Vite 输出 `packages/shell-chrome/build`，先清理旧输出，再生成 Vue 3 V3 面板、扩展入口和 manifest。`pnpm zip` 从该正式目录生成含 `panels-v3` 与 `v3-sandbox` 的扩展 ZIP。回退构建可运行 `pnpm build:chrome:webpack`，它将旧 webpack 壳单独写到 `packages/shell-chrome/build-webpack`；不会覆盖正式 Vite 目录。旧 Vue 2 源码与依赖仍保留。
+- `pnpm build` / `pnpm build:chrome`：正式构建使用 Vite 输出 `packages/shell-chrome/build`，只复制 Vue 3 V3 面板、扩展入口和 manifest。生产目录默认打开 `panels-v3/`；`pnpm zip` 从该目录生成含 `panels-v3` 与 `v3-sandbox` 的扩展 ZIP。Vue 2 历史源码尚留在 workspace，但不进入正式构建或 CI 验收。
 - `pnpm production:smoke`：检查正式构建目录的 V3 popup / panel / worker / sandbox / 图标以及默认 worker 路由。CI 还会在 Chrome Stable、Edge Stable、Chrome 141 和 Edge 140 加载正式构建目录运行扩展 smoke。
 
 - `pnpm test`：单次运行单元测试，包括 Fetch / XHR 第一条规则优先级、通知规则序号和徽章精确计数。
@@ -10,13 +10,12 @@
 - `pnpm test:coverage`：运行测试并生成终端摘要及 `coverage/lcov.info`。
 - `pnpm browser:smoke`：使用 `BROWSER_CHANNEL=chrome` 或 `msedge` 启动对应稳定版，检查核心 Fetch / Request、XHR、CSS 和减少动态效果 API。CI 分别运行 Chrome Stable 与 Edge Stable。
 - `pnpm v3:browser:smoke`：临时 bundle V3 组合 Fetch / XHR 原型，在真实浏览器页面验证首条规则静态重定向、POST body、同规则响应 body / status 替换、XHR `open()` 凭证参数和事件回调代理语义；schema v8 静态重定向请求头也覆盖同源覆盖 / 空值 / 新增头、跨源 CORS preflight 及 Authorization 剥离。支持 Chromium、Chrome Stable 和 Edge Stable。CI 覆盖 Chrome / Edge Stable 与固定最低版本 Chrome 141 / Edge 140。该 smoke 不加载扩展，不能代替 extension runtime 集成验收。
-- `pnpm extension:smoke`：在已构建产物上用临时持久化浏览器 profile 加载扩展，通过面板创建临时规则，验证 Fetch / XHR 响应拦截及 Fetch Response 元数据 / Content-Length 处理、`fetch(new Request(...))` 重定向的 method / body / headers / cookie、静态重定向 request headers 的 Fetch / XHR 同名覆盖与其他 header 透传、V8 Fetch-only 函数重定向的 URL / method 输入及 XHR 原 URL 回退、双标签同步、子 frame 拦截，以及关闭并重开浏览器后 service worker 冷启动读取已保存配置。另在临时 HTTPS / HTTP/2 服务上验证 `ReadableStream` POST 与 `duplex: 'half'` 的重定向 body / header / cookie 保留，以及重定向 `Request` 构造失败后原请求的 fail-open；HTTP/1.x 流式上传被浏览器拒绝，参见 [Chrome 流式 Fetch 限制](https://developer.chrome.com/docs/capabilities/web-apis/fetch-streaming-requests)。现有 V2 JSONEditor smoke 覆盖树展开 / 折叠、类型识别、节点增删改、数组重排和撤销 / 重做；V3 面板另验证 CodeMirror / JSON tree chunk 的按需加载、原文与树模式切换、无效 JSON 保留、键改名、数组调序及精确保存。CI 在构建后、Chrome 141 / Edge 140 最低版本矩阵中执行该 smoke。
-- `pnpm watch:chrome`：先构建 shell 依赖和两个面板，再用 Vite watch 将 shell 三个 classic IIFE 入口写入 `packages/shell-chrome/build-vite-dev`。源码变化会重建对应入口；随后需在浏览器重载解压扩展并重新导航页面，让 classic service worker 与 `document_start` MAIN 脚本生效。该命令不提供页面内无刷新 HMR；workspace 依赖和面板资源在启动时构建，修改后需重新运行命令。
+- `pnpm v3:extension:smoke`：在已构建产物上用临时持久化浏览器 profile 加载扩展，保留原 extension smoke 中 V3 Fetch / XHR、组合规则、重定向、storage 隔离、双标签同步、子 frame、备份恢复、popup / panel、service worker 冷启动和持久化等端到端覆盖。CI 在构建后、Chrome Stable / Edge Stable 与 Chrome 141 / Edge 140 最低版本矩阵中执行该 smoke。旧 Vue 2 面板与 JSONEditor smoke 已退出 CI。
+- `pnpm watch:chrome`：先构建 shell 与 V3 面板依赖，再用 Vite watch 将 shell 三个 classic IIFE 入口写入 `packages/shell-chrome/build-vite-dev`。源码变化会重建对应入口；随后需在浏览器重载解压扩展并重新导航页面，让 classic service worker 与 `document_start` MAIN 脚本生效。该命令不提供页面内无刷新 HMR；workspace 依赖和 V3 面板资源在启动时构建，修改后需重新运行命令。
 - `pnpm verify:chrome:vite-watch`：CI 构建依赖后启动隔离 watch 产物、运行扩展 Fetch / XHR smoke、触发入口文件变化并再次运行 smoke，验证重建后的扩展可由新浏览器上下文加载。
 - 2026-09-26 在 macOS Chrome Stable 154.0.8037.58 手动加载本地生产扩展并做真实页面验证：V3 面板临时建立 status `209` 的 JSON 响应规则后，真实 Fetch 和 XHR 均返回配置的 status / body。验证后已删除临时规则并关闭本地测试服务；这项浏览器手工检查不属于 CI，自动扩展 E2E 仍由配套 Chromium 执行。
 - 2026-09-27 扩展 smoke 验证生产 V3 JSON 编辑器只有在切到树模式时才请求独立 chunk；切换到树模式并返回后，无效 JSON 草稿逐字保留。另验证对象键改名与数组重排持久化为原有 `response.replace.body` JSON 值，真实 Fetch 返回该值。Vue 3 组件套件 8 个文件 / 47 项通过。
 - 2026-09-26 从 `refactor/v3` 的干净 clone（`9c88d81cba601b4132b999164a41b1e4352c559f`）使用 Node 24.21.0 / pnpm 12.6.0 执行 `pnpm install --frozen-lockfile`、`pnpm clean:build`、`pnpm build`；确认 `packages/shell-chrome/build/manifest.json` 与 `packages/shell-chrome/build/panels-v3/index.html` 已生成。该干净构建之后，`pnpm typecheck`、`pnpm test:coverage`（34 个文件 / 323 项）、`pnpm test:v3-ui`（7 个文件 / 32 项）、`pnpm check:boundaries`、`pnpm check:generated-types`、`pnpm lint` 和 `pnpm format:check` 均通过。Chrome Stable 实际页面 Fetch / XHR 测试另见上一条；两者共同验证当前分支生产源码的构建与运行行为。
-- `pnpm editor:smoke`：直接加载生产依赖中的 JSONEditor / Ace，输入非法 JSON 并确认错误行标记，CI 执行该 smoke。
 - `pnpm format:check`：Prettier 严格检查计划、文档、根配置、CI workflow、迁移脚本与测试；全包格式基线检查登记了 50 个未格式化旧源码并禁止债务增加。
 - `pnpm lint`：ESLint flat config 扫描所有 package 下的 JS、TS、Vue 文件，并严格检查新测试、浏览器 smoke、构建报告脚本和配置。全包当前零 error，最多允许 378 条既有源码 warning；新增迁移范围文件必须零 warning。
 - `pnpm lint:all`：扫描所有 package 下 JS、TS 和 Vue 文件，CI 运行此全量扫描并用固定告警预算阻止债务增长。
@@ -44,12 +43,12 @@ V3 核心文件门槛位于 `vitest.config.mjs`，按文件分别检查，旧 V2
 
 CI 运行 `pnpm test:coverage`，终端报告保存在构建日志，LCOV 输出到 `coverage/lcov.info`。覆盖率配置目前只统计 `packages/*/src/**/*.ts`；它是 TypeScript 单元测试趋势，不代表全部产品界面的覆盖情况，也不单独上传 LCOV artifact。
 
-| 未计入 LCOV 的内容            | 原因                                                                       | 替代验证 / 跟踪方式                                                                                   |
-| ----------------------------- | -------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| Vue 单文件组件（`.vue`）      | 根 Vitest coverage 当前只包含 TypeScript 源码，SFC 模板与样式不进入该报告  | Vue 3 交互和关键流程通过 `pnpm test:v3-ui` 单独测试，扩展面板行为由 `pnpm extension:smoke` 端到端验证 |
-| JavaScript 源码（`.js`）      | 不在 `coverage.include` 范围内；其中可执行逻辑不会出现在当前 LCOV 百分比中 | 有对应逻辑的服务 / 组件测试及浏览器 smoke 单独运行；不能把未收集覆盖率解释为已覆盖                    |
-| 生成的声明文件（`.d.ts`）     | 类型声明没有运行时行为                                                     | `pnpm check:generated-types` 检查生成声明与源码一致                                                   |
-| HTML、CSS、图标及其他静态资源 | 静态入口和资源没有适用的逐行执行覆盖率                                     | 由生产构建、编辑器 smoke 和品牌浏览器页面 smoke 检查加载及关键交互                                    |
+| 未计入 LCOV 的内容            | 原因                                                                       | 替代验证 / 跟踪方式                                                                                      |
+| ----------------------------- | -------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| Vue 单文件组件（`.vue`）      | 根 Vitest coverage 当前只包含 TypeScript 源码，SFC 模板与样式不进入该报告  | Vue 3 交互和关键流程通过 `pnpm test:v3-ui` 单独测试，扩展面板行为由 `pnpm v3:extension:smoke` 端到端验证 |
+| JavaScript 源码（`.js`）      | 不在 `coverage.include` 范围内；其中可执行逻辑不会出现在当前 LCOV 百分比中 | 有对应逻辑的服务 / 组件测试及浏览器 smoke 单独运行；不能把未收集覆盖率解释为已覆盖                       |
+| 生成的声明文件（`.d.ts`）     | 类型声明没有运行时行为                                                     | `pnpm check:generated-types` 检查生成声明与源码一致                                                      |
+| HTML、CSS、图标及其他静态资源 | 静态入口和资源没有适用的逐行执行覆盖率                                     | 由生产构建、编辑器 smoke 和品牌浏览器页面 smoke 检查加载及关键交互                                       |
 
 测试质量以行为断言、边界输入、错误注入和缺陷回归为主。已评估 mutation testing：当前不把 mutation 工具加入每次 CI，因为优先保障高风险行为回归与逐文件分支门槛，避免增加整套 mutation 运行和维护成本；核心模块门槛或行为覆盖停滞时再按包评估。
 

@@ -198,7 +198,13 @@ describe('service worker message entry', () => {
           addListener: vi.fn((listener: CommandListener) => commandListeners.push(listener)),
         },
       },
-      windows: { create: vi.fn() },
+      windows: {
+        getAll: vi.fn((_options, callback) => callback([])),
+        getLastFocused: vi.fn((_options, callback) => callback({ id: 1, type: 'normal' })),
+        create: vi.fn((_options, callback) => callback({ id: 2, type: 'popup' })),
+        update: vi.fn((_id, _options, callback) => callback({ id: 2, type: 'popup' })),
+      },
+      tabs: { query: vi.fn((_query, callback) => callback([])) },
     }
     vi.stubGlobal('chrome', chromeMock)
 
@@ -226,10 +232,10 @@ describe('service worker message entry', () => {
     expect(actionClickListeners).toHaveLength(1)
     expect(commandListeners).toHaveLength(1)
     actionClickListeners[0]({} as chrome.tabs.Tab)
-    expect(chromeMock.windows.create).toHaveBeenCalledOnce()
+    await vi.waitFor(() => expect(chromeMock.windows.create).toHaveBeenCalledOnce())
     chromeMock.windows.create.mockClear()
     commandListeners[0]('open_panel')
-    expect(chromeMock.windows.create).toHaveBeenCalledOnce()
+    await vi.waitFor(() => expect(chromeMock.windows.create).toHaveBeenCalledOnce())
 
     storageReady.resolve()
     await vi.waitFor(() => expect(runtimeListeners).toHaveLength(2))
@@ -255,18 +261,18 @@ describe('service worker message entry', () => {
     }
     listener(globalSwitchMessage, {
       id: 'other-extension',
-      url: 'chrome-extension://test-extension/panels/index.html',
+      url: 'chrome-extension://test-extension/panels-v3/index.html',
     } as chrome.runtime.MessageSender)
     listener(globalSwitchMessage, {
       id: 'test-extension',
-      url: 'https://example.test/panels/index.html',
+      url: 'https://example.test/panels-v3/index.html',
     } as chrome.runtime.MessageSender)
     expect(chromeMock.action.setIcon).not.toHaveBeenCalled()
     expect(chromeBadge).not.toHaveBeenCalled()
 
     listener(globalSwitchMessage, {
       id: 'test-extension',
-      url: 'chrome-extension://test-extension/panels/index.html',
+      url: 'chrome-extension://test-extension/panels-v3/index.html',
     } as chrome.runtime.MessageSender)
     expect(chromeMock.action.setIcon).toHaveBeenCalledExactlyOnceWith({ path: 'icons/128g.png' })
     expect(chromeBadge).toHaveBeenCalledOnce()
@@ -282,7 +288,7 @@ describe('service worker message entry', () => {
       },
       {
         id: 'test-extension',
-        url: 'chrome-extension://test-extension/panels/index.html',
+        url: 'chrome-extension://test-extension/panels-v3/index.html',
       } as chrome.runtime.MessageSender
     )
     expect(chromeMock.action.setIcon).toHaveBeenCalledExactlyOnceWith({ path: 'icons/128.png' })
@@ -292,7 +298,7 @@ describe('service worker message entry', () => {
     chromeMock.action.setIcon.mockClear()
     const trustedPanelSender = {
       id: 'test-extension',
-      url: 'chrome-extension://test-extension/panels/index.html',
+      url: 'chrome-extension://test-extension/panels-v3/index.html',
     } as chrome.runtime.MessageSender
     const v3PanelSnapshotRequest = {
       from: NoticeFrom.PANELS,

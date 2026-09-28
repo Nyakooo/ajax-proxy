@@ -172,7 +172,7 @@ async function main() {
     const extensionId = new URL(serviceWorker.url()).host
 
     const extensionHost = await context.newPage()
-    await extensionHost.goto(`chrome-extension://${extensionId}/panels/index.html`)
+    await extensionHost.goto(`chrome-extension://${extensionId}/panels-v3/index.html`)
     await addSandbox(extensionHost, extensionId)
     const extensionIsolation = await extensionHost
       .frameLocator('#ajax-proxy-v3-function-sandbox')

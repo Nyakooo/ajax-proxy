@@ -1,6 +1,6 @@
 # V3 配置备份与恢复
 
-本文说明当前 V3 staging 面板中的完整配置备份与恢复流程。V3 面板尚未替换默认 Vue 2 面板；请先构建并加载扩展，再显式打开 `panels-v3/` 页面进行 V3 验收。
+本文说明 V3 面板中的完整配置备份与恢复流程。`refactor/v3` 的本地生产构建默认使用 V3 面板；商店发布状态请参考 [V3 发布策略](V3-RELEASE.zh.md)。
 
 ## 打开 V3 staging 面板
 
@@ -8,7 +8,7 @@
 2. 在 Chrome 打开 `chrome://extensions`，启用“开发者模式”，选择“加载已解压的扩展程序”，并选择 `packages/shell-chrome/build`。
 3. 在扩展详情页复制扩展 ID，然后打开 `chrome-extension://<扩展 ID>/panels-v3/index.html`。将 `<扩展 ID>` 替换为详情页显示的实际 ID。
 
-V3 页面使用独立的配置存储和消息 adapter。扩展默认打开的仍是 `panels/` Vue 2 页面；在 V3 正式切换前，不能把默认面板中的操作当作 V3 配置操作。
+V3 页面使用独立的配置存储和消息 adapter。构建产物默认打开 `panels-v3/`，并且不包含 Vue 2 历史面板。
 
 ## 导出备份
 

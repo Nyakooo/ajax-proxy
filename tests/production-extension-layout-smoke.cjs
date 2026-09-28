@@ -35,5 +35,9 @@ assert.ok(
   fs.statSync(path.join(extensionPath, 'panels-v3/assets')).isDirectory(),
   'production V3 panel assets must be bundled into the extension output'
 )
+assert.ok(
+  !fs.existsSync(path.join(extensionPath, 'panels')),
+  'production output must not include the retired Vue 2 panel'
+)
 
 console.log('Production Vite extension layout smoke passed')

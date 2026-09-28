@@ -12,7 +12,7 @@ type MockWindow = {
   tabs?: Array<{ id: number; url?: string; active?: boolean; status?: string; discarded?: boolean }>
 }
 
-const panelUrl = 'chrome-extension://test-extension/panels/index.html'
+const panelUrl = 'chrome-extension://test-extension/panels-v3/index.html'
 
 function installChrome(
   initialWindows: MockWindow[] = [],
@@ -141,7 +141,7 @@ describe('independent popup panel windows', () => {
   it('creates a normal popup with an absolute URL and centered bounds on the supplied display', async () => {
     const chromeMock = installChrome()
     const panel = await loadPopupPanel()
-    await panel.openPopupPanel('panels/index.html')
+    await panel.openPopupPanel('panels-v3/index.html')
     expect(chromeMock.windowsCreate).toHaveBeenCalledWith(
       {
         url: panelUrl,
@@ -160,7 +160,7 @@ describe('independent popup panel windows', () => {
   it('centers within a smaller display even when it is left of the primary display', async () => {
     const chromeMock = installChrome()
     const panel = await loadPopupPanel()
-    await panel.openPopupPanel('panels/index.html', undefined, undefined, {
+    await panel.openPopupPanel('panels-v3/index.html', undefined, undefined, {
       left: -1920,
       top: -120,
       width: 1200,
@@ -191,7 +191,7 @@ describe('independent popup panel windows', () => {
       },
     ])
     const panel = await loadPopupPanel()
-    await panel.openPopupPanel('panels/index.html', 'rule-1', 'redirect', {
+    await panel.openPopupPanel('panels-v3/index.html', 'rule-1', 'redirect', {
       left: 100,
       top: 50,
       width: 1600,
@@ -225,7 +225,7 @@ describe('independent popup panel windows', () => {
       [{ id: 7, windowId: 2, url: panelUrl, active: true, status: 'complete' }]
     )
     const panel = await loadPopupPanel()
-    await panel.openPopupPanel('panels/index.html')
+    await panel.openPopupPanel('panels-v3/index.html')
     expect(chromeMock.windowsCreate).toHaveBeenCalledOnce()
     expect(chromeMock.tabsUpdate).not.toHaveBeenCalled()
   })
@@ -240,7 +240,7 @@ describe('independent popup panel windows', () => {
       },
     ])
     const panel = await loadPopupPanel()
-    await panel.openPopupPanel('panels/index.html', 'rule-9', 'redirect')
+    await panel.openPopupPanel('panels-v3/index.html', 'rule-9', 'redirect')
     expect(chromeMock.runtimeSendMessage).toHaveBeenCalledWith({
       type: 'ajax-proxy:edit-rule',
       ruleId: 'rule-9',
@@ -263,9 +263,9 @@ describe('independent popup panel windows', () => {
       },
     ])
     let panel = await loadPopupPanel()
-    await panel.openPopupPanel('panels/index.html')
+    await panel.openPopupPanel('panels-v3/index.html')
     panel = await loadPopupPanel()
-    await panel.openPopupPanel('panels/index.html')
+    await panel.openPopupPanel('panels-v3/index.html')
     expect(chromeMock.windowsCreate).not.toHaveBeenCalled()
     expect(chromeMock.windowsUpdate).toHaveBeenCalledTimes(4)
     expect(chromeMock.windowsGetAll).toHaveBeenCalledWith(
@@ -282,8 +282,8 @@ describe('independent popup panel windows', () => {
       release = callback as (window: MockWindow) => void
     })
     const panel = await loadPopupPanel()
-    const first = panel.openPopupPanel('panels/index.html')
-    const second = panel.openPopupPanel('panels/index.html')
+    const first = panel.openPopupPanel('panels-v3/index.html')
+    const second = panel.openPopupPanel('panels-v3/index.html')
     await vi.waitFor(() => expect(chromeMock.windowsCreate).toHaveBeenCalledOnce())
     const created = {
       id: 40,
@@ -305,7 +305,7 @@ describe('independent popup panel windows', () => {
       callback(undefined as unknown as MockWindow)
     })
     const panel = await loadPopupPanel()
-    await expect(panel.openPopupPanel('panels/index.html')).rejects.toThrow('window denied')
+    await expect(panel.openPopupPanel('panels-v3/index.html')).rejects.toThrow('window denied')
     expect(chromeMock.tabsUpdate).not.toHaveBeenCalled()
   })
 
@@ -319,7 +319,7 @@ describe('independent popup panel windows', () => {
       },
     ])
     const panel = await loadPopupPanel()
-    await panel.openPopupPanel('panels/index.html', 'rule /?1', 'response')
+    await panel.openPopupPanel('panels-v3/index.html', 'rule /?1', 'response')
     expect(chromeMock.tabsUpdate).toHaveBeenCalledWith(
       22,
       {
@@ -341,8 +341,8 @@ describe('independent popup panel windows', () => {
       },
     ])
     const panel = await loadPopupPanel()
-    await expect(panel.closePopupPanel('panels/index.html')).resolves.toBe(true)
-    await expect(panel.closePopupPanel('panels/index.html')).resolves.toBe(false)
+    await expect(panel.closePopupPanel('panels-v3/index.html')).resolves.toBe(true)
+    await expect(panel.closePopupPanel('panels-v3/index.html')).resolves.toBe(false)
     expect(chromeMock.windowsRemove).toHaveBeenCalledOnce()
     expect(chromeMock.windowsRemove).toHaveBeenCalledWith(12, expect.any(Function))
   })
@@ -353,7 +353,7 @@ describe('independent popup panel windows', () => {
       { id: 13, type: 'normal', tabs: [{ id: 23, url: 'https://example.test' }] },
     ])
     const panel = await loadPopupPanel()
-    await expect(panel.changePopupPanelSize('panels/index.html', true)).resolves.toBe(true)
+    await expect(panel.changePopupPanelSize('panels-v3/index.html', true)).resolves.toBe(true)
     expect(chromeMock.windowsUpdate).toHaveBeenCalledOnce()
     expect(chromeMock.windowsUpdate).toHaveBeenCalledWith(
       12,
@@ -363,7 +363,7 @@ describe('independent popup panel windows', () => {
     chromeMock.setWindows([
       { id: 13, type: 'normal', tabs: [{ id: 23, url: 'https://example.test' }] },
     ])
-    await expect(panel.changePopupPanelSize('panels/index.html', false)).resolves.toBe(false)
+    await expect(panel.changePopupPanelSize('panels-v3/index.html', false)).resolves.toBe(false)
     expect(chromeMock.windowsUpdate).toHaveBeenCalledOnce()
   })
 })

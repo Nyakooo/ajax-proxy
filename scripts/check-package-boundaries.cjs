@@ -20,7 +20,6 @@ const forbiddenDependencies = new Map([
     '@proxy/lib',
     new Set([
       '@proxy/shared-utils',
-      '@proxy/v2-compatibility',
       '@proxy/shell-chrome',
       '@proxy/vue-panels',
       '@proxy/code-editor',
@@ -68,7 +67,6 @@ function walk(directory) {
       entry.name === 'lib' ||
       entry.name === 'types' ||
       entry.name === 'build' ||
-      entry.name === 'build-webpack' ||
       entry.name === 'build-vite' ||
       entry.name === 'build-vite-dev' ||
       entry.name === 'dist' ||

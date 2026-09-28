@@ -4,8 +4,7 @@
   "description": "",
   "private": true,
   "scripts": {
-    "build": "node ../../scripts/build-shell-vite.cjs",
-    "build:webpack": "cross-env SHELL_CHROME_BUILD_DIR=build-webpack webpack --config webpack.config.js"
+    "build": "node ../../scripts/build-shell-vite.cjs"
   },
   "keywords": [],
   "author": {
@@ -15,17 +14,12 @@
   "license": "MIT",
   "dependencies": {
     "@proxy/protocol": "workspace:^1.0.0",
-    "@proxy/v2-compatibility": "workspace:^1.0.0",
     "@proxy/v3-domain": "workspace:^1.0.0",
     "@proxy/lib": "workspace:^1.0.0",
     "@proxy/shared-utils": "workspace:^1.0.0"
   },
   "devDependencies": {
     "@types/chrome": "^0.0.197",
-    "copy-webpack-plugin": "^11.0.0",
-    "ts-loader": "^9.4.1",
-    "typescript": "^6.0.3",
-    "webpack": "^5.74.0",
-    "webpack-cli": "^4.10.0"
+    "typescript": "^6.0.3"
   }
 }

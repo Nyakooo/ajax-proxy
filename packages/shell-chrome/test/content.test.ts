@@ -5,16 +5,9 @@ const mocks = vi.hoisted(() => ({
   initStorage: vi.fn(),
   getStorage: vi.fn(),
   getStorageSnapshot: vi.fn(),
-  setStorage: vi.fn(),
-  removeStorage: vi.fn(),
   noticeDocumentByContent: vi.fn(),
   noticeServiceWorkerByContent: vi.fn(),
   onChangedAddListener: vi.fn(),
-  onLoadForDataConversion: vi.fn((data: Record<string, unknown>) => ({
-    changed: false,
-    data,
-    changeKeywords: [],
-  })),
 }))
 const contentEventListeners = new Set<EventListener>()
 const pageShowEventListeners = new Set<EventListener>()
@@ -45,12 +38,6 @@ vi.mock('@proxy/shared-utils', () => ({
   noticeServiceWorkerByContent: mocks.noticeServiceWorkerByContent,
   getStorage: mocks.getStorage,
   getStorageSnapshot: mocks.getStorageSnapshot,
-  setStorage: mocks.setStorage,
-  removeStorage: mocks.removeStorage,
-}))
-
-vi.mock('@proxy/v2-compatibility', () => ({
-  onLoadForDataConversion: mocks.onLoadForDataConversion,
 }))
 
 function deferred<T>() {
@@ -414,7 +401,7 @@ describe('content page-event bridge', () => {
     expect(document.getElementById('ajax-proxy-v3-function-sandbox')).toBeNull()
   })
 
-  it('persists converted V2 state and removes only its legacy storage keys', async () => {
+  it('does not convert or remove historical storage keys while loading V3 data', async () => {
     mocks.initStorage.mockResolvedValue(undefined)
     const legacySnapshot = {
       globalSwitchOn: true,
@@ -432,19 +419,7 @@ describe('content page-event bridge', () => {
       'diagnostics-armed': true,
       'fetch-outcomes-armed': true,
     }
-    const convertedState = {
-      global_on: true,
-      mode: 'redirector',
-      interceptor_matching_content: [{ match_url: '/old-api' }],
-      redirector_matching_content: [{ redirect_url: 'https://target.test/' }],
-    }
-    const legacyKeys = ['globalSwitchOn', 'mode', 'proxy_routes', 'redirect']
     mocks.getStorageSnapshot.mockReturnValue(legacySnapshot)
-    mocks.onLoadForDataConversion.mockReturnValueOnce({
-      changed: true,
-      data: convertedState,
-      changeKeywords: legacyKeys,
-    })
     vi.stubGlobal('chrome', {
       runtime: {
         connect: vi.fn(() => createRuntimePort()),
@@ -455,16 +430,13 @@ describe('content page-event bridge', () => {
     trackContentEventListeners()
 
     await importContent()
-    await vi.waitFor(() => expect(mocks.setStorage).toHaveBeenCalledTimes(4))
+    await vi.waitFor(() => expect(mocks.noticeDocumentByContent).toHaveBeenCalled())
 
-    expect(mocks.onLoadForDataConversion).toHaveBeenCalledExactlyOnceWith(legacySnapshot)
-    expect(mocks.setStorage.mock.calls).toEqual([
-      ['global-switch', true],
-      ['mode', 'redirector'],
-      ['intercept-list', convertedState.interceptor_matching_content],
-      ['redirect-list', convertedState.redirector_matching_content],
-    ])
-    expect(mocks.removeStorage).toHaveBeenCalledExactlyOnceWith(legacyKeys)
+    expect(mocks.noticeDocumentByContent).not.toHaveBeenCalledWith(
+      'refresh-global-state',
+      expect.anything()
+    )
+    expect(mocks.getStorageSnapshot).toHaveBeenCalledOnce()
     expect(mocks.noticeDocumentByContent).toHaveBeenCalledWith(
       'v3-config',
       legacySnapshot['v3-config']

@@ -13,7 +13,7 @@
 - 拖动数组元素后，最终规则 JSON 顺序随之改变。
 - 在 code 模式输入无效 JSON 时，Ace 在 gutter 标出错误行；独立 smoke 确认错误定位到第 1 行。
 
-以上覆盖规则 UI 实际使用的 JSONEditor 组件和生产打包扩展。回归入口是 `pnpm extension:smoke` 与 `pnpm editor:smoke`，CI 构建后运行。
+以上是旧 Vue 2 面板使用 JSONEditor 时的历史验证记录；旧 JSONEditor 和其 smoke 已从正式构建与 CI 移除。当前 V3 编辑器交互由 Vue 3 组件测试和 `pnpm v3:extension:smoke` 验收。
 
 ## CodeMirror 6 可行性
 
@@ -63,7 +63,7 @@ V3 UI 阶段的原型方向：函数响应编辑器试用 CodeMirror 6；JSON �
 
 Vue 3 生产构建的 `JsonTreeEditor` 异步 JS 为 7.66 kB（gzip 2.65 kB）；该 chunk 在编辑器关闭、或响应编辑器处于 CodeMirror 文本模式时不加载。Chrome 扩展 smoke 验证了懒加载、无效 JSON 原文往返、对象键改名、数组排序、V3 storage 精确保存及 Fetch 返回值。组件测试额外覆盖对象属性增删、数组增删、scalar / null、重复键拒绝、撤销 / 重做、分支历史和外部草稿重置。
 
-同次生产构建测得 V3 面板入口 JS 478.89 kB（gzip 129.41 kB），CodeMirror 异步 JS 403.29 kB（gzip 138.22 kB）。完整扩展 ZIP 898,004 B（877.0 KiB）同时包含现有 Vue 2 默认面板和候选 `panels-v3/`，因此不作为 V3 最终 ZIP 预算；生成方式为 `pnpm build:v3-panels`、`pnpm build:chrome`、`pnpm run pkg`、`pnpm zip` 和 `pnpm size:report`。
+同次历史构建测得 V3 面板入口 JS 478.89 kB（gzip 129.41 kB），CodeMirror 异步 JS 403.29 kB（gzip 138.22 kB）。当时 ZIP 同时包含 Vue 2 与 V3 面板，不作为当前 V3-only 生产 ZIP 预算；重新测量请运行 `pnpm build`、`pnpm zip` 和 `pnpm size:report`。
 
 ## 当前首屏与扩展包体积
 

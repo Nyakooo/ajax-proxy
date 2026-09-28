@@ -51,9 +51,6 @@ packages/shell-chrome/src/service-worker/init.ts
 packages/shell-chrome/src/service-worker/notice.ts
 packages/shell-chrome/src/service-worker/panel.ts
 packages/shell-chrome/webpack.config.js
-packages/v2-compatibility/src/index.ts
-packages/v2-compatibility/types/index.d.ts
-packages/v2-compatibility/types/types.d.ts
 packages/vue-panels/babel.config.js
 packages/vue-panels/src/App.vue
 packages/vue-panels/src/common/element-plugin.js

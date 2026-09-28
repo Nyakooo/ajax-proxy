@@ -57,16 +57,11 @@ async function copyStaticAssets() {
     recursive: true,
   })
 
-  for (const [source, target] of [
-    ['packages/vue-panels/dist', 'panels'],
-    ['packages/vue3-panels/dist', 'panels-v3'],
-  ]) {
-    const panelOutput = path.join(root, source)
-    if (!fs.existsSync(path.join(panelOutput, 'index.html'))) {
-      throw new Error(`Panel build is missing: ${path.relative(root, panelOutput)}/index.html`)
-    }
-    fs.cpSync(panelOutput, path.join(outputDir, target), { recursive: true })
+  const panelOutput = path.join(root, 'packages/vue3-panels/dist')
+  if (!fs.existsSync(path.join(panelOutput, 'index.html'))) {
+    throw new Error(`V3 panel build is missing: ${path.relative(root, panelOutput)}/index.html`)
   }
+  fs.cpSync(panelOutput, path.join(outputDir, 'panels-v3'), { recursive: true })
 }
 
 function validateManifestAssets() {
@@ -111,7 +106,6 @@ function validateManifestAssets() {
 
   for (const htmlFile of [
     'v3-sandbox/sandbox.html',
-    'panels/index.html',
     'panels-v3/index.html',
     'panels-v3/popup.html',
   ]) {
@@ -155,10 +149,6 @@ async function main() {
       base: './',
       publicDir: false,
       logLevel: 'info',
-      define:
-        entry.file === 'service_worker'
-          ? { __AJAX_PROXY_PANEL_PATH__: JSON.stringify('panels-v3/index.html') }
-          : {},
       plugins: [
         {
           name: `verify-${entry.file}-classic-bundle`,

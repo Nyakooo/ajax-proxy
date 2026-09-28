@@ -12,7 +12,7 @@
 - 步骤：将 `window.fetch` stub 为返回 `url=https://example.test/api`、body 为 `original` 的 Response；配置全局拦截开启及一条 `{ match_url: '/api', method: 'POST', override: 'intercepted' }` 规则；调用 `CustomFetch(new Request('https://example.test/api', { method: 'POST' }))`，不传第二个 `init` 参数。
 - 原实际结果：返回 body 为 `original`，POST 规则未应用。实现只从 `init.method` 读取 method，因此把 Request 自身的 POST 当作 `ANY`；并以响应 URL 而非 Request URL 做规则匹配。
 - 修复：以 `init.method` 优先，其次读取 `Request.method`，没有显式 method 时按 Fetch 默认 GET 处理；Request 输入用 `Request.url` 匹配，并将同一 URL / method 传给通知和函数响应上下文。
-- 持久化回归覆盖：`Request` 自带 POST、不带 `init`；`init.method` 覆盖 Request method；缺省 GET；响应 URL 与 Request URL 不同时仍按原请求 URL 匹配。`pnpm test` 与 Chrome 141 的 `pnpm extension:smoke` 均通过。
+- 持久化回归覆盖：`Request` 自带 POST、不带 `init`；`init.method` 覆盖 Request method；缺省 GET；响应 URL 与 Request URL 不同时仍按原请求 URL 匹配。`pnpm test` 与 Chrome 141 的 `pnpm v3:extension:smoke` 均通过。
 - 边界：本条只记录拦截器模式的修复；重定向模式的 Request 输入另见下方已验证项。
 - 跟踪任务：[GitHub issue #56](https://github.com/Nyakooo/ajax-proxy/issues/56)，归入[阶段 2 里程碑](https://github.com/Nyakooo/ajax-proxy/milestone/3)。
 
