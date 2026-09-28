@@ -962,9 +962,15 @@ describe('createV3Fetch', () => {
       {
         url: 'https://example.test/function-target',
         method: 'POST',
+        headers: { 'content-type': 'text/plain;charset=UTF-8' },
         body: 'redirected snapshot body',
       },
-      expect.objectContaining({ body: 'native' })
+      {
+        status: 200,
+        statusText: '',
+        headers: { 'content-type': 'text/plain' },
+        body: 'native',
+      }
     )
     expect(onFetchOutcome.mock.calls.map((call) => call.slice(2))).toEqual([
       ['request', 'applied', 'redirect-applied'],
@@ -973,6 +979,7 @@ describe('createV3Fetch', () => {
     await expect(result.json()).resolves.toEqual({
       url: 'https://example.test/function-target',
       method: 'POST',
+      headers: { 'content-type': 'text/plain;charset=UTF-8' },
       body: 'redirected snapshot body',
     })
   })
@@ -1005,9 +1012,15 @@ describe('createV3Fetch', () => {
       {
         url: 'https://example.test/api',
         method: 'POST',
+        headers: { 'content-type': 'text/plain;charset=UTF-8' },
         body: 'fallback snapshot body',
       },
-      expect.objectContaining({ body: 'native' })
+      {
+        status: 200,
+        statusText: '',
+        headers: { 'content-type': 'text/plain' },
+        body: 'native',
+      }
     )
     expect(onFetchOutcome.mock.calls.map((call) => call.slice(2))).toEqual([
       ['request', 'fallback', 'redirect-construction-failed'],
@@ -1016,6 +1029,7 @@ describe('createV3Fetch', () => {
     await expect(result.json()).resolves.toEqual({
       url: 'https://example.test/api',
       method: 'POST',
+      headers: { 'content-type': 'text/plain;charset=UTF-8' },
       body: 'fallback snapshot body',
     })
   })
@@ -1336,8 +1350,8 @@ describe('createV3Fetch', () => {
 
     expect(executeResponseFunction).toHaveBeenCalledWith(
       'return { status: 201 }',
-      { url: 'https://example.test/api', method: 'GET' },
-      expect.objectContaining({ status: 200, body: '' })
+      { url: 'https://example.test/api', method: 'GET', headers: {} },
+      { status: 200, statusText: '', headers: {}, body: '' }
     )
     expect(result.status).toBe(201)
     expect(result.body).toBeNull()
