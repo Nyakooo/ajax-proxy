@@ -77,20 +77,25 @@ async function createFunctionSnapshots(
   }
   const requestBody = request.body ? await readBoundedUtf8(requestSnapshot.body) : undefined
   const responseBody = response.body ? await readBoundedUtf8(response.clone().body) : ''
+  const requestHeaderSnapshot = snapshotHeaders(requestHeaders)
+  const responseHeaderSnapshot = snapshotHeaders(responseHeaders)
   const snapshotBytes =
     new TextEncoder().encode(requestBody ?? '').length +
-    new TextEncoder().encode(responseBody).length
+    new TextEncoder().encode(responseBody).length +
+    new TextEncoder().encode(JSON.stringify(requestHeaderSnapshot)).length +
+    new TextEncoder().encode(JSON.stringify(responseHeaderSnapshot)).length
   if (snapshotBytes > MAX_SNAPSHOT_BYTES) throw new Error('Function snapshots are too large.')
   return {
     request: {
       url: request.url,
       method: request.method,
+      headers: requestHeaderSnapshot,
       ...(requestBody === undefined ? {} : { body: requestBody }),
     },
     response: {
       status: response.status,
       statusText: response.statusText,
-      headers: snapshotHeaders(responseHeaders),
+      headers: responseHeaderSnapshot,
       body: responseBody,
     },
   }

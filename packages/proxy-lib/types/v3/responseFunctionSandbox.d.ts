@@ -8,6 +8,7 @@ export declare function getV3FunctionExecutionFailureCode(error: unknown): V3Fun
 export interface V3FunctionRequestSnapshot {
     url: string;
     method: string;
+    headers: Record<string, string>;
     body?: string;
 }
 export interface V3FunctionResponseSnapshot {

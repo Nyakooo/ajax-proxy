@@ -368,14 +368,14 @@ export const messages = {
       editFunctionTitle: '编辑函数响应规则',
       functionCode: '函数体代码',
       functionCodeHelp:
-        '填写函数体，参数为 request 和 response，可返回响应正文、状态码和响应头。最多 65,536 个字符。',
+        '填写函数体，request 包含 url、method、headers 和可选 body；response 包含状态、headers 和正文。请求头可能含敏感值，只启用可信代码。最多 65,536 个字符。',
       functionSafetyWarning:
-        '函数响应仅支持 Fetch；XHR 保留原生响应。代码只读取请求与响应快照，在隔离 sandbox 中执行，最长运行 5 秒。此编辑器不会执行或编译代码。',
+        '函数响应仅支持 Fetch；XHR 保留原生响应。代码只读取请求与响应快照（请求头可能含敏感值），在隔离 sandbox 中执行，最长运行 5 秒。此编辑器不会执行或编译代码。',
       enableFunction: '启用函数响应（需明确确认）',
       functionEnableConfirm:
-        '启用函数响应？此代码仅读取快照，并将在隔离 sandbox 中最多执行 5 秒。XHR 请求仍使用原生响应。',
+        '启用函数响应？此代码可读取请求和响应快照；请求头可能含敏感值。代码将在隔离 sandbox 中最多执行 5 秒。XHR 请求仍使用原生响应。',
       functionSaveConfirm:
-        '确认保存函数响应代码？代码只读取快照，由隔离 sandbox 执行，最长 5 秒；函数仅支持 Fetch，XHR 保留原生响应。',
+        '确认保存函数响应代码？代码可读取请求和响应快照，请求头可能含敏感值。代码由隔离 sandbox 执行，最长 5 秒；函数仅支持 Fetch，XHR 保留原生响应。',
       functionCodeRequired: '函数体不能为空。',
       functionCodeTooLong: '函数体不能超过 65,536 个字符。',
       tree: {
@@ -805,14 +805,14 @@ export const messages = {
       editFunctionTitle: 'Edit function response rule',
       functionCode: 'Function body code',
       functionCodeHelp:
-        'Enter a function body with request and response parameters. Return a response body, status, and headers. Maximum 65,536 characters.',
+        'Enter a function body with request and response parameters. request contains url, method, headers, and optional body; response contains status, headers, and body. Request headers may contain sensitive values; enable only trusted code. Maximum 65,536 characters.',
       functionSafetyWarning:
-        'Function responses support Fetch only; XHR keeps its native response. Code reads request and response snapshots only, runs in an isolated sandbox, and is limited to 5 seconds. This editor never executes or compiles code.',
+        'Function responses support Fetch only; XHR keeps its native response. Code reads request and response snapshots only; request headers may contain sensitive values. It runs in an isolated sandbox for at most 5 seconds. This editor never executes or compiles code.',
       enableFunction: 'Enable function response (explicit confirmation required)',
       functionEnableConfirm:
-        'Enable this function response? It reads snapshots only and runs in an isolated sandbox for at most 5 seconds. XHR requests keep their native responses.',
+        'Enable this function response? It can read request and response snapshots; request headers may contain sensitive values. It runs in an isolated sandbox for at most 5 seconds. XHR requests keep their native responses.',
       functionSaveConfirm:
-        'Confirm saving this function response? It reads snapshots only and runs in an isolated sandbox for at most 5 seconds. Function responses support Fetch only; XHR keeps its native response.',
+        'Confirm saving this function response? It can read request and response snapshots; request headers may contain sensitive values. It runs in an isolated sandbox for at most 5 seconds. Function responses support Fetch only; XHR keeps its native response.',
       functionCodeRequired: 'Function body cannot be empty.',
       functionCodeTooLong: 'Function body cannot exceed 65,536 characters.',
       tree: {

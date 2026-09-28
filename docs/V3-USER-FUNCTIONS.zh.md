@@ -11,7 +11,7 @@ V2 的响应覆写和重定向函数都通过 `window.eval()` 在网页主世界
 ## V3 第一版函数合同
 
 - 提供两种受限函数 action：函数重定向按 URL / method 计算目标 URL；函数响应供必须按 request / 原 response 快照动态生成 replacement 的规则使用。固定目标优先使用静态重定向，静态 JSON 替换优先于函数响应，不提供任意页面脚本扩展点。
-- 重定向函数只接收 `{ url, method }`，必须返回 URL 字符串；相对 URL 按原始请求 URL 解析。执行前会校验长度（最多 4096 个字符）、HTTP(S) scheme 及 URL 凭据。响应函数输入是经过复制和结构校验的 request / response 数据快照；返回值只允许 schema 中定义的 JSON body、状态码和 headers。两种函数均可同步返回或返回 Promise，不使用 callback。
+- 重定向函数只接收 `{ url, method }`，必须返回 URL 字符串；相对 URL 按原始请求 URL 解析。执行前会校验长度（最多 4096 个字符）、HTTP(S) scheme 及 URL 凭据。响应函数输入是经过复制和结构校验的 request / response 数据快照；request 包含 `url`、`method`、可选文本 `body` 和 `headers`，返回值只允许 schema 中定义的 JSON body、状态码和 headers。两种函数均可同步返回或返回 Promise，不使用 callback。
 - 函数不能读取网页 DOM / 全局对象、扩展 storage、`chrome.*` API，也不能发起网络请求或加载外部代码。函数代码按不可信输入处理，即使来自用户本人的备份也不默认执行。
 - 在扩展的 sandboxed unique-origin iframe 中运行；sandbox 内用专属 worker 执行动态代码。sandbox 仅通过结构化消息收发 action 输入与结果，不设置 `allow-same-origin`，不授予扩展 API，并以 CSP 阻止网络连接、外部脚本和页面导航。Chrome 官方文档建议用 sandbox iframe 将 `eval()` 与扩展高权限环境隔离，并通过消息交换数据。
 - 每次执行最多 5 秒；达到期限时终止 worker 并销毁 sandbox，确保同步死循环也能被中断。对单规则和全扩展的并发执行数设上限，避免函数堆积占满资源。
@@ -59,7 +59,7 @@ return {
 }
 ```
 
-输入快照的字段为 `request.url`、`request.method`、可选的文本 `request.body`，以及 `response.status`、`response.statusText`、`response.headers` 和文本 `response.body`。JSON 响应的 `response.body` 仍是字符串，因此示例先用 `JSON.parse` 解析；如果响应不是有效 JSON，解析错误会触发 fail-open，浏览器会收到原始响应。
+输入快照的字段为 `request.url`、`request.method`、`request.headers`、可选的文本 `request.body`，以及 `response.status`、`response.statusText`、`response.headers` 和文本 `response.body`。`request.headers` 只包含 Fetch `Request` 对象可读取的请求头，不访问浏览器 Cookie 存储；请求头可能包含敏感值，只启用可信函数。JSON 响应的 `response.body` 仍是字符串，因此示例先用 `JSON.parse` 解析；如果响应不是有效 JSON，解析错误会触发 fail-open，浏览器会收到原始响应。
 
 函数可同步返回，也可返回 Promise。结果必须是非空对象，只能包含 `body`、`status`、`headers`：`body` 仅允许 JSON 值，`status`（如果提供）必须为 200–599 的整数，`headers`（如果提供）必须是安全的 HTTP header 名和值。不要返回 `undefined`，也不要添加其他字段；无效结果会 fail-open。`body`、状态码和 headers 都可选，但至少需要返回其中一项。
 
@@ -69,9 +69,9 @@ V3 domain 解析器会为每个导入函数 action 返回警告路径，并停�
 
 ## 面板风险提示文案
 
-**中文：**函数重定向可读取 URL 和 method；函数响应可读取请求与响应快照。仅运行可信代码；函数无法访问网页内容或发起网络请求。函数最长运行 5 秒，超时会终止并保留浏览器原生请求或响应。
+**中文：**函数重定向可读取 URL 和 method；函数响应可读取请求与响应快照，包括可读取的请求头（可能含敏感值）。仅运行可信代码；函数无法访问网页内容或发起网络请求。函数最长运行 5 秒，超时会终止并保留浏览器原生请求或响应。
 
-**English:** Redirect functions can read the URL and method; response functions can read request and response snapshots. Run trusted code only. Functions cannot access page content or make network requests. A function runs for at most 5 seconds; on timeout it is stopped and the browser-native request or response is kept.
+**English:** Redirect functions can read the URL and method; response functions can read request and response snapshots, including visible request headers that may contain sensitive values. Run trusted code only. Functions cannot access page content or make network requests. A function runs for at most 5 seconds; on timeout it is stopped and the browser-native request or response is kept.
 
 ## 验收要求
 

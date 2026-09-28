@@ -32,6 +32,7 @@ export function getV3FunctionExecutionFailureCode(error: unknown): V3FunctionExe
 export interface V3FunctionRequestSnapshot {
   url: string
   method: string
+  headers: Record<string, string>
   body?: string
 }
 

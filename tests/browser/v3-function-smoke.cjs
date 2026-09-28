@@ -38,7 +38,7 @@ async function main() {
     await extensionPage.goto(`chrome-extension://${extensionId}/panels-v3/index.html`)
     const configKey = 'ajax-proxy:storage:v3-config'
     const code =
-      'return { status: 209, body: { request: request.body, response: JSON.parse(response.body) } }'
+      'return { status: 209, body: { request: request.body, locale: request.headers["x-client-locale"], response: JSON.parse(response.body) } }'
     const rule = {
       id: 'v3-function-smoke',
       enabled: true,
@@ -76,13 +76,18 @@ async function main() {
       Boolean(document.getElementById('ajax-proxy-v3-function-sandbox'))
     )
     const fetchResult = await page.evaluate(async () => {
-      const response = await fetch('/api', { method: 'POST', body: 'snapshot request' })
+      const response = await fetch('/api', {
+        method: 'POST',
+        body: 'snapshot request',
+        headers: { 'x-client-locale': 'zh-CN' },
+      })
       return { status: response.status, body: await response.json() }
     })
     assert.deepEqual(fetchResult, {
       status: 209,
       body: {
         request: 'snapshot request',
+        locale: 'zh-CN',
         response: { method: 'POST', body: 'snapshot request' },
       },
     })

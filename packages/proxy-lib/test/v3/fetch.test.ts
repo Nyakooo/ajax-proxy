@@ -1299,7 +1299,12 @@ describe('createV3Fetch', () => {
 
     expect(executeResponseFunction).toHaveBeenCalledWith(
       'return { body: {} }',
-      { url: 'https://example.test/api', method: 'POST', body: '{"input":true}' },
+      {
+        url: 'https://example.test/api',
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: '{"input":true}',
+      },
       expect.objectContaining({ status: 200, body: '{"native":true}' })
     )
     expect(executeResponseFunction.mock.calls[0][2].statusText).toBe('')
