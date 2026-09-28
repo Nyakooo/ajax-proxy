@@ -368,7 +368,23 @@ export const messages = {
       editFunctionTitle: '编辑函数响应规则',
       functionCode: '函数体代码',
       functionCodeHelp:
-        '填写函数体，request 包含 url、method、headers 和可选 body；response 包含状态、headers 和正文。请求头可能含敏感值，只启用可信代码。最多 65,536 个字符。',
+        '直接填写函数体，无需声明函数。可读取 request、response，并返回包含 body、status 或 headers 的对象。',
+      functionGuideTitle: '查看完整规则与示例',
+      functionGuideIntro:
+        '真实 Fetch 请求返回后执行此函数。可直接 return，也可返回 Promise；不使用 callback。',
+      functionGuideRequest:
+        '包含 url、method、headers，以及可选的文本 body。headers 是可读取的请求头，可能含敏感值。',
+      functionGuideResponse:
+        '包含 status、statusText、headers 和文本 body。处理 JSON 响应时，先用 JSON.parse(response.body) 解析。',
+      functionGuideReturn:
+        '返回非空对象，仅允许 body、status、headers 三个字段，至少提供一项；未提供的值沿用真实响应。',
+      functionGuideResultRules:
+        'body 必须是 JSON 值；status 必须是 200–599 的整数；headers 必须是有效 HTTP 名称到字符串值的映射。抛错或返回无效值时保留真实响应。',
+      functionGuideExample: '可运行示例',
+      functionGuideUseExample: '填入编辑器',
+      functionExampleReplaceConfirm: '将示例替换当前函数代码？当前代码尚未保存。',
+      functionGuideLimits:
+        '仅支持 Fetch 和可读取的文本快照；不能访问页面、扩展 API、网络或外部代码。单项正文最多 512 KiB，快照总量最多 1 MiB，执行最多 5 秒。函数代码最多 65,536 个字符；超限或执行失败时保留真实响应。',
       functionSafetyWarning:
         '函数响应仅支持 Fetch；XHR 保留原生响应。代码只读取请求与响应快照（请求头可能含敏感值），在隔离 sandbox 中执行，最长运行 5 秒。此编辑器不会执行或编译代码。',
       enableFunction: '启用函数响应（需明确确认）',
@@ -805,7 +821,24 @@ export const messages = {
       editFunctionTitle: 'Edit function response rule',
       functionCode: 'Function body code',
       functionCodeHelp:
-        'Enter a function body with request and response parameters. request contains url, method, headers, and optional body; response contains status, headers, and body. Request headers may contain sensitive values; enable only trusted code. Maximum 65,536 characters.',
+        'Enter the function body directly, without a function declaration. Read request and response, then return an object with body, status, or headers.',
+      functionGuideTitle: 'Full rules and example',
+      functionGuideIntro:
+        'This code runs after the real Fetch request returns. Return a value or a Promise; callbacks are not used.',
+      functionGuideRequest:
+        'Contains url, method, headers, and optional text body. Headers are the visible request headers and may contain sensitive values.',
+      functionGuideResponse:
+        'Contains status, statusText, headers, and text body. Use JSON.parse(response.body) before reading a JSON response as an object.',
+      functionGuideReturn:
+        'Return a nonempty object containing only body, status, or headers, with at least one field. Omitted values keep the real response value.',
+      functionGuideResultRules:
+        'body must be a JSON value; status must be an integer from 200 through 599; headers must map valid HTTP names to string values. Errors or invalid results keep the real response.',
+      functionGuideExample: 'Runnable example',
+      functionGuideUseExample: 'Insert in editor',
+      functionExampleReplaceConfirm:
+        'Replace the current function code with this example? Your current code is not saved.',
+      functionGuideLimits:
+        'Fetch only, with readable text snapshots. Code cannot access the page, extension APIs, network, or external code. Each body is limited to 512 KiB, the total snapshot to 1 MiB, execution to 5 seconds, and code to 65,536 characters. Limits or failures keep the real response.',
       functionSafetyWarning:
         'Function responses support Fetch only; XHR keeps its native response. Code reads request and response snapshots only; request headers may contain sensitive values. It runs in an isolated sandbox for at most 5 seconds. This editor never executes or compiles code.',
       enableFunction: 'Enable function response (explicit confirmation required)',

@@ -21,6 +21,14 @@ const props = defineProps({
 const emit = defineEmits(['close', 'save'])
 const { t } = useI18n({ useScope: 'global' })
 const DEFAULT_FUNCTION_EXAMPLE = 'return { body: { ok: true } }'
+const FUNCTION_RESPONSE_EXAMPLE = `return {
+  status: response.status,
+  body: {
+    requestUrl: request.url,
+    method: request.method,
+    originalText: response.body,
+  },
+}`
 const firstInput = ref(null)
 const dialogRoot = ref(null)
 const form = ref(createForm())
@@ -168,6 +176,20 @@ function useExample(body) {
   form.value.body = JSON.stringify(body, null, 2)
   localIssue.value = ''
   jsonIssue.value = false
+}
+
+function useFunctionExample() {
+  const current = form.value.code.trim()
+  if (
+    current &&
+    current !== DEFAULT_FUNCTION_EXAMPLE &&
+    current !== FUNCTION_RESPONSE_EXAMPLE &&
+    !window.confirm(t('responseEditor.functionExampleReplaceConfirm'))
+  ) {
+    return
+  }
+  form.value.code = FUNCTION_RESPONSE_EXAMPLE
+  localIssue.value = ''
 }
 
 function trapFocus(event) {
@@ -398,6 +420,36 @@ function trapFocus(event) {
 
         <div v-else class="editor-field function-response-fields">
           <span>{{ t('responseEditor.functionCode') }}</span>
+          <small id="response-function-help">{{ t('responseEditor.functionCodeHelp') }}</small>
+          <details class="function-response-guide">
+            <summary>{{ t('responseEditor.functionGuideTitle') }}</summary>
+            <div class="function-response-guide-content">
+              <p>{{ t('responseEditor.functionGuideIntro') }}</p>
+              <dl>
+                <div>
+                  <dt>request</dt>
+                  <dd>{{ t('responseEditor.functionGuideRequest') }}</dd>
+                </div>
+                <div>
+                  <dt>response</dt>
+                  <dd>{{ t('responseEditor.functionGuideResponse') }}</dd>
+                </div>
+                <div>
+                  <dt>return</dt>
+                  <dd>{{ t('responseEditor.functionGuideReturn') }}</dd>
+                </div>
+              </dl>
+              <p>{{ t('responseEditor.functionGuideResultRules') }}</p>
+              <div class="function-response-guide-example-heading">
+                <strong>{{ t('responseEditor.functionGuideExample') }}</strong>
+                <button type="button" @click="useFunctionExample">
+                  {{ t('responseEditor.functionGuideUseExample') }}
+                </button>
+              </div>
+              <pre><code>{{ FUNCTION_RESPONSE_EXAMPLE }}</code></pre>
+              <p>{{ t('responseEditor.functionGuideLimits') }}</p>
+            </div>
+          </details>
           <CodeMirrorJsonEditor
             v-model="form.code"
             language="javascript"
@@ -405,7 +457,6 @@ function trapFocus(event) {
             :aria-label="t('responseEditor.functionCode')"
             described-by="response-function-help response-editor-error"
           />
-          <small id="response-function-help">{{ t('responseEditor.functionCodeHelp') }}</small>
           <small class="function-safety-warning">{{
             t('responseEditor.functionSafetyWarning')
           }}</small>

@@ -1360,6 +1360,96 @@ input {
   min-height: clamp(150px, 28vh, 230px);
 }
 
+.function-response-guide {
+  border: 1px solid var(--ap-border);
+  border-radius: var(--ap-radius-control);
+  background: color-mix(in srgb, var(--ap-teal) 4%, var(--ap-card));
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.function-response-guide summary {
+  padding: 9px 11px;
+  color: var(--ap-ink);
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.function-response-guide summary::marker {
+  color: var(--ap-teal);
+}
+
+.function-response-guide-content {
+  display: grid;
+  gap: 10px;
+  padding: 10px 11px 12px;
+  border-top: 1px solid var(--ap-border);
+  color: var(--ap-ink);
+}
+
+.function-response-guide-content p {
+  margin: 0;
+}
+
+.function-response-guide-content dl {
+  display: grid;
+  gap: 7px;
+  margin: 0;
+}
+
+.function-response-guide-content dl > div {
+  display: grid;
+  grid-template-columns: 62px minmax(0, 1fr);
+  gap: 8px;
+}
+
+.function-response-guide-content dt {
+  color: var(--ap-ink);
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-weight: 600;
+}
+
+.function-response-guide-content dd {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.function-response-guide-example-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px 10px;
+}
+
+.function-response-guide-example-heading button {
+  padding: 4px 8px;
+  border: 1px solid var(--ap-border);
+  border-radius: var(--ap-radius-control);
+  background: var(--ap-card);
+  color: var(--ap-ink);
+  cursor: pointer;
+  font: inherit;
+}
+
+.function-response-guide-example-heading button:hover {
+  border-color: var(--ap-teal);
+}
+
+.function-response-guide-content pre {
+  max-width: 100%;
+  overflow-x: auto;
+  margin: 0;
+  padding: 9px 10px;
+  border: 1px solid var(--ap-border);
+  border-radius: var(--ap-radius-control);
+  background: var(--ap-card);
+  color: var(--ap-ink);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
 .function-response-fields small {
   color: var(--ap-muted);
   font-size: 11px;
