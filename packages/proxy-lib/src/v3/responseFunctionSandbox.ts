@@ -20,7 +20,13 @@ export class V3FunctionExecutionError extends Error {
 }
 
 export function getV3FunctionExecutionFailureCode(error: unknown): V3FunctionExecutionFailureCode {
-  return error instanceof V3FunctionExecutionError ? error.code : 'execution-failed'
+  if (error instanceof V3FunctionExecutionError) return error.code
+
+  // Keep injected/older executors compatible; the built-in sandbox uses typed failures above.
+  const message = error instanceof Error ? error.message.toLowerCase() : ''
+  if (message.includes('timed out')) return 'timeout'
+  if (message.includes('sandbox') && message.includes('unavailable')) return 'sandbox-unavailable'
+  return 'execution-failed'
 }
 
 export interface V3FunctionRequestSnapshot {
