@@ -233,8 +233,18 @@ async function main() {
       .getByRole('button', { name: 'Delete', exact: true })
       .click()
     await popup.getByText('No matching rules', { exact: true }).waitFor()
+    assert.equal(await popup.locator('.rule-scroll').getAttribute('aria-label'), 'Rules')
+    await worker.evaluate(async () => {
+      const key = 'ajax-proxy:storage:v3-config'
+      const config = (await chrome.storage.local.get(key))[key]
+      config.settings.language = 'zh-CN'
+      await chrome.storage.local.set({ [key]: config })
+    })
+    await popup.reload()
+    await popup.locator('.rule-scroll').waitFor()
+    assert.equal(await popup.locator('.rule-scroll').getAttribute('aria-label'), '规则')
     console.log(
-      'Independent popup panel creation/reuse, separate response/redirect views, popup action filtering, 30 pinned rules, combined-rule editing, compact bulk actions and bulk deletion passed'
+      'Independent popup creation/reuse, localized accessible labels, separate response/redirect views, popup action filtering, 30 pinned rules, combined-rule editing, compact bulk actions and bulk deletion passed'
     )
   } finally {
     await context?.close()

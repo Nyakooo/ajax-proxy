@@ -57,6 +57,7 @@ const messages = {
     hit: 'hits',
     any: 'ANY',
     helpLabel: 'Search examples',
+    rulesLabel: 'Rules',
     tags: 'Tags',
   },
   'zh-CN': {
@@ -97,6 +98,7 @@ const messages = {
     hit: '次命中',
     any: '任意',
     helpLabel: '搜索示例',
+    rulesLabel: '规则',
     tags: '标签',
   },
 }
@@ -407,7 +409,7 @@ onBeforeUnmount(() => {
       </div>
     </header>
 
-    <section class="rule-scroll" aria-label="Rules">
+    <section class="rule-scroll" :aria-label="t('rulesLabel')">
       <p v-if="error" class="popup-error" role="alert">
         <span>{{ t(error) }}</span>
         <span v-if="panelOpenDetails"> {{ panelOpenDetails }}</span>
