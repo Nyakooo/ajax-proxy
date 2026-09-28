@@ -43,6 +43,15 @@ A page can request an API before its backend is ready—or when you need to repr
 
 Ajax Proxy runs as a browser extension; it does not require an Ajax Proxy account or hosted service. V3 targets Chrome 141+ and Microsoft Edge 140+ on Stable channels; see the [browser compatibility policy](docs/V3-BROWSER-COMPATIBILITY.zh.md) for the support window.
 
+### Mock an API in a few steps
+
+1. Select the extension icon, open the **full panel** from the popup, and choose **Create rule**.
+2. Enter a URL (a URL fragment works) and a request method. Keep `ANY` to match every method.
+3. Choose a static JSON response, set **Response behavior** to **Mock: skip the real request**, enter a status and JSON body, then save and enable the rule.
+4. Make sure the extension and current-site switches are on, then trigger the matching request from the page. Fetch and supported asynchronous XHR calls receive the configured response without sending a real request.
+
+The panel labels a mock hit **Mock skipped the real network request** and shows the returned status. Use this mode when an endpoint does not exist yet or when you need a fixed response. The regular response-replacement mode sends the real request first and then replaces its response; function responses also need a real response as input and currently apply to Fetch only.
+
 ## Try the V3 developer preview
 
 > **Development build:** V3 is not the version currently published in the extension stores. Loading this branch installs a separate local build. V2 and V3 rules / backups use incompatible formats; V3 does not automatically migrate V2 data. Keep your V2 backup and recreate any rules you need.

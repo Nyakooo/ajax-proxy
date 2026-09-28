@@ -23,16 +23,19 @@ interface Rule {
   }
   response?: {
     enabled: boolean
+    mode?: 'replace' | 'mock'
     replace: ResponseConfig
   }
 }
 ```
 
+静态 JSON 响应的 `mode` 缺省或为 `replace` 时，会先发送真实请求，再用配置内容替换响应；设为 `mock` 时会在网络发送前直接返回配置的状态码和 JSON 内容，跳过真实请求。Mock 适用于后端接口不存在或需要固定返回值的情况，支持 Fetch 和已实现范围内的异步 XHR。函数响应没有 `mock` 模式，因为它需要真实 response 快照；函数响应目前仅适用于 Fetch。
+
 - `match` 只匹配原始请求。本阶段定义 URL 与 method：`normal` 是原始 URL 的区分大小写子串匹配；`regex` 使用不区分大小写的 RE2；`exact` 将完整原始 URL 字符串区分大小写比较，不额外规范化、拆分或忽略 query 参数。method 按大写后的 HTTP token 精确匹配，未填写或填写 `ANY` 表示任意 method。headers 等条件不属于当前 schema。
 - 缺省 `type` 仍表示 `normal`。格式版本 3 仅允许 `normal` / `regex`；版本 4 新增 `exact`，旧版本 3 备份仍可导入且保留原有匹配语义。matcher 不含请求 header 条件或 matcher 级忽略列表；重定向 action 的排除项单独定义如下。
-- 版本 5 增加完整备份字段 `disabledOrigins`，用规范化 HTTP(S) origin（协议、主机名、端口）精确关闭当前站点的 V3 规则；路径不参与站点识别。未列出的站点默认启用。关闭站点不会修改规则自身启用状态或顺序；全局开关关闭时仍以全局设置为准。版本 3 / 4 导入时站点列表默认为空，随后统一规范化为当前版本 8。
+- 版本 5 增加完整备份字段 `disabledOrigins`，用规范化 HTTP(S) origin（协议、主机名、端口）精确关闭当前站点的 V3 规则；路径不参与站点识别。未列出的站点默认启用。关闭站点不会修改规则自身启用状态或顺序；全局开关关闭时仍以全局设置为准。版本 3 / 4 导入时站点列表默认为空，随后统一规范化为当前版本 9。
 - 版本 6 在 `request.redirect` 下增加可选 `exclusions`。每项是区分大小写的字面 URL 子串；请求 URL 含任一子串时跳过该规则的重定向。只有重定向 action 的规则会继续检查下一条；组合规则仍选中当前规则并执行 response action。旧备份缺省排除列表为空。
-- 版本 7 为 `request.redirect` 增加动态 `{ type: "function", code, exclusions? }` 结构；静态重定向继续使用 `{ url, exclusions? }`。版本 8 为静态重定向增加可选 `headers` map，函数 redirect 不支持 headers。函数代码最多 65,536 个字符；Fetch 执行时只接收原始请求 URL 和 method，并须返回合法 HTTP(S) URL 字符串。导入函数代码时保留源码并停用 `request.enabled`。版本 3–7 的 V3 备份仍可读并规范化为版本 8；V2 格式仍不兼容。
+- 版本 7 为 `request.redirect` 增加动态 `{ type: "function", code, exclusions? }` 结构；静态重定向继续使用 `{ url, exclusions? }`。版本 8 为静态重定向增加可选 `headers` map，函数 redirect 不支持 headers。版本 9 为静态 JSON response 增加 `mode: "mock"`，表示跳过真实请求并直接返回配置的状态码和 JSON；缺省及 `replace` 保留先请求再替换的行为，函数响应不支持 Mock。函数代码最多 65,536 个字符；Fetch 执行时只接收原始请求 URL 和 method，并须返回合法 HTTP(S) URL 字符串。导入函数代码时保留源码并停用 `request.enabled` 或 `response.enabled`。版本 3–8 的 V3 备份仍可读并规范化为版本 9；V2 格式仍不兼容。
 - 静态重定向的 `headers` map 复用响应 header 的名称、长度、数量和 UTF-8 字节限制，且值必须能表示为浏览器 ByteString（每个 UTF-16 code unit 不大于 U+00FF）；header 名称按大小写不敏感方式唯一，空字符串表示配置空值。运行时按该方式覆盖页面同名请求头，跨 origin 后移除 Authorization、Proxy-Authorization、Cookie 和 Cookie2；CORS / preflight 及浏览器禁止的 header 仍由浏览器处理。
 - `request` 和 `response` 是独立能力；至少开启一项的规则才参与匹配。
 - 列表顺序就是规则优先级，界面允许调整顺序。第一条满足规则级 `enabled`、至少一个 action 的 `enabled`，且 URL / method 全部匹配的规则负责请求。两种 action 均关闭的规则仍可保存（例如导入函数代码时自动停用对应的 request 或 response action），但运行时将其视为不参与匹配。选中后锁定稳定的规则 ID；action 失败也不会把请求交给后续规则。
@@ -59,7 +62,7 @@ V3 备份使用独立标识，不通过字段猜测把旧文件转换成新格�
 ```json
 {
   "format": "ajax-proxy-backup",
-  "formatVersion": 8,
+  "formatVersion": 9,
   "disabledOrigins": [],
   "settings": {
     "globalEnabled": true,
@@ -71,11 +74,11 @@ V3 备份使用独立标识，不通过字段猜测把旧文件转换成新格�
 }
 ```
 
-- 顶层必须且只能包含 `format`、`formatVersion`、`settings`、`tags`、`rules`、`disabledOrigins`。格式标识固定为 `ajax-proxy-backup`；当前导出版本为整数 `8`，读取版本 `3`–`7` 后规范化为版本 `8`。`disabledOrigins` 最多 1000 项，每项必须是唯一、无路径和凭据的规范 HTTP(S) origin。其它未知格式 / 版本拒绝，检测到 V2 字段时返回明确的不兼容提示。
+- 顶层必须且只能包含 `format`、`formatVersion`、`settings`、`tags`、`rules`、`disabledOrigins`。格式标识固定为 `ajax-proxy-backup`；当前导出版本为整数 `9`，读取版本 `3`–`8` 后规范化为版本 `9`。`disabledOrigins` 最多 1000 项，每项必须是唯一、无路径和凭据的规范 HTTP(S) origin。其它未知格式 / 版本拒绝，检测到 V2 字段时返回明确的不兼容提示。
 - `settings` 必须包含布尔值 `globalEnabled`、`interceptor` / `redirector` 模式和 `zh-CN` / `en` 语言。未知字段拒绝，避免输入拼错后被静默忽略。
 - `tags` 必须是数组；每个 tag 包含唯一非空字符串 `id`、非空 `name` 和布尔 `used`，不允许未知字段。空数组合法。
-- `rules` 必须是数组；每条规则包含唯一非空 `id`、布尔 `enabled`、非空 URL `match`，可选 `tagIds`、`request` 重定向 action 和 `response` 替换 action。`tagIds` 缺省表示无标签；提供时必须是唯一标签 ID 数组，且每个 ID 都必须指向顶层 `tags`。版本 6 / 7 / 8 的 `request.redirect.exclusions` 最多 100 项，每项为 1–4096 个字符的非空字符串，不允许首尾空白或重复项；总 UTF-8 字节数最多 1 MiB。版本 7 / 8 函数 redirect payload 需要非空 `code` 且不得包含 `url`；旧版本不能包含函数字段。版本 8 静态 redirect 可选 `headers` map，按大小写不敏感名称唯一并复用 response header 的名称、值、数量和 UTF-8 字节限制；旧版本及函数 redirect 不接受该字段。未知规则和 matcher 字段拒绝。
-- URL matcher 的 `method` 是可选字符串，`type` 可选 `normal` 或 `regex`。正则采用 RE2 语法，以避免灾难性回溯；lookahead、backreference 等 RE2 不支持的语法在保存 / 导入时拒绝，具体输入上限见 `docs/V3-INPUT-VALIDATION.zh.md`。静态重定向 payload 必须含非空目标 `url`，版本 8 可选配置请求 headers；配置值覆盖页面同名 header，空字符串表示空 header 值。跨 origin 后会移除 Authorization、Proxy-Authorization、Cookie、Cookie2，即使它们来自规则配置；CORS / preflight 和浏览器禁止的 header 由浏览器决定。函数重定向必须含非空 `code` 且不能同时设置 `url` 或 headers。响应替换可选 `status`（200–599 整数）、字符串 header map、JSON `body` 和字符串 `code`。未知 action / payload 字段拒绝。
+- `rules` 必须是数组；每条规则包含唯一非空 `id`、布尔 `enabled`、非空 URL `match`，可选 `tagIds`、`request` 重定向 action 和 `response` 响应 action。`tagIds` 缺省表示无标签；提供时必须是唯一标签 ID 数组，且每个 ID 都必须指向顶层 `tags`。版本 6–9 的 `request.redirect.exclusions` 最多 100 项，每项为 1–4096 个字符的非空字符串，不允许首尾空白或重复项；总 UTF-8 字节数最多 1 MiB。版本 7–9 函数 redirect payload 需要非空 `code` 且不得包含 `url`；旧版本不能包含函数字段。版本 8–9 静态 redirect 可选 `headers` map，按大小写不敏感名称唯一并复用 response header 的名称、值、数量和 UTF-8 字节限制；旧版本及函数 redirect 不接受该字段。版本 9 的静态 JSON response 可选 `mode`（`replace` 或 `mock`）；只有版本 9 可包含该字段，旧版本缺省按 `replace` 解释。`mock` 响应不能包含函数 `code`。未知规则和 matcher 字段拒绝。
+- URL matcher 的 `method` 是可选字符串，`type` 可选 `normal` 或 `regex`。正则采用 RE2 语法，以避免灾难性回溯；lookahead、backreference 等 RE2 不支持的语法在保存 / 导入时拒绝，具体输入上限见 `docs/V3-INPUT-VALIDATION.zh.md`。静态重定向 payload 必须含非空目标 `url`，版本 8–9 可选配置请求 headers；配置值覆盖页面同名 header，空字符串表示空 header 值。跨 origin 后会移除 Authorization、Proxy-Authorization、Cookie、Cookie2，即使它们来自规则配置；CORS / preflight 和浏览器禁止的 header 仍由浏览器决定。函数重定向必须含非空 `code` 且不能同时设置 `url` 或 headers。静态 JSON 响应可配置 `status`（200–599 整数）、字符串 header map、JSON `body`；函数响应通过 `code` 动态生成 JSON 响应。未知 action / payload 字段拒绝。
 - 校验结果携带字段路径和可读原因，不通过部分修复或丢弃字段来“尽量导入”。整个备份校验成功后才允许替换当前配置。
 
 上述 envelope 已落为独立的 `@proxy/v3-domain` 校验实现。扩展备份 schema 时递增 `formatVersion`，并保留对旧版本的有针对性读取；响应 header 写入与读取仍不由本期提供。
