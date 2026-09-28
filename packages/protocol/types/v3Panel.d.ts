@@ -31,16 +31,20 @@ export type V3PanelGetSnapshotResponse = {
     };
 } | {
     ok: false;
-    issues?: V3PanelValidationIssue[];
-    error?: 'storage-read-failed';
+    issues: V3PanelValidationIssue[];
+} | {
+    ok: false;
+    error: 'storage-read-failed';
 };
 export type V3PanelSaveConfigResponse = {
     ok: true;
     revision: string;
 } | {
     ok: false;
-    issues?: V3PanelValidationIssue[];
-    error?: 'storage-write-failed' | 'storage-read-failed';
+    issues: V3PanelValidationIssue[];
+} | {
+    ok: false;
+    error: 'storage-write-failed' | 'storage-read-failed';
 } | {
     ok: false;
     error: 'config-conflict';
