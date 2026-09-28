@@ -479,7 +479,8 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - [x] 在 macOS Chrome Stable 154.0.8037.58 加载本地生产扩展，以真实页面 Fetch 和 XHR 验证配置的 status `209` / JSON body；验证记录见 `docs/V3-TESTING.zh.md`。
 - [x] 完成权限、兼容性、核心请求和配置导入导出回归检查。
 - [x] 规划 V3 发布说明、问题反馈渠道及必要的回滚方案；详见 `docs/V3-RELEASE.zh.md`。
-- [ ] 通过阶段性 PR 和版本发布展示进展，确保每次变更便于审查。
+- [x] 为 V3 开发阶段创建 Draft PR 供审阅；保持 `refactor/v3` 与 `master` 隔离，不在此阶段合并或发布。
+- [ ] 决定正式公开预览 / 版本发布时间后，再完成最终发布流程。
 
 **阶段验收**
 
@@ -1165,3 +1166,7 @@ sandbox 执行器现在以内部 typed error 明确报告 timeout、sandbox unav
 ## Chrome 200% 缩放桌面验收（2026-09-28）
 
 使用真实 Chrome Stable 检查生产 Vite 面板 200% 浏览器缩放。面板在 600 CSS px 视口下保持单列垂直滚动，文档没有横向溢出（`scrollWidth === clientWidth === 600`），规则启停、置顶、编辑和删除操作保持在可见区域，较长 URL 省略显示；随后恢复浏览器 100% 缩放。真实 VoiceOver / 屏幕阅读器播报仍待独立辅助技术验收。全部 checkbox 机械统计为 402 / 417（96.4%）；该比例包含 PR / 需求流程模板。
+
+## 阶段性 Draft PR（2026-09-28）
+
+创建 [Draft PR #57](https://github.com/Nyakooo/ajax-proxy/pull/57)，用于 review V3 开发分支；PR base 为 `master`，仍处于 draft，未合并、未发布。CI run [36401856186](https://github.com/Nyakooo/ajax-proxy/actions/runs/36401856186) 全部通过。公开预览 / 版本发布时间待维护者决定。全部 checkbox 机械统计为 403 / 418（96.4%）；此统计仍包括复用模板项。
