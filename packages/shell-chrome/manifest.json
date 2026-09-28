@@ -9,7 +9,7 @@
   },
   "permissions": ["storage", "notifications", "tabs"],
   "action": {
-    "default_icon": "icons/48g.png"
+    "default_icon": "icons/48.png"
   },
   "background": {
     "service_worker": "service_worker.js"
