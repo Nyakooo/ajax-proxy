@@ -1,0 +1,696 @@
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import type { StorageKey } from '../src/consts'
+
+afterEach(() => {
+  vi.unstubAllGlobals()
+  vi.resetModules()
+})
+
+describe('shared storage cache', () => {
+  it('guards synchronous cache access until storage is initialized', async () => {
+    vi.stubGlobal('chrome', undefined)
+    vi.stubGlobal('localStorage', { getItem: () => null })
+    const { getStorage, getStorageSnapshot, setStorage } = await import('../src/storage')
+
+    expect(() => getStorage('mode')).toThrow("Storage wasn't initialized with 'init()'")
+    expect(() => getStorageSnapshot()).toThrow("Storage wasn't initialized with 'init()'")
+    expect(() => setStorage('mode', 'interceptor')).toThrow(
+      "Storage wasn't initialized with 'init()'"
+    )
+  })
+
+  it('applies local storage change events and ignores other storage areas', async () => {
+    const listeners: Array<
+      (changes: Record<string, { newValue?: unknown }>, area: string) => void
+    > = []
+    const initialData = { mode: 'interceptor' }
+    vi.stubGlobal('chrome', {
+      storage: {
+        onChanged: { addListener: (listener) => listeners.push(listener) },
+        local: { get: (_key, callback) => callback(initialData) },
+      },
+    })
+    const { getStorage, initStorage } = await import('../src/storage')
+    await initStorage()
+
+    listeners[0]({ mode: { newValue: 'redirector' } }, 'sync')
+    expect(getStorage('mode')).toBe('interceptor')
+    listeners[0]({ mode: { newValue: 'redirector' } }, 'local')
+    expect(getStorage('mode')).toBe('redirector')
+    listeners[0]({ mode: { newValue: undefined } }, 'local')
+    expect(getStorage('mode', 'interceptor')).toBe('interceptor')
+  })
+
+  it('replays storage changes that arrive while the initial snapshot is loading', async () => {
+    const listeners: Array<
+      (changes: Record<string, { newValue?: unknown }>, area: string) => void
+    > = []
+    let finishInitialRead: ((data: Record<string, unknown>) => void) | undefined
+    vi.stubGlobal('chrome', {
+      storage: {
+        onChanged: { addListener: (listener) => listeners.push(listener) },
+        local: {
+          get: (_key, callback) => {
+            finishInitialRead = callback
+          },
+        },
+      },
+    })
+    const { getStorage, getStorageSnapshot, initStorage } = await import('../src/storage')
+    const initialized = initStorage()
+
+    listeners[0]({ mode: { newValue: 'redirector' } }, 'local')
+    finishInitialRead?.({ mode: 'interceptor' })
+    await initialized
+
+    expect(getStorage('mode')).toBe('redirector')
+    expect(getStorageSnapshot()).toEqual({ mode: 'redirector' })
+  })
+
+  it('returns a cloned cached snapshot without issuing another storage read', async () => {
+    const initialData = { mode: 'interceptor', rules: [1, 2] }
+    const read = vi.fn((_key: unknown, callback: (data: typeof initialData) => void) =>
+      callback(initialData)
+    )
+    vi.stubGlobal('chrome', {
+      storage: {
+        onChanged: { addListener: vi.fn() },
+        local: { get: read },
+      },
+    })
+    const { getStorageSnapshot, initStorage } = await import('../src/storage')
+    await initStorage()
+
+    const snapshot = getStorageSnapshot()
+    const rules = snapshot.rules as number[]
+    rules.push(3)
+
+    expect(read).toHaveBeenCalledOnce()
+    expect({ ...snapshot, rules }).toEqual({ mode: 'interceptor', rules: [1, 2, 3] })
+    expect(getStorageSnapshot()).toEqual({ mode: 'interceptor', rules: [1, 2] })
+  })
+
+  it('refreshes the cache from a successful Chrome getStorageAll read', async () => {
+    let stored = { mode: 'interceptor' }
+    const read = vi.fn((_key: unknown, callback: (data: typeof stored) => void) => callback(stored))
+    vi.stubGlobal('chrome', {
+      runtime: {},
+      storage: {
+        onChanged: { addListener: vi.fn() },
+        local: { get: read },
+      },
+    })
+    const { getStorage, getStorageAll, initStorage } = await import('../src/storage')
+    await initStorage()
+    stored = { mode: 'redirector' }
+
+    await expect(getStorageAll()).resolves.toEqual({ mode: 'redirector' })
+
+    expect(read).toHaveBeenLastCalledWith(null, expect.any(Function))
+    expect(getStorage('mode')).toBe('redirector')
+  })
+
+  it('replays storage changes that arrive while getStorageAll is reading', async () => {
+    const listeners: Array<
+      (changes: Record<string, { newValue?: unknown }>, area: string) => void
+    > = []
+    let finishFullRead: ((data: Record<string, unknown>) => void) | undefined
+    let readCount = 0
+    vi.stubGlobal('chrome', {
+      runtime: {},
+      storage: {
+        onChanged: { addListener: (listener) => listeners.push(listener) },
+        local: {
+          get: (_key: unknown, callback: (data: Record<string, unknown>) => void) => {
+            readCount += 1
+            if (readCount === 1) callback({ mode: 'interceptor' })
+            else finishFullRead = callback
+          },
+        },
+      },
+    })
+    const { getStorage, getStorageAll, initStorage } = await import('../src/storage')
+    await initStorage()
+
+    const snapshot = getStorageAll()
+    listeners[0]({ mode: { oldValue: 'interceptor', newValue: 'redirector' } }, 'local')
+    finishFullRead?.({ mode: 'interceptor', theme: 'dark' })
+
+    await expect(snapshot).resolves.toEqual({ mode: 'redirector', theme: 'dark' })
+    expect(getStorage('mode')).toBe('redirector')
+    expect(getStorage('theme')).toBe('dark')
+  })
+
+  it('cleans up a getStorageAll read when Chrome throws synchronously', async () => {
+    let readCount = 0
+    const errorLog = vi.spyOn(console, 'error').mockImplementation(() => {})
+    vi.stubGlobal('chrome', {
+      runtime: {},
+      storage: {
+        onChanged: { addListener: vi.fn() },
+        local: {
+          get: (_key: unknown, callback: (data: Record<string, unknown>) => void) => {
+            readCount += 1
+            if (readCount === 2) throw new Error('storage API threw')
+            callback(readCount === 1 ? { mode: 'interceptor' } : { mode: 'redirector' })
+          },
+        },
+      },
+    })
+    const { getStorageAll, initStorage } = await import('../src/storage')
+    await initStorage()
+
+    await expect(getStorageAll()).rejects.toThrow('storage API threw')
+    await expect(getStorageAll()).resolves.toEqual({ mode: 'redirector' })
+    expect(errorLog).toHaveBeenCalled()
+  })
+
+  it('reports a failed Chrome getStorageAll read and preserves the initialized cache', async () => {
+    let inCallback = false
+    let fullReadCount = 0
+    const storageError = { message: 'storage unavailable' }
+    const errorLog = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const dispatchEvent = vi.fn()
+    vi.stubGlobal('dispatchEvent', dispatchEvent)
+    vi.stubGlobal('chrome', {
+      runtime: {
+        get lastError() {
+          return inCallback ? storageError : undefined
+        },
+      },
+      storage: {
+        onChanged: { addListener: vi.fn() },
+        local: {
+          get: (key: unknown, callback: (data: Record<string, unknown>) => void) => {
+            if (key === null) {
+              fullReadCount += 1
+              if (fullReadCount > 1) inCallback = true
+              callback({ mode: 'interceptor' })
+              inCallback = false
+            } else {
+              callback({ mode: 'redirector' })
+            }
+          },
+        },
+      },
+    })
+    const { getStorage, getStorageAll, initStorage } = await import('../src/storage')
+    await initStorage()
+
+    await expect(getStorageAll()).rejects.toThrow('Storage read failed: storage unavailable')
+
+    expect(getStorage('mode')).toBe('interceptor')
+    expect(errorLog).toHaveBeenCalled()
+    expect(dispatchEvent).toHaveBeenCalledOnce()
+    expect(dispatchEvent.mock.calls[0][0]).toMatchObject({
+      type: 'ajax-proxy:storage-error',
+      detail: { operation: 'read', message: 'Storage read failed: storage unavailable' },
+    })
+  })
+
+  it('clears a stale Chrome cache entry when a direct read finds the key missing', async () => {
+    const read = vi.fn((key: unknown, callback: (data: Record<string, unknown>) => void) => {
+      callback(key === null ? { mode: 'stale' } : {})
+    })
+    vi.stubGlobal('chrome', {
+      runtime: {},
+      storage: {
+        onChanged: { addListener: vi.fn() },
+        local: { get: read },
+      },
+    })
+    const { getRealStorage, getStorage, initStorage } = await import('../src/storage')
+    await initStorage()
+
+    await expect(getRealStorage('mode' as StorageKey, 'missing')).resolves.toBe('missing')
+
+    expect(read).toHaveBeenLastCalledWith('mode', expect.any(Function))
+    expect(getStorage('mode', 'missing')).toBe('missing')
+  })
+
+  it('rejects and reports storage initialization failures', async () => {
+    let inCallback = false
+    const storageError = { message: 'storage unavailable' }
+    const errorLog = vi.spyOn(console, 'error').mockImplementation(() => {})
+    vi.stubGlobal('chrome', {
+      runtime: {
+        get lastError() {
+          return inCallback ? storageError : undefined
+        },
+      },
+      storage: {
+        onChanged: { addListener: vi.fn() },
+        local: {
+          get: (_key, callback) => {
+            inCallback = true
+            callback({})
+            inCallback = false
+          },
+        },
+      },
+    })
+    const { initStorage } = await import('../src/storage')
+
+    await expect(initStorage()).rejects.toThrow('Storage read failed: storage unavailable')
+    expect(errorLog).toHaveBeenCalled()
+  })
+
+  it('rejects quota failures without poisoning the cached value', async () => {
+    let inCallback = false
+    const quotaError = { message: 'QUOTA_BYTES_PER_ITEM quota exceeded' }
+    const errorLog = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const dispatchEvent = vi.fn()
+    vi.stubGlobal('dispatchEvent', dispatchEvent)
+    vi.stubGlobal('chrome', {
+      runtime: {
+        get lastError() {
+          return inCallback ? quotaError : undefined
+        },
+      },
+      storage: {
+        onChanged: { addListener: vi.fn() },
+        local: {
+          get: (_key, callback) => callback({ mode: 'interceptor' }),
+          set: (_items, callback) => {
+            inCallback = true
+            callback()
+            inCallback = false
+          },
+        },
+      },
+    })
+    const { getStorage, initStorage, setStorage } = await import('../src/storage')
+    await initStorage()
+
+    await expect(setStorage('mode', 'redirector')).rejects.toThrow('QUOTA_BYTES_PER_ITEM')
+
+    expect(getStorage('mode')).toBe('interceptor')
+    expect(errorLog).toHaveBeenCalled()
+    expect(dispatchEvent).toHaveBeenCalledOnce()
+    expect(dispatchEvent.mock.calls[0][0]).toMatchObject({
+      type: 'ajax-proxy:storage-error',
+      detail: { operation: 'write', key: 'mode' },
+    })
+  })
+
+  it('updates the cache only after a successful write callback', async () => {
+    vi.stubGlobal('chrome', {
+      runtime: {},
+      storage: {
+        onChanged: { addListener: vi.fn() },
+        local: {
+          get: (_key, callback) => callback({ mode: 'interceptor' }),
+          set: (items, callback) => callback(),
+        },
+      },
+    })
+    const { getStorage, initStorage, setStorage } = await import('../src/storage')
+    await initStorage()
+
+    await setStorage('mode', 'redirector')
+
+    expect(getStorage('mode')).toBe('redirector')
+  })
+
+  it.each(['remove', 'clear'] as const)(
+    'keeps the cached values and reports a Chrome %s failure',
+    async (operation) => {
+      let inCallback = false
+      const storageError = { message: `${operation} unavailable` }
+      const dispatchEvent = vi.fn()
+      vi.spyOn(console, 'error').mockImplementation(() => {})
+      vi.stubGlobal('dispatchEvent', dispatchEvent)
+      vi.stubGlobal('chrome', {
+        runtime: {
+          get lastError() {
+            return inCallback ? storageError : undefined
+          },
+        },
+        storage: {
+          onChanged: { addListener: vi.fn() },
+          local: {
+            get: (_key, callback) => callback({ mode: 'interceptor', rules: ['saved'] }),
+            remove: (_keys, callback) => {
+              inCallback = true
+              callback()
+              inCallback = false
+            },
+            clear: (callback) => {
+              inCallback = true
+              callback()
+              inCallback = false
+            },
+          },
+        },
+      })
+      const { clearStorage, getStorage, initStorage, removeStorage } =
+        await import('../src/storage')
+      await initStorage()
+
+      const result = operation === 'remove' ? removeStorage(['mode', 'rules']) : clearStorage()
+      await expect(result).rejects.toThrow(`Storage ${operation}`)
+
+      expect(getStorage('mode')).toBe('interceptor')
+      expect(getStorage('rules')).toEqual(['saved'])
+      expect(dispatchEvent).toHaveBeenCalledOnce()
+      expect(dispatchEvent.mock.calls[0][0]).toMatchObject({
+        type: 'ajax-proxy:storage-error',
+        detail: {
+          operation,
+          ...(operation === 'remove' ? { key: 'mode,rules' } : {}),
+        },
+      })
+    }
+  )
+
+  it.each(['remove', 'clear'] as const)(
+    'updates the cached values after a successful Chrome %s callback',
+    async (operation) => {
+      vi.stubGlobal('chrome', {
+        runtime: {},
+        storage: {
+          onChanged: { addListener: vi.fn() },
+          local: {
+            get: (_key, callback) => callback({ mode: 'interceptor', rules: ['saved'] }),
+            remove: (_keys, callback) => callback(),
+            clear: (callback) => callback(),
+          },
+        },
+      })
+      const { clearStorage, getStorage, initStorage, removeStorage } =
+        await import('../src/storage')
+      await initStorage()
+
+      if (operation === 'remove') await removeStorage(['mode', 'rules'])
+      else await clearStorage()
+
+      expect(getStorage('mode', 'missing')).toBe('missing')
+      expect(getStorage('rules', [])).toEqual([])
+    }
+  )
+
+  it('uses one initialized cache for ordinary webpage localStorage operations', async () => {
+    const values: Record<string, string> = { mode: '"interceptor"', rules: '[1,2]' }
+    const localStorage = Object.create(null)
+    Object.keys(values).forEach((key) =>
+      Object.defineProperty(localStorage, key, {
+        value: true,
+        enumerable: true,
+        configurable: true,
+      })
+    )
+    Object.defineProperties(localStorage, {
+      getItem: { value: (key: string) => values[key] ?? null },
+      setItem: {
+        value: (key: string, value: string) => {
+          values[key] = value
+          Object.defineProperty(localStorage, key, {
+            value: true,
+            enumerable: true,
+            configurable: true,
+          })
+        },
+      },
+      removeItem: {
+        value: (key: string) => {
+          delete values[key]
+          delete localStorage[key]
+        },
+      },
+      clear: {
+        value: () => {
+          Object.keys(values).forEach((key) => {
+            delete values[key]
+            delete localStorage[key]
+          })
+        },
+      },
+    })
+    vi.stubGlobal('chrome', undefined)
+    vi.stubGlobal('localStorage', localStorage)
+    const {
+      clearStorage,
+      getRealStorage,
+      getStorage,
+      getStorageAll,
+      initStorage,
+      removeStorage,
+      setStorage,
+    } = await import('../src/storage')
+    await initStorage()
+
+    expect(getStorage('mode')).toBe('interceptor')
+    expect(await getRealStorage('rules' as StorageKey)).toEqual([1, 2])
+    expect(await getStorageAll()).toEqual({ mode: 'interceptor', rules: [1, 2] })
+
+    await setStorage('mode', 'redirector')
+    expect(getStorage('mode')).toBe('redirector')
+    await removeStorage('rules')
+    expect(getStorage('rules', [])).toEqual([])
+    await clearStorage()
+    expect(await getStorageAll()).toEqual({})
+  })
+
+  it('preserves plain-text localStorage values during initialization, direct reads, and change events', async () => {
+    const values: Record<string, string> = { mode: 'interceptor' }
+    const localStorage = Object.create(null)
+    Object.defineProperty(localStorage, 'mode', { value: true, enumerable: true })
+    Object.defineProperties(localStorage, {
+      getItem: { value: (key: string) => values[key] ?? null },
+      setItem: { value: vi.fn() },
+      removeItem: { value: vi.fn() },
+      clear: { value: vi.fn() },
+    })
+    let storageListener: ((event: StorageEvent) => void) | undefined
+    vi.stubGlobal('chrome', undefined)
+    vi.stubGlobal('localStorage', localStorage)
+    vi.stubGlobal('addEventListener', (type: string, listener: (event: StorageEvent) => void) => {
+      if (type === 'storage') storageListener = listener
+    })
+    const { getRealStorage, getStorage, initStorage } = await import('../src/storage')
+    await initStorage()
+
+    expect(getStorage('mode')).toBe('interceptor')
+
+    values.mode = 'redirector'
+    await expect(getRealStorage('mode' as StorageKey)).resolves.toBe('redirector')
+    expect(getStorage('mode')).toBe('redirector')
+
+    storageListener?.({
+      key: 'mode',
+      newValue: 'manual',
+      storageArea: localStorage,
+    } as StorageEvent)
+    expect(getStorage('mode')).toBe('manual')
+  })
+
+  it('returns the default and clears the cache when a direct localStorage read misses', async () => {
+    let storedValue: string | null = '"cached"'
+    const localStorage = Object.create(null)
+    Object.defineProperty(localStorage, 'mode', {
+      value: true,
+      enumerable: true,
+      configurable: true,
+    })
+    Object.defineProperty(localStorage, 'getItem', {
+      value: vi.fn(() => storedValue),
+    })
+    vi.stubGlobal('chrome', undefined)
+    vi.stubGlobal('localStorage', localStorage)
+    const { getRealStorage, getStorage, getStorageSnapshot, initStorage } =
+      await import('../src/storage')
+    await initStorage()
+    storedValue = null
+
+    await expect(getRealStorage('mode' as StorageKey, 'default')).resolves.toBe('default')
+
+    expect(localStorage.getItem).toHaveBeenLastCalledWith('mode')
+    expect(getStorage('mode', 'default')).toBe('default')
+    expect(getStorageSnapshot()).toEqual({})
+  })
+
+  it('refreshes ordinary webpage cache from localStorage change events', async () => {
+    let storageListener: ((event: StorageEvent) => void) | undefined
+    vi.stubGlobal('chrome', undefined)
+    vi.stubGlobal('localStorage', {
+      getItem: () => '"initial"',
+      setItem: vi.fn(),
+      removeItem: vi.fn(),
+      clear: vi.fn(),
+    })
+    vi.stubGlobal('addEventListener', (type: string, listener: (event: StorageEvent) => void) => {
+      if (type === 'storage') storageListener = listener
+    })
+    const { getStorage, initStorage } = await import('../src/storage')
+    await initStorage()
+
+    storageListener?.({
+      key: 'mode',
+      newValue: '"redirector"',
+      storageArea: {},
+    } as StorageEvent)
+    expect(getStorage('mode', 'initial')).toBe('initial')
+
+    storageListener?.({
+      key: 'mode',
+      newValue: '"redirector"',
+      storageArea: localStorage,
+    } as StorageEvent)
+
+    expect(getStorage('mode')).toBe('redirector')
+
+    storageListener?.({
+      key: 'mode',
+      newValue: null,
+      storageArea: localStorage,
+    } as StorageEvent)
+    expect(getStorage('mode', 'missing')).toBe('missing')
+  })
+
+  it('refreshes the ordinary webpage cache for an empty localStorage key', async () => {
+    let storageListener: ((event: StorageEvent) => void) | undefined
+    const localStorage = Object.create(null)
+    Object.defineProperty(localStorage, '', { value: true, enumerable: true })
+    Object.defineProperties(localStorage, {
+      getItem: { value: (key: string) => (key === '' ? '"initial"' : null) },
+      setItem: { value: vi.fn() },
+      removeItem: { value: vi.fn() },
+      clear: { value: vi.fn() },
+    })
+    vi.stubGlobal('chrome', undefined)
+    vi.stubGlobal('localStorage', localStorage)
+    vi.stubGlobal('addEventListener', (type: string, listener: (event: StorageEvent) => void) => {
+      if (type === 'storage') storageListener = listener
+    })
+    const { getStorage, initStorage } = await import('../src/storage')
+    await initStorage()
+
+    storageListener?.({ key: '', newValue: '"updated"', storageArea: localStorage } as StorageEvent)
+
+    expect(getStorage('')).toBe('updated')
+  })
+
+  it('clears ordinary webpage cache after a localStorage clear event', async () => {
+    let storageListener: ((event: StorageEvent) => void) | undefined
+    const values = { mode: '"interceptor"', rules: '[1,2]' }
+    vi.stubGlobal('chrome', undefined)
+    vi.stubGlobal('localStorage', {
+      mode: true,
+      rules: true,
+      getItem: (key: string) => values[key as keyof typeof values] ?? null,
+    })
+    vi.stubGlobal('addEventListener', (type: string, listener: (event: StorageEvent) => void) => {
+      if (type === 'storage') storageListener = listener
+    })
+    const { getStorage, getStorageSnapshot, initStorage } = await import('../src/storage')
+    await initStorage()
+
+    storageListener?.({ key: null, newValue: null, storageArea: localStorage } as StorageEvent)
+
+    expect(getStorage('mode', 'missing')).toBe('missing')
+    expect(getStorageSnapshot()).toEqual({})
+  })
+
+  it('rejects and reports ordinary webpage storage initialization failures', async () => {
+    const errorLog = vi.spyOn(console, 'error').mockImplementation(() => {})
+    vi.stubGlobal('chrome', undefined)
+    vi.stubGlobal(
+      'localStorage',
+      new Proxy(
+        {},
+        {
+          ownKeys: () => {
+            throw new Error('storage denied')
+          },
+        }
+      )
+    )
+    const { initStorage } = await import('../src/storage')
+
+    await expect(initStorage()).rejects.toThrow('storage denied')
+    expect(errorLog).toHaveBeenCalled()
+  })
+
+  it.each(['remove', 'clear'] as const)(
+    'keeps the cached values and reports an ordinary webpage localStorage %s failure',
+    async (operation) => {
+      const errorLog = vi.spyOn(console, 'error').mockImplementation(() => {})
+      const dispatchEvent = vi.fn()
+      vi.stubGlobal('dispatchEvent', dispatchEvent)
+      vi.stubGlobal('chrome', undefined)
+      vi.stubGlobal('localStorage', {
+        mode: '"interceptor"',
+        rules: '["saved"]',
+        getItem: (key: string) =>
+          key === 'mode' ? '"interceptor"' : key === 'rules' ? '["saved"]' : null,
+        removeItem: () => {
+          if (operation === 'remove') throw new Error('localStorage denied')
+        },
+        clear: () => {
+          if (operation === 'clear') throw new Error('localStorage denied')
+        },
+      })
+      const { clearStorage, getStorage, initStorage, removeStorage } =
+        await import('../src/storage')
+      await initStorage()
+
+      const result = operation === 'remove' ? removeStorage(['mode', 'rules']) : clearStorage()
+      await expect(result).rejects.toThrow('localStorage denied')
+
+      expect(getStorage('mode')).toBe('interceptor')
+      expect(getStorage('rules')).toEqual(['saved'])
+      expect(errorLog).toHaveBeenCalled()
+      expect(dispatchEvent).toHaveBeenCalledOnce()
+      expect(dispatchEvent.mock.calls[0][0]).toMatchObject({
+        type: 'ajax-proxy:storage-error',
+        detail: {
+          operation,
+          ...(operation === 'remove' ? { key: 'mode,rules' } : {}),
+          message: 'localStorage denied',
+        },
+      })
+    }
+  )
+
+  it.each(['read', 'write'] as const)(
+    'keeps the cached value and reports an ordinary webpage localStorage %s failure',
+    async (operation) => {
+      let shouldFail = false
+      const errorLog = vi.spyOn(console, 'error').mockImplementation(() => {})
+      const dispatchEvent = vi.fn()
+      vi.stubGlobal('dispatchEvent', dispatchEvent)
+      vi.stubGlobal('chrome', undefined)
+      vi.stubGlobal('localStorage', {
+        mode: '"interceptor"',
+        getItem: () => {
+          if (operation === 'read' && shouldFail) throw new Error('localStorage denied')
+          return '"interceptor"'
+        },
+        setItem: () => {
+          if (operation === 'write' && shouldFail) throw new Error('localStorage denied')
+        },
+      })
+      const { getRealStorage, getStorage, initStorage, setStorage } = await import('../src/storage')
+      await initStorage()
+      shouldFail = true
+
+      const result =
+        operation === 'read'
+          ? getRealStorage('mode' as StorageKey)
+          : setStorage('mode', 'redirector')
+      await expect(result).rejects.toThrow('localStorage denied')
+
+      expect(getStorage('mode')).toBe('interceptor')
+      expect(errorLog).toHaveBeenCalled()
+      expect(dispatchEvent).toHaveBeenCalledOnce()
+      expect(dispatchEvent.mock.calls[0][0]).toMatchObject({
+        type: 'ajax-proxy:storage-error',
+        detail: {
+          operation,
+          key: 'mode',
+          message: 'localStorage denied',
+        },
+      })
+    }
+  )
+})

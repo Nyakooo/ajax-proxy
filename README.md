@@ -1,96 +1,106 @@
-<br>
-
-<h1 align="center">Ajax Proxy</h1>
-
-<br>
-
-<h4 align="center">A browser plugin based on Chromium kernel · Tools for Developers · For the modification of web-side response</h4>
-
-<p align="center">
-  <a href="https://github.com/g0ngjie/ajax-proxy/blob/master/LICENSE">
-    <img alt="GitHub" src="https://img.shields.io/github/license/g0ngjie/ajax-proxy"/>
-  </a>
-  <a href="https://chrome.google.com/webstore/detail/ajax-proxy/jbikjaejnjfbloojafllmdiknfndgljo" target="__blank">
-    <img src="https://img.shields.io/chrome-web-store/v/jbikjaejnjfbloojafllmdiknfndgljo.svg?logo=Google%20Chrome&logoColor=white&color=red&style=flat-square" alt="chrome web store">
-  </a>
-  <a href="https://chrome.google.com/webstore/detail/ajax-proxy/jbikjaejnjfbloojafllmdiknfndgljo" target="__blank">
-    <img src="https://img.shields.io/chrome-web-store/stars/jbikjaejnjfbloojafllmdiknfndgljo.svg?logo=Google%20Chrome&logoColor=white&color=red&style=flat-square" alt="chrome rating">
-  </a>
-  <!-- Temporary badges for edge -->
-  <a href="https://microsoftedge.microsoft.com/addons/detail/ajax-proxy/iladajdkobpmadjfpeginhngnneaoefi" target="__blank">
-    <img src="https://img.shields.io/badge/dynamic/json?label=edge%20add-on&style=flat-square&prefix=v&query=%24.version&url=https%3A%2F%2Fmicrosoftedge.microsoft.com%2Faddons%2Fgetproductdetailsbycrxid%2Filadajdkobpmadjfpeginhngnneaoefi" alt="edge addons">
-  </a>
-  <a href="https://microsoftedge.microsoft.com/addons/detail/ajax-proxy/iladajdkobpmadjfpeginhngnneaoefi" target="__blank">
-    <img src="https://img.shields.io/badge/dynamic/json?label=users&style=flat-square&query=%24.activeInstallCount&url=https%3A%2F%2Fmicrosoftedge.microsoft.com%2Faddons%2Fgetproductdetailsbycrxid%2Filadajdkobpmadjfpeginhngnneaoefi" alt="edge users">
-  </a>
-</p>
-
 <div align="center">
-<strong>
+  <img src="docs/brand/ajax-proxy-mark-dark.png" width="76" height="76" alt="Ajax Proxy logo" />
+  <h1>Ajax Proxy</h1>
+  <p><strong>Shape API responses. Keep development moving.</strong></p>
+  <p>Mock missing endpoints, redirect requests, and test edge cases from your Chromium browser.</p>
 
-English | [中文](README.zh.md)
+  <p>
+    <a href="https://github.com/Nyakooo/ajax-proxy/actions/workflows/ci.yml?query=branch%3Amaster"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/Nyakooo/ajax-proxy/ci.yml?branch=master&label=CI"></a>
+    <a href="LICENSE"><img alt="MIT license" src="https://img.shields.io/github/license/Nyakooo/ajax-proxy"></a>
+    <a href="https://github.com/Nyakooo/ajax-proxy/stargazers"><img alt="GitHub stars" src="https://img.shields.io/github/stars/Nyakooo/ajax-proxy?style=social"></a>
+    <a href="https://chrome.google.com/webstore/detail/ajax-proxy/jbikjaejnjfbloojafllmdiknfndgljo"><img alt="Chrome Web Store version" src="https://img.shields.io/chrome-web-store/v/jbikjaejnjfbloojafllmdiknfndgljo?logo=googlechrome&logoColor=white"></a>
+    <a href="https://microsoftedge.microsoft.com/addons/detail/ajax-proxy/iladajdkobpmadjfpeginhngnneaoefi"><img alt="Microsoft Edge Add-ons" src="https://img.shields.io/badge/Edge%20Add--ons-available-0078D7?logo=microsoftedge&logoColor=white"></a>
+  </p>
 
-</strong>
+  <p><strong>V3.0.0 stable release · Chrome and Microsoft Edge Stable</strong><br>Mock missing APIs, redirect requests, and shape supported Fetch and XHR responses in your browser.</p>
+  <p><a href="https://github.com/Nyakooo/ajax-proxy/releases/tag/v3.0.0"><strong>Download Ajax Proxy 3.0.0</strong></a> · <a href="https://chrome.google.com/webstore/detail/ajax-proxy/jbikjaejnjfbloojafllmdiknfndgljo">Chrome Web Store</a> · <a href="https://microsoftedge.microsoft.com/addons/detail/ajax-proxy/iladajdkobpmadjfpeginhngnneaoefi">Edge Add-ons</a></p>
+  <p>
+    <a href="#install-v3-300"><strong>Install V3.0.0</strong></a> ·
+    <a href="docs/V3-RULE-MODEL.zh.md">Rule model</a> ·
+    <a href="docs/V3-BACKUP-RESTORE.zh.md">Backup &amp; restore</a> ·
+    <a href="https://github.com/Nyakooo/ajax-proxy/issues">Issues</a>
+  </p>
+  <p>English | <a href="README.zh.md">简体中文</a></p>
 </div>
 
-## When to use
+<p align="center">
+  <img src="media/ajax-proxy-v3-showcase.svg" alt="Ajax Proxy 3.0.0 matching a request and returning a configured JSON mock response" width="100%">
+</p>
 
-- When actual data fails to meet expected results, mocking data is needed.
-- In development or production stages, verification of exceptional scenarios or edge cases is necessary.
-- The frequent changes in interface data hinder the development process.
-- When a certain interface returns a 404 error.
+## Why Ajax Proxy?
 
-## Installation
+A page can request an API before its backend is ready—or when you need to reproduce a failure that is hard to trigger. Ajax Proxy lets you define the response in the browser, so you can keep building and verify the UI without changing application code or waiting for a server fixture.
 
-[Microsoft Edge](https://microsoftedge.microsoft.com/addons/detail/ajax-proxy/iladajdkobpmadjfpeginhngnneaoefi)
+## What you can do
 
-[Google Chrome](https://chrome.google.com/webstore/detail/ajax-proxy/jbikjaejnjfbloojafllmdiknfndgljo)
+- **Mock API responses:** Match a URL and method, then return a configured JSON body and status to Fetch or supported asynchronous XHR calls. The browser request is fulfilled by the extension; the server does not need to implement that endpoint.
+- **Redirect requests:** Send matching requests to another URL, add static request headers, exclude selected URLs, or compute a Fetch redirect with a restricted function.
+- **Cover edge cases:** Reproduce empty data, validation failures, error statuses, and other response scenarios on demand.
+- **Manage rules in context:** Search and filter rules, pin important ones, group with tags, and quickly toggle the extension or rules for the current site. When several rules match, the first enabled match in list order wins.
+- **Inspect confirmed outcomes:** Temporarily enable request diagnostics to see whether an action was applied, fell back, failed, or is unsupported.
+- **Use functions where needed:** V3 can calculate JSON responses and redirect targets with a restricted sandbox. Function actions apply to Fetch; XHR retains its original response or URL.
+- **Back up and restore V3 rules:** Export a portable V3 configuration before moving or resetting your browser profile.
 
-## Examples
+Ajax Proxy runs as a browser extension; it does not require an Ajax Proxy account or hosted service. V3 targets Chrome 141+ and Microsoft Edge 140+ on Stable channels; see the [browser compatibility policy](docs/V3-BROWSER-COMPATIBILITY.zh.md) for the support window.
 
-Video: [https://www.youtube.com/watch?v=F\_\_7LXBqnvQ&list=PLniy0-3-8-V1ZhsmG6\_\_HdOJBAschGWSt](https://www.youtube.com/watch?v=F__7LXBqnvQ&list=PLniy0-3-8-V1ZhsmG6__HdOJBAschGWSt)
+### Mock an API in a few steps
 
-<!-- ![interceptor](https://github.com/g0ngjie/ajax-proxy/wiki/images/interceptor-1.png) -->
+1. Select the extension icon, open the **full panel** from the popup, and choose **Create rule**.
+2. Enter a URL (a URL fragment works) and a request method. Keep `ANY` to match every method.
+3. Choose a static JSON response, set **Response behavior** to **Mock: skip the real request**, enter a status and JSON body, then save and enable the rule.
+4. Make sure the extension and current-site switches are on, then trigger the matching request from the page. Fetch and supported asynchronous XHR calls receive the configured response without sending a real request.
 
-![operation.gif](media/operation.gif)
+The panel labels a mock hit **Mock skipped the real network request** and shows the returned status. Use this mode when an endpoint does not exist yet or when you need a fixed response. The regular response-replacement mode sends the real request first and then replaces its response; function responses also need a real response as input and currently apply to Fetch only.
 
-![zhihu](https://github.com/g0ngjie/ajax-proxy/wiki/images/zhihu-ajaxproxy.png)
+## Install V3 3.0.0
 
-## FAQ
+> **Upgrade note:** V2 and V3 rules and backup files use incompatible formats. V3 does not migrate old data. Export and keep a V2 backup before upgrading, then recreate the rules you still need.
 
-1. Data interception does not work
-   - You can switch between `interceptor` and `redirector` to solve the Ajax referencing problem
-     ![issues_checked](https://github.com/g0ngjie/ajax-proxy/wiki/images/issues_checked.png)
-   - You can select the `Network` section in Developer Tools and disable caching by checking ☑️
-     ![issues_disabled_cache](https://github.com/g0ngjie/ajax-proxy/wiki/images/issues_disabled_cache.png)
-2. [Function-based response explanation](README.func.md)
+Download the `ajax-proxy-3.0.0.zip` asset from the [V3.0.0 GitHub release](https://github.com/Nyakooo/ajax-proxy/releases/tag/v3.0.0), unzip it, and load the extracted folder in Chrome (`chrome://extensions`) or Edge (`edge://extensions`):
 
-## Monorepo
+1. Turn on **Developer mode**.
+2. Select **Load unpacked**.
+3. Choose the extracted folder containing `manifest.json`.
+4. Open the extension popup and choose **Open full panel** to manage rules.
 
-| Package                                           | Description                              |
-| ------------------------------------------------- | ---------------------------------------- |
-| [@proxy/compatibility](./packages/compatibility/) | Old Data Compatibility Library           |
-| [@proxy/lib](./packages/proxy-lib/)               | Manipulating the Ajax Core Logic Library |
-| [@proxy/shared-utils](./packages/shared-utils/)   | Public Class Libraries                   |
-| [@proxy/shell-chrome](./packages/shell-chrome/)   | Browser Extension Library                |
-| [@proxy/vue-panels](./packages/vue-panels/)       | Application Operator Panel               |
+To build from source, use Node.js `>=24.21.0 <25` and pnpm `12.6`:
 
-## Use of source code
+```sh
+git clone https://github.com/Nyakooo/ajax-proxy.git
+cd ajax-proxy
+pnpm install --frozen-lockfile
+pnpm build
+```
 
-1. Download the corresponding version of [Source code](https://github.com/g0ngjie/ajax-proxy/releases) and unzip it
-2. Open `Developer mode` in your browser
-3. Then just load the unpacked folder
+The production build is at `packages/shell-chrome/build`. V3.0.0 was functionally validated on Chrome Stable and Microsoft Edge Stable; see the [migration notes](docs/V3-PANEL-MIGRATION.zh.md), [browser compatibility](docs/V3-BROWSER-COMPATIBILITY.zh.md), and [acceptance record](docs/V3-TESTING.zh.md). The store listings may show their previous package until their review is complete.
 
-## Testing
+## Documentation
 
-You can test it directly in [Swagger](https://petstore.swagger.io/)
+- [V3 rule model and matching priority](docs/V3-RULE-MODEL.zh.md)
+- [V3 backup and restore](docs/V3-BACKUP-RESTORE.zh.md)
+- [V3 migration status and known gaps](docs/V3-PANEL-MIGRATION.zh.md)
+- [V3 browser compatibility](docs/V3-BROWSER-COMPATIBILITY.zh.md)
+- [Custom response functions and sandbox limits](docs/V3-USER-FUNCTIONS.zh.md)
+- [Permissions and security boundaries](docs/V3-PERMISSIONS.zh.md)
+- [Changelog](CHANGELOG.md) · [简体中文更新日志](CHANGELOG.zh.md)
+- [Legacy V2 function reference (not for V3)](README.func.md)
 
-## ⭐ Stargazers
+Most detailed design and implementation notes are currently maintained in Chinese. The Chrome and Edge links above point to the existing listings; store availability can lag behind the GitHub release while an update is under review.
 
-Thanks for your support!
+## Demo
 
-[![Stargazers for ajax-proxy](https://reporoster.com/stars/g0ngjie/ajax-proxy)](https://github.com/g0ngjie/ajax-proxy/stargazers)
+The animation below shows the **legacy V2 interface** and is kept for historical reference; it is not a screenshot of the V3.0.0 release.
+
+<details>
+  <summary>Show the legacy V2 demo</summary>
+  <p>See the <a href="https://www.youtube.com/watch?v=F__7LXBqnvQ&list=PLniy0-3-8-V1ZhsmG6__HdOJBAschGWSt">legacy walkthrough videos on YouTube</a>.</p>
+  <p><img src="media/operation.gif" alt="Legacy Ajax Proxy V2 interface demo"></p>
+</details>
+
+## Contributing
+
+Bug reports and feature proposals are welcome through [GitHub Issues](https://github.com/Nyakooo/ajax-proxy/issues). Include browser and extension versions plus minimal reproduction steps. For larger changes, open an issue first to agree on scope; keep pull requests focused and include user-visible behavior and functional verification. Remove real request data, cookies, tokens, personal information, and private function code before sharing logs or backups. The default branch is `master`.
 
 ## License
 
-Ajax Proxy is [MIT licensed](LICENSE).
+Ajax Proxy is released under the [MIT License](LICENSE).

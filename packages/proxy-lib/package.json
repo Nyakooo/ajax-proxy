@@ -22,9 +22,11 @@
   },
   "license": "MIT",
   "devDependencies": {
-    "vite": "^2.9.13"
+    "vite": "^6.4.3"
   },
   "dependencies": {
-    "@proxy/shared-utils": "workspace:^1.0.0"
+    "@proxy/protocol": "workspace:^1.0.0",
+    "@proxy/v3-domain": "workspace:^",
+    "re2js": "2.8.6"
   }
 }

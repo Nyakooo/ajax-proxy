@@ -1,88 +1,199 @@
 // console.log("Ajax proxy content.js")
 
 import {
-    initStorage,
-    NoticeTo,
-    NoticeFrom,
-    NoticeKey,
-    StorageKey,
-    noticeDocumentByContent,
-    noticeServiceWorkerByContent,
-    getStorageAll,
-    setStorage,
-    getRealStorage,
-    removeStorage,
-} from "@proxy/shared-utils";
-import { CONNECT_NAME, INIT_CURRENT_TITLE, NOTICE_KEY_REFRESH_GLOBAL_STATE } from "./consts";
-import { onLoadForDataConversion } from "@proxy/compatibility";
+  initStorage,
+  NoticeTo,
+  NoticeKey,
+  StorageKey,
+  noticeDocumentByContent,
+  noticeServiceWorkerByContent,
+  getStorage,
+  getStorageSnapshot,
+} from '@proxy/shared-utils'
+import { CONNECT_NAME, INIT_CURRENT_TITLE, NOTICE_KEY_REFRESH_GLOBAL_STATE } from './consts'
+import { isPageBadgeHit } from './messageValidation'
+import {
+  isV3FetchOutcome,
+  isV3FunctionError,
+  isV3Hit,
+  isV3NoMatch,
+  isV3XHROutcome,
+} from '@proxy/protocol'
 
-// 在页面上插入代码
-const script = document.createElement("script");
-script.setAttribute("type", "text/javascript");
-script.setAttribute("src", chrome.runtime.getURL("document.js"));
-document.documentElement.appendChild(script);
+const V3_FUNCTION_SANDBOX_FRAME_ID = 'ajax-proxy-v3-function-sandbox'
+const V3_FUNCTION_SANDBOX_PATH = 'v3-sandbox/sandbox.html'
+let v3FunctionSandboxObserver: MutationObserver | undefined
 
-initStorage().then(() => {
+function hasEnabledV3Function(value: unknown): boolean {
+  try {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return false
+    const config = value as { settings?: { globalEnabled?: unknown }; rules?: unknown }
+    if (config.settings?.globalEnabled !== true || !Array.isArray(config.rules)) return false
+    return config.rules.some((candidate) => {
+      if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate)) return false
+      const rule = candidate as {
+        enabled?: unknown
+        response?: { enabled?: unknown; replace?: { code?: unknown } }
+        request?: { enabled?: unknown; redirect?: { type?: unknown; code?: unknown } }
+      }
+      if (rule.enabled !== true) return false
+      const hasResponseFunction =
+        rule.response?.enabled === true &&
+        typeof rule.response.replace?.code === 'string' &&
+        rule.response.replace.code.trim() !== ''
+      const hasRedirectFunction =
+        rule.request?.enabled === true &&
+        rule.request.redirect?.type === 'function' &&
+        typeof rule.request.redirect.code === 'string' &&
+        rule.request.redirect.code.trim() !== ''
+      return hasResponseFunction || hasRedirectFunction
+    })
+  } catch {
+    return false
+  }
+}
+
+function updateV3FunctionSandbox(value: unknown): void {
+  const shouldExist = hasEnabledV3Function(value)
+  const extensionUrl = chrome.runtime.getURL(V3_FUNCTION_SANDBOX_PATH)
+  const existing = document.getElementById(V3_FUNCTION_SANDBOX_FRAME_ID) as HTMLIFrameElement | null
+
+  if (!shouldExist) {
+    v3FunctionSandboxObserver?.disconnect()
+    v3FunctionSandboxObserver = undefined
+    existing?.remove()
+    return
+  }
+
+  const ensureFrame = () => {
+    if (!document.documentElement) return
+    const current = document.getElementById(
+      V3_FUNCTION_SANDBOX_FRAME_ID
+    ) as HTMLIFrameElement | null
+    if (current?.getAttribute('src') === extensionUrl) return
+    current?.remove()
+    const frame = document.createElement('iframe')
+    frame.id = V3_FUNCTION_SANDBOX_FRAME_ID
+    frame.src = extensionUrl
+    frame.hidden = true
+    frame.setAttribute('aria-hidden', 'true')
+    frame.setAttribute('tabindex', '-1')
+    frame.title = 'Ajax Proxy V3 function sandbox'
+    document.documentElement.append(frame)
+  }
+
+  ensureFrame()
+  if (v3FunctionSandboxObserver) return
+  v3FunctionSandboxObserver = new MutationObserver(ensureFrame)
+  v3FunctionSandboxObserver.observe(document, {
+    childList: true,
+    subtree: true,
+    attributes: true,
+    attributeFilter: ['src', 'id'],
+  })
+}
+
+initStorage()
+  .then(() => {
+    const { GLOBAL_SWITCH, MODE, INTERCEPT_LIST, REDIRECT_LIST, V3_CONFIG } = StorageKey
+    const legacyConfigKeys = [GLOBAL_SWITCH, MODE, INTERCEPT_LIST, REDIRECT_LIST]
+    chrome.storage.onChanged.addListener((changes, areaName) => {
+      if (areaName !== 'local') return
+      const changedKeys = new Set(Object.keys(changes))
+      if (legacyConfigKeys.some((key) => changedKeys.has(key))) {
+        const currentState = {
+          [GLOBAL_SWITCH]: getStorage(GLOBAL_SWITCH, false),
+          [MODE]: getStorage(MODE, 'interceptor'),
+          [INTERCEPT_LIST]: getStorage(INTERCEPT_LIST, []),
+          [REDIRECT_LIST]: getStorage(REDIRECT_LIST, []),
+        }
+        noticeDocumentByContent(NOTICE_KEY_REFRESH_GLOBAL_STATE, currentState)
+      }
+      if (changedKeys.has(V3_CONFIG)) {
+        const currentV3Config = getStorage(V3_CONFIG, null)
+        updateV3FunctionSandbox(currentV3Config)
+        noticeDocumentByContent(NoticeKey.V3_CONFIG, currentV3Config)
+      }
+      if (changedKeys.has(StorageKey.V3_DIAGNOSTICS_ARMED)) {
+        noticeDocumentByContent(
+          NoticeKey.V3_DIAGNOSTICS_ARMED,
+          getStorage(StorageKey.V3_DIAGNOSTICS_ARMED, false) === true
+        )
+      }
+      if (changedKeys.has(StorageKey.V3_FETCH_OUTCOMES_ARMED)) {
+        noticeDocumentByContent(
+          NoticeKey.V3_FETCH_OUTCOMES_ARMED,
+          getStorage(StorageKey.V3_FETCH_OUTCOMES_ARMED, false) === true
+        )
+      }
+    })
+
     // 发送当前tab页 title
     noticeServiceWorkerByContent(INIT_CURRENT_TITLE, window.document.title)
 
-    // document.js 资源加载
-    script.addEventListener("load", async () => {
-        // 获取 全局开关、模式、拦截列表、重定向列表
-        const data = await getStorageAll();
-        // 新老数据转换
-        const { changed, data: getData, changeKeywords } = onLoadForDataConversion(data)
-        // 如果有老数据变更新数据，则需要在这里 setStorage
-        if (changed) {
-            setStorage(StorageKey.GLOBAL_SWITCH, getData.global_on)
-            setStorage(StorageKey.MODE, getData.mode)
-            setStorage(StorageKey.INTERCEPT_LIST, getData.interceptor_matching_content)
-            setStorage(StorageKey.REDIRECT_LIST, getData.redirector_matching_content)
-            // 需要清理对应旧数据，不然始终会进到当前判断条件中
-            removeStorage(changeKeywords)
-        }
-        const getGlobalSwtich = getData[StorageKey.GLOBAL_SWITCH] || false
-        if (getGlobalSwtich) noticeDocumentByContent(NOTICE_KEY_REFRESH_GLOBAL_STATE, getData)
-    });
+    // document.js 由 manifest 在主世界、document_start 阶段静态注入。
+    // 主世界需要看到规则才能代理页面请求，因此同步内容仍按不可信页面输入处理。
+    const data = getStorageSnapshot()
+    const globalSwitchOn = data[StorageKey.GLOBAL_SWITCH] || false
+    if (globalSwitchOn) noticeDocumentByContent(NOTICE_KEY_REFRESH_GLOBAL_STATE, data)
+    // V3 uses its own storage schema. Historical keys are neither converted nor removed.
+    const initialV3Config = data[StorageKey.V3_CONFIG] ?? null
+    updateV3FunctionSandbox(initialV3Config)
+    noticeDocumentByContent(NoticeKey.V3_CONFIG, initialV3Config)
+    noticeDocumentByContent(
+      NoticeKey.V3_DIAGNOSTICS_ARMED,
+      data[StorageKey.V3_DIAGNOSTICS_ARMED] === true
+    )
+    noticeDocumentByContent(
+      NoticeKey.V3_FETCH_OUTCOMES_ARMED,
+      data[StorageKey.V3_FETCH_OUTCOMES_ARMED] === true
+    )
 
-    // 长链接通信接收 service-worker -> document
-    const port = chrome.runtime.connect({ name: CONNECT_NAME });
-    // 接收service-worker 传来的信息，转发给 document.js
-    port.onMessage.addListener(function (msg) {
-        if (msg.from === NoticeFrom.SERVICE_WORKER && msg.to === NoticeTo.CONTENT) {
-            const { GLOBAL_SWITCH, INTERCEPT_LIST, REDIRECT_LIST, MODE } = NoticeKey
-            if ([GLOBAL_SWITCH, INTERCEPT_LIST, REDIRECT_LIST, MODE].includes(msg.key)) {
-                // 注意：如果是全局开关开启的话，需要预先通知更新 mode模式
-                if (
-                    // 全局开关
-                    msg.key === GLOBAL_SWITCH &&
-                    // 开启状态下
-                    msg.value
-                ) {
-                    // content-script 所有 getStorage 都必须访问真实实例，不能走缓存
-                    getRealStorage(StorageKey.MODE, 'interceptor').then(getMode => {
-                        // 通知 @proxy/lib 先更新 mode
-                        // 如果不更新，lib里始终都是 拦截模式
-                        noticeDocumentByContent(MODE, getMode)
-                    })
-                }
-                noticeDocumentByContent(msg.key, msg.value)
-            }
-        }
-    });
-
+    // 长链接通信接收 service-worker -> document。BFCache 恢复后只重建一次连接；
+    // 其他断开不自动重试，避免后台不可用时形成重连循环。
+    let serviceWorkerPort: chrome.runtime.Port | undefined
+    const connectToServiceWorker = () => {
+      if (serviceWorkerPort) return
+      const port = chrome.runtime.connect({ name: CONNECT_NAME })
+      serviceWorkerPort = port
+      port.onDisconnect.addListener(() => {
+        // Chrome 在页面进入 BFCache 时会关闭端口，并通过 lastError 报告原因。
+        // 读取该属性即可消费 runtime.lastError，避免控制台出现 unchecked 错误。
+        void chrome.runtime.lastError
+        if (serviceWorkerPort === port) serviceWorkerPort = undefined
+      })
+    }
+    connectToServiceWorker()
+    window.addEventListener('pageshow', (event) => {
+      if (!event.persisted) return
+      // 若旧端口的 disconnect 事件尚未派发，也先丢弃它再建立恢复后的连接。
+      const stalePort = serviceWorkerPort
+      serviceWorkerPort = undefined
+      stalePort?.disconnect()
+      connectToServiceWorker()
+    })
     // 接收lib 传来的信息 转发给 service-worker
     // 没有from 属性
     window.addEventListener(
-        NoticeTo.CONTENT,
-        function (event) {
-            const customEvent = event as CustomEvent
-            // 通知徽章上命中率需要变更
-            noticeServiceWorkerByContent(NoticeKey.BADGE_STATUS, customEvent.detail)
-        },
-        false
-    );
-
-})
-
-
+      NoticeTo.CONTENT,
+      function (event) {
+        const customEvent = event as CustomEvent
+        // 页面主世界事件可被网页脚本伪造，因此只将符合命中统计结构的数据转发。
+        if (isPageBadgeHit(customEvent.detail)) {
+          noticeServiceWorkerByContent(NoticeKey.BADGE_STATUS, customEvent.detail)
+        } else if (isV3Hit(customEvent.detail)) {
+          noticeServiceWorkerByContent(NoticeKey.V3_HIT, customEvent.detail)
+        } else if (isV3FunctionError(customEvent.detail)) {
+          noticeServiceWorkerByContent(NoticeKey.V3_FUNCTION_ERROR, customEvent.detail)
+        } else if (isV3NoMatch(customEvent.detail)) {
+          noticeServiceWorkerByContent(NoticeKey.V3_NO_MATCH, customEvent.detail)
+        } else if (isV3FetchOutcome(customEvent.detail) || isV3XHROutcome(customEvent.detail)) {
+          noticeServiceWorkerByContent(NoticeKey.V3_FETCH_OUTCOME, customEvent.detail)
+        }
+      },
+      false
+    )
+  })
+  .catch((error) => {
+    console.error('[AjaxProxy] Content storage initialization failed', error)
+  })

@@ -1,0 +1,2525 @@
+const assert = require('node:assert/strict')
+const { execFileSync } = require('node:child_process')
+const fs = require('node:fs')
+const http = require('node:http')
+const http2 = require('node:http2')
+const os = require('node:os')
+const path = require('node:path')
+const { chromium } = require('playwright')
+
+const createResponseRuleButtonName = /^(?:Create rule|创建规则)$/
+const createRedirectRuleButtonName = /^(?:Create rule|创建规则)$/
+const extensionPath = path.resolve(
+  process.env.AJAX_PROXY_EXTENSION_PATH || path.join(__dirname, '../../packages/shell-chrome/build')
+)
+const manifest = JSON.parse(fs.readFileSync(path.join(extensionPath, 'manifest.json'), 'utf8'))
+
+assert.ok(
+  manifest.web_accessible_resources?.some((entry) =>
+    entry.resources.includes('v3-sandbox/sandbox.html')
+  ),
+  'only the function sandbox host page should be web accessible'
+)
+assert.ok(
+  manifest.content_scripts.some(
+    (script) =>
+      script.js.includes('document.js') &&
+      script.world === 'MAIN' &&
+      script.run_at === 'document_start' &&
+      script.all_frames === true
+  )
+)
+
+async function main() {
+  const requests = []
+  const server = http.createServer((request, response) => {
+    if (request.url === '/import-map') {
+      response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' })
+      response.end(`<!doctype html>
+        <title>Import Map Smoke Page</title>
+        <script type="importmap">
+          { "imports": { "smoke-fixture": "/module-fixture.js" } }
+        </script>
+        <script type="module">
+          import { value } from 'smoke-fixture'
+          document.documentElement.dataset.importMapResult = value
+        </script>`)
+      return
+    }
+
+    if (request.url === '/module-fixture.js') {
+      response.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8' })
+      response.end(`export const value = 'import-map-module-executed'`)
+      return
+    }
+
+    if (request.url === '/') {
+      response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' })
+      response.end(`<!doctype html>
+        <title>Extension Smoke Page</title>
+        <iframe id="child-frame" src="/frame"></iframe>
+        <button id="fetch">Fetch</button>
+        <button id="xhr">XHR</button>
+        <button id="redirect-fetch">Redirect Fetch</button>
+        <pre id="result">ready</pre>
+        <script>
+          const result = document.querySelector('#result')
+          document.querySelector('#fetch').onclick = async () => {
+            const request = new Request('/api/echo', { method: 'POST', body: 'test' })
+            const response = await fetch(request)
+            result.textContent = JSON.stringify({
+              kind: 'fetch', status: response.status, url: response.url,
+              redirected: response.redirected, type: response.type,
+              contentLength: response.headers.get('content-length'), body: await response.text()
+            })
+          }
+          document.querySelector('#xhr').onclick = () => {
+            const request = new XMLHttpRequest()
+            const events = []
+            for (const type of ['loadstart', 'readystatechange', 'progress', 'load', 'loadend']) {
+              request.addEventListener(type, function (event) {
+                events.push({
+                  type: event.type,
+                  thisIsRequest: this === request,
+                  targetIsRequest: event.target === request,
+                  currentTargetIsRequest: event.currentTarget === request,
+                })
+              })
+            }
+            let onloadCalled = false
+            request.onload = () => {
+              onloadCalled = true
+            }
+            request.addEventListener('loadend', () => {
+              result.textContent = JSON.stringify({
+                kind: 'xhr', status: request.status, body: request.responseText, onloadCalled, events
+              })
+            })
+            request.open('POST', '/api/echo')
+            request.send('test')
+          }
+          document.querySelector('#redirect-fetch').onclick = async () => {
+            try {
+              document.cookie = 'redirect-smoke=present; path=/'
+              const request = new Request('/api/echo', {
+                method: 'POST',
+                body: 'redirected body',
+                credentials: 'include',
+                headers: { 'x-original': 'preserved' },
+              })
+              const response = await fetch(request)
+              result.textContent = JSON.stringify({
+                kind: 'redirect-fetch', status: response.status, url: response.url,
+                body: await response.json(),
+              })
+            } catch (error) {
+              result.textContent = JSON.stringify({ kind: 'redirect-error', error: String(error) })
+            }
+          }
+        </script>`)
+      return
+    }
+
+    if (request.url === '/frame') {
+      response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' })
+      response.end(`<!doctype html>
+        <title>Extension Smoke Frame</title>
+        <button id="frame-fetch">Fetch from frame</button>
+        <pre id="frame-result">ready</pre>
+        <script>
+          document.querySelector('#frame-fetch').onclick = async () => {
+            const response = await fetch('/api/echo')
+            document.querySelector('#frame-result').textContent = await response.text()
+          }
+        </script>`)
+      return
+    }
+
+    const chunks = []
+    request.on('data', (chunk) => chunks.push(chunk))
+    request.on('end', () => {
+      requests.push({
+        url: request.url,
+        method: request.method,
+        body: Buffer.concat(chunks).toString(),
+      })
+      if (request.url.startsWith('/mock/echo')) {
+        response.writeHead(200, { 'content-type': 'application/json' })
+        response.end(
+          JSON.stringify({
+            source: 'server',
+            method: request.method,
+            body: Buffer.concat(chunks).toString(),
+            path: request.url,
+            originalHeader: request.headers['x-original'],
+            ...(request.headers['x-keep'] ? { keptHeader: request.headers['x-keep'] } : {}),
+            redirectedHeader: request.headers['x-redirected'],
+            cookie: request.headers.cookie,
+          })
+        )
+        return
+      }
+      const body = JSON.stringify({
+        source: 'server',
+        method: request.method,
+        body: Buffer.concat(chunks).toString(),
+        ...(request.url === '/api/stream-fallback'
+          ? { originalHeader: request.headers['x-original'] }
+          : {}),
+      })
+      response.writeHead(200, {
+        'content-type': 'application/json',
+        'content-length': Buffer.byteLength(body),
+      })
+      response.end(body)
+    })
+  })
+
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve))
+  const { port } = server.address()
+  const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ajax-proxy-extension-smoke-'))
+  const streamRequests = []
+  let streamServer
+  let streamOrigin
+  let certificateDir
+  const contextOptions = {
+    channel: process.env.BROWSER_EXECUTABLE_PATH
+      ? undefined
+      : process.env.BROWSER_CHANNEL || 'chromium',
+    executablePath: process.env.BROWSER_EXECUTABLE_PATH,
+    headless: process.env.EXTENSION_SMOKE_HEADLESS !== '0',
+    acceptDownloads: true,
+    ignoreHTTPSErrors: true,
+    args: [`--disable-extensions-except=${extensionPath}`, `--load-extension=${extensionPath}`],
+  }
+  let context
+
+  try {
+    certificateDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ajax-proxy-stream-smoke-'))
+    const keyPath = path.join(certificateDir, 'key.pem')
+    const certificatePath = path.join(certificateDir, 'certificate.pem')
+    execFileSync(
+      'openssl',
+      [
+        'req',
+        '-x509',
+        '-newkey',
+        'rsa:2048',
+        '-keyout',
+        keyPath,
+        '-out',
+        certificatePath,
+        '-sha256',
+        '-days',
+        '1',
+        '-nodes',
+        '-subj',
+        '/CN=127.0.0.1',
+        '-addext',
+        'subjectAltName=IP:127.0.0.1',
+      ],
+      { stdio: 'pipe' }
+    )
+    // Chromium rejects streamed Fetch request bodies on HTTP/1.x, so exercise them over HTTPS/HTTP2.
+    streamServer = http2.createSecureServer(
+      {
+        key: fs.readFileSync(keyPath),
+        cert: fs.readFileSync(certificatePath),
+        allowHTTP1: true,
+      },
+      (request, response) => {
+        if (request.method === 'GET' && request.url === '/') {
+          response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' })
+          response.end('<!doctype html><title>V3 Stream Smoke Page</title>')
+          return
+        }
+        if (request.method === 'GET' && request.url === '/favicon.ico') {
+          response.writeHead(204)
+          response.end()
+          return
+        }
+
+        const chunks = []
+        request.on('data', (chunk) => chunks.push(chunk))
+        request.on('end', () => {
+          const body = Buffer.concat(chunks).toString()
+          streamRequests.push({
+            url: request.url,
+            method: request.method,
+            body,
+            httpVersion: request.httpVersion,
+          })
+          const result =
+            request.url === '/api/stream-fallback'
+              ? {
+                  source: 'server',
+                  method: request.method,
+                  body,
+                  originalHeader: request.headers['x-original'],
+                }
+              : {
+                  source: 'server',
+                  method: request.method,
+                  body,
+                  path: request.url,
+                  originalHeader: request.headers['x-original'],
+                  redirectedHeader: request.headers['x-redirected'],
+                  cookie: request.headers.cookie,
+                }
+          response.writeHead(200, { 'content-type': 'application/json' })
+          response.end(JSON.stringify(result))
+        })
+      }
+    )
+    await new Promise((resolve) => streamServer.listen(0, '127.0.0.1', resolve))
+    streamOrigin = `https://127.0.0.1:${streamServer.address().port}`
+
+    context = await chromium.launchPersistentContext(userDataDir, contextOptions)
+
+    const serviceWorker =
+      context.serviceWorkers()[0] || (await context.waitForEvent('serviceworker'))
+    const extensionId = new URL(serviceWorker.url()).host
+    const panel = await context.newPage()
+    panel.setDefaultTimeout(10000)
+
+    await panel.goto(`chrome-extension://${extensionId}/panels-v3/index.html`)
+
+    const page = await context.newPage()
+    const secondPage = await context.newPage()
+    page.on('pageerror', (error) => console.error('Extension smoke page error:', error))
+    secondPage.on('pageerror', (error) =>
+      console.error('Extension smoke second page error:', error)
+    )
+    page.on('console', (message) => {
+      if (message.type() === 'error')
+        console.error('Extension smoke console error:', message.text())
+    })
+    secondPage.on('console', (message) => {
+      if (message.type() === 'error')
+        console.error('Extension smoke second page console error:', message.text())
+    })
+    page.on('requestfailed', (request) => {
+      if (request.url().includes('/api/stream') || request.url().includes('/mock/echo')) {
+        if (request.failure()?.errorText === 'net::ERR_ABORTED') return
+        console.error(
+          'Extension smoke request failed:',
+          request.method(),
+          request.url(),
+          request.failure()?.errorText
+        )
+      }
+    })
+    await page.goto(`http://127.0.0.1:${port}/`)
+    await secondPage.goto(`http://127.0.0.1:${port}/`)
+    const importMapPage = await context.newPage()
+    const importMapPageErrors = []
+    importMapPage.on('pageerror', (error) => importMapPageErrors.push(error.message))
+    await importMapPage.goto(`http://127.0.0.1:${port}/import-map`)
+    await importMapPage.waitForFunction(
+      () => document.documentElement.dataset.importMapResult === 'import-map-module-executed'
+    )
+    assert.deepEqual(importMapPageErrors, [], 'import map module must execute without page errors')
+    await importMapPage.close()
+    const activeTab = await panel.evaluate(() =>
+      chrome.tabs.query({ active: true, lastFocusedWindow: true }).then((tabs) => tabs[0])
+    )
+    assert.equal(activeTab.title, 'Extension Smoke Page')
+
+    const v3ResponseBody = { source: 'v3-intercepted', ok: true }
+    await panel.evaluate(({ key, backup }) => chrome.storage.local.set({ [key]: backup }), {
+      key: 'ajax-proxy:storage:v3-config',
+      backup: {
+        format: 'ajax-proxy-backup',
+        formatVersion: 3,
+        settings: { globalEnabled: true, mode: 'interceptor', language: 'en' },
+        tags: [],
+        rules: [
+          {
+            id: 'v3-extension-smoke',
+            enabled: true,
+            match: { url: '/api/echo', method: 'POST' },
+            request: {
+              enabled: true,
+              redirect: { url: `http://127.0.0.1:${port}/mock/echo` },
+            },
+            response: {
+              enabled: true,
+              replace: { status: 202, body: v3ResponseBody },
+            },
+          },
+          {
+            id: 'v3-stream-redirect-extension-smoke',
+            enabled: true,
+            match: { url: '/api/stream$', type: 'regex', method: 'POST' },
+            request: {
+              enabled: true,
+              redirect: { url: `${streamOrigin}/mock/echo` },
+            },
+          },
+          {
+            id: 'v3-stream-fallback-extension-smoke',
+            enabled: true,
+            match: { url: '/api/stream-fallback', method: 'POST' },
+            request: {
+              enabled: true,
+              redirect: { url: `${streamOrigin}/mock/stream-fallback` },
+            },
+          },
+          {
+            id: 'v3-regex-extension-smoke',
+            enabled: true,
+            match: { url: '/api/(echo|items)$', type: 'regex', method: 'POST' },
+            response: {
+              enabled: true,
+              replace: { status: 203, body: { source: 'v3-regex-intercepted', ok: true } },
+            },
+          },
+        ],
+      },
+    })
+    await page.reload()
+    const legacyHitState = await serviceWorker.evaluate(
+      async (key) => (await chrome.storage.local.get(key))[key],
+      'ajax-proxy:storage:intercept-list'
+    )
+    assert.equal(await page.evaluate(() => XMLHttpRequest.UNSENT), 0)
+    const v3FetchResult = await page.evaluate(async () => {
+      const response = await fetch('/api/echo', { method: 'POST', body: 'v3 fetch' })
+      return { status: response.status, url: response.url, body: await response.json() }
+    })
+    assert.deepEqual(v3FetchResult, {
+      status: 202,
+      url: `http://127.0.0.1:${port}/mock/echo`,
+      body: v3ResponseBody,
+    })
+    const v3XhrResult = await page.evaluate(
+      () =>
+        new Promise((resolve) => {
+          const request = new XMLHttpRequest()
+          request.onload = () =>
+            resolve({
+              status: request.status,
+              url: request.responseURL,
+              body: JSON.parse(request.responseText),
+            })
+          request.open('POST', '/api/echo')
+          request.send('v3 xhr')
+        })
+    )
+    assert.deepEqual(v3XhrResult, {
+      status: 202,
+      url: `http://127.0.0.1:${port}/mock/echo`,
+      body: v3ResponseBody,
+    })
+    const siteOrigin = new URL(page.url()).origin
+    await serviceWorker.evaluate(
+      async ({ key, origin }) => {
+        const config = (await chrome.storage.local.get(key))[key]
+        await chrome.storage.local.set({
+          [key]: { ...config, formatVersion: 5, disabledOrigins: [origin] },
+        })
+      },
+      { key: 'ajax-proxy:storage:v3-config', origin: siteOrigin }
+    )
+    await page.reload()
+    const siteDisabledFetch = await page.evaluate(async () => {
+      const response = await fetch('/api/echo', { method: 'POST', body: 'site disabled fetch' })
+      return { status: response.status, url: response.url, body: await response.json() }
+    })
+    assert.equal(siteDisabledFetch.status, 200)
+    assert.equal(siteDisabledFetch.url, `http://127.0.0.1:${port}/api/echo`)
+    assert.equal(siteDisabledFetch.body.source, 'server')
+    const siteDisabledXhr = await page.evaluate(
+      () =>
+        new Promise((resolve) => {
+          const request = new XMLHttpRequest()
+          request.onload = () =>
+            resolve({
+              status: request.status,
+              url: request.responseURL,
+              body: request.responseText,
+            })
+          request.open('POST', '/api/echo')
+          request.send('site disabled xhr')
+        })
+    )
+    assert.equal(siteDisabledXhr.status, 200)
+    assert.equal(siteDisabledXhr.url, `http://127.0.0.1:${port}/api/echo`)
+    assert.match(siteDisabledXhr.body, /"source":"server"/)
+    const siteDisabledConfig = await serviceWorker.evaluate(
+      async (key) => (await chrome.storage.local.get(key))[key],
+      'ajax-proxy:storage:v3-config'
+    )
+    assert.deepEqual(siteDisabledConfig.disabledOrigins, [siteOrigin])
+    assert.equal(siteDisabledConfig.rules[0].enabled, true)
+    await serviceWorker.evaluate(async (key) => {
+      const config = (await chrome.storage.local.get(key))[key]
+      await chrome.storage.local.set({ [key]: { ...config, disabledOrigins: [] } })
+    }, 'ajax-proxy:storage:v3-config')
+    await page.reload()
+    const streamPage = await context.newPage()
+    streamPage.setDefaultTimeout(10000)
+    streamPage.on('pageerror', (error) => console.error('Stream smoke page error:', error))
+    streamPage.on('requestfailed', (request) => {
+      if (request.url().includes('/api/stream') || request.url().includes('/mock/echo')) {
+        if (request.failure()?.errorText === 'net::ERR_ABORTED') return
+        console.error(
+          'Stream smoke request failed:',
+          request.method(),
+          request.url(),
+          request.failure()?.errorText
+        )
+      }
+    })
+    await streamPage.goto(`${streamOrigin}/`)
+    await streamPage.evaluate(() => {
+      document.cookie = 'redirect-smoke=present; path=/'
+    })
+    await streamPage.reload()
+    let v3Counters = {}
+    for (let attempt = 0; attempt < 40; attempt += 1) {
+      v3Counters = await serviceWorker.evaluate(
+        async (key) => (await chrome.storage.local.get(key))[key] || {},
+        'ajax-proxy:storage:v3-hits'
+      )
+      if (v3Counters['v3-extension-smoke'] === 2) break
+      await new Promise((resolve) => setTimeout(resolve, 50))
+    }
+    assert.deepEqual(v3Counters, { 'v3-extension-smoke': 2 })
+    assert.deepEqual(
+      await serviceWorker.evaluate(
+        async (key) => (await chrome.storage.local.get(key))[key],
+        'ajax-proxy:storage:intercept-list'
+      ),
+      legacyHitState
+    )
+    assert.equal(await serviceWorker.evaluate(() => chrome.action.getBadgeText({})), '+2')
+
+    let streamedRedirectResult
+    try {
+      streamedRedirectResult = await streamPage.evaluate(async () => {
+        const body = new ReadableStream({
+          start(controller) {
+            controller.enqueue(new TextEncoder().encode('streamed '))
+            controller.enqueue(new TextEncoder().encode('request body'))
+            controller.close()
+          },
+        })
+        const response = await fetch('/api/stream', {
+          method: 'POST',
+          body,
+          duplex: 'half',
+          headers: { 'x-original': 'streamed-preserved' },
+        })
+        return { status: response.status, url: response.url, body: await response.json() }
+      })
+    } catch (error) {
+      console.error('Streaming redirect server requests before failure:', streamRequests)
+      throw error
+    }
+    assert.deepEqual(streamedRedirectResult, {
+      status: 200,
+      url: `${streamOrigin}/mock/echo`,
+      body: {
+        source: 'server',
+        method: 'POST',
+        body: 'streamed request body',
+        path: '/mock/echo',
+        originalHeader: 'streamed-preserved',
+        cookie: 'redirect-smoke=present',
+      },
+    })
+    assert.deepEqual(streamRequests, [
+      {
+        url: '/mock/echo',
+        method: 'POST',
+        body: 'streamed request body',
+        httpVersion: '2.0',
+      },
+    ])
+
+    const streamedFallbackResult = await streamPage.evaluate(async (redirectTarget) => {
+      const body = new ReadableStream({
+        start(controller) {
+          controller.enqueue(new TextEncoder().encode('fallback streamed '))
+          controller.enqueue(new TextEncoder().encode('body intact'))
+          controller.close()
+        },
+      })
+      const NativeRequest = window.Request
+      window.Request = class extends NativeRequest {
+        constructor(input, init) {
+          if (String(input) === redirectTarget) {
+            throw new TypeError('Simulated streaming Request construction failure')
+          }
+          super(input, init)
+        }
+      }
+      try {
+        const response = await fetch('/api/stream-fallback', {
+          method: 'POST',
+          body,
+          duplex: 'half',
+          headers: { 'x-original': 'fallback-preserved' },
+        })
+        return { status: response.status, url: response.url, body: await response.json() }
+      } finally {
+        window.Request = NativeRequest
+      }
+    }, `${streamOrigin}/mock/stream-fallback`)
+    assert.deepEqual(streamedFallbackResult, {
+      status: 200,
+      url: `${streamOrigin}/api/stream-fallback`,
+      body: {
+        source: 'server',
+        method: 'POST',
+        body: 'fallback streamed body intact',
+        originalHeader: 'fallback-preserved',
+      },
+    })
+    assert.deepEqual(streamRequests, [
+      {
+        url: '/mock/echo',
+        method: 'POST',
+        body: 'streamed request body',
+        httpVersion: '2.0',
+      },
+      {
+        url: '/api/stream-fallback',
+        method: 'POST',
+        body: 'fallback streamed body intact',
+        httpVersion: '2.0',
+      },
+    ])
+
+    const v3RegexFetchResult = await page.evaluate(async () => {
+      const response = await fetch('/api/items', { method: 'POST', body: 'regex fetch' })
+      return { status: response.status, body: await response.json() }
+    })
+    assert.deepEqual(v3RegexFetchResult, {
+      status: 203,
+      body: { source: 'v3-regex-intercepted', ok: true },
+    })
+    const v3RegexXhrResult = await page.evaluate(
+      () =>
+        new Promise((resolve) => {
+          const request = new XMLHttpRequest()
+          request.onload = () =>
+            resolve({ status: request.status, body: JSON.parse(request.responseText) })
+          request.open('POST', '/api/items')
+          request.send('regex xhr')
+        })
+    )
+    assert.deepEqual(v3RegexXhrResult, {
+      status: 203,
+      body: { source: 'v3-regex-intercepted', ok: true },
+    })
+    const v3RegexUnmatchedFetchResult = await page.evaluate(async () => {
+      const response = await fetch('/api/nope', { method: 'POST', body: 'unmatched fetch' })
+      return { status: response.status, body: await response.json() }
+    })
+    assert.deepEqual(v3RegexUnmatchedFetchResult, {
+      status: 200,
+      body: { source: 'server', method: 'POST', body: 'unmatched fetch' },
+    })
+    const v3RegexUnmatchedXhrResult = await page.evaluate(
+      () =>
+        new Promise((resolve) => {
+          const request = new XMLHttpRequest()
+          request.onload = () =>
+            resolve({ status: request.status, body: JSON.parse(request.responseText) })
+          request.open('POST', '/api/nope')
+          request.send('unmatched xhr')
+        })
+    )
+    assert.deepEqual(v3RegexUnmatchedXhrResult, {
+      status: 200,
+      body: { source: 'server', method: 'POST', body: 'unmatched xhr' },
+    })
+
+    const runtimeFunctionCode =
+      "return { status: 209, body: { source: 'v3-function', requestBody: request.body, response: JSON.parse(response.body) } }"
+    const functionRule = {
+      id: 'v3-function-extension-smoke',
+      enabled: true,
+      match: { url: '/api/function', method: 'POST' },
+      response: { enabled: true, replace: { code: runtimeFunctionCode } },
+    }
+    const asyncFunctionCode =
+      'return (async () => { await Promise.resolve(); return { status: 210, body: { source: "v3-async-function", requestBody: request.body, response: JSON.parse(response.body) } } })()'
+    const asyncFunctionRule = {
+      id: 'v3-async-function-extension-smoke',
+      enabled: true,
+      match: { url: '/api/async-function', method: 'POST' },
+      response: { enabled: true, replace: { code: asyncFunctionCode } },
+    }
+    await serviceWorker.evaluate(
+      async ({ key, rule, asyncFunctionRule }) => {
+        const config = (await chrome.storage.local.get(key))[key]
+        await chrome.storage.local.set({
+          [key]: { ...config, rules: [...config.rules, rule, asyncFunctionRule] },
+        })
+      },
+      { key: 'ajax-proxy:storage:v3-config', rule: functionRule, asyncFunctionRule }
+    )
+    await page.reload()
+    await page.waitForFunction(() =>
+      Boolean(document.getElementById('ajax-proxy-v3-function-sandbox'))
+    )
+    const functionFetchResult = await page.evaluate(async () => {
+      const response = await fetch('/api/function', { method: 'POST', body: 'function request' })
+      return { status: response.status, body: await response.json() }
+    })
+    assert.deepEqual(functionFetchResult, {
+      status: 209,
+      body: {
+        source: 'v3-function',
+        requestBody: 'function request',
+        response: { source: 'server', method: 'POST', body: 'function request' },
+      },
+    })
+    const asyncFunctionFetchResult = await page.evaluate(async () => {
+      const response = await fetch('/api/async-function', {
+        method: 'POST',
+        body: 'async function request',
+      })
+      return { status: response.status, body: await response.json() }
+    })
+    assert.deepEqual(asyncFunctionFetchResult, {
+      status: 210,
+      body: {
+        source: 'v3-async-function',
+        requestBody: 'async function request',
+        response: { source: 'server', method: 'POST', body: 'async function request' },
+      },
+    })
+    const functionXhrResult = await page.evaluate(
+      () =>
+        new Promise((resolve) => {
+          const request = new XMLHttpRequest()
+          request.onload = () =>
+            resolve({ status: request.status, body: JSON.parse(request.responseText) })
+          request.open('POST', '/api/function')
+          request.send('function request')
+        })
+    )
+    assert.deepEqual(functionXhrResult, {
+      status: 200,
+      body: { source: 'server', method: 'POST', body: 'function request' },
+    })
+
+    await context.close()
+    context = await chromium.launchPersistentContext(userDataDir, contextOptions)
+    const restartedWorker =
+      context.serviceWorkers()[0] || (await context.waitForEvent('serviceworker'))
+    assert.equal(new URL(restartedWorker.url()).host, extensionId)
+    await restartedWorker.evaluate(() => chrome.storage.local.get(null))
+    const restartedPage = await context.newPage()
+    await restartedPage.goto(`http://127.0.0.1:${port}/`)
+    await restartedPage.locator('#redirect-fetch').click()
+    await restartedPage.waitForFunction(() =>
+      document.querySelector('#result').textContent.startsWith('{"kind":"redirect-fetch"')
+    )
+    assert.equal(
+      JSON.parse(await restartedPage.locator('#result').textContent()).url,
+      `http://127.0.0.1:${port}/mock/echo`
+    )
+
+    const functionRuleAfterRestart = await restartedWorker.evaluate(
+      async (key) =>
+        (await chrome.storage.local.get(key))[key].rules.find(
+          (rule) => rule.id === 'v3-function-extension-smoke'
+        ),
+      'ajax-proxy:storage:v3-config'
+    )
+    assert.ok(functionRuleAfterRestart, 'V3 function response rule must persist across restart')
+    assert.equal(functionRuleAfterRestart.enabled, true)
+    assert.equal(functionRuleAfterRestart.response.enabled, true)
+    assert.deepEqual(functionRuleAfterRestart.response.replace, { code: runtimeFunctionCode })
+    await restartedPage.waitForFunction(() =>
+      Boolean(document.getElementById('ajax-proxy-v3-function-sandbox'))
+    )
+    const restartedFunctionFetchResult = await restartedPage.evaluate(async () => {
+      const response = await fetch('/api/function', { method: 'POST', body: 'after restart' })
+      return { status: response.status, body: await response.json() }
+    })
+    assert.deepEqual(restartedFunctionFetchResult, {
+      status: 209,
+      body: {
+        source: 'v3-function',
+        requestBody: 'after restart',
+        response: { source: 'server', method: 'POST', body: 'after restart' },
+      },
+    })
+
+    const v3Panel = await context.newPage()
+    v3Panel.setDefaultTimeout(10000)
+    v3Panel.on('pageerror', (error) => console.error('V3 panel smoke page error:', error))
+    v3Panel.on('console', (message) => {
+      if (message.type() === 'error') console.error('V3 panel smoke console error:', message.text())
+    })
+    let codeMirrorLoaded = false
+    let jsonTreeLoaded = false
+    v3Panel.on('request', (request) => {
+      if (request.resourceType() === 'script' && request.url().includes('CodeMirrorJsonEditor-')) {
+        codeMirrorLoaded = true
+      }
+      if (request.resourceType() === 'script' && request.url().includes('JsonTreeEditor-')) {
+        jsonTreeLoaded = true
+      }
+    })
+    await v3Panel.goto(`chrome-extension://${extensionId}/panels-v3/index.html`)
+    const v3GlobalSwitch = v3Panel.getByRole('switch', { name: 'Enable Ajax Proxy globally' })
+    await v3GlobalSwitch.click({ trial: true })
+    assert.equal(
+      codeMirrorLoaded,
+      false,
+      'CodeMirror must stay unloaded before opening a rule editor'
+    )
+    assert.equal(jsonTreeLoaded, false, 'JSON tree must stay unloaded before selecting tree mode')
+    const staleV3Panel = await context.newPage()
+    staleV3Panel.setDefaultTimeout(10000)
+    await staleV3Panel.goto(`chrome-extension://${extensionId}/panels-v3/index.html`)
+    await staleV3Panel.getByRole('button', { name: 'Site switches' }).waitFor()
+    const staleGlobalSwitch = staleV3Panel.getByRole('switch', {
+      name: 'Enable Ajax Proxy globally',
+    })
+    await staleGlobalSwitch.click({ trial: true })
+    const siteSwitchOrigin = `http://127.0.0.1:${port}`
+    await v3Panel.getByRole('button', { name: 'Site switches' }).click()
+    const siteSwitchesDialog = v3Panel.getByRole('dialog', { name: 'Manage site switches' })
+    const siteOriginInput = siteSwitchesDialog.getByLabel('Site URL or origin')
+    const enteredSiteUrl = `${siteSwitchOrigin}/settings`
+    await siteOriginInput.fill(enteredSiteUrl)
+    await siteSwitchesDialog
+      .getByText(`This exact origin will be affected: ${siteSwitchOrigin}`)
+      .waitFor()
+    await siteOriginInput.press('Escape')
+    await siteSwitchesDialog.waitFor({ state: 'visible' })
+    assert.equal(
+      await siteOriginInput.inputValue(),
+      enteredSiteUrl,
+      'Escape should leave the site switches dialog open and preserve the entered URL'
+    )
+    const siteSwitchBackdrop = v3Panel.locator('.editor-backdrop').last()
+    const [backdropBox, dialogBox] = await Promise.all([
+      siteSwitchBackdrop.boundingBox(),
+      siteSwitchesDialog.boundingBox(),
+    ])
+    assert.ok(backdropBox && dialogBox, 'site switches dialog and backdrop should be visible')
+    const maskClickPoint = [
+      { x: backdropBox.x + 4, y: backdropBox.y + 4 },
+      { x: backdropBox.x + backdropBox.width - 4, y: backdropBox.y + 4 },
+      { x: backdropBox.x + 4, y: backdropBox.y + backdropBox.height - 4 },
+      {
+        x: backdropBox.x + backdropBox.width - 4,
+        y: backdropBox.y + backdropBox.height - 4,
+      },
+    ].find(
+      ({ x, y }) =>
+        x < dialogBox.x ||
+        x > dialogBox.x + dialogBox.width ||
+        y < dialogBox.y ||
+        y > dialogBox.y + dialogBox.height
+    )
+    assert.ok(maskClickPoint, 'the visible backdrop should have a clickable blank area')
+    await v3Panel.mouse.click(maskClickPoint.x, maskClickPoint.y)
+    await siteSwitchesDialog.waitFor({ state: 'visible' })
+    assert.equal(
+      await siteOriginInput.inputValue(),
+      enteredSiteUrl,
+      'clicking the backdrop should leave the dialog open and preserve the entered URL'
+    )
+    await siteSwitchesDialog.getByRole('button', { name: 'Disable this site' }).click()
+    await siteSwitchesDialog.waitFor({ state: 'hidden' })
+    const disabledSiteConfig = await restartedWorker.evaluate(
+      async (key) => (await chrome.storage.local.get(key))[key],
+      'ajax-proxy:storage:v3-config'
+    )
+    assert.equal(disabledSiteConfig.formatVersion, 9)
+    assert.deepEqual(disabledSiteConfig.disabledOrigins, [siteSwitchOrigin])
+    await staleGlobalSwitch.click()
+    await staleV3Panel
+      .getByText('The configuration changed in another panel.', { exact: false })
+      .waitFor()
+    await staleV3Panel.getByRole('button', { name: 'Load latest configuration' }).waitFor()
+    const configAfterConflict = await restartedWorker.evaluate(
+      async (key) => (await chrome.storage.local.get(key))[key],
+      'ajax-proxy:storage:v3-config'
+    )
+    assert.equal(configAfterConflict.settings.globalEnabled, true)
+    assert.deepEqual(configAfterConflict.disabledOrigins, [siteSwitchOrigin])
+    staleV3Panel.once('dialog', (dialog) => dialog.accept())
+    await staleV3Panel.getByRole('button', { name: 'Load latest configuration' }).click()
+    await staleV3Panel.locator('.operation-alert').waitFor({ state: 'detached' })
+    await staleV3Panel.close()
+    await v3Panel.getByRole('button', { name: 'Site switches' }).click()
+    const disabledSiteRow = siteSwitchesDialog
+      .locator('.disabled-origin-list li')
+      .filter({ hasText: siteSwitchOrigin })
+    await disabledSiteRow.getByRole('button', { name: `Enable site ${siteSwitchOrigin}` }).click()
+    await v3Panel.waitForFunction(async (origin) => {
+      const stored = (await chrome.storage.local.get('ajax-proxy:storage:v3-config'))[
+        'ajax-proxy:storage:v3-config'
+      ]
+      return stored.disabledOrigins.includes(origin) === false
+    }, siteSwitchOrigin)
+    await siteSwitchesDialog.getByRole('button', { name: 'Close' }).last().click()
+    const englishButton = v3Panel.getByRole('button', { name: 'English' })
+    if ((await englishButton.getAttribute('aria-pressed')) !== 'true') {
+      await englishButton.click()
+      await v3Panel.reload()
+    }
+    await v3Panel.locator('.sidebar .nav-item').first().click()
+    await v3Panel.getByRole('button', { name: createResponseRuleButtonName }).click()
+    const responseEditor = v3Panel.getByRole('dialog')
+    await responseEditor
+      .locator('.cm-content[contenteditable="true"]')
+      .waitFor()
+      .catch(async (error) => {
+        console.error(
+          'V3 response editor body at CodeMirror wait failure:',
+          await v3Panel.locator('body').innerText()
+        )
+        await v3Panel.screenshot({ path: '/tmp/ajax-proxy-v3-panel-debug.png' })
+        throw error
+      })
+    assert.equal(codeMirrorLoaded, true, 'Opening a response rule editor should load CodeMirror')
+    assert.equal(jsonTreeLoaded, false, 'Opening the response editor should not load the JSON tree')
+    await responseEditor.locator('label.editor-field').nth(0).locator('input').fill('/api/v3-ui')
+    await responseEditor.locator('.editor-field-row select').nth(1).selectOption('POST')
+    await responseEditor.locator('.editor-field-row input[type="number"]').fill('203')
+    const responseBody = responseEditor.locator(
+      '.response-json-input .cm-content[contenteditable="true"]'
+    )
+    const invalidJson = '{\n  "name": 1,\n  bad\n}'
+    await responseBody.fill(invalidJson)
+    await responseEditor.getByRole('button', { name: 'Save' }).click()
+    await v3Panel.getByRole('alert').getByText('Invalid JSON at line 3, column 3.').waitFor()
+
+    await responseEditor.locator('input[name="json-editor-mode"][value="tree"]').check()
+    await responseEditor.locator('.json-tree-invalid').waitFor()
+    assert.equal(jsonTreeLoaded, true, 'Selecting tree mode should load its separate chunk')
+    await responseEditor.locator('input[name="json-editor-mode"][value="text"]').check()
+    assert.equal(await responseBody.innerText(), invalidJson)
+
+    await responseEditor.getByRole('button', { name: 'Object' }).click()
+    assert.match(await responseBody.innerText(), /"id": 123/)
+    await v3Panel.getByRole('alert').waitFor({ state: 'detached' })
+    await responseBody.fill(JSON.stringify({ source: 'v3-ui', ok: true, items: [1, 2] }))
+    await responseEditor.locator('input[name="json-editor-mode"][value="tree"]').check()
+    const treeEditor = responseEditor.locator('.json-tree-editor')
+    await treeEditor.waitFor()
+    const treeKeyInputs = treeEditor.locator('.json-tree-editor__key input')
+    assert.equal(
+      await treeKeyInputs.count(),
+      3,
+      `Tree editor should expose its three object keys: ${await treeEditor.innerText()}`
+    )
+    const sourceKey = treeKeyInputs.first()
+    assert.equal(await sourceKey.getAttribute('aria-label'), 'Key for source')
+    await sourceKey.fill('origin')
+    await sourceKey.press('Tab')
+    const itemsNode = treeEditor.locator('.json-tree-editor__node').nth(1)
+    await itemsNode.locator('summary').click()
+    await responseEditor.getByRole('button', { name: 'Move item 2 up' }).click()
+    await responseEditor.locator('input[name="json-editor-mode"][value="text"]').check()
+    assert.deepEqual(JSON.parse(await responseBody.innerText()), {
+      origin: 'v3-ui',
+      ok: true,
+      items: [2, 1],
+    })
+    const legacyStateBeforeV3Ui = await restartedWorker.evaluate(
+      async (key) => (await chrome.storage.local.get(key))[key],
+      'ajax-proxy:storage:intercept-list'
+    )
+    await responseEditor.getByRole('button', { name: 'Save' }).click()
+    await v3Panel
+      .getByText('/api/v3-ui', { exact: true })
+      .waitFor()
+      .catch(async (error) => {
+        console.error('V3 response rule save UI:', await v3Panel.locator('body').innerText())
+        await v3Panel.screenshot({ path: '/tmp/ajax-proxy-v3-tag-debug.png' })
+        throw error
+      })
+
+    let v3UiConfig
+    let v3UiRule
+    for (let attempt = 0; attempt < 40; attempt += 1) {
+      v3UiConfig = await restartedWorker.evaluate(
+        async (key) => (await chrome.storage.local.get(key))[key],
+        'ajax-proxy:storage:v3-config'
+      )
+      v3UiRule = v3UiConfig.rules.find((rule) => rule.match.url === '/api/v3-ui')
+      if (v3UiRule) break
+      await new Promise((resolve) => setTimeout(resolve, 50))
+    }
+    assert.ok(v3UiRule, 'V3 panel should persist the response rule through its runtime message API')
+    assert.deepEqual(v3UiRule.match, { url: '/api/v3-ui', type: 'normal', method: 'POST' })
+    assert.deepEqual(v3UiRule.response, {
+      enabled: true,
+      mode: 'replace',
+      replace: { status: 203, body: { origin: 'v3-ui', ok: true, items: [2, 1] } },
+    })
+    assert.deepEqual(
+      await restartedWorker.evaluate(
+        async (key) => (await chrome.storage.local.get(key))[key],
+        'ajax-proxy:storage:intercept-list'
+      ),
+      legacyStateBeforeV3Ui
+    )
+
+    await v3Panel.reload()
+    await v3Panel.getByText('/api/v3-ui', { exact: true }).waitFor()
+    const beforeV3UiHit = await restartedWorker.evaluate(
+      async ({ key, ruleId }) => ((await chrome.storage.local.get(key))[key] || {})[ruleId] || 0,
+      { key: 'ajax-proxy:storage:v3-hits', ruleId: v3UiRule.id }
+    )
+    const v3UiFetchResult = await restartedPage.evaluate(async () => {
+      const response = await fetch('/api/v3-ui?token=smoke', {
+        method: 'POST',
+        body: 'from UI rule',
+      })
+      return { status: response.status, body: await response.json() }
+    })
+    assert.deepEqual(v3UiFetchResult, {
+      status: 203,
+      body: { origin: 'v3-ui', ok: true, items: [2, 1] },
+    })
+    let v3UiHitCount = beforeV3UiHit
+    for (let attempt = 0; attempt < 40; attempt += 1) {
+      v3UiHitCount = await restartedWorker.evaluate(
+        async ({ key, ruleId }) => ((await chrome.storage.local.get(key))[key] || {})[ruleId] || 0,
+        { key: 'ajax-proxy:storage:v3-hits', ruleId: v3UiRule.id }
+      )
+      if (v3UiHitCount === beforeV3UiHit + 1) break
+      await new Promise((resolve) => setTimeout(resolve, 50))
+    }
+    assert.equal(v3UiHitCount, beforeV3UiHit + 1)
+
+    await v3Panel.getByText('Recent 10 matches').waitFor()
+    await v3Panel.getByText(/Matched request: POST http:\/\/127\.0\.0\.1:\d+\/api\/v3-ui/).waitFor()
+    assert.equal(await v3Panel.locator('.recent-matches-list li').count(), 1)
+    await v3Panel
+      .getByText(
+        'Kept only while this panel is open; closing or reloading clears it. Misses are not recorded. Full URLs may contain sensitive query parameters; review before creating a rule.'
+      )
+      .waitFor()
+
+    const noMatchDiagnostics = v3Panel.locator('.no-match-diagnostics')
+    const noMatchButton = noMatchDiagnostics.getByRole('button', {
+      name: 'Capture the next unmatched request',
+    })
+    const v3HitsBeforeNoMatch = await restartedWorker.evaluate(
+      async (key) => (await chrome.storage.local.get(key))[key] || {},
+      'ajax-proxy:storage:v3-hits'
+    )
+    const legacyHitsBeforeNoMatch = await restartedWorker.evaluate(
+      async (key) => (await chrome.storage.local.get(key))[key],
+      'ajax-proxy:storage:intercept-list'
+    )
+    await restartedPage.evaluate(async () => {
+      await fetch('/api/diagnostic-unmatched?token=private-before-arm')
+    })
+    await v3Panel.waitForTimeout(150)
+    assert.equal(await noMatchDiagnostics.locator('.recent-matches-list li').count(), 0)
+
+    await noMatchButton.click()
+    await noMatchDiagnostics
+      .getByRole('button', { name: 'Waiting for an unmatched request · Cancel' })
+      .waitFor()
+    await restartedPage.evaluate(async () => {
+      await fetch('/api/diagnostic-unmatched?token=private-captured', {
+        method: 'GET',
+        headers: { 'x-private-header': 'must-not-be-recorded' },
+      })
+    })
+    const noMatchItem = noMatchDiagnostics.locator('.recent-matches-list li').first()
+    await noMatchItem.waitFor()
+    const noMatchText = await noMatchItem.innerText()
+    assert.match(noMatchText, /GET/)
+    assert.match(noMatchText, /URL condition does not match|Request method does not match/)
+    assert.doesNotMatch(noMatchText, /diagnostic-unmatched|private-captured|must-not-be-recorded/)
+    await noMatchDiagnostics
+      .getByRole('button', { name: 'Capture the next unmatched request' })
+      .waitFor()
+    assert.deepEqual(
+      await restartedWorker.evaluate(
+        async (key) => (await chrome.storage.local.get(key))[key] || {},
+        'ajax-proxy:storage:v3-hits'
+      ),
+      v3HitsBeforeNoMatch,
+      'unmatched diagnostics must not increment V3 hit counters'
+    )
+    assert.deepEqual(
+      await restartedWorker.evaluate(
+        async (key) => (await chrome.storage.local.get(key))[key],
+        'ajax-proxy:storage:intercept-list'
+      ),
+      legacyHitsBeforeNoMatch,
+      'unmatched diagnostics must not change V2 hit statistics'
+    )
+    const diagnosticStorage = await restartedWorker.evaluate(async () =>
+      chrome.storage.local.get(null)
+    )
+    assert.equal(
+      Object.keys(diagnosticStorage).some((key) => key.includes('no-match')),
+      false,
+      'no-match records must not be persisted'
+    )
+
+    const fetchOutcomeDiagnostics = v3Panel.locator('.fetch-outcome-diagnostics')
+    const fetchOutcomeButton = fetchOutcomeDiagnostics.getByRole('button', {
+      name: 'Capture Fetch / XHR action outcomes',
+    })
+    assert.notEqual(
+      await restartedWorker.evaluate(
+        async (key) => (await chrome.storage.local.get(key))[key],
+        'ajax-proxy:storage:v3-fetch-outcomes-armed'
+      ),
+      true,
+      'Fetch action outcomes are off by default'
+    )
+    const outcomeHitsBefore = await restartedWorker.evaluate(
+      async ({ key, ruleId }) => ((await chrome.storage.local.get(key))[key] || {})[ruleId] || 0,
+      { key: 'ajax-proxy:storage:v3-hits', ruleId: 'v3-extension-smoke' }
+    )
+    await restartedPage.evaluate(async () => {
+      await fetch('/api/echo', { method: 'POST', body: 'private-before-outcome-arm' })
+    })
+    await v3Panel.waitForTimeout(150)
+    assert.equal(await fetchOutcomeDiagnostics.locator('.recent-matches-list li').count(), 0)
+
+    await fetchOutcomeButton.click()
+    const stopFetchOutcomeButton = fetchOutcomeDiagnostics.getByRole('button', {
+      name: 'Capturing action outcomes · Click to stop',
+    })
+    await stopFetchOutcomeButton.waitFor()
+    // The panel's storage write must propagate through content.js to the page-world runtime.
+    await restartedPage.waitForTimeout(200)
+    const outcomeFetchResult = await restartedPage.evaluate(async () => {
+      const response = await fetch('/api/echo', { method: 'POST', body: 'outcome smoke' })
+      return { status: response.status, body: await response.json() }
+    })
+    assert.deepEqual(outcomeFetchResult, {
+      status: 202,
+      body: v3ResponseBody,
+    })
+    await v3Panel.waitForFunction(
+      () =>
+        document.querySelectorAll('.fetch-outcome-diagnostics .recent-matches-list li').length >= 2
+    )
+    const outcomeItems = fetchOutcomeDiagnostics.locator('.recent-matches-list li')
+    const outcomeTexts = await outcomeItems.allTextContents()
+    assert.equal(outcomeTexts.length, 2)
+    assert.ok(outcomeTexts.some((text) => /Request · Applied · Redirect applied/.test(text)))
+    assert.ok(outcomeTexts.some((text) => /Response · Applied · Response replaced/.test(text)))
+    assert.ok(outcomeTexts.every((text) => !/outcome smoke|\/api\/echo|private/.test(text)))
+    const firstCorrelationId = await outcomeItems.nth(0).locator('code').nth(1).innerText()
+    const secondCorrelationId = await outcomeItems.nth(1).locator('code').nth(1).innerText()
+    assert.equal(firstCorrelationId, secondCorrelationId)
+    assert.match(firstCorrelationId, /^[a-z0-9]+-[a-z0-9]+-\d+$/)
+
+    const outcomeXhrResult = await restartedPage.evaluate(
+      () =>
+        new Promise((resolve, reject) => {
+          const request = new XMLHttpRequest()
+          request.addEventListener('loadend', () =>
+            resolve({ status: request.status, body: JSON.parse(request.responseText) })
+          )
+          request.addEventListener('error', () => reject(new Error('XHR smoke request failed')))
+          request.open('POST', '/api/echo')
+          request.send('private-xhr-outcome')
+        })
+    )
+    assert.deepEqual(outcomeXhrResult, { status: 202, body: v3ResponseBody })
+    await v3Panel.waitForFunction(
+      () =>
+        document.querySelectorAll('.fetch-outcome-diagnostics .recent-matches-list li').length >= 4
+    )
+    const allOutcomeItems = fetchOutcomeDiagnostics.locator('.recent-matches-list li')
+    const xhrOutcomeItems = allOutcomeItems.filter({ hasText: 'XHR ·' })
+    assert.equal(await xhrOutcomeItems.count(), 2)
+    const xhrOutcomeTexts = await xhrOutcomeItems.allTextContents()
+    assert.ok(xhrOutcomeTexts.some((text) => /Request · Applied · Redirect applied/.test(text)))
+    assert.ok(xhrOutcomeTexts.some((text) => /Response · Applied · Response replaced/.test(text)))
+    assert.ok(xhrOutcomeTexts.every((text) => !/private-xhr-outcome|\/api\/echo/.test(text)))
+    const xhrCorrelationId = await xhrOutcomeItems
+      .filter({ hasText: 'XHR · request' })
+      .first()
+      .locator('code')
+      .nth(1)
+      .innerText()
+    const xhrResponseCorrelationId = await xhrOutcomeItems
+      .filter({ hasText: 'XHR · response' })
+      .first()
+      .locator('code')
+      .nth(1)
+      .innerText()
+    assert.equal(xhrCorrelationId, xhrResponseCorrelationId)
+    let outcomeHitsAfter = 0
+    for (let attempt = 0; attempt < 20; attempt += 1) {
+      outcomeHitsAfter = await restartedWorker.evaluate(
+        async ({ key, ruleId }) => ((await chrome.storage.local.get(key))[key] || {})[ruleId] || 0,
+        { key: 'ajax-proxy:storage:v3-hits', ruleId: 'v3-extension-smoke' }
+      )
+      if (outcomeHitsAfter === outcomeHitsBefore + 3) break
+      await v3Panel.waitForTimeout(50)
+    }
+    assert.equal(
+      outcomeHitsAfter,
+      outcomeHitsBefore + 3,
+      'outcome diagnostics must not increment hits beyond the three matched requests'
+    )
+    await stopFetchOutcomeButton.click()
+    await fetchOutcomeDiagnostics
+      .getByRole('button', { name: 'Capture Fetch / XHR action outcomes' })
+      .waitFor()
+    assert.equal(
+      await restartedWorker.evaluate(
+        async (key) => (await chrome.storage.local.get(key))[key],
+        'ajax-proxy:storage:v3-fetch-outcomes-armed'
+      ),
+      undefined,
+      'stopping Fetch outcome capture removes the temporary storage flag'
+    )
+
+    const historyItem = v3Panel
+      .locator('.recent-matches-list li')
+      .filter({ hasText: '/api/v3-ui?token=smoke' })
+      .first()
+    const configBeforeQuickCreateCancel = await restartedWorker.evaluate(
+      async (key) => (await chrome.storage.local.get(key))[key],
+      'ajax-proxy:storage:v3-config'
+    )
+    await historyItem.getByRole('button', { name: /Create a response rule from POST/ }).click()
+    const quickResponseEditor = v3Panel.locator('.response-rule-editor[role="dialog"]')
+    assert.equal(
+      await quickResponseEditor.locator('label.editor-field').first().locator('input').inputValue(),
+      `http://127.0.0.1:${port}/api/v3-ui?token=smoke`
+    )
+    assert.equal(
+      await quickResponseEditor.locator('.editor-field-row select').nth(0).inputValue(),
+      'normal'
+    )
+    assert.equal(
+      await quickResponseEditor.locator('.editor-field-row select').nth(1).inputValue(),
+      'POST'
+    )
+    assert.equal(await quickResponseEditor.locator('.editor-enabled input').isChecked(), false)
+    assert.equal(
+      await quickResponseEditor
+        .locator('input[name="response-mode"][value="function"]')
+        .isChecked(),
+      false
+    )
+    assert.deepEqual(
+      JSON.parse(await quickResponseEditor.locator('.response-json-input .cm-content').innerText()),
+      {}
+    )
+    await quickResponseEditor.getByRole('button', { name: 'Cancel', exact: true }).click()
+    await historyItem.getByRole('button', { name: /Create a redirect rule from POST/ }).click()
+    const quickRedirectEditor = v3Panel.locator('.rule-editor[role="dialog"]')
+    assert.equal(
+      await quickRedirectEditor.locator('label.editor-field').first().locator('input').inputValue(),
+      `http://127.0.0.1:${port}/api/v3-ui?token=smoke`
+    )
+    assert.equal(
+      await quickRedirectEditor.locator('.editor-field-row select').nth(1).inputValue(),
+      'POST'
+    )
+    assert.equal(await quickRedirectEditor.getByLabel('Redirect target URL').inputValue(), '')
+    assert.equal(await quickRedirectEditor.locator('.editor-enabled input').isChecked(), false)
+    await quickRedirectEditor.getByRole('button', { name: 'Cancel', exact: true }).click()
+    assert.deepEqual(
+      await restartedWorker.evaluate(
+        async (key) => (await chrome.storage.local.get(key))[key],
+        'ajax-proxy:storage:v3-config'
+      ),
+      configBeforeQuickCreateCancel,
+      'closing a quick-create editor does not save a rule'
+    )
+    const diagnosticConfigBefore = await restartedWorker.evaluate(
+      async (key) => (await chrome.storage.local.get(key))[key],
+      'ajax-proxy:storage:v3-config'
+    )
+    const diagnosticHitsBefore = await restartedWorker.evaluate(
+      async (key) => (await chrome.storage.local.get(key))[key],
+      'ajax-proxy:storage:v3-hits'
+    )
+    await v3Panel.getByRole('button', { name: 'Diagnose rule matching' }).click()
+    const diagnosticsPanel = v3Panel.locator('.rule-diagnostics')
+    await diagnosticsPanel
+      .getByTestId('diagnostic-url-input')
+      .fill(`http://127.0.0.1:${port}/api/v3-ui`)
+    await diagnosticsPanel.getByTestId('diagnostic-method-select').selectOption('POST')
+    await diagnosticsPanel.getByRole('button', { name: 'Analyze request' }).click()
+    await diagnosticsPanel.getByText(`Current first complete match: ${v3UiRule.id}`).waitFor()
+    await diagnosticsPanel.getByText('First complete match', { exact: true }).waitFor()
+    await diagnosticsPanel.getByTestId('diagnostic-method-select').selectOption('GET')
+    await diagnosticsPanel.getByRole('button', { name: 'Analyze request' }).click()
+    await diagnosticsPanel.getByText('No rule completely matches these conditions.').waitFor()
+    assert.ok(
+      (await diagnosticsPanel.getByText('Request method does not match', { exact: true }).count()) >
+        0
+    )
+    assert.deepEqual(
+      await restartedWorker.evaluate(
+        async (key) => (await chrome.storage.local.get(key))[key],
+        'ajax-proxy:storage:v3-config'
+      ),
+      diagnosticConfigBefore,
+      'offline diagnostics must not change or save the active configuration'
+    )
+    assert.deepEqual(
+      await restartedWorker.evaluate(
+        async (key) => (await chrome.storage.local.get(key))[key],
+        'ajax-proxy:storage:v3-hits'
+      ),
+      diagnosticHitsBefore,
+      'offline diagnostics must not send requests or increment hit counters'
+    )
+
+    const priorityDiagnosticConfig = {
+      ...diagnosticConfigBefore,
+      rules: [
+        {
+          id: 'v3-diagnostic-unpinned-smoke',
+          enabled: true,
+          match: { url: '/api/later', method: 'POST' },
+          response: { enabled: true, replace: { body: { source: 'unpinned' } } },
+        },
+        {
+          id: 'v3-diagnostic-pinned-smoke',
+          enabled: true,
+          pinned: true,
+          match: { url: '/api/priority', method: 'POST' },
+          response: { enabled: true, replace: { body: { source: 'pinned' } } },
+        },
+      ],
+    }
+    const writeDiagnosticConfig = (nextConfig) =>
+      restartedWorker.evaluate(
+        async ({ key, config }) => chrome.storage.local.set({ [key]: config }),
+        { key: 'ajax-proxy:storage:v3-config', config: nextConfig }
+      )
+    await writeDiagnosticConfig(priorityDiagnosticConfig)
+    await v3Panel.reload()
+    await v3Panel.getByRole('button', { name: 'Diagnose rule matching' }).click()
+    const priorityDiagnostics = v3Panel.locator('.rule-diagnostics')
+    await priorityDiagnostics.getByTestId('diagnostic-url-input').fill('/api/priority')
+    await priorityDiagnostics.getByTestId('diagnostic-method-select').selectOption('POST')
+    await priorityDiagnostics.getByRole('button', { name: 'Analyze request' }).click()
+    let priorityRows = priorityDiagnostics.locator('.diagnostic-results li')
+    await priorityRows.nth(1).getByText('URL condition does not match', { exact: true }).waitFor()
+    assert.equal(await priorityRows.nth(0).locator('span').innerText(), 'First complete match')
+    assert.equal(
+      await priorityRows.nth(0).locator('code').innerText(),
+      'Rule 1 · v3-diagnostic-pinned-smoke · /api/priority',
+      'the pinned rule should appear first with its own ID and URL'
+    )
+    assert.equal(
+      await priorityRows.nth(1).locator('span').innerText(),
+      'URL condition does not match'
+    )
+    assert.equal(
+      await priorityRows.nth(1).locator('code').innerText(),
+      'Rule 2 · v3-diagnostic-unpinned-smoke · /api/later',
+      'a later non-match should keep its concrete reason and map to its own ID and URL'
+    )
+
+    await writeDiagnosticConfig({
+      ...priorityDiagnosticConfig,
+      rules: priorityDiagnosticConfig.rules.map((rule) =>
+        rule.id === 'v3-diagnostic-unpinned-smoke'
+          ? { ...rule, match: { ...rule.match, url: '/api/priority' } }
+          : rule
+      ),
+    })
+    await v3Panel.reload()
+    await v3Panel.getByRole('button', { name: 'Diagnose rule matching' }).click()
+    const overlappingDiagnostics = v3Panel.locator('.rule-diagnostics')
+    await overlappingDiagnostics.getByTestId('diagnostic-url-input').fill('/api/priority')
+    await overlappingDiagnostics.getByTestId('diagnostic-method-select').selectOption('POST')
+    await overlappingDiagnostics.getByRole('button', { name: 'Analyze request' }).click()
+    priorityRows = overlappingDiagnostics.locator('.diagnostic-results li')
+    await priorityRows
+      .nth(1)
+      .getByText('An earlier rule matched; this rule will not handle the request', { exact: true })
+      .waitFor()
+    assert.equal(await priorityRows.nth(0).locator('span').innerText(), 'First complete match')
+    assert.equal(
+      await priorityRows.nth(0).locator('code').innerText(),
+      'Rule 1 · v3-diagnostic-pinned-smoke · /api/priority'
+    )
+    assert.equal(
+      await priorityRows.nth(1).locator('span').innerText(),
+      'An earlier rule matched; this rule will not handle the request'
+    )
+    assert.equal(
+      await priorityRows.nth(1).locator('code').innerText(),
+      'Rule 2 · v3-diagnostic-unpinned-smoke · /api/priority',
+      'an overlapping unpinned rule should be lower priority and retain its own identity'
+    )
+
+    await writeDiagnosticConfig(diagnosticConfigBefore)
+    await v3Panel.reload()
+
+    await restartedPage.evaluate(async () => {
+      await Promise.all(
+        Array.from({ length: 11 }, (_, index) =>
+          fetch('/api/v3-ui', { method: 'POST', body: `history ${index}` })
+        )
+      )
+    })
+    await v3Panel.waitForFunction(
+      () =>
+        document.querySelectorAll(
+          '.recent-matches:not(.no-match-diagnostics):not(.fetch-outcome-diagnostics) .recent-matches-list li'
+        ).length === 10
+    )
+    assert.equal(
+      await v3Panel
+        .locator(
+          '.recent-matches:not(.no-match-diagnostics):not(.fetch-outcome-diagnostics) .recent-matches-list li'
+        )
+        .count(),
+      10
+    )
+
+    v3Panel.on('dialog', (dialog) => dialog.accept())
+    await v3Panel.locator('.sidebar .nav-item').first().click()
+    await v3Panel.getByRole('button', { name: createResponseRuleButtonName }).click()
+    const functionEditor = v3Panel.getByRole('dialog')
+    const functionUiUrl = '/api/ui-function'
+    await functionEditor.locator('label.editor-field').nth(0).locator('input').fill(functionUiUrl)
+    await functionEditor.locator('.editor-field-row select').nth(1).selectOption('POST')
+    await functionEditor.locator('input[name="response-mode"][value="function"]').check({
+      force: true,
+    })
+    const functionCode =
+      "return { status: 209, body: { source: 'v3-function-ui', requestBody: request.body, response: JSON.parse(response.body) } }"
+    const functionCodeEditor = functionEditor.locator(
+      '.response-function-input .cm-content[contenteditable="true"]'
+    )
+    await functionCodeEditor.click()
+    await functionCodeEditor.press('ControlOrMeta+A')
+    await functionCodeEditor.pressSequentially(functionCode)
+    await v3Panel.waitForFunction(
+      (expected) =>
+        document.querySelector('.response-function-input .cm-content')?.textContent === expected,
+      functionCode
+    )
+    const functionEnabledCheckbox = functionEditor.getByRole('checkbox', {
+      name: /^(?:Enable function response \(explicit confirmation required\)|启用函数响应（需明确确认）)$/,
+    })
+    assert.equal(await functionEnabledCheckbox.isChecked(), false)
+    const enableFunctionConfirmation = v3Panel.waitForEvent('dialog')
+    await functionEnabledCheckbox.click()
+    assert.equal((await enableFunctionConfirmation).type(), 'confirm')
+    assert.equal(await functionEnabledCheckbox.isChecked(), true)
+    await functionEnabledCheckbox.click()
+    assert.equal(await functionEnabledCheckbox.isChecked(), false)
+    const reenableFunctionConfirmation = v3Panel.waitForEvent('dialog')
+    await functionEnabledCheckbox.click()
+    assert.equal((await reenableFunctionConfirmation).type(), 'confirm')
+    assert.equal(await functionEnabledCheckbox.isChecked(), true)
+    await functionEditor.getByRole('button', { name: 'Save' }).click()
+    await functionEditor.waitFor({ state: 'hidden' })
+
+    let functionUiRule
+    for (let attempt = 0; attempt < 40; attempt += 1) {
+      const currentConfig = await restartedWorker.evaluate(
+        async (key) => (await chrome.storage.local.get(key))[key],
+        'ajax-proxy:storage:v3-config'
+      )
+      functionUiRule = currentConfig.rules.find((rule) => rule.match.url === functionUiUrl)
+      if (functionUiRule) break
+      await new Promise((resolve) => setTimeout(resolve, 50))
+    }
+    assert.ok(functionUiRule, 'V3 panel should persist a function response rule')
+    assert.equal(functionUiRule.response.enabled, true)
+    assert.deepEqual(functionUiRule.response.replace, { code: functionCode })
+
+    await restartedPage.waitForFunction(() =>
+      Boolean(document.getElementById('ajax-proxy-v3-function-sandbox'))
+    )
+    const functionUiFetchResult = await restartedPage.evaluate(async (url) => {
+      const response = await fetch(url, { method: 'POST', body: 'function request' })
+      return { status: response.status, body: await response.json() }
+    }, functionUiUrl)
+    assert.deepEqual(functionUiFetchResult, {
+      status: 209,
+      body: {
+        source: 'v3-function-ui',
+        requestBody: 'function request',
+        response: { source: 'server', method: 'POST', body: 'function request' },
+      },
+    })
+    const functionUiXhrResult = await restartedPage.evaluate(
+      (url) =>
+        new Promise((resolve) => {
+          const request = new XMLHttpRequest()
+          request.onload = () =>
+            resolve({
+              status: request.status,
+              body: JSON.parse(request.responseText),
+            })
+          request.open('POST', url)
+          request.send('function request')
+        }),
+      functionUiUrl
+    )
+    assert.deepEqual(functionUiXhrResult, {
+      status: 200,
+      body: { source: 'server', method: 'POST', body: 'function request' },
+    })
+
+    const disabledFilterRule = {
+      id: 'v3-disabled-filter-smoke',
+      enabled: false,
+      match: { url: '/api/disabled-filter', method: 'GET' },
+      response: { enabled: true, replace: { body: { source: 'disabled-filter' } } },
+    }
+    const dualActionRule = {
+      id: 'v3-disabled-response-with-redirect-smoke',
+      enabled: true,
+      match: { url: '/api/dual-action', method: 'GET' },
+      request: { enabled: true, redirect: { url: '/mock/echo' } },
+      response: {
+        enabled: true,
+        replace: { code: "return { body: { source: 'disabled' } }" },
+      },
+    }
+    await restartedWorker.evaluate(
+      async ({ key, rules }) => {
+        const config = (await chrome.storage.local.get(key))[key]
+        await chrome.storage.local.set({
+          [key]: { ...config, rules: [...config.rules, ...rules] },
+        })
+      },
+      { key: 'ajax-proxy:storage:v3-config', rules: [disabledFilterRule, dualActionRule] }
+    )
+    await v3Panel.reload()
+    await v3Panel.getByText('/api/disabled-filter', { exact: true }).waitFor()
+
+    const backupConfigBefore = await restartedWorker.evaluate(
+      async (key) => (await chrome.storage.local.get(key))[key],
+      'ajax-proxy:storage:v3-config'
+    )
+    await v3Panel.getByRole('button', { name: 'Backup / Restore' }).click()
+    const backupDialog = v3Panel.getByRole('dialog')
+    const [backupDownload] = await Promise.all([
+      v3Panel.waitForEvent('download'),
+      backupDialog.getByRole('button', { name: 'Export JSON backup' }).click(),
+    ])
+    const exportedBackup = JSON.parse(fs.readFileSync(await backupDownload.path(), 'utf8'))
+    assert.equal(exportedBackup.format, 'ajax-proxy-backup')
+    assert.equal(exportedBackup.formatVersion, 9)
+    assert.deepEqual(exportedBackup.disabledOrigins, [])
+    assert.deepEqual(exportedBackup.rules, backupConfigBefore.rules)
+    assert.equal('hitCounters' in exportedBackup, false)
+
+    const backupInput = backupDialog.getByTestId('backup-json-input')
+    await backupInput.fill('{ invalid json')
+    await backupDialog.getByRole('button', { name: 'Validate backup' }).click()
+    await backupDialog.getByRole('alert').waitFor()
+    assert.deepEqual(
+      await restartedWorker.evaluate(
+        async (key) => (await chrome.storage.local.get(key))[key],
+        'ajax-proxy:storage:v3-config'
+      ),
+      backupConfigBefore,
+      'invalid backup JSON must not change the active V3 configuration'
+    )
+
+    await backupInput.fill(JSON.stringify(exportedBackup))
+    await backupDialog.getByRole('button', { name: 'Validate backup' }).click()
+    const functionRuleCount = exportedBackup.rules.filter(
+      (rule) =>
+        typeof rule.response?.replace?.code === 'string' ||
+        rule.request?.redirect?.type === 'function'
+    ).length
+    await backupDialog
+      .getByText(`Found ${functionRuleCount} function actions`, { exact: true })
+      .waitFor()
+    await backupDialog.getByRole('button', { name: 'Confirm restore' }).click()
+    await backupDialog.waitFor({ state: 'hidden' })
+
+    let restoredBackup
+    for (let attempt = 0; attempt < 40; attempt += 1) {
+      restoredBackup = await restartedWorker.evaluate(
+        async (key) => (await chrome.storage.local.get(key))[key],
+        'ajax-proxy:storage:v3-config'
+      )
+      if (
+        restoredBackup.rules.every(
+          (rule) => !rule.response?.replace?.code || !rule.response.enabled
+        )
+      )
+        break
+      await new Promise((resolve) => setTimeout(resolve, 50))
+    }
+    assert.ok(
+      restoredBackup.rules
+        .filter((rule) => rule.response?.replace?.code)
+        .every((rule) => rule.response.enabled === false),
+      'imported function response rules must remain disabled'
+    )
+    const dualActionRow = v3Panel.locator('.rule-row').filter({ hasText: '/api/dual-action' })
+    await dualActionRow.waitFor()
+    await dualActionRow.getByRole('button', { name: 'Delete' }).click()
+    let configAfterDelete
+    for (let attempt = 0; attempt < 40; attempt += 1) {
+      configAfterDelete = await restartedWorker.evaluate(
+        async (key) => (await chrome.storage.local.get(key))[key],
+        'ajax-proxy:storage:v3-config'
+      )
+      const dualRule = configAfterDelete.rules.find((rule) => rule.id === dualActionRule.id)
+      if (!dualRule) break
+      await new Promise((resolve) => setTimeout(resolve, 50))
+    }
+    assert.equal(
+      configAfterDelete.rules.some((rule) => rule.id === dualActionRule.id),
+      false,
+      'deleting a unified rule removes all its actions'
+    )
+
+    const importedFunctionRows = v3Panel.locator('.rule-row').filter({ hasText: functionUiUrl })
+    await importedFunctionRows.first().waitFor()
+    assert.equal(
+      await importedFunctionRows.count(),
+      backupConfigBefore.rules.filter((rule) => rule.match.url === functionUiUrl).length
+    )
+    await importedFunctionRows.first().locator('.action-disabled').getByText('Disabled').waitFor()
+    await importedFunctionRows.first().getByRole('button', { name: 'Edit' }).click()
+    const importedFunctionEditor = v3Panel.locator('.response-rule-editor[role="dialog"]')
+    await importedFunctionEditor.locator('.response-function-input .cm-content').waitFor()
+    assert.equal(
+      await importedFunctionEditor
+        .locator('.function-enabled input')
+        .evaluate((input) => input.checked),
+      false,
+      'the imported function must remain disabled when opened for review'
+    )
+    await importedFunctionEditor.getByRole('button', { name: 'Cancel' }).click()
+
+    const v3RuleSearch = v3Panel.getByPlaceholder('Search URL, method, or note')
+    await v3RuleSearch.fill(functionUiUrl)
+    assert.equal(
+      await v3Panel.locator('.rule-row').count(),
+      backupConfigBefore.rules.filter((rule) => rule.match.url === functionUiUrl).length
+    )
+    await v3RuleSearch.fill('')
+
+    await v3Panel.getByRole('button', { name: 'Filter', exact: true }).click()
+    const ruleFilterPopover = v3Panel.locator('.rule-filter-popover')
+    await ruleFilterPopover.waitFor()
+    await ruleFilterPopover.locator('input[name="rule-status-filter"][value="enabled"]').check()
+    assert.equal(
+      await v3Panel.locator('.rule-row').count(),
+      configAfterDelete.rules.filter((rule) => rule.response && rule.enabled).length
+    )
+    assert.equal(
+      await v3Panel
+        .locator('.rule-row')
+        .nth(1)
+        .getByRole('button', { name: /Raise the priority/ })
+        .isEnabled(),
+      false,
+      'priority changes stay disabled while a filter is active'
+    )
+    await ruleFilterPopover.locator('input[name="rule-status-filter"][value="disabled"]').check()
+    assert.equal(await v3Panel.locator('.rule-row').count(), 1)
+    await v3Panel.getByText('/api/disabled-filter', { exact: true }).waitFor()
+    await ruleFilterPopover.locator('input[name="rule-match-type-filter"][value="regex"]').check()
+    await v3Panel.getByText('No matching rules', { exact: true }).waitFor()
+    assert.equal(await v3Panel.locator('.rule-row').count(), 0)
+    await ruleFilterPopover.getByRole('button', { name: 'Clear filters' }).click()
+    assert.equal(
+      await v3Panel.locator('.rule-row').count(),
+      configAfterDelete.rules.filter((rule) => rule.response).length
+    )
+    await ruleFilterPopover.getByRole('button', { name: 'Close filters' }).click()
+
+    await v3Panel.getByRole('button', { name: 'Tags', exact: true }).click()
+    const ruleTagPopover = v3Panel.locator('.rule-tag-filter-popover')
+    await ruleTagPopover.getByRole('button', { name: 'Manage tags' }).click()
+    const ruleTagsDialog = v3Panel.getByRole('dialog', { name: 'Manage rule tags' })
+    await ruleTagsDialog.getByLabel('New tag name').fill('Smoke label')
+    await ruleTagsDialog.getByRole('button', { name: 'Add tag' }).click()
+    const tagNameInputs = ruleTagsDialog.locator('.rule-tags-list input')
+    await tagNameInputs.first().waitFor()
+    assert.equal(await tagNameInputs.first().inputValue(), 'Smoke label')
+    await ruleTagsDialog.getByLabel('New tag name').fill('Secondary label')
+    await ruleTagsDialog.getByRole('button', { name: 'Add tag' }).click()
+    await tagNameInputs.nth(1).waitFor()
+    assert.equal(await tagNameInputs.nth(1).inputValue(), 'Secondary label')
+    await ruleTagsDialog.getByRole('button', { name: 'Done', exact: true }).click()
+
+    const taggedRuleRow = v3Panel.locator('.rule-row').filter({ hasText: '/api/v3-ui' })
+    await taggedRuleRow.getByRole('button', { name: 'Edit' }).click()
+    const taggedRuleEditor = v3Panel.locator('.response-rule-editor[role="dialog"]')
+    await taggedRuleEditor
+      .locator('.rule-tag-picker label')
+      .filter({ hasText: 'Smoke label' })
+      .locator('input')
+      .check()
+    await taggedRuleEditor
+      .locator('.rule-tag-picker label')
+      .filter({ hasText: 'Secondary label' })
+      .locator('input')
+      .check()
+    await taggedRuleEditor.getByRole('button', { name: 'Save' }).click()
+    let taggedRule
+    for (let attempt = 0; attempt < 40; attempt += 1) {
+      const currentConfig = await restartedWorker.evaluate(
+        async (key) => (await chrome.storage.local.get(key))[key],
+        'ajax-proxy:storage:v3-config'
+      )
+      taggedRule = currentConfig.rules.find((rule) => rule.match.url === '/api/v3-ui')
+      if (taggedRule?.tagIds?.length) break
+      await new Promise((resolve) => setTimeout(resolve, 50))
+    }
+    assert.equal(taggedRule.tagIds.length, 2, 'the editor persists both selected tag references')
+    await v3Panel.reload()
+    await v3Panel.getByText('/api/v3-ui', { exact: true }).waitFor()
+    assert.equal(
+      await v3Panel.locator('.recent-matches-list li').count(),
+      0,
+      'recent match history is cleared when the panel reloads'
+    )
+    await taggedRuleRow.locator('.rule-tag-chip').getByText('Smoke label').waitFor()
+    await taggedRuleRow.locator('.rule-tag-chip').getByText('Secondary label').waitFor()
+
+    await v3Panel.getByRole('button', { name: 'Tags', exact: true }).click()
+    await ruleTagPopover
+      .locator('label')
+      .filter({ hasText: 'Smoke label' })
+      .locator('input')
+      .check()
+    assert.equal(await v3Panel.locator('.rule-row').count(), 1)
+    await v3Panel.getByText('/api/v3-ui', { exact: true }).waitFor()
+    await v3Panel.getByRole('button', { name: 'Tag: Smoke label' }).click()
+    await v3Panel.getByRole('button', { name: 'Filter', exact: true }).click()
+    await v3Panel
+      .locator('.rule-filter-popover')
+      .getByRole('button', { name: 'Clear filters' })
+      .click()
+    assert.ok((await v3Panel.locator('.rule-row').count()) > 1)
+    await v3Panel
+      .locator('.rule-filter-popover')
+      .getByRole('button', { name: 'Close filters' })
+      .click()
+
+    await taggedRuleRow.first().getByRole('button', { name: 'Duplicate' }).click()
+    let configAfterDuplicate
+    let duplicatedTaggedRule
+    for (let attempt = 0; attempt < 40; attempt += 1) {
+      configAfterDuplicate = await restartedWorker.evaluate(
+        async (key) => (await chrome.storage.local.get(key))[key],
+        'ajax-proxy:storage:v3-config'
+      )
+      duplicatedTaggedRule = configAfterDuplicate.rules.find(
+        (rule) => rule.match.url === '/api/v3-ui' && rule.id !== taggedRule.id
+      )
+      if (duplicatedTaggedRule) break
+      await new Promise((resolve) => setTimeout(resolve, 50))
+    }
+    const sourceRuleIndex = configAfterDuplicate.rules.findIndex(
+      (rule) => rule.id === taggedRule.id
+    )
+    const duplicateRuleIndex = configAfterDuplicate.rules.findIndex(
+      (rule) => rule.id === duplicatedTaggedRule.id
+    )
+    assert.equal(duplicateRuleIndex, sourceRuleIndex + 1, 'the copy follows its source rule')
+    assert.equal(duplicatedTaggedRule.enabled, false, 'a copied rule starts disabled')
+    assert.deepEqual(duplicatedTaggedRule.tagIds, taggedRule.tagIds)
+    assert.deepEqual(duplicatedTaggedRule.response, taggedRule.response)
+    assert.equal(
+      await restartedWorker.evaluate(
+        async ({ key, ruleId }) => ((await chrome.storage.local.get(key))[key] || {})[ruleId] || 0,
+        { key: 'ajax-proxy:storage:v3-hits', ruleId: duplicatedTaggedRule.id }
+      ),
+      0,
+      'a copied rule does not copy hit counters'
+    )
+
+    const sourceRuleCheckbox = v3Panel.getByRole('checkbox', {
+      name: `Select rule /api/v3-ui (${taggedRule.id})`,
+    })
+    const duplicateRuleCheckbox = v3Panel.getByRole('checkbox', {
+      name: `Select rule /api/v3-ui (${duplicatedTaggedRule.id})`,
+    })
+    await sourceRuleCheckbox.check()
+    await duplicateRuleCheckbox.check()
+    await v3Panel.getByText('2 rules selected', { exact: true }).waitFor()
+    const configBeforeBulkUpdate = configAfterDuplicate
+    await v3Panel.getByRole('button', { name: 'Enable selected', exact: true }).click()
+    let configAfterBulkEnable
+    for (let attempt = 0; attempt < 40; attempt += 1) {
+      configAfterBulkEnable = await restartedWorker.evaluate(
+        async (key) => (await chrome.storage.local.get(key))[key],
+        'ajax-proxy:storage:v3-config'
+      )
+      if (
+        configAfterBulkEnable.rules
+          .filter((rule) => [taggedRule.id, duplicatedTaggedRule.id].includes(rule.id))
+          .every((rule) => rule.enabled)
+      )
+        break
+      await new Promise((resolve) => setTimeout(resolve, 50))
+    }
+    const selectedRulesAfterBulkEnable = configAfterBulkEnable.rules.filter((rule) =>
+      [taggedRule.id, duplicatedTaggedRule.id].includes(rule.id)
+    )
+    assert.equal(selectedRulesAfterBulkEnable.length, 2)
+    assert.ok(selectedRulesAfterBulkEnable.every((rule) => rule.enabled))
+    for (const updatedRule of selectedRulesAfterBulkEnable) {
+      const originalRule = configBeforeBulkUpdate.rules.find((rule) => rule.id === updatedRule.id)
+      assert.deepEqual(updatedRule.request, originalRule.request)
+      assert.deepEqual(updatedRule.response, originalRule.response)
+    }
+    assert.deepEqual(
+      configAfterBulkEnable.rules
+        .filter((rule) => ![taggedRule.id, duplicatedTaggedRule.id].includes(rule.id))
+        .map((rule) => [rule.id, rule.enabled]),
+      configBeforeBulkUpdate.rules
+        .filter((rule) => ![taggedRule.id, duplicatedTaggedRule.id].includes(rule.id))
+        .map((rule) => [rule.id, rule.enabled]),
+      'bulk enable leaves unselected rules unchanged'
+    )
+    await sourceRuleCheckbox.check()
+    await duplicateRuleCheckbox.check()
+    await v3Panel.getByText('2 rules selected', { exact: true }).waitFor()
+    await v3Panel.getByRole('button', { name: 'Disable selected', exact: true }).click()
+    let configAfterBulkDisable
+    for (let attempt = 0; attempt < 40; attempt += 1) {
+      configAfterBulkDisable = await restartedWorker.evaluate(
+        async (key) => (await chrome.storage.local.get(key))[key],
+        'ajax-proxy:storage:v3-config'
+      )
+      if (
+        configAfterBulkDisable.rules
+          .filter((rule) => [taggedRule.id, duplicatedTaggedRule.id].includes(rule.id))
+          .every((rule) => !rule.enabled)
+      )
+        break
+      await new Promise((resolve) => setTimeout(resolve, 50))
+    }
+    const selectedRulesAfterBulkDisable = configAfterBulkDisable.rules.filter((rule) =>
+      [taggedRule.id, duplicatedTaggedRule.id].includes(rule.id)
+    )
+    assert.ok(selectedRulesAfterBulkDisable.every((rule) => !rule.enabled))
+    for (const updatedRule of selectedRulesAfterBulkDisable) {
+      const enabledRule = configAfterBulkEnable.rules.find((rule) => rule.id === updatedRule.id)
+      assert.deepEqual(updatedRule.request, enabledRule.request)
+      assert.deepEqual(updatedRule.response, enabledRule.response)
+    }
+    await v3Panel.getByRole('group', { name: 'Bulk rule actions' }).waitFor({ state: 'detached' })
+
+    await sourceRuleCheckbox.check()
+    const [selectedRulesDownload] = await Promise.all([
+      v3Panel.waitForEvent('download'),
+      v3Panel.getByRole('button', { name: 'Export selected rules', exact: true }).click(),
+    ])
+    const selectedRulesBackup = JSON.parse(
+      fs.readFileSync(await selectedRulesDownload.path(), 'utf8')
+    )
+    assert.deepEqual(
+      selectedRulesBackup.rules.map((rule) => rule.id),
+      [taggedRule.id]
+    )
+    assert.deepEqual(
+      selectedRulesBackup.tags.map((tag) => tag.id),
+      taggedRule.tagIds
+    )
+    assert.deepEqual(selectedRulesBackup.settings, configAfterBulkDisable.settings)
+    assert.equal('hitCounters' in selectedRulesBackup, false)
+
+    await v3Panel.getByRole('button', { name: 'Backup / Restore' }).click()
+    const ruleImportDialog = v3Panel.getByRole('dialog')
+    const ruleImportInput = ruleImportDialog.getByTestId('backup-json-input')
+    const importableRuleBackup = structuredClone(selectedRulesBackup)
+    importableRuleBackup.rules[0].id = 'imported-rule-smoke'
+    await ruleImportInput.fill(JSON.stringify(importableRuleBackup))
+    await ruleImportDialog.getByRole('button', { name: 'Validate backup' }).click()
+    await ruleImportDialog.getByText(/Append 1 rules and skip 0 ID conflicts/).waitFor()
+    await ruleImportDialog.getByRole('button', { name: 'Append 1 rules', exact: true }).click()
+    await ruleImportDialog.waitFor({ state: 'hidden' })
+    let configAfterRuleImport
+    for (let attempt = 0; attempt < 40; attempt += 1) {
+      configAfterRuleImport = await restartedWorker.evaluate(
+        async (key) => (await chrome.storage.local.get(key))[key],
+        'ajax-proxy:storage:v3-config'
+      )
+      if (configAfterRuleImport.rules.some((rule) => rule.id === 'imported-rule-smoke')) break
+      await new Promise((resolve) => setTimeout(resolve, 50))
+    }
+    const importedRule = configAfterRuleImport.rules.at(-1)
+    assert.equal(importedRule.id, 'imported-rule-smoke')
+    assert.deepEqual(importedRule.tagIds, taggedRule.tagIds)
+    assert.deepEqual(configAfterRuleImport.settings, configAfterBulkDisable.settings)
+    assert.deepEqual(
+      configAfterRuleImport.rules.slice(0, -1),
+      configAfterBulkDisable.rules,
+      'rule import keeps all existing rules and their order'
+    )
+
+    await v3Panel.getByRole('button', { name: 'Backup / Restore' }).click()
+    const duplicateImportDialog = v3Panel.getByRole('dialog')
+    const duplicateImportBackup = structuredClone(importableRuleBackup)
+    await duplicateImportDialog
+      .getByTestId('backup-json-input')
+      .fill(JSON.stringify(duplicateImportBackup))
+    await duplicateImportDialog.getByRole('button', { name: 'Validate backup' }).click()
+    await duplicateImportDialog.getByText(/Append 0 rules and skip 1 ID conflicts/).waitFor()
+    assert.equal(
+      await duplicateImportDialog.getByTestId('backup-import-rules-button').isDisabled(),
+      true,
+      'a repeated rule ID cannot overwrite an existing rule'
+    )
+    await duplicateImportDialog.getByRole('button', { name: 'Cancel', exact: true }).click()
+
+    await v3Panel.getByRole('button', { name: 'Backup / Restore' }).click()
+    const conflictingTagDialog = v3Panel.getByRole('dialog')
+    const conflictingTagBackup = structuredClone(importableRuleBackup)
+    conflictingTagBackup.rules[0].id = 'conflicting-tag-rule'
+    conflictingTagBackup.tags[0].name = 'Conflicting label'
+    await conflictingTagDialog
+      .getByTestId('backup-json-input')
+      .fill(JSON.stringify(conflictingTagBackup))
+    await conflictingTagDialog.getByRole('button', { name: 'Validate backup' }).click()
+    await conflictingTagDialog.getByRole('alert').waitFor()
+    assert.equal(
+      await conflictingTagDialog.getByTestId('backup-import-rules-button').isDisabled(),
+      true,
+      'a tag ID conflict blocks rule import'
+    )
+    await conflictingTagDialog.getByRole('button', { name: 'Cancel', exact: true }).click()
+
+    await v3Panel.locator('.sidebar .nav-item').nth(1).click()
+    await v3Panel.getByRole('button', { name: createRedirectRuleButtonName }).click()
+    const taggedRedirectEditor = v3Panel.locator('.rule-editor[role="dialog"]')
+    await taggedRedirectEditor
+      .locator('label.editor-field')
+      .nth(0)
+      .locator('input')
+      .fill('/api/tagged-redirect')
+    await taggedRedirectEditor
+      .locator('label.editor-field')
+      .nth(3)
+      .locator('input')
+      .fill('/mock/echo')
+    await taggedRedirectEditor
+      .locator('.rule-tag-picker label')
+      .filter({ hasText: 'Smoke label' })
+      .locator('input')
+      .check()
+    await taggedRedirectEditor
+      .locator('.rule-tag-picker label')
+      .filter({ hasText: 'Secondary label' })
+      .locator('input')
+      .check()
+    await taggedRedirectEditor.getByRole('button', { name: 'Save' }).click()
+    let taggedRedirectRule
+    for (let attempt = 0; attempt < 40; attempt += 1) {
+      const currentConfig = await restartedWorker.evaluate(
+        async (key) => (await chrome.storage.local.get(key))[key],
+        'ajax-proxy:storage:v3-config'
+      )
+      taggedRedirectRule = currentConfig.rules.find(
+        (rule) => rule.match.url === '/api/tagged-redirect'
+      )
+      if (taggedRedirectRule?.tagIds?.length) break
+      await new Promise((resolve) => setTimeout(resolve, 50))
+    }
+    assert.equal(
+      taggedRedirectRule.tagIds.length,
+      2,
+      'the redirect editor persists both selected tag references'
+    )
+
+    await v3Panel.getByRole('button', { name: 'Tags', exact: true }).click()
+    await v3Panel
+      .locator('.rule-tag-filter-popover')
+      .getByRole('button', { name: 'Manage tags' })
+      .click()
+    const manageTagsDialog = v3Panel.getByRole('dialog', { name: 'Manage rule tags' })
+    const smokeTagRow = manageTagsDialog.locator('li').filter({ hasText: 'Smoke label' })
+    await smokeTagRow.getByRole('button', { name: 'Delete' }).click()
+    await manageTagsDialog.getByRole('button', { name: 'Done', exact: true }).click()
+    const configAfterTagDelete = await restartedWorker.evaluate(
+      async (key) => (await chrome.storage.local.get(key))[key],
+      'ajax-proxy:storage:v3-config'
+    )
+    assert.equal(configAfterTagDelete.tags.length, 1)
+    assert.ok(
+      configAfterTagDelete.rules
+        .filter((rule) =>
+          [taggedRule.id, taggedRedirectRule.id, duplicatedTaggedRule.id].includes(rule.id)
+        )
+        .every(
+          (rule) => rule.tagIds?.length === 1 && ![taggedRule.tagIds[0]].includes(rule.tagIds[0])
+        ),
+      "deleting one tag preserves every rule's remaining association"
+    )
+    await v3Panel.getByRole('button', { name: 'Tags', exact: true }).click()
+    await v3Panel
+      .locator('.rule-tag-filter-popover')
+      .getByRole('button', { name: 'Manage tags' })
+      .click()
+    const lastTagDialog = v3Panel.getByRole('dialog', { name: 'Manage rule tags' })
+    await lastTagDialog.locator('li').getByRole('button', { name: 'Delete' }).click()
+    await lastTagDialog.getByRole('button', { name: 'Done', exact: true }).click()
+    const configAfterAllTagsDelete = await restartedWorker.evaluate(
+      async (key) => (await chrome.storage.local.get(key))[key],
+      'ajax-proxy:storage:v3-config'
+    )
+    assert.equal(configAfterAllTagsDelete.tags.length, 0)
+    assert.equal(
+      configAfterAllTagsDelete.rules.some((rule) =>
+        rule.tagIds?.some((id) => [taggedRule.tagIds[0], taggedRedirectRule.tagIds[0]].includes(id))
+      ),
+      false,
+      'deleting a tag removes its references from all rules'
+    )
+
+    await v3Panel.locator('.sidebar .nav-item').first().click()
+    const quickCreateSourceRule = {
+      id: 'v3-quick-create-source-smoke',
+      enabled: true,
+      match: { url: '/api/quick-create-source', method: 'POST' },
+      response: {
+        enabled: true,
+        replace: { status: 201, body: { source: 'quick-create-source' } },
+      },
+    }
+    await restartedWorker.evaluate(
+      async ({ key, rule }) => {
+        const config = (await chrome.storage.local.get(key))[key]
+        await chrome.storage.local.set({ [key]: { ...config, rules: [...config.rules, rule] } })
+      },
+      { key: 'ajax-proxy:storage:v3-config', rule: quickCreateSourceRule }
+    )
+    await v3Panel.reload()
+    await v3Panel.locator('.rule-row').filter({ hasText: '/api/quick-create-source' }).waitFor()
+    const quickCreateResponse = await restartedPage.evaluate(async () => {
+      const response = await fetch('/api/quick-create-source?case=smoke', {
+        method: 'POST',
+        body: 'quick create source',
+      })
+      return { status: response.status, body: await response.json() }
+    })
+    assert.deepEqual(quickCreateResponse, {
+      status: 201,
+      body: { source: 'quick-create-source' },
+    })
+    const quickCreateSource = v3Panel
+      .locator('.recent-matches-list li')
+      .filter({ hasText: '/api/quick-create-source?case=smoke' })
+      .first()
+    await quickCreateSource.waitFor()
+    const quickCreateSourceRuleRow = v3Panel
+      .locator('.rule-row')
+      .filter({ hasText: '/api/quick-create-source' })
+    await quickCreateSourceRuleRow.getByRole('switch').click()
+    await restartedWorker.evaluate(async (ruleId) => {
+      const key = 'ajax-proxy:storage:v3-config'
+      for (let attempt = 0; attempt < 100; attempt += 1) {
+        const config = (await chrome.storage.local.get(key))[key]
+        if (config.rules.find((rule) => rule.id === ruleId)?.enabled === false) return
+        await new Promise((resolve) => setTimeout(resolve, 20))
+      }
+      throw new Error('Quick-create source rule was not disabled')
+    }, quickCreateSourceRule.id)
+    await quickCreateSource
+      .getByRole('button', { name: /Create a response rule from POST/ })
+      .click()
+    const savedQuickResponseEditor = v3Panel.locator('.response-rule-editor[role="dialog"]')
+    assert.equal(
+      await savedQuickResponseEditor.locator('.editor-enabled input').isChecked(),
+      false,
+      'a quick-created rule starts disabled'
+    )
+    await savedQuickResponseEditor.locator('.editor-field-row select').first().selectOption('exact')
+    await savedQuickResponseEditor.getByRole('button', { name: 'Save rule', exact: true }).click()
+    await v3Panel.waitForTimeout(500)
+    if (await savedQuickResponseEditor.isVisible()) {
+      const issue = await savedQuickResponseEditor.locator('[role="alert"]').allTextContents()
+      throw new Error(
+        `quick-created response rule did not save: ${issue.join(' | ') || 'no visible validation issue'}`
+      )
+    }
+    await savedQuickResponseEditor.waitFor({ state: 'hidden' })
+    let quickCreatedRule
+    for (let attempt = 0; attempt < 40; attempt += 1) {
+      const currentConfig = await restartedWorker.evaluate(
+        async (key) => (await chrome.storage.local.get(key))[key],
+        'ajax-proxy:storage:v3-config'
+      )
+      quickCreatedRule = currentConfig.rules.find(
+        (rule) => rule.match.url === `http://127.0.0.1:${port}/api/quick-create-source?case=smoke`
+      )
+      if (quickCreatedRule) break
+      await new Promise((resolve) => setTimeout(resolve, 50))
+    }
+    assert.ok(quickCreatedRule)
+    assert.equal(quickCreatedRule.enabled, false)
+    assert.equal(quickCreatedRule.match.type, 'exact')
+    assert.deepEqual(quickCreatedRule.match, {
+      url: `http://127.0.0.1:${port}/api/quick-create-source?case=smoke`,
+      method: 'POST',
+      type: 'exact',
+    })
+    const exactBackupVersion = await restartedWorker.evaluate(
+      async (key) => (await chrome.storage.local.get(key))[key].formatVersion,
+      'ajax-proxy:storage:v3-config'
+    )
+    assert.equal(exactBackupVersion, 9, 'saving an exact matcher keeps the latest backup format')
+    assert.deepEqual(quickCreatedRule.response, {
+      enabled: true,
+      mode: 'replace',
+      replace: { status: 200, body: {} },
+    })
+    assert.equal(quickCreatedRule.request, undefined)
+    assert.equal(quickCreatedRule.tagIds.length, 0)
+
+    await v3Panel.getByRole('button', { name: 'Filter', exact: true }).click()
+    const exactRuleFilter = v3Panel.locator('.rule-filter-popover')
+    await exactRuleFilter.locator('input[name="rule-match-type-filter"][value="exact"]').check()
+    assert.equal(await v3Panel.locator('.rule-row').count(), 1)
+    await exactRuleFilter.getByRole('button', { name: 'Clear filters' }).click()
+    await exactRuleFilter.getByRole('button', { name: 'Close filters' }).click()
+
+    const quickCreatedRuleRow = v3Panel
+      .locator('.rule-row')
+      .filter({ hasText: '/api/quick-create-source?case=smoke' })
+    await quickCreatedRuleRow.getByRole('button', { name: /^Pin rule/ }).click()
+    let quickCreatedRulePinned = false
+    for (let attempt = 0; attempt < 40; attempt += 1) {
+      const currentConfig = await restartedWorker.evaluate(
+        async (key) => (await chrome.storage.local.get(key))[key],
+        'ajax-proxy:storage:v3-config'
+      )
+      const pinnedRule = currentConfig.rules.find((rule) => rule.id === quickCreatedRule.id)
+      quickCreatedRulePinned = pinnedRule?.pinned === true
+      if (quickCreatedRulePinned) {
+        quickCreatedRule = pinnedRule
+        break
+      }
+      await new Promise((resolve) => setTimeout(resolve, 50))
+    }
+    assert.equal(quickCreatedRulePinned, true)
+    await quickCreatedRuleRow.getByRole('switch').click()
+    let quickCreatedRuleEnabled = false
+    for (let attempt = 0; attempt < 40; attempt += 1) {
+      const currentConfig = await restartedWorker.evaluate(
+        async (key) => (await chrome.storage.local.get(key))[key],
+        'ajax-proxy:storage:v3-config'
+      )
+      quickCreatedRuleEnabled = currentConfig.rules.find(
+        (rule) => rule.match.type === 'exact'
+      )?.enabled
+      if (quickCreatedRuleEnabled) break
+      await new Promise((resolve) => setTimeout(resolve, 50))
+    }
+    assert.equal(quickCreatedRuleEnabled, true)
+    await restartedPage.reload()
+    await restartedPage.locator('#fetch').waitFor()
+    const exactMatchResponse = await restartedPage.evaluate(async () => {
+      let result
+      for (let attempt = 0; attempt < 40; attempt += 1) {
+        const response = await fetch('/api/quick-create-source?case=smoke', {
+          method: 'POST',
+          body: 'exact request',
+        })
+        result = { status: response.status, body: await response.json() }
+        if (result.body.source !== 'server') return result
+        await new Promise((resolve) => setTimeout(resolve, 50))
+      }
+      return result
+    })
+    assert.deepEqual(exactMatchResponse, { status: 200, body: {} })
+    const nearMatchResponse = await restartedPage.evaluate(async () => {
+      const response = await fetch('/api/quick-create-source?case=smoke&extra=1', {
+        method: 'POST',
+        body: 'near match request',
+      })
+      return { status: response.status, body: await response.json() }
+    })
+    assert.deepEqual(nearMatchResponse, {
+      status: 200,
+      body: { source: 'server', method: 'POST', body: 'near match request' },
+    })
+
+    await quickCreatedRuleRow.getByRole('switch').click()
+    let disabledQuickCreatedRule
+    for (let attempt = 0; attempt < 40; attempt += 1) {
+      const currentConfig = await restartedWorker.evaluate(
+        async (key) => (await chrome.storage.local.get(key))[key],
+        'ajax-proxy:storage:v3-config'
+      )
+      disabledQuickCreatedRule = currentConfig.rules.find((rule) => rule.id === quickCreatedRule.id)
+      if (disabledQuickCreatedRule?.enabled === false) break
+      await new Promise((resolve) => setTimeout(resolve, 50))
+    }
+    assert.ok(disabledQuickCreatedRule)
+    assert.equal(disabledQuickCreatedRule.enabled, false)
+    await restartedPage.reload()
+    await restartedPage.locator('#fetch').waitFor()
+    const disabledExactResponse = await restartedPage.evaluate(async () => {
+      const response = await fetch('/api/quick-create-source?case=smoke', {
+        method: 'POST',
+        body: 'disabled exact request',
+      })
+      return { status: response.status, body: await response.json() }
+    })
+    assert.deepEqual(disabledExactResponse, {
+      status: 200,
+      body: { source: 'server', method: 'POST', body: 'disabled exact request' },
+    })
+
+    await restartedPage.reload()
+    await restartedPage.waitForFunction(
+      () => !document.getElementById('ajax-proxy-v3-function-sandbox')
+    )
+    const restoredFunctionResult = await restartedPage.evaluate(async () => {
+      const response = await fetch('/api/function', { method: 'POST', body: 'function request' })
+      return { status: response.status, body: await response.json() }
+    })
+    assert.deepEqual(restoredFunctionResult, {
+      status: 200,
+      body: { source: 'server', method: 'POST', body: 'function request' },
+    })
+
+    const templateConfigBefore = await restartedWorker.evaluate(
+      async (key) => (await chrome.storage.local.get(key))[key],
+      'ajax-proxy:storage:v3-config'
+    )
+    await v3Panel.getByRole('button', { name: 'Rule templates' }).click()
+    const templatesDialog = v3Panel.locator('.rule-templates-dialog')
+    await templatesDialog.waitFor()
+    assert.ok(await templatesDialog.getByText('api.example.invalid', { exact: false }).count())
+    assert.ok(
+      await templatesDialog.getByText(/Added disabled|Added as disabled/, { exact: false }).count()
+    )
+    await templatesDialog.getByRole('button', { name: 'Cancel' }).click()
+    assert.deepEqual(
+      await restartedWorker.evaluate(
+        async (key) => (await chrome.storage.local.get(key))[key],
+        'ajax-proxy:storage:v3-config'
+      ),
+      templateConfigBefore,
+      'closing the template picker must not change the active configuration'
+    )
+
+    await v3Panel.getByRole('button', { name: 'Rule templates' }).click()
+    await v3Panel.getByTestId('rule-template-apply-static-json-response').click()
+    const templateResponseEditor = v3Panel.locator('.response-rule-editor[role="dialog"]')
+    await templateResponseEditor.waitFor()
+    await templateResponseEditor.locator('.editor-close').click()
+    await v3Panel.getByRole('button', { name: 'Rule templates' }).click()
+    await v3Panel.getByTestId('rule-template-apply-static-json-response').click()
+    await v3Panel.locator('.response-rule-editor[role="dialog"]').waitFor()
+    await v3Panel.locator('.response-rule-editor .editor-close').click()
+
+    await v3Panel.getByRole('button', { name: 'Rule templates' }).click()
+    await v3Panel.getByTestId('rule-template-apply-static-http-redirect').click()
+    await v3Panel.locator('.editor-backdrop .rule-editor[role="dialog"]').waitFor()
+    await v3Panel.locator('.redirect-rule-editor .editor-close').click()
+    const currentTemplateRules = await restartedWorker.evaluate(
+      async (key) => (await chrome.storage.local.get(key))[key].rules,
+      'ajax-proxy:storage:v3-config'
+    )
+    const addedTemplates = currentTemplateRules.filter((rule) =>
+      rule.match.url.includes('.example.invalid/placeholder')
+    )
+    assert.equal(addedTemplates.length, 3)
+    assert.equal(new Set(addedTemplates.map((rule) => rule.id)).size, 3)
+    assert.ok(addedTemplates.every((rule) => rule.enabled === false))
+    assert.ok(
+      addedTemplates.every((rule) =>
+        rule.response?.replace ? rule.response.replace.code === undefined : true
+      )
+    )
+
+    await restartedWorker.evaluate(
+      async ({ key, port }) => {
+        const config = (await chrome.storage.local.get(key))[key]
+        const match = { url: '/api/v3-exclusion', method: 'POST', type: 'normal' }
+        const rules = [
+          {
+            id: 'v3-static-mock-fetch-extension-smoke',
+            enabled: true,
+            match: { url: '/api/v3-mock-fetch', method: 'GET', type: 'normal' },
+            response: {
+              enabled: true,
+              mode: 'mock',
+              replace: { status: 201, body: { source: 'mock', api: 'fetch' } },
+            },
+          },
+          {
+            id: 'v3-static-mock-xhr-extension-smoke',
+            enabled: true,
+            match: { url: '/api/v3-mock-xhr', method: 'GET', type: 'normal' },
+            response: {
+              enabled: true,
+              mode: 'mock',
+              replace: { status: 202, body: { source: 'mock', api: 'xhr' } },
+            },
+          },
+          {
+            id: 'v3-function-redirect-extension-smoke',
+            enabled: true,
+            match: { url: '/api/v3-function-redirect', method: 'POST', type: 'normal' },
+            request: {
+              enabled: true,
+              redirect: {
+                type: 'function',
+                code: "if (request.method !== 'POST') throw new Error('expected POST'); return new URL('/mock/echo', request.url).href",
+              },
+            },
+          },
+          {
+            id: 'v3-static-redirect-headers-extension-smoke',
+            enabled: true,
+            match: { url: '/api/v3-header-redirect', method: 'POST', type: 'normal' },
+            request: {
+              enabled: true,
+              redirect: {
+                url: `http://127.0.0.1:${port}/mock/echo`,
+                headers: { 'x-original': 'rule-value', 'x-redirected': 'configured-value' },
+              },
+            },
+          },
+          {
+            id: 'v3-redirect-exclusion-extension-smoke',
+            enabled: true,
+            match,
+            request: {
+              enabled: true,
+              redirect: {
+                url: `http://127.0.0.1:${port}/mock/blocked`,
+                exclusions: ['skip=1'],
+              },
+            },
+          },
+          {
+            id: 'v3-redirect-exclusion-fallback-extension-smoke',
+            enabled: true,
+            match,
+            request: {
+              enabled: true,
+              redirect: { url: `http://127.0.0.1:${port}/mock/echo` },
+            },
+          },
+          {
+            id: 'v3-redirect-exclusion-native-extension-smoke',
+            enabled: true,
+            match: { url: '/api/v3-native-exclusion', method: 'POST', type: 'normal' },
+            request: {
+              enabled: true,
+              redirect: {
+                url: `http://127.0.0.1:${port}/mock/blocked`,
+                exclusions: ['skip=1'],
+              },
+            },
+          },
+        ]
+        await chrome.storage.local.set({
+          [key]: {
+            ...config,
+            formatVersion: 9,
+            disabledOrigins: [],
+            rules: [...rules, ...config.rules],
+          },
+        })
+      },
+      { key: 'ajax-proxy:storage:v3-config', port }
+    )
+    await restartedPage.reload()
+    await v3Panel.reload()
+    await v3Panel.getByText('/api/v3-mock-fetch', { exact: true }).waitFor()
+    await restartedPage.waitForFunction(() =>
+      document.getElementById('ajax-proxy-v3-function-sandbox')
+    )
+    const mockFetchResult = await restartedPage.evaluate(async () => {
+      const response = await fetch('/api/v3-mock-fetch')
+      return { status: response.status, body: await response.json() }
+    })
+    assert.deepEqual(mockFetchResult, {
+      status: 201,
+      body: { source: 'mock', api: 'fetch' },
+    })
+    const mockXhrResult = await restartedPage.evaluate(
+      () =>
+        new Promise((resolve, reject) => {
+          const request = new XMLHttpRequest()
+          request.onload = () =>
+            resolve({ status: request.status, body: JSON.parse(request.responseText) })
+          request.onerror = () => reject(new Error('static Mock XHR failed'))
+          request.open('GET', '/api/v3-mock-xhr')
+          request.send()
+        })
+    )
+    assert.deepEqual(mockXhrResult, {
+      status: 202,
+      body: { source: 'mock', api: 'xhr' },
+    })
+    await restartedPage.waitForTimeout(50)
+    assert.equal(
+      requests.filter(({ url }) => url === '/api/v3-mock-fetch' || url === '/api/v3-mock-xhr')
+        .length,
+      0,
+      'static Mock should not send the matched requests to the server'
+    )
+    await v3Panel.waitForFunction(() => document.querySelectorAll('.mock-hit-notice').length >= 2)
+    const mockNotice = v3Panel.locator('.mock-hit-notice').first()
+    const mockNoticeText = await mockNotice.innerText()
+    assert.match(mockNoticeText, /Mock response/)
+    assert.match(mockNoticeText, /The real network request was skipped/)
+    assert.match(mockNoticeText, /HTTP status (201|202)/)
+    const functionRedirectFetch = await restartedPage.evaluate(async () => {
+      const response = await fetch('/api/v3-function-redirect', {
+        method: 'POST',
+        body: 'dynamic redirect Fetch',
+      })
+      return { url: response.url, body: await response.json() }
+    })
+    assert.equal(
+      functionRedirectFetch.url,
+      `http://127.0.0.1:${port}/mock/echo`,
+      'Fetch should use the HTTP(S) URL returned by the redirect function'
+    )
+    assert.equal(functionRedirectFetch.body.method, 'POST')
+    assert.equal(functionRedirectFetch.body.body, 'dynamic redirect Fetch')
+    const functionRedirectXhr = await restartedPage.evaluate(
+      () =>
+        new Promise((resolve, reject) => {
+          const request = new XMLHttpRequest()
+          request.onload = () =>
+            resolve({ url: request.responseURL, body: JSON.parse(request.responseText) })
+          request.onerror = () => reject(new Error('function redirect XHR failed'))
+          request.open('POST', '/api/v3-function-redirect')
+          request.send('dynamic redirect XHR')
+        })
+    )
+    assert.equal(
+      functionRedirectXhr.url,
+      `http://127.0.0.1:${port}/api/v3-function-redirect`,
+      'XHR should preserve its original URL because open() is synchronous'
+    )
+    assert.equal(functionRedirectXhr.body.method, 'POST')
+    assert.equal(functionRedirectXhr.body.body, 'dynamic redirect XHR')
+    const staticHeaderRedirectFetch = await restartedPage.evaluate(async () => {
+      const response = await fetch('/api/v3-header-redirect', {
+        method: 'POST',
+        body: 'static redirect headers Fetch',
+        headers: { 'x-original': 'caller-value', 'x-keep': 'preserved-value' },
+      })
+      return { url: response.url, body: await response.json() }
+    })
+    assert.equal(staticHeaderRedirectFetch.url, `http://127.0.0.1:${port}/mock/echo`)
+    assert.equal(staticHeaderRedirectFetch.body.body, 'static redirect headers Fetch')
+    assert.equal(staticHeaderRedirectFetch.body.originalHeader, 'rule-value')
+    assert.equal(staticHeaderRedirectFetch.body.redirectedHeader, 'configured-value')
+    assert.equal(staticHeaderRedirectFetch.body.keptHeader, 'preserved-value')
+    const staticHeaderRedirectXhr = await restartedPage.evaluate(
+      () =>
+        new Promise((resolve, reject) => {
+          const request = new XMLHttpRequest()
+          request.onload = () =>
+            resolve({ url: request.responseURL, body: JSON.parse(request.responseText) })
+          request.onerror = () => reject(new Error('static redirect headers XHR failed'))
+          request.open('POST', '/api/v3-header-redirect')
+          request.setRequestHeader('x-original', 'caller-value')
+          request.setRequestHeader('x-keep', 'preserved-value')
+          request.send('static redirect headers XHR')
+        })
+    )
+    assert.equal(staticHeaderRedirectXhr.url, `http://127.0.0.1:${port}/mock/echo`)
+    assert.equal(staticHeaderRedirectXhr.body.body, 'static redirect headers XHR')
+    assert.equal(staticHeaderRedirectXhr.body.originalHeader, 'rule-value')
+    assert.equal(staticHeaderRedirectXhr.body.redirectedHeader, 'configured-value')
+    assert.equal(staticHeaderRedirectXhr.body.keptHeader, 'preserved-value')
+    const excludedFetchResult = await restartedPage.evaluate(async () => {
+      const response = await fetch('/api/v3-exclusion?skip=1', {
+        method: 'POST',
+        body: 'excluded Fetch',
+      })
+      return { url: response.url, body: await response.json() }
+    })
+    assert.equal(
+      excludedFetchResult.url,
+      `http://127.0.0.1:${port}/mock/echo`,
+      'Fetch should skip the excluded first redirect and use the next rule'
+    )
+    assert.equal(excludedFetchResult.body.body, 'excluded Fetch')
+    const excludedXhrResult = await restartedPage.evaluate(
+      () =>
+        new Promise((resolve, reject) => {
+          const request = new XMLHttpRequest()
+          request.onload = () =>
+            resolve({ url: request.responseURL, body: JSON.parse(request.responseText) })
+          request.onerror = () => reject(new Error('excluded XHR failed'))
+          request.open('POST', '/api/v3-exclusion?skip=1')
+          request.send('excluded XHR')
+        })
+    )
+    assert.equal(
+      excludedXhrResult.url,
+      `http://127.0.0.1:${port}/mock/echo`,
+      'XHR should skip the excluded first redirect and use the next rule'
+    )
+    assert.equal(excludedXhrResult.body.body, 'excluded XHR')
+    const excludedNativeFetch = await restartedPage.evaluate(async () => {
+      const response = await fetch('/api/v3-native-exclusion?skip=1', {
+        method: 'POST',
+        body: 'native Fetch',
+      })
+      return { url: response.url, body: await response.json() }
+    })
+    assert.equal(
+      excludedNativeFetch.url,
+      `http://127.0.0.1:${port}/api/v3-native-exclusion?skip=1`,
+      'Fetch should keep the original URL when every matching redirect is excluded'
+    )
+    const excludedNativeXhr = await restartedPage.evaluate(
+      () =>
+        new Promise((resolve, reject) => {
+          const request = new XMLHttpRequest()
+          request.onload = () => resolve({ url: request.responseURL })
+          request.onerror = () => reject(new Error('excluded native XHR failed'))
+          request.open('POST', '/api/v3-native-exclusion?skip=1')
+          request.send('native XHR')
+        })
+    )
+    assert.equal(
+      excludedNativeXhr.url,
+      `http://127.0.0.1:${port}/api/v3-native-exclusion?skip=1`,
+      'XHR should keep the original URL when every matching redirect is excluded'
+    )
+
+    console.log(
+      'Unpacked V3 extension panel persistence, static redirect Fetch/XHR header overrides, exact-origin site switches, safe rule templates, JSON and function Fetch interception, XHR, iframe, redirect, and service worker restart smoke passed'
+    )
+  } finally {
+    await context?.close()
+    fs.rmSync(userDataDir, { recursive: true, force: true })
+    if (certificateDir) fs.rmSync(certificateDir, { recursive: true, force: true })
+    if (streamServer?.listening) {
+      await new Promise((resolve, reject) => {
+        streamServer.close((error) => (error ? reject(error) : resolve()))
+      })
+    }
+    await new Promise((resolve, reject) => {
+      server.close((error) => (error ? reject(error) : resolve()))
+    })
+  }
+}
+
+main().catch((error) => {
+  console.error(error)
+  process.exitCode = 1
+})

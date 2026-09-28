@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="560" viewBox="0 0 1400 560">
+  <defs>
+    <linearGradient id="bg" x2="1" y2="1"><stop stop-color="#102B34"/><stop offset=".6" stop-color="#163E48"/><stop offset="1" stop-color="#0B202A"/></linearGradient>
+    <linearGradient id="panel" x2="1" y2="1"><stop stop-color="#F9FCFB"/><stop offset="1" stop-color="#EAF3F2"/></linearGradient>
+    <radialGradient id="glow"><stop stop-color="#25B6A4" stop-opacity=".3"/><stop offset="1" stop-color="#25B6A4" stop-opacity="0"/></radialGradient>
+    <pattern id="dots" width="24" height="24" patternUnits="userSpaceOnUse"><circle cx="1" cy="1" r="1" fill="#B4E8DF" opacity=".14"/></pattern>
+  </defs>
+  <rect width="1400" height="560" fill="url(#bg)"/><circle cx="1130" cy="265" r="370" fill="url(#glow)"/><rect width="1400" height="560" fill="url(#dots)"/>
+  <g transform="translate(78 46) scale(.58)">
+    <rect x="4" y="4" width="120" height="120" rx="28" fill="#F5F9F8"/><rect x="16" y="18" width="96" height="92" rx="15" fill="#F5F9F8"/><path d="M31 18h66a15 15 0 0 1 15 15v6H16v-6a15 15 0 0 1 15-15Z" fill="#12343B"/>
+    <path d="M30 56h21c8 0 8 14 16 14h28m-4-7 8 7-8 7" fill="none" stroke="#20AA9A" stroke-linecap="round" stroke-linejoin="round" stroke-width="7"/><path d="M98 85H77c-8 0-8-14-16-14H31m6 7-8 7 8 7" fill="none" stroke="#F56F68" stroke-linecap="round" stroke-linejoin="round" stroke-width="7"/><circle cx="64" cy="71" r="7" fill="#F6BD58" stroke="#F5F9F8" stroke-width="3"/>
+  </g>
+  <text x="165" y="90" fill="#F5F9F8" font-family="sans-serif" font-size="25" font-weight="700">Ajax Proxy</text><text x="166" y="116" fill="#9BBAB9" font-family="sans-serif" font-size="10" font-weight="650" letter-spacing="2">OPEN-SOURCE BROWSER DEVTOOL</text>
+  <rect x="78" y="157" width="205" height="32" rx="16" fill="#1C4B52" stroke="#2E7777"/><circle cx="96" cy="173" r="4" fill="#20AA9A"/><text x="109" y="177" fill="#C8EAE4" font-family="sans-serif" font-size="11" font-weight="700" letter-spacing=".7">V3.0.0 · STABLE RELEASE</text>
+  <text x="74" y="264" fill="#F5F9F8" font-family="sans-serif" font-size="48" font-weight="700">接口尚未就绪？</text><text x="74" y="322" fill="#F5F9F8" font-family="sans-serif" font-size="48" font-weight="700">Mock 先行，开发不停。</text>
+  <text x="78" y="371" fill="#B7D0D0" font-family="sans-serif" font-size="17">Mock 尚不存在的 API、重定向请求，快速验证边界场景。</text>
+  <g font-family="sans-serif" font-size="12" font-weight="650" fill="#E5F7F3">
+    <rect x="78" y="401" width="116" height="35" rx="17.5" fill="#1F5559"/><circle cx="95" cy="418" r="4" fill="#20AA9A"/><text x="108" y="422">JSON Mock</text>
+    <rect x="204" y="401" width="139" height="35" rx="17.5" fill="#1F5559"/><path d="M222 418h14m0 0-4-4m4 4-4 4" stroke="#F56F68" stroke-width="1.8" fill="none"/><text x="245" y="422">请求重定向</text>
+    <rect x="353" y="401" width="121" height="35" rx="17.5" fill="#1F5559"/><path d="M371 411v14m-4-4 4 4 4-4" stroke="#F6BD58" stroke-width="1.8" fill="none"/><text x="384" y="422">JSON 备份</text>
+  </g>
+  <text x="78" y="510" fill="#8EADAE" font-family="sans-serif" font-size="12">Chrome 与 Edge 稳定版 · 本地优先 · MIT 开源</text>
+  <g>
+    <rect x="758" y="58" width="584" height="444" rx="18" fill="url(#panel)"/><path d="M776 58h548a18 18 0 0 1 18 18v39H758V76a18 18 0 0 1 18-18Z" fill="#12343B"/>
+    <circle cx="783" cy="83" r="4" fill="#F56F68"/><circle cx="798" cy="83" r="4" fill="#F6BD58"/><circle cx="813" cy="83" r="4" fill="#6F9291"/><rect x="861" y="70" width="317" height="26" rx="13" fill="#21484E"/><text x="884" y="87" fill="#C3DAD8" font-family="sans-serif" font-size="10">Ajax Proxy / Rules</text>
+    <text x="788" y="145" fill="#153940" font-family="sans-serif" font-size="16" font-weight="700">规则列表</text><rect x="1214" y="126" width="102" height="27" rx="13.5" fill="#DDF3EE"/><circle cx="1229" cy="139.5" r="4" fill="#159989"/><text x="1241" y="143" fill="#187267" font-family="sans-serif" font-size="9" font-weight="700">总开关已开启</text>
+    <rect x="788" y="162" width="528" height="34" rx="8" fill="#F1F7F6" stroke="#D8E7E5"/><circle cx="805" cy="179" r="4.5" fill="none" stroke="#779394" stroke-width="1.4"/><path d="m809 183 3 3" stroke="#779394" stroke-linecap="round" stroke-width="1.4"/><text x="820" y="183" fill="#7B9292" font-family="sans-serif" font-size="10">搜索 URL、请求方法或标签</text>
+    <text x="788" y="219" fill="#71898A" font-family="sans-serif" font-size="9" font-weight="700" letter-spacing="1">已启用规则 · 列表首条优先</text>
+    <rect x="788" y="232" width="528" height="72" rx="9" fill="#fff" stroke="#CEE1DE"/><rect x="788" y="232" width="4" height="72" rx="2" fill="#20AA9A"/><rect x="805" y="247" width="37" height="18" rx="5" fill="#DFF4EF"/><text x="814" y="260" fill="#147B70" font-family="sans-serif" font-size="8" font-weight="700">GET</text><text x="852" y="260" fill="#24454A" font-family="sans-serif" font-size="11" font-weight="650">/api/products</text><circle cx="1284" cy="256" r="4" fill="#159989"/><text x="805" y="288" fill="#778F90" font-family="sans-serif" font-size="9">JSON 响应 · Mock：跳过真实请求</text>
+    <rect x="788" y="316" width="528" height="72" rx="9" fill="#fff" stroke="#DCE8E7"/><rect x="805" y="331" width="37" height="18" rx="5" fill="#FFF0E9"/><text x="811" y="344" fill="#BD654B" font-family="sans-serif" font-size="8" font-weight="700">POST</text><text x="852" y="344" fill="#24454A" font-family="sans-serif" font-size="11" font-weight="650">/api/payments</text><circle cx="1284" cy="340" r="4" fill="#159989"/><text x="805" y="372" fill="#778F90" font-family="sans-serif" font-size="9">静态重定向 · 自定义请求头</text>
+    <rect x="788" y="400" width="528" height="80" rx="9" fill="#163A42"/><text x="806" y="421" fill="#A9D4CE" font-family="sans-serif" font-size="9" font-weight="700" letter-spacing="1">MOCK RESPONSE</text><rect x="1222" y="408" width="76" height="22" rx="11" fill="#245C5D"/><text x="1238" y="423" fill="#C8F0E7" font-family="sans-serif" font-size="9" font-weight="700">200 OK</text><text x="806" y="450" fill="#93DBCE" font-family="monospace" font-size="10">{"items":[{"id":1}]}</text><text x="806" y="468" fill="#8FADAD" font-family="sans-serif" font-size="8">扩展在浏览器本地响应，不依赖真实后端接口。</text>
+  </g>
+</svg>

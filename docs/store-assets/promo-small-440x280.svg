@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="440" height="280" viewBox="0 0 440 280">
+  <defs>
+    <linearGradient id="bg" x2="1" y2="1"><stop stop-color="#102B34"/><stop offset="1" stop-color="#0B202A"/></linearGradient>
+    <linearGradient id="panel" x2="1" y2="1"><stop stop-color="#F9FCFB"/><stop offset="1" stop-color="#DDEBE8"/></linearGradient>
+  </defs>
+  <rect width="440" height="280" fill="url(#bg)"/>
+  <circle cx="398" cy="32" r="122" fill="#20AA9A" opacity=".12"/>
+  <g transform="translate(26 23) scale(.48)">
+    <rect x="4" y="4" width="120" height="120" rx="28" fill="#F5F9F8"/><rect x="16" y="18" width="96" height="92" rx="15" fill="#F5F9F8"/>
+    <path d="M31 18h66a15 15 0 0 1 15 15v6H16v-6a15 15 0 0 1 15-15Z" fill="#12343B"/>
+    <path d="M30 56h21c8 0 8 14 16 14h28m-4-7 8 7-8 7M98 85H77c-8 0-8-14-16-14H31m6 7-8 7 8 7" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke-width="7" stroke="#20AA9A"/>
+    <path d="M98 85H77c-8 0-8-14-16-14H31" fill="none" stroke="#F56F68" stroke-width="7" stroke-linecap="round"/><circle cx="64" cy="71" r="7" fill="#F6BD58" stroke="#F5F9F8" stroke-width="3"/>
+  </g>
+  <text x="91" y="49" fill="#F5F9F8" font-family="sans-serif" font-size="19" font-weight="700">Ajax Proxy</text>
+  <text x="91" y="73" fill="#8ED7CB" font-family="sans-serif" font-size="10" font-weight="700" letter-spacing="1">V3.0.0 · STABLE</text>
+  <text x="27" y="125" fill="#F5F9F8" font-family="sans-serif" font-size="21" font-weight="700">接口 Mock，随时开工</text>
+  <text x="28" y="154" fill="#B7D0D0" font-family="sans-serif" font-size="10.5">Mock 不存在的 API · 重定向请求</text>
+  <g font-family="sans-serif" font-size="10" font-weight="650" fill="#E5F7F3">
+    <rect x="27" y="178" width="82" height="25" rx="12.5" fill="#1F5559"/><circle cx="40" cy="190.5" r="4" fill="#20AA9A"/><text x="49" y="194">JSON Mock</text>
+    <rect x="117" y="178" width="102" height="25" rx="12.5" fill="#1F5559"/><path d="M129 190h13m0 0-4-4m4 4-4 4" stroke="#F56F68" stroke-width="1.5" fill="none"/><text x="148" y="194">请求重定向</text>
+  </g>
+  <text x="27" y="244" fill="#8EADAE" font-family="sans-serif" font-size="10">Chrome 与 Edge 稳定版 · 本地优先 · MIT 开源</text>
+  <g>
+    <rect x="257" y="28" width="159" height="225" rx="14" fill="url(#panel)"/>
+    <path d="M271 28h131a14 14 0 0 1 14 14v20H257V42a14 14 0 0 1 14-14Z" fill="#12343B"/>
+    <circle cx="274" cy="43" r="3" fill="#F56F68"/><circle cx="284" cy="43" r="3" fill="#F6BD58"/><circle cx="294" cy="43" r="3" fill="#6F9291"/>
+    <text x="271" y="80" fill="#153940" font-family="sans-serif" font-size="11" font-weight="700">规则列表</text>
+    <rect x="271" y="90" width="131" height="24" rx="6" fill="#F1F7F6" stroke="#D8E7E5"/><text x="282" y="105" fill="#7B9292" font-family="sans-serif" font-size="8">搜索 URL、方法、标签</text>
+    <rect x="271" y="123" width="131" height="47" rx="7" fill="#fff" stroke="#CEE1DE"/><rect x="271" y="123" width="3" height="47" rx="1.5" fill="#20AA9A"/>
+    <rect x="281" y="133" width="24" height="13" rx="4" fill="#DFF4EF"/><text x="285" y="142" fill="#147B70" font-family="sans-serif" font-size="7" font-weight="700">GET</text><text x="310" y="142" fill="#24454A" font-family="sans-serif" font-size="8">/api/products</text><text x="281" y="158" fill="#778F90" font-family="sans-serif" font-size="7">JSON Mock · 已启用</text>
+    <rect x="271" y="180" width="131" height="56" rx="7" fill="#163A42"/><text x="281" y="195" fill="#A9D4CE" font-family="sans-serif" font-size="7" font-weight="700">MOCK RESPONSE</text><text x="281" y="218" fill="#93DBCE" font-family="monospace" font-size="9">{"items":[{"id":1}]}</text><text x="281" y="230" fill="#8FADAD" font-family="sans-serif" font-size="6.4">无需真实接口，由扩展直接响应。</text>
+  </g>
+</svg>

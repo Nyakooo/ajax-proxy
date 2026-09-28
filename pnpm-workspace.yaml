@@ -1,5 +1,39 @@
 packages:
   # all packages in subdirs of packages/ and components/
-  - "packages/**"
+  - 'packages/**'
   # exclude packages that are inside test directories
-  - "!**/test/**"
+  - '!**/test/**'
+allowBuilds:
+  '@parcel/watcher': true
+  core-js: false
+  cssnano: false
+  esbuild: true
+  fsevents: false
+minimumReleaseAgeExclude:
+  - eslint-plugin-vue@10.11.1
+overrides:
+  # GHSA-6chw-6frg-f759: patch the parser without widening its dependency edge.
+  'espree@6.1.2>acorn': 7.1.1
+  # GHSA-93q8-gq69-wqmw: keep each strip-ansi major on its compatible fixed line.
+  'strip-ansi@4.0.0>ansi-regex': 3.0.1
+  'strip-ansi@5.2.0>ansi-regex': 4.1.1
+  'strip-ansi@6.0.0>ansi-regex': 5.0.1
+  # GHSA-q8pj-2vqx-8ggc and GHSA-rp65-9cf3-cjxr: patched CSS selector dependencies.
+  'css-select@4.1.3>css-what': 5.0.1
+  'css-select@4.1.3>nth-check': 2.0.1
+  # GHSA-px4h-xg32-q955: use the compatible normalize-url patch release.
+  'postcss-normalize-url@5.0.0>normalize-url': 4.5.1
+  # GHSA-c2qf-rxjj-qqgw and GHSA-x6fg-f45m-jf5q: honor parent semver ranges.
+  'make-dir@3.1.0>semver': 6.3.1
+  'cross-spawn@6.0.6>semver': 5.7.2
+  'normalize-package-data@2.3.2>semver': 5.7.2
+  'normalize-package-data@2.5.0>semver': 5.7.2
+  # GHSA-ph9p-34f9-6g65 and GHSA-7c78-jf6q-g5cm: use tmp after the bypass fix.
+  'external-editor@3.1.0>tmp': 0.2.7
+  # GHSA-43f8-2h32-f4cj: patch hosted-git-info within both parent semver ranges.
+  'normalize-package-data@2.3.2>hosted-git-info': 2.8.9
+  'normalize-package-data@2.5.0>hosted-git-info': 2.8.9
+  # GHSA-67mh-4wv8-2f99: use the existing fixed esbuild across optional peers.
+  esbuild: 0.25.12
+  # GHSA-w5hq-g745-h8pq: SockJS only uses uuid.v4; verify its live connection path.
+  'sockjs@0.3.24>uuid': 11.1.1

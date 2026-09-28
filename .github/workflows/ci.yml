@@ -1,0 +1,178 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - master
+      - refactor/v3
+
+jobs:
+  browser-smoke:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chrome, msedge]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12.6.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Install stable browser
+        run: pnpm exec playwright install --with-deps ${{ matrix.browser }}
+      - name: Check browser runtime compatibility
+        env:
+          BROWSER_CHANNEL: ${{ matrix.browser }}
+        run: pnpm browser:smoke
+      - name: Verify V3 combined Fetch and XHR runtime
+        env:
+          BROWSER_CHANNEL: ${{ matrix.browser }}
+        run: pnpm v3:browser:smoke
+      - name: Verify production V3 panel at narrow viewports
+        env:
+          BROWSER_CHANNEL: ${{ matrix.browser }}
+        run: pnpm v3:panel:responsive:smoke
+      - name: Build the production Vite extension
+        run: pnpm build
+      - name: Verify the production Vite output layout
+        run: pnpm production:smoke
+      - name: Install extension-compatible Playwright Chromium
+        run: pnpm exec playwright install chromium
+      - name: Verify the production extension in Playwright Chromium
+        if: matrix.browser == 'chrome'
+        env:
+          BROWSER_CHANNEL: chromium
+        run: pnpm v3:extension:smoke
+      - name: Verify V3 rule workspace and panel window in Playwright Chromium
+        env:
+          BROWSER_CHANNEL: chromium
+        run: node tests/browser/v3-unified-rules-smoke.cjs && node tests/browser/v3-panel-open-smoke.cjs
+
+  minimum-browser-smoke:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - browser: chrome
+            version: 141.0.7390.122
+            label: Chrome 141 minimum
+            cache: /home/runner/.cache/ajax-proxy-chrome-for-testing
+          - browser: edge
+            version: 140.0.3485.94-1
+            label: Edge 140 minimum
+            cache: /home/runner/.cache/ajax-proxy-edge-for-testing
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12.6.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - uses: actions/cache@v4
+        with:
+          path: ${{ matrix.cache }}
+          key: ${{ matrix.browser }}-${{ runner.os }}-${{ matrix.version }}-v1
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Install minimum-version Chrome for Testing
+        if: matrix.browser == 'chrome'
+        id: browser
+        run: node scripts/install-chrome-for-testing.cjs ${{ matrix.version }}
+      - name: Install minimum-version Microsoft Edge
+        if: matrix.browser == 'edge'
+        id: edge
+        run: node scripts/install-edge-for-testing.cjs ${{ matrix.version }}
+      - name: Install browser runtime libraries
+        if: matrix.browser == 'edge'
+        run: pnpm exec playwright install-deps chromium
+      - name: Check minimum-version browser runtime
+        env:
+          BROWSER_CHANNEL: chromium
+          BROWSER_EXECUTABLE_PATH: ${{ matrix.browser == 'chrome' && steps.browser.outputs.executable-path || steps.edge.outputs.executable-path }}
+          BROWSER_LABEL: ${{ matrix.label }}
+        run: pnpm browser:smoke
+      - name: Verify minimum-version V3 combined Fetch and XHR runtime
+        env:
+          BROWSER_CHANNEL: chromium
+          BROWSER_EXECUTABLE_PATH: ${{ matrix.browser == 'chrome' && steps.browser.outputs.executable-path || steps.edge.outputs.executable-path }}
+          BROWSER_LABEL: ${{ matrix.label }}
+        run: pnpm v3:browser:smoke
+      - name: Build extension
+        run: pnpm build
+      - name: Verify production extension layout
+        run: pnpm production:smoke
+      - name: Verify extension Fetch and XHR interception
+        env:
+          BROWSER_EXECUTABLE_PATH: ${{ matrix.browser == 'chrome' && steps.browser.outputs.executable-path || steps.edge.outputs.executable-path }}
+        run: pnpm v3:extension:smoke
+      - name: Verify production V3 rule workspace and panel on minimum-version browser
+        env:
+          BROWSER_EXECUTABLE_PATH: ${{ matrix.browser == 'chrome' && steps.browser.outputs.executable-path || steps.edge.outputs.executable-path }}
+        run: node tests/browser/v3-unified-rules-smoke.cjs && node tests/browser/v3-panel-open-smoke.cjs
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12.6.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Audit production dependencies and package signatures
+        run: pnpm security:audit
+      - name: Check workspace package boundaries
+        run: pnpm check:boundaries
+      - name: Lint migrated files
+        run: pnpm lint
+      - name: Check formatting for migrated files
+        run: pnpm format:check
+      - name: Typecheck TypeScript packages
+        run: pnpm typecheck
+      - name: Build protocol package for tests
+        run: pnpm build:protocol
+      - name: Run unit tests and coverage
+        run: pnpm test:coverage
+      - name: Run Vue 3 component tests
+        run: pnpm test:v3-ui
+      - name: Clean generated outputs before production Vite build
+        run: pnpm clean:build
+      - name: Build production extension
+        run: pnpm build
+      - name: Verify production extension layout
+        run: pnpm production:smoke
+      - name: Verify generated type declarations
+        run: pnpm check:generated-types
+      - name: Package extension and report sizes
+        run: pnpm zip && pnpm size:report
+      - name: Verify production extension ZIP archive
+        run: |
+          for archive in zip/ajax-proxy-*.zip; do
+            unzip -t "$archive"
+            unzip -Z1 "$archive" | grep -Fx 'panels-v3/popup.html'
+            unzip -Z1 "$archive" | grep -Fx 'v3-sandbox/sandbox.html'
+          done
+      - name: Install Chromium for extension E2E
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Verify V3 extension Fetch and XHR behavior
+        run: pnpm v3:extension:smoke
+      - name: Verify V3 rules workspace, popup and editor handoff
+        run: node tests/browser/v3-unified-rules-smoke.cjs
+      - name: Verify independent V3 panel and manual tab option
+        run: node tests/browser/v3-panel-open-smoke.cjs
+      - name: Verify Vite watch rebuild and extension reload workflow
+        run: pnpm verify:chrome:vite-watch

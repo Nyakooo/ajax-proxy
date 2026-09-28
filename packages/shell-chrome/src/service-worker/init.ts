@@ -1,13 +1,24 @@
-import { getRealStorage, StorageKey } from "@proxy/shared-utils";
-import { chromeBadge } from "./badge";
+import { getRealStorage, StorageKey } from '@proxy/shared-utils'
+import { validateV3Backup } from '@proxy/v3-domain'
+import { chromeBadge } from './badge'
+
+/** Keep the toolbar icon aligned with the V3 UI's enabled empty-config default. */
+export async function syncToolbarIcon() {
+  const rawConfig = await getRealStorage(StorageKey.V3_CONFIG, null)
+  const validation = rawConfig === null ? null : validateV3Backup(rawConfig)
+  const enabled =
+    rawConfig === null
+      ? true
+      : validation?.ok
+        ? validation.data.settings.globalEnabled
+        : await getRealStorage(StorageKey.GLOBAL_SWITCH, false)
+  chrome.action.setIcon({ path: enabled ? 'icons/128.png' : 'icons/128g.png' })
+}
 
 /**设置默认项 */
 export async function initDefaultSth() {
-    // 设置默认icon
-    const bool = await getRealStorage(StorageKey.GLOBAL_SWITCH, false)
-    if (bool) chrome.action.setIcon({ path: "icons/128.png" });
-    else chrome.action.setIcon({ path: "icons/128g.png" });
+  await syncToolbarIcon()
 
-    // 初始化徽章状态
-    chromeBadge()
+  // 初始化徽章状态
+  chromeBadge()
 }

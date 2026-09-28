@@ -1,5 +1,6 @@
-/// <reference types="chrome" />
-import { NoticeKey } from "./consts";
+import { NoticeKey } from './consts';
+/** Validate plain records received from extension messaging APIs. */
+export declare function isMessageRecord(value: unknown): value is Record<string, unknown>;
 /**
  * 通知 content -> document
  */
@@ -19,7 +20,7 @@ export declare function noticeServiceWorkerByPanels(key: any, value: any): void;
  */
 export declare function noticePanelsByServiceWorker(key: NoticeKey, value?: any): void;
 /** service-worker 长链接监听 */
-export declare function onConnectByServiceWorker(onConnectFn: (port: chrome.runtime.Port) => void, onDisconnectFn: () => void): void;
+export declare function onConnectByServiceWorker(onConnectFn: (port: chrome.runtime.Port) => void, onDisconnectFn: (port: chrome.runtime.Port) => void): void;
 /**
  * 通知 service-worker -> content
  */

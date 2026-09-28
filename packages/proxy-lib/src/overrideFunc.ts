@@ -1,9 +1,3 @@
-
-
-const errLog = function (...args: any[]) {
-    console.log("%c[AjaxProxy][error]: ", "color: #ff4d4f", ...args)
-}
-
 type Ctx = {
     req: {
         url: string
@@ -22,8 +16,67 @@ type Next = {
     status?: string | number
 }
 
-function isNext(x: any): x is Next {
-    return !!x && (x.override || x.status)
+const FAILURE_MARKER = Symbol.for('ajax-proxy.custom-function-fail-open')
+const FUNCTION_TIMEOUT_MS = 5000
+
+function normalizeNext(value: unknown, customStatus: string): Next | undefined {
+    if (!value || typeof value !== 'object') return undefined
+    const next = value as Partial<Next>
+    if (!('override' in next) && !('status' in next)) return undefined
+    return {
+        override: next.override ?? '',
+        status: next.status ?? customStatus,
+    }
+}
+
+function runCustomFunction(
+    funcText: string,
+    args: unknown[],
+    normalize: (value: unknown) => Next | undefined,
+    fallback: Next
+): Promise<Next> {
+    return new Promise(resolve => {
+        let settled = false
+        const timer = setTimeout(() => finishFailure(), FUNCTION_TIMEOUT_MS)
+
+        function finish(value: Next) {
+            if (settled) return
+            settled = true
+            clearTimeout(timer)
+            resolve(value)
+        }
+
+        function finishFailure() {
+            Object.defineProperty(fallback, FAILURE_MARKER, { value: true })
+            finish(fallback)
+        }
+
+        function complete(value: unknown) {
+            const normalized = normalize(value)
+            if (normalized === undefined) finishFailure()
+            else finish(normalized)
+        }
+
+        try {
+            const execFunc = window.eval(`;(${funcText})`)
+            if (typeof execFunc !== 'function') {
+                console.error('[AjaxProxy][error] Invalid interceptor function')
+                finishFailure()
+                return
+            }
+
+            const result = execFunc(...args, complete)
+            Promise.resolve(result).then(value => {
+                if (value !== undefined) complete(value)
+            }, error => {
+                console.error('[AjaxProxy][error] interceptor function rejected', error)
+                finishFailure()
+            })
+        } catch (error) {
+            console.error('[AjaxProxy][error] interceptor function failed', error)
+            finishFailure()
+        }
+    })
 }
 
 export function getCtx(
@@ -40,39 +93,11 @@ export function getCtx(
     }
 }
 
-function overrideNext<T extends Next>(next: T, customStatus: string): T {
-    if (isNext(next)) {
-        // 默认status
-        if (!next.status) next.status = customStatus
-        // 默认响应值
-        if (!next.override) next.override = ""
-        return next
-    }
-    return { override: "", status: customStatus } as T
-}
-
 export function execSetup(ctx: Ctx, funcText: string): Promise<Next> {
-    return new Promise(resolve => {
-        try {
-            const source = ';(' + funcText + ')'
-            const execFunc = window.eval(source)
-            const type = typeof execFunc
-            if (type === "function") {
-                if (!funcText.includes('next(')) {
-                    errLog("The structure of 'next' is incorrect [code 1]")
-                    return resolve({ override: "", status: ctx.res.customStatus })
-                }
-                execFunc(ctx.req, ctx.res, (next: Next) => {
-                    const overrideData = overrideNext(next, ctx.res.customStatus)
-                    return resolve(overrideData)
-                })
-            } else {
-                errLog("Please enter a correct 'function' [code 2]")
-                return resolve({ override: "", status: ctx.res.customStatus })
-            }
-        } catch (error) {
-            errLog(error)
-            return resolve({ override: "", status: ctx.res.customStatus })
-        }
-    })
+    return runCustomFunction(
+        funcText,
+        [ctx.req, ctx.res],
+        value => normalizeNext(value, ctx.res.customStatus),
+        { override: '', status: ctx.res.customStatus }
+    )
 }

@@ -1,31 +1,42 @@
 {
   "manifest_version": 3,
   "name": "Ajax Proxy",
-  "version": "2.2.10",
-  "description": "Modify your Ajax response to test",
+  "version": "3.0.0",
+  "description": "Mock missing APIs, replace responses, and redirect browser requests.",
   "author": "Gj",
   "icons": {
     "128": "icons/128.png"
   },
-  "permissions": [
-    "storage",
-    "notifications",
-    "tabs"
-  ],
+  "permissions": ["storage", "notifications", "tabs"],
   "action": {
-    "default_icon": "icons/48g.png"
+    "default_icon": "icons/48.png"
   },
   "background": {
     "service_worker": "service_worker.js"
   },
+  "content_security_policy": {
+    "sandbox": "sandbox allow-scripts; default-src 'none'; script-src 'self' 'unsafe-eval'; worker-src blob:; connect-src 'none'; img-src 'none'; style-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'"
+  },
+  "sandbox": {
+    "pages": ["v3-sandbox/sandbox.html"]
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["v3-sandbox/sandbox.html"],
+      "matches": ["<all_urls>"]
+    }
+  ],
   "content_scripts": [
     {
-      "matches": [
-        "<all_urls>"
-      ],
-      "js": [
-        "content.js"
-      ],
+      "matches": ["<all_urls>"],
+      "js": ["document.js"],
+      "run_at": "document_start",
+      "all_frames": true,
+      "world": "MAIN"
+    },
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
       "run_at": "document_start",
       "all_frames": true
     }
@@ -67,15 +78,5 @@
       },
       "description": "Resize screen"
     }
-  },
-  "web_accessible_resources": [
-    {
-      "resources": [
-        "document.js"
-      ],
-      "matches": [
-        "<all_urls>"
-      ]
-    }
-  ]
+  }
 }

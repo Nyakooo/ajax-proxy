@@ -1,18 +1,19 @@
 /**请求协议 */
-export declare type IRequestMethod = "ANY" | "GET" | "POST" | "PUT" | "DELETE" | "PATCH";
+export type IRequestMethod = 'ANY' | 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
 /**规则 */
-export declare type IFilterType = "normal" | "regex";
+export type IFilterType = 'normal' | 'regex';
 /**模式 */
-export declare type IMode = "interceptor" | "redirector";
+export type IMode = 'interceptor' | 'redirector';
 /**全局状态结构体 */
-export declare type RefGlobalState<T = IGlobalState> = {
+export type RefGlobalState<T = IGlobalState> = {
     value: T;
+    v3_active?: boolean;
 };
 /**响应式类型 */
-export declare type OverrideType = 'json' | 'function';
+export type OverrideType = 'json' | 'function';
 /**重定向类型 */
-export declare type RedirectType = 'text' | 'function';
-declare type CommonContent = {
+export type RedirectType = 'text' | 'function';
+type CommonContent = {
     /**是否需要匹配 */
     switch_on: boolean;
     /**匹配规则 */
@@ -23,7 +24,7 @@ declare type CommonContent = {
     remark?: string;
 };
 /**拦截器对象 */
-export declare type IMatchInterceptorContent = {
+export type IMatchInterceptorContent = {
     /**匹配目标URL */
     match_url: string;
     /**需要覆盖的内容 */
@@ -31,20 +32,20 @@ export declare type IMatchInterceptorContent = {
     /**命中率 */
     hit?: number;
     /**状态码 */
-    status_code?: string;
+    status_code?: string | number;
     /**响应式类型 */
     override_type?: OverrideType;
     /**函数响应 */
     override_func?: string;
 } & CommonContent;
 /**重定向头部结构体 */
-export declare type IRedirectHeader = {
+export type IRedirectHeader = {
     key: string;
     value: string;
     description?: string;
 };
 /**重定向对象结构体 */
-export declare type IMatchRedirectContent = {
+export type IMatchRedirectContent = {
     /**域名 */
     domain: string;
     /**重定向地址 */
@@ -58,7 +59,7 @@ export declare type IMatchRedirectContent = {
     /**函数响应 */
     redirect_func?: string;
 } & CommonContent;
-export declare type IGlobalState = {
+export type IGlobalState = {
     /**全局开关 */
     global_on: boolean;
     /**模式 */
