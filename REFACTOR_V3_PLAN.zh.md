@@ -1178,3 +1178,7 @@ sandbox 执行器现在以内部 typed error 明确报告 timeout、sandbox unav
 ## V3 默认启用状态与工具栏图标同步（2026-09-28）
 
 修复首次打开时面板 / popup 默认显示 V3 全局启用、工具栏图标却回退读取 V2 开关而显示灰色的问题：未保存 V3 配置时图标现与 V3 空配置默认启用态一致，Manifest 初始图标也改为启用色；有效 V3 配置仍以其 `globalEnabled` 为准。Vite 扩展构建和完整 V3 扩展浏览器功能 smoke 通过，未新增小粒度测试。尝试检查当前 Chrome 扩展页面时，Computer Use 安全策略拒绝访问 `chrome-extension://` 页面；未使用替代浏览器途径绕过，因此本轮未完成当前 Chrome 工具栏图标的目视复核。计划统计仍为 403 / 417（96.6%），包含 PR / 需求模板。
+
+## V3 开发分支 CI 收口（2026-09-28）
+
+修正函数请求 / 响应快照与折叠式函数提示的过期测试预期，压缩 770px 默认面板中的空状态高度，并让响应式浏览器 smoke 在拖动 JSON 编辑器手柄前将其滚动到表单可见区域。Edge 140 的统一规则 smoke 改在扩展面板页面读写 `chrome.storage.local`，避免 service worker 测试上下文缺失该 API。修复分别提交到 `refactor/v3`；同一提交 `15911ca` 的 [PR CI 36433125997](https://github.com/Nyakooo/ajax-proxy/actions/runs/36433125997) 与 [分支 CI 36433120255](https://github.com/Nyakooo/ajax-proxy/actions/runs/36433120255) 全部通过，包括构建、功能测试、Chrome / Edge Stable 和两者最低版本浏览器 smoke。本机生产扩展已重建至 `packages/shell-chrome/build`，Chrome 中对应的本地扩展已重载；实测重载后 popup 全局启用与彩色工具栏图标一致，关闭时图标变灰，重新启用后恢复彩色，最终恢复启用状态。Draft PR #57 继续保持未合并状态；公开预览 / 发布日期仍由维护者决定。
