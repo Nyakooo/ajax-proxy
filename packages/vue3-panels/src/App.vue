@@ -1628,7 +1628,8 @@ async function deleteRule(rule) {
                       t('diagnostics.ruleSummary', {
                         index: result.index + 1,
                         id: result.ruleId,
-                        url: config.rules[result.index].match.url,
+                        url:
+                          config.rules.find((rule) => rule?.id === result.ruleId)?.match?.url ?? '',
                       })
                     }}
                   </code>

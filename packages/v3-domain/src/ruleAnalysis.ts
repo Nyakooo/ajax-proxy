@@ -29,11 +29,12 @@ export function analyzeV3RuleMatches(
   let selectedRuleId: string | undefined
   for (let index = 0; index < executionRules.length; index += 1) {
     const rule = executionRules[index]
-    let reason: V3RuleMatchReason
-    if (!globalEnabled) reason = 'global-disabled'
-    else if (selectedRuleId) reason = 'lower-priority'
-    else reason = getV3RuleMatchReason(rule, normalizedRequest)
-    if (reason === 'matched' || reason === 'matched-request-excluded') selectedRuleId = rule.id
+    let reason: V3RuleMatchReason = globalEnabled
+      ? getV3RuleMatchReason(rule, normalizedRequest)
+      : 'global-disabled'
+    const isMatch = reason === 'matched' || reason === 'matched-request-excluded'
+    if (selectedRuleId && isMatch) reason = 'lower-priority'
+    else if (!selectedRuleId && isMatch) selectedRuleId = rule.id
     results.push({ ruleId: rule.id, index, reason })
   }
   return { selectedRuleId, results }

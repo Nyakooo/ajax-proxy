@@ -1241,6 +1241,92 @@ async function main() {
       diagnosticHitsBefore,
       'offline diagnostics must not send requests or increment hit counters'
     )
+
+    const priorityDiagnosticConfig = {
+      ...diagnosticConfigBefore,
+      rules: [
+        {
+          id: 'v3-diagnostic-unpinned-smoke',
+          enabled: true,
+          match: { url: '/api/later', method: 'POST' },
+          response: { enabled: true, replace: { body: { source: 'unpinned' } } },
+        },
+        {
+          id: 'v3-diagnostic-pinned-smoke',
+          enabled: true,
+          pinned: true,
+          match: { url: '/api/priority', method: 'POST' },
+          response: { enabled: true, replace: { body: { source: 'pinned' } } },
+        },
+      ],
+    }
+    const writeDiagnosticConfig = (nextConfig) =>
+      restartedWorker.evaluate(
+        async ({ key, config }) => chrome.storage.local.set({ [key]: config }),
+        { key: 'ajax-proxy:storage:v3-config', config: nextConfig }
+      )
+    await writeDiagnosticConfig(priorityDiagnosticConfig)
+    await v3Panel.reload()
+    await v3Panel.getByRole('button', { name: 'Diagnose rule matching' }).click()
+    const priorityDiagnostics = v3Panel.locator('.rule-diagnostics')
+    await priorityDiagnostics.getByTestId('diagnostic-url-input').fill('/api/priority')
+    await priorityDiagnostics.getByTestId('diagnostic-method-select').selectOption('POST')
+    await priorityDiagnostics.getByRole('button', { name: 'Analyze request' }).click()
+    let priorityRows = priorityDiagnostics.locator('.diagnostic-results li')
+    await priorityRows.nth(1).getByText('URL condition does not match', { exact: true }).waitFor()
+    assert.equal(await priorityRows.nth(0).locator('span').innerText(), 'First complete match')
+    assert.equal(
+      await priorityRows.nth(0).locator('code').innerText(),
+      'Rule 1 · v3-diagnostic-pinned-smoke · /api/priority',
+      'the pinned rule should appear first with its own ID and URL'
+    )
+    assert.equal(
+      await priorityRows.nth(1).locator('span').innerText(),
+      'URL condition does not match'
+    )
+    assert.equal(
+      await priorityRows.nth(1).locator('code').innerText(),
+      'Rule 2 · v3-diagnostic-unpinned-smoke · /api/later',
+      'a later non-match should keep its concrete reason and map to its own ID and URL'
+    )
+
+    await writeDiagnosticConfig({
+      ...priorityDiagnosticConfig,
+      rules: priorityDiagnosticConfig.rules.map((rule) =>
+        rule.id === 'v3-diagnostic-unpinned-smoke'
+          ? { ...rule, match: { ...rule.match, url: '/api/priority' } }
+          : rule
+      ),
+    })
+    await v3Panel.reload()
+    await v3Panel.getByRole('button', { name: 'Diagnose rule matching' }).click()
+    const overlappingDiagnostics = v3Panel.locator('.rule-diagnostics')
+    await overlappingDiagnostics.getByTestId('diagnostic-url-input').fill('/api/priority')
+    await overlappingDiagnostics.getByTestId('diagnostic-method-select').selectOption('POST')
+    await overlappingDiagnostics.getByRole('button', { name: 'Analyze request' }).click()
+    priorityRows = overlappingDiagnostics.locator('.diagnostic-results li')
+    await priorityRows
+      .nth(1)
+      .getByText('An earlier rule matched; this rule will not handle the request', { exact: true })
+      .waitFor()
+    assert.equal(await priorityRows.nth(0).locator('span').innerText(), 'First complete match')
+    assert.equal(
+      await priorityRows.nth(0).locator('code').innerText(),
+      'Rule 1 · v3-diagnostic-pinned-smoke · /api/priority'
+    )
+    assert.equal(
+      await priorityRows.nth(1).locator('span').innerText(),
+      'An earlier rule matched; this rule will not handle the request'
+    )
+    assert.equal(
+      await priorityRows.nth(1).locator('code').innerText(),
+      'Rule 2 · v3-diagnostic-unpinned-smoke · /api/priority',
+      'an overlapping unpinned rule should be lower priority and retain its own identity'
+    )
+
+    await writeDiagnosticConfig(diagnosticConfigBefore)
+    await v3Panel.reload()
+
     await restartedPage.evaluate(async () => {
       await Promise.all(
         Array.from({ length: 11 }, (_, index) =>
