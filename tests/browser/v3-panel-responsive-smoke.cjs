@@ -260,6 +260,7 @@ async function main() {
         name: 'Resize response JSON editor height',
       })
       await resizeHandle.waitFor({ state: 'visible' })
+      await resizeHandle.evaluate((handle) => handle.scrollIntoView({ block: 'center' }))
       assert.equal(await resizeHandle.getAttribute('aria-orientation'), 'horizontal')
       if (width >= 1200) {
         const editorBox = await resizableEditor.boundingBox()
