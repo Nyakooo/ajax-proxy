@@ -2,8 +2,8 @@
   "name": "ajax-proxy",
   "private": true,
   "packageManager": "pnpm@12.6.0",
-  "description": "Modify your Ajax response to test",
-  "version": "2.2.10",
+  "description": "Mock missing APIs, replace browser responses, and redirect requests.",
+  "version": "3.0.0",
   "scripts": {
     "watch": "run-p watch:protocol watch:utils watch:lib watch:chrome",
     "watch:protocol": "pnpm -C ./packages/protocol watch",

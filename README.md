@@ -5,17 +5,17 @@
   <p>Mock missing endpoints, redirect requests, and test edge cases from your Chromium browser.</p>
 
   <p>
-    <a href="https://github.com/Nyakooo/ajax-proxy/actions/workflows/ci.yml?query=branch%3Arefactor%2Fv3"><img alt="V3 CI" src="https://img.shields.io/github/actions/workflow/status/Nyakooo/ajax-proxy/ci.yml?branch=refactor%2Fv3&label=V3%20CI"></a>
+    <a href="https://github.com/Nyakooo/ajax-proxy/actions/workflows/ci.yml?query=branch%3Amaster"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/Nyakooo/ajax-proxy/ci.yml?branch=master&label=CI"></a>
     <a href="LICENSE"><img alt="MIT license" src="https://img.shields.io/github/license/Nyakooo/ajax-proxy"></a>
     <a href="https://github.com/Nyakooo/ajax-proxy/stargazers"><img alt="GitHub stars" src="https://img.shields.io/github/stars/Nyakooo/ajax-proxy?style=social"></a>
     <a href="https://chrome.google.com/webstore/detail/ajax-proxy/jbikjaejnjfbloojafllmdiknfndgljo"><img alt="Chrome Web Store version" src="https://img.shields.io/chrome-web-store/v/jbikjaejnjfbloojafllmdiknfndgljo?logo=googlechrome&logoColor=white"></a>
     <a href="https://microsoftedge.microsoft.com/addons/detail/ajax-proxy/iladajdkobpmadjfpeginhngnneaoefi"><img alt="Microsoft Edge Add-ons" src="https://img.shields.io/badge/Edge%20Add--ons-available-0078D7?logo=microsoftedge&logoColor=white"></a>
   </p>
 
-  <p><strong>V3 developer preview · Chrome and Microsoft Edge Stable</strong><br>V3 is under active development on <code>refactor/v3</code>. The linked store listings are separate published builds.</p>
-  <p>Install the published store version (separate from the V3 preview): <a href="https://chrome.google.com/webstore/detail/ajax-proxy/jbikjaejnjfbloojafllmdiknfndgljo">Chrome Web Store</a> · <a href="https://microsoftedge.microsoft.com/addons/detail/ajax-proxy/iladajdkobpmadjfpeginhngnneaoefi">Edge Add-ons</a></p>
+  <p><strong>V3.0.0 stable release · Chrome and Microsoft Edge Stable</strong><br>Mock missing APIs, redirect requests, and shape supported Fetch and XHR responses in your browser.</p>
+  <p><a href="https://github.com/Nyakooo/ajax-proxy/releases/tag/v3.0.0"><strong>Download Ajax Proxy 3.0.0</strong></a> · <a href="https://chrome.google.com/webstore/detail/ajax-proxy/jbikjaejnjfbloojafllmdiknfndgljo">Chrome Web Store</a> · <a href="https://microsoftedge.microsoft.com/addons/detail/ajax-proxy/iladajdkobpmadjfpeginhngnneaoefi">Edge Add-ons</a></p>
   <p>
-    <a href="#try-the-v3-developer-preview"><strong>Build and try V3</strong></a> ·
+    <a href="#install-v3-300"><strong>Install V3.0.0</strong></a> ·
     <a href="docs/V3-RULE-MODEL.zh.md">Rule model</a> ·
     <a href="docs/V3-BACKUP-RESTORE.zh.md">Backup &amp; restore</a> ·
     <a href="https://github.com/Nyakooo/ajax-proxy/issues">Issues</a>
@@ -24,7 +24,7 @@
 </div>
 
 <p align="center">
-  <img src="media/ajax-proxy-v3-showcase.svg" alt="Illustrative preview of Ajax Proxy V3 matching a request and returning a configured JSON mock response" width="100%">
+  <img src="media/ajax-proxy-v3-showcase.svg" alt="Ajax Proxy 3.0.0 matching a request and returning a configured JSON mock response" width="100%">
 </p>
 
 ## Why Ajax Proxy?
@@ -52,27 +52,27 @@ Ajax Proxy runs as a browser extension; it does not require an Ajax Proxy accoun
 
 The panel labels a mock hit **Mock skipped the real network request** and shows the returned status. Use this mode when an endpoint does not exist yet or when you need a fixed response. The regular response-replacement mode sends the real request first and then replaces its response; function responses also need a real response as input and currently apply to Fetch only.
 
-## Try the V3 developer preview
+## Install V3 3.0.0
 
-> **Development build:** V3 is not the version currently published in the extension stores. Loading this branch installs a separate local build. V2 and V3 rules / backups use incompatible formats; V3 does not automatically migrate V2 data. Keep your V2 backup and recreate any rules you need.
+> **Upgrade note:** V2 and V3 rules and backup files use incompatible formats. V3 does not migrate old data. Export and keep a V2 backup before upgrading, then recreate the rules you still need.
 
-Requirements: Node.js `>=24.21.0 <25` and pnpm `12.6`.
+Download the `ajax-proxy-3.0.0.zip` asset from the [V3.0.0 GitHub release](https://github.com/Nyakooo/ajax-proxy/releases/tag/v3.0.0), unzip it, and load the extracted folder in Chrome (`chrome://extensions`) or Edge (`edge://extensions`):
+
+1. Turn on **Developer mode**.
+2. Select **Load unpacked**.
+3. Choose the extracted folder containing `manifest.json`.
+4. Open the extension popup and choose **Open full panel** to manage rules.
+
+To build from source, use Node.js `>=24.21.0 <25` and pnpm `12.6`:
 
 ```sh
-git clone --branch refactor/v3 https://github.com/Nyakooo/ajax-proxy.git
+git clone https://github.com/Nyakooo/ajax-proxy.git
 cd ajax-proxy
 pnpm install --frozen-lockfile
 pnpm build
 ```
 
-Then, in Chrome (`chrome://extensions`) or Edge (`edge://extensions`):
-
-1. Turn on **Developer mode**.
-2. Select **Load unpacked**.
-3. Choose `packages/shell-chrome/build` in the checkout.
-4. Open the extension popup and choose **Open full panel** to manage rules.
-
-The current V3 build is for development and evaluation. It has been functionally validated on Chrome and Edge Stable; see [V3 migration notes](docs/V3-PANEL-MIGRATION.zh.md) and the [test and acceptance record](docs/V3-TESTING.zh.md). Do not treat this branch as a store release.
+The production build is at `packages/shell-chrome/build`. V3.0.0 was functionally validated on Chrome Stable and Microsoft Edge Stable; see the [migration notes](docs/V3-PANEL-MIGRATION.zh.md), [browser compatibility](docs/V3-BROWSER-COMPATIBILITY.zh.md), and [acceptance record](docs/V3-TESTING.zh.md). The store listings may show their previous package until their review is complete.
 
 ## Documentation
 
@@ -82,13 +82,14 @@ The current V3 build is for development and evaluation. It has been functionally
 - [V3 browser compatibility](docs/V3-BROWSER-COMPATIBILITY.zh.md)
 - [Custom response functions and sandbox limits](docs/V3-USER-FUNCTIONS.zh.md)
 - [Permissions and security boundaries](docs/V3-PERMISSIONS.zh.md)
+- [Changelog](CHANGELOG.md) · [简体中文更新日志](CHANGELOG.zh.md)
 - [Legacy V2 function reference (not for V3)](README.func.md)
 
-Most V3 design and implementation notes are currently maintained in Chinese. Store installation links above refer to the separately published stable builds.
+Most detailed design and implementation notes are currently maintained in Chinese. The Chrome and Edge links above point to the existing listings; store availability can lag behind the GitHub release while an update is under review.
 
 ## Demo
 
-The animation below shows the **legacy V2 interface** and is kept for historical reference; it is not a screenshot of the V3 preview.
+The animation below shows the **legacy V2 interface** and is kept for historical reference; it is not a screenshot of the V3.0.0 release.
 
 <details>
   <summary>Show the legacy V2 demo</summary>
@@ -98,7 +99,7 @@ The animation below shows the **legacy V2 interface** and is kept for historical
 
 ## Contributing
 
-Bug reports and feature proposals are welcome through [GitHub Issues](https://github.com/Nyakooo/ajax-proxy/issues). Include browser and extension versions plus minimal reproduction steps. For larger changes, open an issue first to agree on scope; keep pull requests focused and include user-visible behavior and functional verification. Remove real request data, cookies, tokens, personal information, and private function code before sharing logs or backups. The V3 development build and its CI are on the `refactor/v3` branch.
+Bug reports and feature proposals are welcome through [GitHub Issues](https://github.com/Nyakooo/ajax-proxy/issues). Include browser and extension versions plus minimal reproduction steps. For larger changes, open an issue first to agree on scope; keep pull requests focused and include user-visible behavior and functional verification. Remove real request data, cookies, tokens, personal information, and private function code before sharing logs or backups. The default branch is `master`.
 
 ## License
 

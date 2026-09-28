@@ -1,8 +1,8 @@
 # V3 配置备份与恢复
 
-本文说明 V3 面板中的完整配置备份与恢复流程。`refactor/v3` 的本地生产构建默认使用 V3 面板；商店发布状态请参考 [V3 发布策略](V3-RELEASE.zh.md)。
+本文说明 V3 面板中的完整配置备份与恢复流程。V3.0.0 正式版默认使用 V3 面板；Chrome 与 Edge 商店更新的审核状态请参考 [V3 发布记录](V3-RELEASE.zh.md)。
 
-## 打开 V3 staging 面板
+## 打开 V3 面板
 
 1. 在仓库根目录运行 `pnpm install --frozen-lockfile` 和 `pnpm build`。
 2. 在 Chrome 打开 `chrome://extensions`，启用“开发者模式”，选择“加载已解压的扩展程序”，并选择 `packages/shell-chrome/build`。

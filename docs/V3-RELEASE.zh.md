@@ -1,24 +1,24 @@
-# Ajax Proxy V3 发布策略（草案）
+# Ajax Proxy V3.0.0 发布记录
 
-本文是 V3 首发前的发布约定草案，不代表发布已经获批或已经完成。
+本文记录 V3.0.0 首次正式发布的版本约定、实际状态和产物检查结果。
 
 ## 当前状态
 
-截至 2026-09-28，V3 仍处于 `refactor/v3` 开发阶段，不代表正式商店发布；但该分支本地生产构建已默认打开 V3 `panels-v3/`，正式产物不再包含 Vue 2 面板。此分支及其构建产物不能视为正式发布；不得据此创建正式版本或推送主分支。正式发布须在准备完成后单独审查并批准。
+截至 2026-09-28，项目已批准按 **V3.0.0** 正式发布。`refactor/v3` 的生产构建默认打开 Vue 3 `panels-v3/`，发行包不包含 Vue 2 面板。此记录随发布候选准备；只有 GitHub tag / release 和商店平台的实际状态可以证明对应发布步骤已完成。商店审核前应将 V3 条目标为草稿，不得宣称已上架。
 
-V2 与 V3 的配置、规则和备份格式不兼容，当前没有自动迁移工具。V3 首发应使用 **3.0.0** 作为建议的首个正式语义版本，以主版本号明确标记不兼容变更。该版本号只是发布策略建议；在正式发布决策前，保持仓库当前版本不变。用户需分别导出并保留 V2 与 V3 备份，不能把旧格式改字段名后导入。详见 [V3 配置备份与恢复](V3-BACKUP-RESTORE.zh.md)。
+V2 与 V3 的配置、规则和备份格式不兼容，且没有自动迁移工具。**3.0.0** 是首个正式语义版本，以主版本号明确标记不兼容变更。用户需分别导出并保留 V2 与 V3 备份，不能把旧格式改字段名后导入。详见 [V3 配置备份与恢复](V3-BACKUP-RESTORE.zh.md)。
 
 ## 版本与构建产物
 
-根 `package.json` 和 `packages/shell-chrome/manifest.json` 的扩展版本必须一致。根目录 `release.js` 会交互式校验新版本不低于当前版本，并在确认后同时写入这两个文件；该脚本不创建 Git 标签、不生成发行说明、不构建扩展、不打包或发布商店版本。当前值为 `2.2.10`。正式候选提交应检查版本同步，且只在获批的发布分支 / 提交上运行版本更新。
+根 `package.json` 和 `packages/shell-chrome/manifest.json` 的扩展版本必须一致，首发版本为 `3.0.0`。根目录 `release.js` 只同步这两个版本字段；它不创建 Git 标签、不生成发行说明、不构建、不打包或发布商店版本。其他 workspace package 保留独立版本。
 
 其他 workspace package 使用各自的 `package.json` 版本（目前多为 `0.1.0` 或 `1.0.0`），不应为了扩展版本机械地批量改号；若它们未来独立发布，再制定各自版本策略。
 
-发布前必须检查产物内容。`scripts/pkg.cjs` 会将 V3 面板复制到 `build/panels-v3/`；生产布局 smoke 与 ZIP 归档检查确认 V3 panel 已进入打包产物，且没有 `panels/` Vue 2 目录。本文不承诺 Chrome Web Store 或 Edge Add-ons 的提交、审核或上架操作。
+发布前必须检查产物内容。`scripts/pkg.cjs` 会将 V3 面板复制到 `build/panels-v3/`；生产布局 smoke 与 ZIP 归档检查应确认 V3 panel 已进入产物，且没有 `panels/` Vue 2 目录。GitHub Release 与商店条目的发布状态分别记录；商店更新需要平台审核通过后才能称为已上架。
 
 ## 变更日志格式
 
-V3 正式发布前应在仓库根目录维护 `CHANGELOG.md`，按版本倒序记录用户可感知的变更。使用 `Added`、`Changed`、`Fixed`、`Removed`、`Known limitations` 分类；每条写清影响、必要的迁移 / 备份动作，并在适用时关联 GitHub issue。不要把内部重构、测试数量或未交付计划写成用户功能。V3 首发条目必须明确 V2 / V3 配置不兼容、无自动迁移、默认入口切换情况、当前已知功能缺口与备份建议。
+根目录 `CHANGELOG.md` 与 `CHANGELOG.zh.md` 按版本倒序记录用户可感知变更，使用 `Added`、`Changed`、`Fixed`、`Removed`、`Known limitations` 分类。V3 首发条目明确 V2 / V3 配置不兼容、无自动迁移、默认入口切换、已知功能缺口与备份建议。
 
 ### 发行说明模板
 
@@ -43,20 +43,20 @@ V3 正式发布前应在仓库根目录维护 `CHANGELOG.md`，按版本倒序�
 
 ## 问题反馈
 
-- https://github.com/g0ngjie/ajax-proxy/issues
+- https://github.com/Nyakooo/ajax-proxy/issues
 ```
 
 ## 发布前清单
 
-- [ ] 正式发布决议已批准；工作位于专用发布分支，未把 staging 内容直接推入主分支。
-- [ ] README、迁移说明、备份说明、浏览器兼容说明与实际首发功能一致；已逐项确认尚未迁移的 V2 功能及已知限制。
-- [ ] 根 `package.json` 与 Chrome manifest 版本一致；拟发布版本满足 3.0.0 主版本策略，并在发行说明中解释不兼容范围。
-- [ ] 从干净 checkout 安装依赖，完成构建、类型检查、lint、格式检查、单元 / 组件测试、扩展 smoke 与所需的安全 / 包边界检查；记录通过的 CI run 和提交 SHA。
-- [ ] 按 [浏览器兼容策略](V3-BROWSER-COMPATIBILITY.zh.md) 验收 Chrome 与 Edge 当前稳定版；CI 中扩展加载、service worker、content script 和真实 Fetch / XHR 集成使用 Playwright 配套 Chromium。品牌浏览器的网页 runtime smoke 与交互式 Stable 扩展验收是不同证据，不能互相代替。
-- [ ] 构建后检查 manifest、默认入口、`panels-v3/` 与所需资源；修复并验证 zip 清单遗漏后，解压检查实际归档内容和文件名版本。
-- [ ] 对发布候选执行一次真实的 V3 配置导出与恢复检查；保留发布前的 V2 备份，并确认 V3 备份可独立读取。
-- [ ] 完成发行说明，确认反馈链接指向 [GitHub Issues](https://github.com/g0ngjie/ajax-proxy/issues)，检查发布文件、版本、校验和及源提交对应关系。
-- [ ] 发布后保存候选源码提交、CI 记录、浏览器验收记录、最终归档和发行说明；不把待审核 / 待上架状态描述为已上架。
+- [x] 正式发布决议已批准；发布候选只进入 `refactor/v3`，并在合并前创建 `master` 备份分支。
+- [x] README、迁移说明、备份说明、浏览器兼容说明与首发功能及已知限制一致。
+- [x] 根 `package.json` 与 Chrome manifest 版本统一为 3.0.0，发行说明解释 V2 / V3 不兼容范围。
+- [x] PR #57 的 CI build、Chrome / Edge Stable、Chrome 141 / Edge 140 矩阵均通过；报告记录于 [V3 测试约定](V3-TESTING.zh.md)。
+- [x] 已按 [浏览器兼容策略](V3-BROWSER-COMPATIBILITY.zh.md) 完成 Chrome 与 Edge Stable 功能验收；CI 另验证扩展加载、service worker、content script 和 Fetch / XHR。
+- [x] 已制作 440×280 必需宣传图、1400×560 可选宣传图及 3 张 1280×800 的 V3 实际界面截图；采用当前扩展图标，不使用旧 V2 截图。
+- [ ] 从正式发布提交重新构建并检查 manifest、默认入口、`panels-v3/`、ZIP 内容和文件名版本。
+- [ ] 保存 Git tag / Release、发行说明、ZIP 校验和及源提交对应关系。
+- [ ] Chrome Web Store 与 Edge Add-ons 更新包和素材已上传为草稿；待门户确认截图、图标、文案及两边包版本后再记录；提交审核与公开上架状态以平台页面为准。
 
 ## 回归与回滚
 
@@ -66,7 +66,7 @@ V3 正式发布前应在仓库根目录维护 `CHANGELOG.md`，按版本倒序�
 
 ## 反馈入口
 
-缺陷、兼容性问题和功能建议统一通过 [GitHub Issues](https://github.com/g0ngjie/ajax-proxy/issues) 收集。反馈应附上扩展版本、浏览器及版本、使用的面板（`panels/` 或 `panels-v3/`）、最小复现步骤和脱敏后的错误信息。请勿上传包含真实请求内容、Cookie、令牌或自定义函数秘密的备份；报告数据损坏时先保留原始备份副本。
+缺陷、兼容性问题和功能建议统一通过 [GitHub Issues](https://github.com/Nyakooo/ajax-proxy/issues) 收集。反馈应附上扩展版本、浏览器及版本、使用的面板（`panels/` 或 `panels-v3/`）、最小复现步骤和脱敏后的错误信息。请勿上传包含真实请求内容、Cookie、令牌或自定义函数秘密的备份；报告数据损坏时先保留原始备份副本。
 
 ## 依据
 
@@ -76,6 +76,6 @@ V3 正式发布前应在仓库根目录维护 `CHANGELOG.md`，按版本倒序�
 - staging 面板打包目标：[`scripts/pkg.cjs`](../scripts/pkg.cjs)
 - zip 文件名和归档清单：[`extension-zips.js`](../extension-zips.js)
 - V2 / V3 格式、恢复和备份要求：[V3 配置备份与恢复](V3-BACKUP-RESTORE.zh.md)
-- V3 当前迁移阶段及显式面板入口：[V3 面板迁移说明](V3-PANEL-MIGRATION.zh.md)
+- V3 当前功能边界及显式面板入口：[V3 面板迁移说明](V3-PANEL-MIGRATION.zh.md)
 - 浏览器范围和版本：[V3 浏览器兼容策略](V3-BROWSER-COMPATIBILITY.zh.md)
 - 测试入口与 CI / 手工验收边界：[V3 测试约定](V3-TESTING.zh.md)

@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Ajax Proxy",
-  "version": "2.2.10",
-  "description": "Modify your Ajax response to test",
+  "version": "3.0.0",
+  "description": "Mock missing APIs, replace responses, and redirect browser requests.",
   "author": "Gj",
   "icons": {
     "128": "icons/128.png"

@@ -5,17 +5,17 @@
   <p>在 Chromium 浏览器中 Mock 尚不存在的接口、重定向请求，并随时验证边界场景。</p>
 
   <p>
-    <a href="https://github.com/Nyakooo/ajax-proxy/actions/workflows/ci.yml?query=branch%3Arefactor%2Fv3"><img alt="V3 CI" src="https://img.shields.io/github/actions/workflow/status/Nyakooo/ajax-proxy/ci.yml?branch=refactor%2Fv3&label=V3%20CI"></a>
+    <a href="https://github.com/Nyakooo/ajax-proxy/actions/workflows/ci.yml?query=branch%3Amaster"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/Nyakooo/ajax-proxy/ci.yml?branch=master&label=CI"></a>
     <a href="LICENSE"><img alt="MIT 许可证" src="https://img.shields.io/github/license/Nyakooo/ajax-proxy"></a>
     <a href="https://github.com/Nyakooo/ajax-proxy/stargazers"><img alt="GitHub Stars" src="https://img.shields.io/github/stars/Nyakooo/ajax-proxy?style=social"></a>
     <a href="https://chrome.google.com/webstore/detail/ajax-proxy/jbikjaejnjfbloojafllmdiknfndgljo"><img alt="Chrome 网上应用店版本" src="https://img.shields.io/chrome-web-store/v/jbikjaejnjfbloojafllmdiknfndgljo?logo=googlechrome&logoColor=white"></a>
     <a href="https://microsoftedge.microsoft.com/addons/detail/ajax-proxy/iladajdkobpmadjfpeginhngnneaoefi"><img alt="Microsoft Edge 加载项" src="https://img.shields.io/badge/Edge%20Add--ons-available-0078D7?logo=microsoftedge&logoColor=white"></a>
   </p>
 
-  <p><strong>V3 开发预览 · Chrome 与 Microsoft Edge 稳定版</strong><br>V3 正在 <code>refactor/v3</code> 分支开发；上方商店链接指向单独发布的版本。</p>
-  <p>安装商店已发布版本（与 V3 开发预览分开）：<a href="https://chrome.google.com/webstore/detail/ajax-proxy/jbikjaejnjfbloojafllmdiknfndgljo">Chrome 网上应用店</a> · <a href="https://microsoftedge.microsoft.com/addons/detail/ajax-proxy/iladajdkobpmadjfpeginhngnneaoefi">Edge 加载项</a></p>
+  <p><strong>V3.0.0 正式版本 · Chrome 与 Microsoft Edge 稳定版</strong><br>Mock 尚不存在的接口、重定向请求，并在浏览器中调整支持的 Fetch 与 XHR 响应。</p>
+  <p><a href="https://github.com/Nyakooo/ajax-proxy/releases/tag/v3.0.0"><strong>下载 Ajax Proxy 3.0.0</strong></a> · <a href="https://chrome.google.com/webstore/detail/ajax-proxy/jbikjaejnjfbloojafllmdiknfndgljo">Chrome 网上应用店</a> · <a href="https://microsoftedge.microsoft.com/addons/detail/ajax-proxy/iladajdkobpmadjfpeginhngnneaoefi">Edge 加载项</a></p>
   <p>
-    <a href="#试用-v3-开发预览"><strong>构建并试用 V3</strong></a> ·
+    <a href="#安装-v3-300"><strong>安装 V3.0.0</strong></a> ·
     <a href="docs/V3-RULE-MODEL.zh.md">规则模型</a> ·
     <a href="docs/V3-BACKUP-RESTORE.zh.md">备份与恢复</a> ·
     <a href="https://github.com/Nyakooo/ajax-proxy/issues">问题反馈</a>
@@ -24,7 +24,7 @@
 </div>
 
 <p align="center">
-  <img src="media/ajax-proxy-v3-showcase.svg" alt="Ajax Proxy V3 示意图：匹配浏览器请求并返回配置好的 JSON Mock 响应" width="100%">
+  <img src="media/ajax-proxy-v3-showcase.svg" alt="Ajax Proxy 3.0.0 匹配请求并返回已配置的 JSON Mock 响应" width="100%">
 </p>
 
 ## 为什么使用 Ajax Proxy？
@@ -52,27 +52,27 @@ Ajax Proxy 以浏览器扩展形式运行，不需要 Ajax Proxy 账号或托管
 
 Mock 命中会在面板中标记“Mock 已跳过真实网络请求”，并显示返回状态码。它适用于接口尚不存在或需要固定响应的场景。若选择普通响应替换，扩展会先发送真实请求再替换返回值；函数响应也需要真实响应作为输入。函数响应目前只用于 Fetch。
 
-## 试用 V3 开发预览
+## 安装 V3 3.0.0
 
-> **开发版本说明：** V3 尚未作为此开发分支的构建发布到扩展商店。加载此分支会安装本地开发构建。V2 与 V3 的规则和备份格式互不兼容；V3 不会自动迁移 V2 数据。请保留 V2 备份，并按需在 V3 中重新创建规则。
+> **升级提示：** V2 与 V3 的规则和备份格式互不兼容，V3 不会自动迁移旧数据。升级前请导出并另存 V2 备份，再在 V3 中按需重新创建规则。
 
-环境要求：Node.js `>=24.21.0 <25`、pnpm `12.6`。
+从 [V3.0.0 GitHub Release](https://github.com/Nyakooo/ajax-proxy/releases/tag/v3.0.0) 下载 `ajax-proxy-3.0.0.zip` 并解压，然后在 Chrome（`chrome://extensions`）或 Edge（`edge://extensions`）中：
+
+1. 开启**开发者模式**。
+2. 选择**加载已解压的扩展程序**。
+3. 选择包含 `manifest.json` 的解压目录。
+4. 打开扩展 popup，点击**打开大面板**管理规则。
+
+从源码构建需要 Node.js `>=24.21.0 <25` 和 pnpm `12.6`：
 
 ```sh
-git clone --branch refactor/v3 https://github.com/Nyakooo/ajax-proxy.git
+git clone https://github.com/Nyakooo/ajax-proxy.git
 cd ajax-proxy
 pnpm install --frozen-lockfile
 pnpm build
 ```
 
-然后在 Chrome（`chrome://extensions`）或 Edge（`edge://extensions`）中：
-
-1. 开启**开发者模式**。
-2. 选择**加载已解压的扩展程序**。
-3. 选择源码目录中的 `packages/shell-chrome/build`。
-4. 打开扩展 popup，点击**打开大面板**管理规则。
-
-V3 当前用于开发和评估，已在 Chrome 与 Edge 稳定版进行功能验收；详见 [V3 面板迁移说明](docs/V3-PANEL-MIGRATION.zh.md) 与[测试和验收记录](docs/V3-TESTING.zh.md)。此分支不代表商店发布版本。
+生产构建位于 `packages/shell-chrome/build`。V3.0.0 已在 Chrome 与 Microsoft Edge 稳定版完成核心功能验收；详见[面板迁移说明](docs/V3-PANEL-MIGRATION.zh.md)、[浏览器兼容范围](docs/V3-BROWSER-COMPATIBILITY.zh.md)与[测试和验收记录](docs/V3-TESTING.zh.md)。扩展商店的更新可能需要等待平台审核。
 
 ## 文档
 
@@ -82,13 +82,14 @@ V3 当前用于开发和评估，已在 Chrome 与 Edge 稳定版进行功能验
 - [V3 浏览器兼容范围](docs/V3-BROWSER-COMPATIBILITY.zh.md)
 - [自定义响应函数与 sandbox 限制](docs/V3-USER-FUNCTIONS.zh.md)
 - [权限和安全边界](docs/V3-PERMISSIONS.zh.md)
+- [更新日志](CHANGELOG.zh.md) · [Changelog in English](CHANGELOG.md)
 - [V2 旧函数 API 参考（不适用于 V3）](README.func.md)
 
-V3 设计和实现文档目前主要以中文维护。上方商店安装链接对应单独发布的稳定版本。
+上方 Chrome 与 Edge 链接指向现有商店条目；商店审核期间，商店可用版本可能晚于 GitHub Release。
 
 ## 演示
 
-下面的动图展示的是**旧版 V2 界面**，仅作历史演示；它不是 V3 预览版的截图。
+下面的动图展示的是**旧版 V2 界面**，仅作历史演示；它不是 V3.0.0 的界面截图。
 
 <details>
   <summary>展开查看 V2 旧版演示</summary>
@@ -98,7 +99,7 @@ V3 设计和实现文档目前主要以中文维护。上方商店安装链接�
 
 ## 参与贡献
 
-欢迎通过 [GitHub Issues](https://github.com/Nyakooo/ajax-proxy/issues) 反馈问题或提出功能建议。请提供浏览器和扩展版本及最小复现步骤；分享日志或备份前，请移除真实请求内容、Cookie、令牌、个人信息和私有函数代码。较大的改动建议先通过 issue 讨论范围；提交 PR 时请聚焦单一主题，并说明用户可见变化和已完成的功能验证。V3 开发构建及其 CI 位于 `refactor/v3` 分支。
+欢迎通过 [GitHub Issues](https://github.com/Nyakooo/ajax-proxy/issues) 反馈问题或提出功能建议。请提供浏览器和扩展版本及最小复现步骤；分享日志或备份前，请移除真实请求内容、Cookie、令牌、个人信息和私有函数代码。较大的改动建议先通过 issue 讨论范围；提交 PR 时请聚焦单一主题，并说明用户可见变化和已完成的功能验证。默认分支为 `master`。
 
 ## 许可证
 

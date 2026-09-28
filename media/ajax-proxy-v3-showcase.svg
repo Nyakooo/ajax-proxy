@@ -47,9 +47,9 @@
   <text x="155" y="151" fill="#9BBAB9" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="12" font-weight="600" letter-spacing="2.3">OPEN-SOURCE BROWSER DEVTOOL</text>
 
   <g font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
-    <rect x="82" y="214" width="224" height="36" rx="18" fill="#1C4B52" stroke="#2E7777" />
-    <circle cx="101" cy="232" r="5" fill="#F6BD58" />
-    <text x="115" y="237" fill="#C8EAE4" font-size="13" font-weight="650" letter-spacing="1.15">V3 DEVELOPER PREVIEW</text>
+    <rect x="82" y="214" width="194" height="36" rx="18" fill="#1C4B52" stroke="#2E7777" />
+    <circle cx="101" cy="232" r="5" fill="#20AA9A" />
+    <text x="115" y="237" fill="#C8EAE4" font-size="13" font-weight="650" letter-spacing="1.15">V3.0.0 STABLE RELEASE</text>
 
     <text x="78" y="328" fill="#F5F9F8" font-size="65" font-weight="760" letter-spacing="-2.9">Make every API</text>
     <text x="78" y="402" fill="#F5F9F8" font-size="65" font-weight="760" letter-spacing="-2.9">ready to build.</text>

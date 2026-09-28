@@ -33,6 +33,6 @@ V3 正式扩展构建只包含 `build/panels-v3/`。V3 extension smoke 从该页
 
 - 正式扩展默认入口为 Vue 3 `panels-v3/index.html`；V2 备份与规则不迁移，导入器必须拒绝不兼容格式且不写入数据。
 - 正式构建产物只包含 `panels-v3/`；workspace 不保留 Vue 2 面板或其专用编辑器。
-- 每个可独立验证的迁移切片在 `refactor/v3` 单独提交、推送；正式切换是后续单独提交，不能和功能迁移混在一起。
+- 每个可独立验证的迁移切片已在 `refactor/v3` 单独提交、推送；正式入口切换已纳入 V3.0.0 发布候选。发布 tag 和商店审核状态见 [V3 发布记录](V3-RELEASE.zh.md)。
 
 迁移前现状盘点和 V2 / Vue 3 风险热点见 `docs/V3-PANEL-IA.zh.md`。V3 消息与配置 adapter、redirect CRUD 与排除项、函数重定向、静态重定向 headers、JSON response CRUD、Fetch 函数响应编辑、备份恢复、标签管理与关联，以及扩展内请求验证已接入。V2 旧版 substring replacement 尚无 V3 同等能力；不兼容的 V2 数据只显示拒绝提示，不做自动转换。
