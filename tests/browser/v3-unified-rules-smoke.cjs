@@ -27,6 +27,8 @@ async function main() {
     })
     const worker = context.serviceWorkers()[0] || (await context.waitForEvent('serviceworker'))
     const id = new URL(worker.url()).hostname
+    const storagePage = await context.newPage()
+    await storagePage.goto(`chrome-extension://${id}/panels-v3/index.html`)
     const rules = Array.from({ length: 46 }, (_, index) => ({
       id: `verify-rule-${index}`,
       enabled: true,
@@ -41,7 +43,7 @@ async function main() {
           ? { request: { enabled: true, redirect: { url: '/target' } } }
           : { response: { enabled: true, replace: { body: { index } } } }),
     }))
-    await worker.evaluate(
+    await storagePage.evaluate(
       async (config) => chrome.storage.local.set({ 'ajax-proxy:storage:v3-config': config }),
       {
         format: 'ajax-proxy-backup',
@@ -52,6 +54,7 @@ async function main() {
         rules,
       }
     )
+    await storagePage.close()
     let panel = await context.newPage()
     await panel.goto(`chrome-extension://${id}/panels-v3/index.html`)
     await panel.locator('.rule-row').nth(19).waitFor()
@@ -179,7 +182,7 @@ async function main() {
     await popup.getByRole('searchbox').fill('/verify/34')
     const row = popup.locator('.rule-card')
     await row.locator('.rule-switch').click()
-    await worker.evaluate(async () => {
+    await panel.evaluate(async () => {
       const key = 'ajax-proxy:storage:v3-config'
       for (let attempt = 0; attempt < 100; attempt++) {
         const config = (await chrome.storage.local.get(key))[key]
@@ -231,7 +234,7 @@ async function main() {
     )
     panel.once('dialog', async (dialog) => await dialog.accept())
     await bulkActions.getByRole('button', { name: 'Delete selected', exact: true }).click()
-    await worker.evaluate(async () => {
+    await panel.evaluate(async () => {
       const key = 'ajax-proxy:storage:v3-config'
       for (let attempt = 0; attempt < 100; attempt++) {
         const config = (await chrome.storage.local.get(key))[key]
@@ -248,7 +251,7 @@ async function main() {
       .click()
     await popup.getByText('No matching rules', { exact: true }).waitFor()
     assert.equal(await popup.locator('.rule-scroll').getAttribute('aria-label'), 'Rules')
-    await worker.evaluate(async () => {
+    await panel.evaluate(async () => {
       const key = 'ajax-proxy:storage:v3-config'
       const config = (await chrome.storage.local.get(key))[key]
       config.settings.language = 'zh-CN'
