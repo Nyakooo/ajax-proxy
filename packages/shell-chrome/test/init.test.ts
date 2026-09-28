@@ -23,26 +23,16 @@ afterEach(() => {
 })
 
 describe('service worker default initialization', () => {
-  it('sets the toolbar icon from the stored global switch and initializes the badge', async () => {
+  it('uses the enabled V3 empty-config default and initializes the badge', async () => {
     const setIcon = vi.fn()
     vi.stubGlobal('chrome', { action: { setIcon } })
-    mocks.getRealStorage
-      .mockResolvedValueOnce(null)
-      .mockResolvedValueOnce(true)
-      .mockResolvedValueOnce(null)
-      .mockResolvedValueOnce(false)
+    mocks.getRealStorage.mockResolvedValueOnce(null)
 
     await initDefaultSth()
-    await initDefaultSth()
 
-    expect(mocks.getRealStorage.mock.calls).toEqual([
-      ['v3-config', null],
-      ['global-switch', false],
-      ['v3-config', null],
-      ['global-switch', false],
-    ])
-    expect(setIcon.mock.calls).toEqual([[{ path: 'icons/128.png' }], [{ path: 'icons/128g.png' }]])
-    expect(mocks.chromeBadge).toHaveBeenCalledTimes(2)
+    expect(mocks.getRealStorage).toHaveBeenCalledExactlyOnceWith('v3-config', null)
+    expect(setIcon).toHaveBeenCalledExactlyOnceWith({ path: 'icons/128.png' })
+    expect(mocks.chromeBadge).toHaveBeenCalledOnce()
   })
 
   it('does not mark the toolbar or initialize the badge when storage cannot be read', async () => {
