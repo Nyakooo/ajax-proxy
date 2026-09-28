@@ -135,7 +135,7 @@ sequenceDiagram
   Note over Lib: 挂载或更新页面全局 Fetch / XHR 代理引用
 ```
 
-页面启动时，content script 先初始化 storage 并读取配置，再将当前快照同步到 document.js；V2 的首次安装转换仍属于现存兼容路径。面板初始化前等待 shared-utils storage 初始化。`window.postMessage` 同页内容可被网页脚本伪造，因此主世界接收端必须持续按不可信输入验证，不能用它做扩展权限或持久化授权。
+页面启动时，content script 先初始化 storage cache，再将旧版 V2 runtime 状态和独立的 `V3_CONFIG` 分别同步到 document.js；V3 不读取、转换或删除历史 V2 配置。面板通过 service worker 读取并校验独立 V3 配置。`window.postMessage` 同页内容可被网页脚本伪造，因此主世界接收端必须持续按不可信输入验证，不能用它做扩展权限或持久化授权。
 
 ### 页面请求与命中统计
 
