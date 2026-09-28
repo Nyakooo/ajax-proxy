@@ -252,7 +252,7 @@ onBeforeUnmount(() => {
 
 .codemirror-json-editor__resize-handle {
   position: absolute;
-  z-index: 2;
+  z-index: 0;
   right: 2px;
   bottom: 2px;
   width: 34px;
