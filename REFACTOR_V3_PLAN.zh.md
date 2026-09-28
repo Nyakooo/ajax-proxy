@@ -214,7 +214,7 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - [x] 完成 V3 函数响应纵向集成切片：Fetch 快照、JSON 结果校验、timeout fail-open 和 sandbox 重建；XHR 保持原响应。同步修复函数编辑器初始化与长表单可用性。
 - [x] 制作 JSON 调整交互原型，比较 CodeMirror 6 文本编辑、JSONEditor tree-only 和轻量树形编辑器；Chrome for Testing 154 与 Edge Stable 153 验证中文文本往返、结构操作、无效 JSON 保留及 1500 项样例。记录 chunk 体积、性能观察、原型局限和待验收项，见 `docs/V3-EDITOR-ASSESSMENT.zh.md`。
 - [x] 确认编辑器方向：函数编辑和 JSON 原始文本模式采用按需 CodeMirror 6；JSON 结构化编辑保留独立树形能力。JSONEditor 现有构建 chunk 为 262.79 kB gzip，不直接作为 V3 生产依赖；轻量树原型尚不具备生产所需的全部操作、撤销及大数据优化，需在生产实现阶段完善或另选方案。
-- [x] 为 V3 JSON response body 增加生产结构化树模式，保留 CodeMirror 原始文本编辑和既有保存 / 备份数据模型；仅在切换到树模式时按需加载。支持对象键改名、增删条目、标量类型更改、数组调序与最多 100 份快照的撤销 / 重做；无效 JSON 不会被树模式覆盖，保存仍校验原 JSON 草稿。组件及真实扩展 smoke 验证通过；大型 JSON 虚拟化、操作系统 IME 和完整屏幕阅读器 / WCAG 审计仍待后续验收。见 `docs/V3-EDITOR-ASSESSMENT.zh.md`。
+- [x] 为 V3 JSON response body 增加生产结构化树模式，保留 CodeMirror 原始文本编辑和既有保存 / 备份数据模型；仅在切换到树模式时按需加载。支持对象键改名、增删条目、标量类型更改、数组调序与最多 100 份快照的撤销 / 重做；无效 JSON 不会被树模式覆盖，保存仍校验原 JSON 草稿。组件及真实扩展 smoke 验证通过；大型 JSON 虚拟化和操作系统 IME 验证记录为后续编辑器验收，不属于本次屏幕阅读器验收范围。见 `docs/V3-EDITOR-ASSESSMENT.zh.md`。
 - [x] V3 面板展示跨标签页最近一次已验证规则命中，包括原始请求 method / URL、规则匹配条件和“已匹配”状态；不将早期命中事件描述为请求改写或响应成功。
 - [x] 将 Fetch 与异步 XHR 的已确认 request / response action outcome 通过统一临时诊断视图展示，按 correlation ID 关联阶段并给出本地化的 applied / fallback / failed / unsupported 原因；仅用户主动开启时捕获，面板内最多保留 10 条。同步 XHR 和 XHR 原生网络 error / timeout / abort 不单独作为 action outcome 报告。
 - [x] 启用状态由 V3 面板全局开关和扩展图标显示；不增加独立的持续页面活动指示器。
@@ -243,7 +243,7 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - [x] 生产 V3 面板浏览器功能 smoke 验证 360px / 400px 布局、编辑表单初始焦点和焦点环、JSON 编辑器键盘缩放，以及表单不因 Escape 或点击外部关闭（2026-09-28）。
 - [x] 重定向规则编辑器与站点开关弹窗按 Escape 或点击遮罩后继续保留，输入内容不丢失；关闭 / 提交站点开关的显式操作仍正常（完整扩展浏览器功能 smoke，2026-09-28）。
 - [x] 实现并回归搜索快捷键：macOS 使用 Command+K，Windows / Linux 使用 Ctrl+K；焦点在其他输入框、可编辑区域时不抢占其按键。
-- [x] 为规则视图切换添加具名导航 landmark，并通过 `aria-current="page"` 暴露当前视图；组件回归验证初始状态和切换状态。真实屏幕阅读器播报仍需在浏览器辅助技术验收。
+- [x] 为规则视图切换添加具名导航 landmark，并通过 `aria-current="page"` 暴露当前视图；组件回归验证初始状态和切换状态。本项目不要求额外的真实屏幕阅读器播报验收。
 - [x] 关闭备份 / 恢复、规则模板和站点管理弹窗后，将键盘焦点送回原打开按钮；由 App 层组件回归覆盖 Escape 关闭。
 - [x] 关闭规则筛选 popover 后将键盘焦点送回筛选触发按钮；Escape 和触发按钮上的 Escape 都走统一关闭处理。
 - [x] 在生产 V3 面板构建上验证 400px 与最低 360px 视口的中文 / 英文主界面、搜索、规则列表和响应编辑弹窗；关键控件无水平溢出且可以交互，CI 使用 Chrome 与 Edge Stable 运行 smoke。
@@ -544,7 +544,7 @@ V3 是 Ajax Proxy 的一次全面升级，Vue 3 迁移只是其中一部分。�
 - [x] 编辑器选型原则：轻量是约束之一，JSON 的直观结构化调整是明确需求；CodeMirror 6 可作为函数编辑和 JSON 文本模式的候选，但不得默认替代树形交互。允许按需组合代码编辑器和专用 JSON 树编辑器，以原型的真实交互和生产体积数据决定。
 - [x] 自定义函数保留为受限 response 计算；按不可信代码放入无扩展权限、无网络能力且可终止 worker 的 sandbox，设 5 秒硬超时、fail-open，并在 UI 呈现风险和确认（见 `docs/V3-USER-FUNCTIONS.zh.md`）。
 - [x] V3 首发新增功能范围已确认：规则管理、组合请求 / 响应行为、V3 备份、精确 origin 开关和主动开启的临时诊断；排除通用 header / body 改写、持久草稿、多 profile、链式规则等扩展项（见“其余用户反馈筛选结果”）。
-- [x] 采用浅 / 深主题与窄屏布局，并以 PrimeVue styled + Ajax Proxy design tokens 建立品牌视觉；当前截图问题已修复。完整屏幕阅读器 / WCAG 审计仍是独立未完成项（见 `docs/V3-VISUAL-SYSTEM.zh.md`、`docs/V3-UI-PROTOTYPE.zh.md` 和第 236 项）。
+- [x] 采用浅 / 深主题与窄屏布局，并以 PrimeVue styled + Ajax Proxy design tokens 建立品牌视觉；当前截图问题已修复。维护者确认不要求额外的真实屏幕阅读器 / WCAG 人工审计（见 `docs/V3-VISUAL-SYSTEM.zh.md`、`docs/V3-UI-PROTOTYPE.zh.md` 和第 236 项）。
 - [ ] 是否有目标发布日期或分阶段公开预览计划？
 - [x] V3 国际化语言范围：只维护简体中文和英文；切换控件采用直接可见的双选分段按钮，不使用下拉菜单。
 - [x] V3 构建工具方向：最终生产构建优先统一到 Vite；扩展宿主的 Manifest、service worker 与 content script 需先完成原型和目标浏览器验收，迁移期可暂留 Webpack，全部入口切换后再清理旧工具链。
