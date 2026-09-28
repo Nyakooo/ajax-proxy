@@ -411,6 +411,7 @@ input {
 }
 
 .toolbar {
+  flex-wrap: wrap;
   min-height: 52px;
   gap: 8px;
   margin-top: 27px;
@@ -467,8 +468,10 @@ input {
 }
 
 .toolbar .p-button {
+  flex: 0 0 auto;
   height: 35px;
   font-size: 11px;
+  white-space: nowrap;
 }
 
 .theme-control {
@@ -503,10 +506,12 @@ input {
 
 .page-size-control {
   display: flex;
+  flex: 0 0 auto;
   align-items: center;
   gap: 5px;
   color: var(--ap-muted);
   font-size: 10px;
+  white-space: nowrap;
 }
 
 .page-size-control select {
