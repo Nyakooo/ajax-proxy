@@ -1036,7 +1036,8 @@ input {
   color: var(--ap-ink);
 }
 
-.response-rule-editor {
+.response-rule-editor,
+.redirect-rule-editor {
   display: flex;
   min-height: 0;
   flex-direction: column;
@@ -1044,7 +1045,8 @@ input {
   width: min(760px, calc(100vw - 32px));
 }
 
-.response-rule-editor > .editor-form {
+.response-rule-editor > .editor-form,
+.redirect-rule-editor > .editor-form {
   min-height: 0;
   flex: 1 1 auto;
   overflow-y: auto;
@@ -1054,7 +1056,8 @@ input {
   padding: 3px 6px 3px 4px;
 }
 
-.response-rule-editor .editor-actions {
+.response-rule-editor .editor-actions,
+.redirect-rule-editor .editor-actions {
   position: sticky;
   z-index: 1;
   bottom: 0;
@@ -1062,10 +1065,6 @@ input {
   padding: 10px 0 2px;
   border-top: 1px solid var(--ap-border);
   background: var(--ap-card);
-}
-
-.redirect-rule-editor {
-  width: min(760px, calc(100vw - 32px));
 }
 
 .response-mode-picker {
@@ -1356,11 +1355,12 @@ input {
   }
 }
 
-.response-rule-editor .response-function-input .cm-content {
+.response-rule-editor .response-function-input .cm-content,
+.redirect-rule-editor .response-function-input .cm-content {
   min-height: clamp(150px, 28vh, 230px);
 }
 
-.function-response-guide {
+.function-guide {
   border: 1px solid var(--ap-border);
   border-radius: var(--ap-radius-control);
   background: color-mix(in srgb, var(--ap-teal) 4%, var(--ap-card));
@@ -1368,18 +1368,18 @@ input {
   line-height: 1.5;
 }
 
-.function-response-guide summary {
+.function-guide summary {
   padding: 9px 11px;
   color: var(--ap-ink);
   cursor: pointer;
   font-weight: 600;
 }
 
-.function-response-guide summary::marker {
+.function-guide summary::marker {
   color: var(--ap-teal);
 }
 
-.function-response-guide-content {
+.function-guide-content {
   display: grid;
   gap: 10px;
   padding: 10px 11px 12px;
@@ -1387,35 +1387,35 @@ input {
   color: var(--ap-ink);
 }
 
-.function-response-guide-content p {
+.function-guide-content p {
   margin: 0;
 }
 
-.function-response-guide-content dl {
+.function-guide-content dl {
   display: grid;
   gap: 7px;
   margin: 0;
 }
 
-.function-response-guide-content dl > div {
+.function-guide-content dl > div {
   display: grid;
   grid-template-columns: 62px minmax(0, 1fr);
   gap: 8px;
 }
 
-.function-response-guide-content dt {
+.function-guide-content dt {
   color: var(--ap-ink);
   font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
   font-weight: 600;
 }
 
-.function-response-guide-content dd {
+.function-guide-content dd {
   min-width: 0;
   margin: 0;
   overflow-wrap: anywhere;
 }
 
-.function-response-guide-example-heading {
+.function-guide-example-heading {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -1423,7 +1423,7 @@ input {
   gap: 6px 10px;
 }
 
-.function-response-guide-example-heading button {
+.function-guide-example-heading button {
   padding: 4px 8px;
   border: 1px solid var(--ap-border);
   border-radius: var(--ap-radius-control);
@@ -1433,11 +1433,11 @@ input {
   font: inherit;
 }
 
-.function-response-guide-example-heading button:hover {
+.function-guide-example-heading button:hover {
   border-color: var(--ap-teal);
 }
 
-.function-response-guide-content pre {
+.function-guide-content pre {
   max-width: 100%;
   overflow-x: auto;
   margin: 0;
@@ -1507,15 +1507,18 @@ input {
     padding: 8px;
   }
 
-  .rule-editor.response-rule-editor {
+  .rule-editor.response-rule-editor,
+  .rule-editor.redirect-rule-editor {
     padding: 16px;
   }
 
-  .response-rule-editor > .editor-form {
+  .response-rule-editor > .editor-form,
+  .redirect-rule-editor > .editor-form {
     margin-top: 12px;
   }
 
-  .response-rule-editor .editor-field-row {
+  .response-rule-editor .editor-field-row,
+  .redirect-rule-editor .editor-field-row {
     flex-direction: column;
     align-items: stretch;
     gap: 12px;
@@ -1527,7 +1530,8 @@ input {
     padding-block: 8px;
   }
 
-  .response-rule-editor > .editor-form {
+  .response-rule-editor > .editor-form,
+  .redirect-rule-editor > .editor-form {
     gap: 12px;
   }
 
@@ -1535,7 +1539,8 @@ input {
     min-height: clamp(96px, 18vh, 128px);
   }
 
-  .response-rule-editor .response-function-input .cm-content {
+  .response-rule-editor .response-function-input .cm-content,
+  .redirect-rule-editor .response-function-input .cm-content {
     min-height: clamp(120px, 22vh, 160px);
   }
 }

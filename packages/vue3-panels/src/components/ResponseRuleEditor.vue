@@ -421,9 +421,9 @@ function trapFocus(event) {
         <div v-else class="editor-field function-response-fields">
           <span>{{ t('responseEditor.functionCode') }}</span>
           <small id="response-function-help">{{ t('responseEditor.functionCodeHelp') }}</small>
-          <details class="function-response-guide">
+          <details class="function-guide">
             <summary>{{ t('responseEditor.functionGuideTitle') }}</summary>
-            <div class="function-response-guide-content">
+            <div class="function-guide-content">
               <p>{{ t('responseEditor.functionGuideIntro') }}</p>
               <dl>
                 <div>
@@ -440,7 +440,7 @@ function trapFocus(event) {
                 </div>
               </dl>
               <p>{{ t('responseEditor.functionGuideResultRules') }}</p>
-              <div class="function-response-guide-example-heading">
+              <div class="function-guide-example-heading">
                 <strong>{{ t('responseEditor.functionGuideExample') }}</strong>
                 <button type="button" @click="useFunctionExample">
                   {{ t('responseEditor.functionGuideUseExample') }}

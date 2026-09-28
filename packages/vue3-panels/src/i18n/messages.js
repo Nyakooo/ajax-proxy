@@ -298,7 +298,21 @@ export const messages = {
       redirectHeadersStringValues: '每个 header 值都必须是字符串。',
       functionCode: '函数体代码',
       functionCodeHelp:
-        '输入函数体，参数 request 只包含 url 和 method；返回 HTTP(S) URL 字符串，可返回相对 URL。代码最多 65,536 个字符。',
+        '直接填写函数体，无需声明函数。读取 request.url、request.method，返回目标 URL 字符串。',
+      functionGuideTitle: '查看完整规则与示例',
+      functionGuideIntro:
+        '发送真实 Fetch 请求前执行此函数。可直接 return，也可返回 Promise；不使用 callback。',
+      functionGuideRequest:
+        '仅包含原始请求的 url 和 method。不能读取请求正文、headers、响应或 cookies。',
+      functionGuideReturn:
+        '返回非空 URL 字符串：完整 HTTP(S) 地址，或按原始请求 URL 解析的相对地址；不能包含 URL 用户名或密码。',
+      functionGuideResultRules:
+        '目标最多 4096 个字符。无效结果、抛错或超时会使用原 URL，不尝试后续规则；同一规则已启用的响应行为仍可处理网络响应。',
+      functionGuideExample: '可运行示例',
+      functionGuideUseExample: '填入编辑器',
+      functionExampleReplaceConfirm: '将示例替换当前函数代码？当前代码尚未保存。',
+      functionGuideLimits:
+        '仅支持 Fetch；XHR 保留原 URL。代码不能访问页面、扩展 API、网络或外部代码，最多执行 5 秒，最长 65,536 个字符。排除 URL 命中时跳过重定向；保存后需同时启用规则和函数动作。',
       functionSafetyWarning:
         '代码在隔离 sandbox 中最多运行 5 秒；不能读取请求体、headers、响应或 cookies。只支持 Fetch；XHR 保留原 URL。编辑器不会执行或编译代码。',
       enableFunctionRedirect: '启用函数重定向（需要明确确认）',
@@ -384,7 +398,7 @@ export const messages = {
       functionGuideUseExample: '填入编辑器',
       functionExampleReplaceConfirm: '将示例替换当前函数代码？当前代码尚未保存。',
       functionGuideLimits:
-        '仅支持 Fetch 和可读取的文本快照；不能访问页面、扩展 API、网络或外部代码。单项正文最多 512 KiB，快照总量最多 1 MiB，执行最多 5 秒。函数代码最多 65,536 个字符；超限或执行失败时保留真实响应。',
+        '仅支持 Fetch 和可读取的文本快照；不能访问页面、扩展 API、网络或外部代码。单项正文最多 512 KiB，快照总量最多 1 MiB，执行最多 5 秒。函数代码最多 65,536 个字符；超限或执行失败时保留真实响应。保存后需同时启用规则和函数动作。',
       functionSafetyWarning:
         '函数响应仅支持 Fetch；XHR 保留原生响应。代码只读取请求与响应快照（请求头可能含敏感值），在隔离 sandbox 中执行，最长运行 5 秒。此编辑器不会执行或编译代码。',
       enableFunction: '启用函数响应（需明确确认）',
@@ -747,7 +761,22 @@ export const messages = {
       redirectHeadersStringValues: 'Every header value must be a string.',
       functionCode: 'Function body code',
       functionCodeHelp:
-        'Enter a function body. Its request parameter contains only url and method. Return an HTTP(S) URL string; relative URLs are allowed. Maximum 65,536 characters.',
+        'Enter the function body directly, without a declaration. Read request.url and request.method, then return a target URL string.',
+      functionGuideTitle: 'Full rules and example',
+      functionGuideIntro:
+        'This code runs before the real Fetch request is sent. Return a value or a Promise; callbacks are not used.',
+      functionGuideRequest:
+        'Contains only the original request url and method. The request body, headers, response, and cookies are unavailable.',
+      functionGuideReturn:
+        'Return a nonempty URL string: an absolute HTTP(S) address or a relative address resolved against the original request URL. URL credentials are not allowed.',
+      functionGuideResultRules:
+        'The target is limited to 4096 characters. Invalid results, errors, or timeouts use the original URL without trying later rules. An enabled response action on the same rule can still handle the network response.',
+      functionGuideExample: 'Runnable example',
+      functionGuideUseExample: 'Insert in editor',
+      functionExampleReplaceConfirm:
+        'Replace the current function code with this example? Your current code is not saved.',
+      functionGuideLimits:
+        'Fetch only; XHR keeps the original URL. Code cannot access the page, extension APIs, network, or external code. Execution is limited to 5 seconds and code to 65,536 characters. URL exclusions skip the redirect. Enable both the rule and function action after saving.',
       functionSafetyWarning:
         'Code runs in an isolated sandbox for at most 5 seconds. It cannot read the body, headers, response, or cookies. Fetch only; XHR keeps the original URL. This editor never executes or compiles code.',
       enableFunctionRedirect: 'Enable function redirect (explicit confirmation required)',
@@ -838,7 +867,7 @@ export const messages = {
       functionExampleReplaceConfirm:
         'Replace the current function code with this example? Your current code is not saved.',
       functionGuideLimits:
-        'Fetch only, with readable text snapshots. Code cannot access the page, extension APIs, network, or external code. Each body is limited to 512 KiB, the total snapshot to 1 MiB, execution to 5 seconds, and code to 65,536 characters. Limits or failures keep the real response.',
+        'Fetch only, with readable text snapshots. Code cannot access the page, extension APIs, network, or external code. Each body is limited to 512 KiB, the total snapshot to 1 MiB, execution to 5 seconds, and code to 65,536 characters. Limits or failures keep the real response. Enable both the rule and function action after saving.',
       functionSafetyWarning:
         'Function responses support Fetch only; XHR keeps its native response. Code reads request and response snapshots only; request headers may contain sensitive values. It runs in an isolated sandbox for at most 5 seconds. This editor never executes or compiles code.',
       enableFunction: 'Enable function response (explicit confirmation required)',
