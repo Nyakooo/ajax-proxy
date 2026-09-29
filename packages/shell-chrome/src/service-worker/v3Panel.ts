@@ -1,11 +1,25 @@
 import {
+  isV3PanelClearHitCountersRequest,
   isV3PanelGetSnapshotRequest,
   isV3PanelMessage,
   isV3PanelSaveConfigRequest,
 } from '@proxy/protocol'
-import type { V3PanelGetSnapshotResponse, V3PanelSaveConfigResponse } from '@proxy/protocol'
-import { StorageKey, getRealStorage, setStorage } from '@proxy/shared-utils'
+import type {
+  V3PanelClearHitCountersResponse,
+  V3PanelClearHitCountersTarget,
+  V3PanelGetSnapshotResponse,
+  V3PanelSaveConfigResponse,
+} from '@proxy/protocol'
+import {
+  NoticeKey,
+  StorageKey,
+  getRealStorage,
+  noticePanelsByServiceWorker,
+  setStorage,
+} from '@proxy/shared-utils'
 import { sanitizeV3HitCounters, validateV3Backup } from '@proxy/v3-domain'
+import type { V3Backup } from '@proxy/v3-domain'
+import { enqueueV3HitOperation, renderActiveV3Badge } from './v3Hit'
 
 export interface V3PanelStorage {
   read(key: StorageKey, defaultValue: unknown): Promise<unknown>
@@ -121,6 +135,60 @@ export async function saveV3PanelConfig(
   })
 }
 
+/** Clear all hit counts or one rule's count without racing request increments. */
+export function clearV3PanelHitCounters(
+  target: V3PanelClearHitCountersTarget,
+  storage: V3PanelStorage = extensionStorage
+): Promise<V3PanelClearHitCountersResponse> {
+  return enqueueV3HitOperation(async () => {
+    let backup: V3Backup | null = null
+    try {
+      const storedConfig = await storage.read(StorageKey.V3_CONFIG, null)
+      if (storedConfig !== null) {
+        const validation = validateV3Backup(storedConfig)
+        if (!validation.ok) return { ok: false, issues: validation.issues }
+        backup = validation.data
+      }
+    } catch {
+      return { ok: false, error: 'storage-read-failed' }
+    }
+
+    let counters: Record<string, number>
+    try {
+      counters = backup
+        ? sanitizeV3HitCounters(await storage.read(StorageKey.V3_HITS, {}), backup)
+        : {}
+    } catch {
+      return { ok: false, error: 'storage-read-failed' }
+    }
+
+    const clearedEvent =
+      target.scope === 'all'
+        ? { scope: 'all' as const }
+        : { scope: 'rule' as const, rule_id: target.ruleId }
+    if (target.scope === 'all') counters = {}
+    else {
+      if (!backup || !backup.rules.some((rule) => rule.id === target.ruleId)) {
+        return { ok: false, error: 'rule-not-found' }
+      }
+      delete counters[target.ruleId]
+    }
+
+    try {
+      await storage.write(StorageKey.V3_HITS, counters)
+    } catch {
+      return { ok: false, error: 'storage-write-failed' }
+    }
+    try {
+      await renderActiveV3Badge()
+    } catch {
+      // Counter persistence must not depend on toolbar badge availability.
+    }
+    noticePanelsByServiceWorker(NoticeKey.V3_HITS_CLEARED, clearedEvent)
+    return { ok: true, hitCounters: counters }
+  })
+}
+
 export interface V3PanelMessageSender {
   id?: string
   tab?: unknown
@@ -160,6 +228,10 @@ export function createV3PanelMessageHandler(options: {
     if (isV3PanelSaveConfigRequest(message)) {
       const config = message.value.config
       void saveV3PanelConfig(config, message.value.expectedRevision, storage).then(sendResponse)
+      return true
+    }
+    if (isV3PanelClearHitCountersRequest(message)) {
+      void clearV3PanelHitCounters(message.value, storage).then(sendResponse)
       return true
     }
     return false

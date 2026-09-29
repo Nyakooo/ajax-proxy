@@ -80,6 +80,7 @@ The production build is at `packages/shell-chrome/build`. V3.0.0 was functionall
 - [V3 backup and restore](docs/V3-BACKUP-RESTORE.zh.md)
 - [V3 migration status and known gaps](docs/V3-PANEL-MIGRATION.zh.md)
 - [V3 browser compatibility](docs/V3-BROWSER-COMPATIBILITY.zh.md)
+- [Ajax Proxy Playground](docs/PLAYGROUND.zh.md)
 - [Custom response functions and sandbox limits](docs/V3-USER-FUNCTIONS.zh.md)
 - [Permissions and security boundaries](docs/V3-PERMISSIONS.zh.md)
 - [Changelog](CHANGELOG.md) · [简体中文更新日志](CHANGELOG.zh.md)

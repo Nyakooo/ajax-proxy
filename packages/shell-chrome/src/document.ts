@@ -14,8 +14,8 @@ window.addEventListener(
   'message',
   function (event) {
     const data = event.data
-    if (event.source !== window || event.origin !== window.location.origin || !isRecord(data))
-      return
+    // about:srcdoc inherits the parent's security origin, while location.origin is "null".
+    if (event.source !== window || event.origin !== window.origin || !isRecord(data)) return
     if (
       data.from !== NoticeFrom.CONTENT ||
       data.to !== NoticeTo.DOCUMENT ||
@@ -66,8 +66,7 @@ window.addEventListener(
         if (typeof data.value === 'boolean') lib.updateV3DiagnosticsArmed(data.value)
         break
       case NoticeKey.V3_FETCH_OUTCOMES_ARMED:
-        if (typeof data.value === 'boolean')
-          lib.updateV3FetchOutcomeDiagnosticsArmed(data.value)
+        if (typeof data.value === 'boolean') lib.updateV3FetchOutcomeDiagnosticsArmed(data.value)
         break
     }
   },

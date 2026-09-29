@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Ajax Proxy",
-  "version": "3.0.0",
+  "version": "3.0.1",
   "description": "Mock missing APIs, replace responses, and redirect browser requests.",
   "author": "Gj",
   "icons": {
@@ -32,13 +32,15 @@
       "js": ["document.js"],
       "run_at": "document_start",
       "all_frames": true,
+      "match_origin_as_fallback": true,
       "world": "MAIN"
     },
     {
       "matches": ["<all_urls>"],
       "js": ["content.js"],
       "run_at": "document_start",
-      "all_frames": true
+      "all_frames": true,
+      "match_origin_as_fallback": true
     }
   ],
   "commands": {

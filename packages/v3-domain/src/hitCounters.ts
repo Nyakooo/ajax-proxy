@@ -24,13 +24,13 @@ export function sanitizeV3HitCounters(value: unknown, backup: V3Backup): V3HitCo
   )
 }
 
-/** Sum valid counters belonging to rules in the backup. */
+/** Sum valid counters for enabled rules only; disabled rules retain their stored counters. */
 export function getV3HitTotal(value: unknown, backup: V3Backup): number {
   if (!isCounterRecord(value)) return 0
-  const knownIds = new Set(backup.rules.map((rule) => rule.id))
+  const enabledIds = new Set(backup.rules.filter((rule) => rule.enabled).map((rule) => rule.id))
   let total = 0
   for (const [id, count] of Object.entries(value)) {
-    if (knownIds.has(id) && Number.isSafeInteger(count) && count >= 0) total += count
+    if (enabledIds.has(id) && Number.isSafeInteger(count) && count >= 0) total += count
   }
   return total
 }

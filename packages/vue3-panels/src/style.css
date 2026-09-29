@@ -865,9 +865,35 @@ input {
 .rule-title-line {
   min-width: 0;
   gap: 8px;
+  flex-wrap: wrap;
+}
+
+.rule-heading-copy {
+  display: flex;
+  min-width: 0;
+  flex: 0 0 100%;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+}
+
+.rule-display-title {
+  max-width: 100%;
+  overflow: hidden;
+  color: var(--ap-ink);
+  font-size: 13px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rule-diagnostic-id {
+  color: var(--ap-muted);
+  font-size: 10px;
 }
 
 .rule-title-line code {
+  max-width: 100%;
   overflow: hidden;
   color: var(--ap-ink);
   font-family: var(--ap-font-code);
@@ -1556,6 +1582,12 @@ input {
   font-size: 10px;
   font-weight: 400;
   line-height: 1.5;
+}
+
+.editor-field small.field-warning {
+  color: var(--ap-status-danger-text);
+  font-size: 11px;
+  font-weight: 650;
 }
 
 .editor-field-row {

@@ -22,6 +22,14 @@ export type V3HitNotice = {
     status?: number;
     network_skipped?: true;
 };
+export type V3HitCountersCleared = {
+    scope: 'all';
+} | {
+    scope: 'rule';
+    rule_id: string;
+};
+/** Validate a service-worker event announcing a deliberate hit-counter reset. */
+export declare function isV3HitCountersCleared(value: unknown): value is V3HitCountersCleared;
 /** Validate the untrusted service-worker hit notice before exposing it to panels. */
 export declare function isV3HitNotice(value: unknown): value is V3HitNotice;
 /** Validate the untrusted page-world event before forwarding it to extension contexts. */

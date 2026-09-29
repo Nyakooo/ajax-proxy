@@ -41,6 +41,7 @@ function createForm(rule = null) {
   const replace = rule?.response?.replace ?? {}
   const responseMode = typeof replace.code === 'string' ? 'function' : 'json'
   return {
+    title: rule?.title ?? '',
     matchUrl: rule?.match?.url ?? '',
     matchType: rule?.match?.type ?? 'normal',
     method: rule?.match?.method ?? 'ANY',
@@ -83,8 +84,14 @@ watch(
 function submit() {
   localIssue.value = ''
   jsonIssue.value = false
-  if (!form.value.matchUrl.trim() || form.value.matchUrl !== form.value.matchUrl.trim()) {
+  const matchUrl = form.value.matchUrl
+  const trimmedMatchUrl = matchUrl.trim()
+  if (!trimmedMatchUrl) {
     localIssue.value = t('responseEditor.matchUrlRequired')
+    return
+  }
+  if (matchUrl !== trimmedMatchUrl) {
+    localIssue.value = t('editor.matchUrlWhitespace')
     return
   }
   if (form.value.responseMode === 'function') {
@@ -99,8 +106,9 @@ function submit() {
     }
     if (!window.confirm(t('responseEditor.functionSaveConfirm'))) return
     emit('save', {
+      title: form.value.title.trim(),
       enabled: form.value.enabled,
-      match: { url: form.value.matchUrl, type: form.value.matchType, method: form.value.method },
+      match: { url: matchUrl, type: form.value.matchType, method: form.value.method },
       mode: 'function',
       code: form.value.code,
       responseEnabled: form.value.functionEnabled,
@@ -122,8 +130,9 @@ function submit() {
     return
   }
   emit('save', {
+    title: form.value.title.trim(),
     enabled: form.value.enabled,
-    match: { url: form.value.matchUrl, type: form.value.matchType, method: form.value.method },
+    match: { url: matchUrl, type: form.value.matchType, method: form.value.method },
     status: Number(form.value.status),
     body: parsedBody.body,
     mode: 'json',
@@ -312,7 +321,16 @@ function trapFocus(event) {
         <label class="editor-field">
           <span>{{ t('editor.matchUrl') }}</span>
           <input ref="firstInput" v-model="form.matchUrl" required autocomplete="off" />
-          <small>{{ t('editor.matchUrlHelp') }}</small>
+          <small v-if="form.matchUrl !== form.matchUrl.trim()" class="field-warning" role="alert">
+            {{ t('editor.matchUrlWhitespace') }}
+          </small>
+          <small v-else>{{ t('editor.matchUrlHelp') }}</small>
+        </label>
+
+        <label class="editor-field">
+          <span>{{ t('editor.ruleTitle') }}</span>
+          <input v-model="form.title" maxlength="120" autocomplete="off" />
+          <small>{{ t('editor.ruleTitleHelp') }}</small>
         </label>
 
         <div class="editor-field-row">

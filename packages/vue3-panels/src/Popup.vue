@@ -21,7 +21,8 @@ const messages = {
   en: {
     global: 'Enable Ajax Proxy',
     search: 'Search rules',
-    searchHelp: 'Words match together. Try method:GET type:redirect status:enabled pinned:true',
+    searchHelp:
+      'Search titles, URLs, methods, IDs, targets, and tags. Try title:profile method:GET',
     theme: 'Theme',
     themeSystem: 'System',
     themeLight: 'Light',
@@ -45,7 +46,7 @@ const messages = {
     unpin: 'Unpin rule',
     edit: 'Edit rule',
     remove: 'Delete rule',
-    confirmDelete: 'Delete this rule?',
+    confirmDelete: 'Delete “{name}”?',
     cancel: 'Cancel',
     confirm: 'Delete',
     saveError: 'Could not save this change. Your rules are unchanged.',
@@ -63,7 +64,7 @@ const messages = {
   'zh-CN': {
     global: '启用 Ajax Proxy',
     search: '搜索规则',
-    searchHelp: '多个词同时匹配。试试 method:GET type:redirect status:enabled pinned:true',
+    searchHelp: '可搜索标题、URL、方法、ID、目标和标签。试试 title:用户资料 method:GET',
     theme: '主题',
     themeSystem: '跟随系统',
     themeLight: '浅色',
@@ -87,7 +88,7 @@ const messages = {
     unpin: '取消置顶',
     edit: '编辑规则',
     remove: '删除规则',
-    confirmDelete: '确定删除此规则？',
+    confirmDelete: '确定删除「{name}」吗？',
     cancel: '取消',
     confirm: '删除',
     saveError: '保存失败，规则没有更改。',
@@ -121,7 +122,11 @@ let removeStorageListener
 let refreshRequested = false
 
 const language = computed(() => (config.value?.settings?.language === 'en' ? 'en' : 'zh-CN'))
-const t = (key) => messages[language.value][key] ?? messages.en[key] ?? key
+const t = (key, params = {}) =>
+  (messages[language.value][key] ?? messages.en[key] ?? key).replace(
+    /\{(\w+)\}/g,
+    (placeholder, name) => params[name] ?? placeholder
+  )
 const isEdge = typeof navigator !== 'undefined' && /edg\//i.test(navigator.userAgent)
 const activeMark = computed(() => (darkMode.value ? darkMark : lightMark))
 const shownRules = computed(() => {
@@ -248,6 +253,10 @@ function actionNames(rule) {
 function ruleTags(rule) {
   const ids = new Set(rule.tagIds ?? [])
   return (config.value?.tags ?? []).filter((tag) => ids.has(tag.id)).map((tag) => tag.name)
+}
+
+function ruleDisplayName(rule) {
+  return rule?.title?.trim() || rule?.match?.url || rule?.id || ''
 }
 
 async function sendOpenPanel(message) {
@@ -428,6 +437,9 @@ onBeforeUnmount(() => {
       >
         <div class="rule-primary">
           <div class="rule-summary">
+            <strong v-if="rule.title" class="rule-name" :title="rule.title">{{
+              rule.title
+            }}</strong>
             <div class="rule-title-row">
               <span class="rule-actions">{{ actionNames(rule).join(' + ') }}</span>
               <span v-if="rule.pinned" class="pin-badge">★ {{ t('pinned') }}</span>
@@ -448,7 +460,7 @@ onBeforeUnmount(() => {
           <div class="rule-controls">
             <label
               class="rule-switch"
-              :aria-label="`${rule.enabled ? t('enabled') : t('disabled')}: ${rule.match.url}`"
+              :aria-label="`${rule.enabled ? t('enabled') : t('disabled')}: ${ruleDisplayName(rule)}`"
             >
               <input
                 type="checkbox"
@@ -461,8 +473,8 @@ onBeforeUnmount(() => {
             <button
               class="icon-button"
               type="button"
-              :aria-label="t(rule.pinned ? 'unpin' : 'pin')"
-              :title="t(rule.pinned ? 'unpin' : 'pin')"
+              :aria-label="`${t(rule.pinned ? 'unpin' : 'pin')}: ${ruleDisplayName(rule)}`"
+              :title="`${t(rule.pinned ? 'unpin' : 'pin')}: ${ruleDisplayName(rule)}`"
               :disabled="saving"
               @click="togglePinned(rule)"
             >
@@ -471,7 +483,7 @@ onBeforeUnmount(() => {
             <button
               class="icon-button"
               type="button"
-              :aria-label="`${t('edit')}: ${rule.match.url}`"
+              :aria-label="`${t('edit')}: ${ruleDisplayName(rule)}`"
               :title="t('edit')"
               @click="openEditor(rule)"
             >
@@ -480,7 +492,7 @@ onBeforeUnmount(() => {
             <button
               class="icon-button delete-button"
               type="button"
-              :aria-label="`${t('remove')}: ${rule.match.url}`"
+              :aria-label="`${t('remove')}: ${ruleDisplayName(rule)}`"
               :title="t('remove')"
               :disabled="saving"
               @click="deleteRule(rule)"
@@ -493,9 +505,9 @@ onBeforeUnmount(() => {
           v-if="pendingDelete === rule.id"
           class="delete-confirm"
           role="group"
-          :aria-label="t('confirmDelete')"
+          :aria-label="t('confirmDelete', { name: ruleDisplayName(rule) })"
         >
-          <span>{{ t('confirmDelete') }}</span>
+          <span>{{ t('confirmDelete', { name: ruleDisplayName(rule) }) }}</span>
           <button type="button" @click="pendingDelete = ''">
             {{ t('cancel') }}
           </button>

@@ -836,7 +836,7 @@ async function main() {
       async (key) => (await chrome.storage.local.get(key))[key],
       'ajax-proxy:storage:v3-config'
     )
-    assert.equal(disabledSiteConfig.formatVersion, 9)
+    assert.equal(disabledSiteConfig.formatVersion, 10)
     assert.deepEqual(disabledSiteConfig.disabledOrigins, [siteSwitchOrigin])
     await staleGlobalSwitch.click()
     await staleV3Panel
@@ -1515,7 +1515,7 @@ async function main() {
     ])
     const exportedBackup = JSON.parse(fs.readFileSync(await backupDownload.path(), 'utf8'))
     assert.equal(exportedBackup.format, 'ajax-proxy-backup')
-    assert.equal(exportedBackup.formatVersion, 9)
+    assert.equal(exportedBackup.formatVersion, 10)
     assert.deepEqual(exportedBackup.disabledOrigins, [])
     assert.deepEqual(exportedBackup.rules, backupConfigBefore.rules)
     assert.equal('hitCounters' in exportedBackup, false)
@@ -1604,7 +1604,7 @@ async function main() {
     )
     await importedFunctionEditor.getByRole('button', { name: 'Cancel' }).click()
 
-    const v3RuleSearch = v3Panel.getByPlaceholder('Search URL, method, or note')
+    const v3RuleSearch = v3Panel.getByPlaceholder('Search title, URL, or method')
     await v3RuleSearch.fill(functionUiUrl)
     assert.equal(
       await v3Panel.locator('.rule-row').count(),

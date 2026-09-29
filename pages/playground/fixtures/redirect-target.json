@@ -1,0 +1,5 @@
+{
+  "source": "ajax-proxy-playground",
+  "fixture": "redirect-target",
+  "message": "The request reached the redirect target fixture."
+}

@@ -33,6 +33,7 @@ function createForm(rule = null) {
   const redirect = rule?.request?.redirect ?? {}
   const isFunction = redirect.type === 'function'
   return {
+    title: rule?.title ?? '',
     matchUrl: rule?.match?.url ?? '',
     matchType: rule?.match?.type ?? 'normal',
     method: rule?.match?.method ?? 'ANY',
@@ -61,13 +62,15 @@ watch(
 
 function submit() {
   localIssue.value = ''
+  const matchUrl = form.value.matchUrl
+  const trimmedMatchUrl = matchUrl.trim()
   let headers = {}
-  if (!form.value.matchUrl.trim()) {
+  if (!trimmedMatchUrl) {
     localIssue.value = t('editor.requiredFields')
     return
   }
-  if (form.value.matchUrl !== form.value.matchUrl.trim()) {
-    localIssue.value = t('editor.noOuterWhitespace')
+  if (matchUrl !== trimmedMatchUrl) {
+    localIssue.value = t('editor.matchUrlWhitespace')
     return
   }
   if (form.value.redirectMode === 'static') {
@@ -120,9 +123,10 @@ function submit() {
     return
   }
   emit('save', {
+    title: form.value.title.trim(),
     enabled: form.value.enabled,
     match: {
-      url: form.value.matchUrl,
+      url: matchUrl,
       type: form.value.matchType,
       method: form.value.method,
     },
@@ -261,7 +265,16 @@ function trapFocus(event) {
         <label class="editor-field">
           <span>{{ t('editor.matchUrl') }}</span>
           <input ref="firstInput" v-model="form.matchUrl" required autocomplete="off" />
-          <small>{{ t('editor.matchUrlHelp') }}</small>
+          <small v-if="form.matchUrl !== form.matchUrl.trim()" class="field-warning" role="alert">
+            {{ t('editor.matchUrlWhitespace') }}
+          </small>
+          <small v-else>{{ t('editor.matchUrlHelp') }}</small>
+        </label>
+
+        <label class="editor-field">
+          <span>{{ t('editor.ruleTitle') }}</span>
+          <input v-model="form.title" maxlength="120" autocomplete="off" />
+          <small>{{ t('editor.ruleTitleHelp') }}</small>
         </label>
 
         <div class="editor-field-row">

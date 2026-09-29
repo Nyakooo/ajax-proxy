@@ -1,5 +1,7 @@
 # Ajax Proxy V3 测试约定
 
+手动测试台的完整场景、静态部署和本地启动说明见 [Ajax Proxy Playground](PLAYGROUND.zh.md)。页面位于 `pages/playground/`，覆盖 Fetch、XMLHttpRequest、iframe、srcdoc 和 Worker 对照，并实时展示最新响应。
+
 ## 当前测试入口
 
 - `pnpm build` / `pnpm build:chrome`：正式构建使用 Vite 输出 `packages/shell-chrome/build`，只复制 Vue 3 V3 面板、扩展入口和 manifest。生产目录默认打开 `panels-v3/`；`pnpm zip` 从该目录生成含 `panels-v3` 与 `v3-sandbox` 的扩展 ZIP。Vue 2 面板和专用编辑器源码已从 workspace 删除。

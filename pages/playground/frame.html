@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>同源 iframe 测试区</title>
+    <style>
+      body {
+        margin: 0;
+        padding: 15px;
+        background: #fbfdfd;
+        color: #172529;
+        font:
+          14px system-ui,
+          sans-serif;
+      }
+      p {
+        color: #617176;
+        font-size: 12px;
+        line-height: 1.5;
+      }
+      button {
+        margin: 4px 4px 4px 0;
+        padding: 8px 10px;
+        border: 1px solid #087e80;
+        border-radius: 7px;
+        background: #087e80;
+        color: #fff;
+        cursor: pointer;
+      }
+      pre {
+        max-height: 100px;
+        overflow: auto;
+        padding: 8px;
+        background: #f0f5f5;
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+        font-size: 11px;
+      }
+    </style>
+  </head>
+  <body>
+    <strong>独立同源 iframe</strong>
+    <p>此文档独立加载，可验证子 frame 中的 Fetch / XHR 请求。</p>
+    <button id="fetch" type="button">Fetch GET</button>
+    <button id="xhr" type="button">XHR GET</button>
+    <pre id="output" aria-live="polite">等待请求…</pre>
+    <script>
+      ;(() => {
+        const output = document.querySelector('#output')
+        const url = new URL('./fixtures/profile.json?case=iframe', document.baseURI).href
+        function send(transport, status, body, error) {
+          const record = {
+            source: 'ajax-proxy-frame-demo',
+            frame: 'same-origin iframe',
+            transport,
+            url,
+            method: 'GET',
+            status,
+            body,
+            error,
+          }
+          output.textContent = JSON.stringify(record, null, 2)
+          parent.postMessage(record, window.origin)
+        }
+        document.querySelector('#fetch').addEventListener('click', async () => {
+          try {
+            const response = await fetch(url)
+            const text = await response.text()
+            let body = text
+            try {
+              body = JSON.parse(text)
+            } catch {}
+            send('Fetch', response.status, body, null)
+          } catch (error) {
+            send('Fetch', 'network-error', null, String(error))
+          }
+        })
+        document.querySelector('#xhr').addEventListener('click', () => {
+          const xhr = new XMLHttpRequest()
+          xhr.open('GET', url, true)
+          xhr.responseType = 'json'
+          xhr.onloadend = () =>
+            send(
+              'XMLHttpRequest',
+              xhr.status,
+              xhr.response,
+              xhr.status === 0 ? 'XHR status 0' : null
+            )
+          xhr.send()
+        })
+      })()
+    </script>
+  </body>
+</html>

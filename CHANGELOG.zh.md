@@ -1,5 +1,16 @@
 # 更新日志
 
+## Ajax Proxy 3.0.1 — 2026-09-29
+
+### 新增
+
+- 增加独立 Ajax Proxy Playground，覆盖 Fetch、XHR、iframe 和响应查看场景，并添加 GitHub Pages 发布工作流。
+
+### 修复
+
+- 工具栏总命中数现在只汇总已启用规则，并在规则启停变化后更新。
+- 明确说明 Dedicated Worker 请求暂不属于扩展拦截范围。
+
 ## Ajax Proxy 3.0.0 — 2026-09-28
 
 ### 新增

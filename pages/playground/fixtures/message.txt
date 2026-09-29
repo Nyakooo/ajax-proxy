@@ -1,0 +1,2 @@
+Ajax Proxy scenario demo text fixture.
+If a response rule matches this request, this text can be replaced in Fetch or XMLHttpRequest.

@@ -275,6 +275,16 @@ button {
   min-width: 0;
   flex: 1;
 }
+.rule-name {
+  display: block;
+  overflow: hidden;
+  margin: 2px 0 4px;
+  color: #253a3c;
+  font-size: 12px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .rule-title-row {
   display: flex;
   align-items: center;
@@ -288,6 +298,9 @@ button {
 }
 .rule-card-disabled .rule-actions {
   color: #7a8a8b;
+}
+.rule-card-disabled .rule-name {
+  color: #627173;
 }
 .pin-badge {
   padding: 2px 5px;
@@ -549,9 +562,15 @@ html.app-dark .rule-card {
   background: #1b272a;
   box-shadow: 0 1px 2px rgb(0 0 0 / 15%);
 }
+html.app-dark .rule-name {
+  color: #e0e9e9;
+}
 html.app-dark .rule-card-disabled {
   background: #172124;
   color: #91a1a2;
+}
+html.app-dark .rule-card-disabled .rule-name {
+  color: #aebabb;
 }
 html.app-dark .rule-actions {
   color: #68c3c1;

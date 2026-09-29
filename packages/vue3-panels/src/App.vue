@@ -16,6 +16,7 @@ import {
   isV3FetchOutcome,
   isV3XHROutcome,
   isV3HitNotice,
+  isV3HitCountersCleared,
   isV3NoMatch,
   NoticeFrom,
   NoticeKey,
@@ -28,7 +29,7 @@ import RuleTagFilterPopover from './components/RuleTagFilterPopover.vue'
 import RuleTagsDialog from './components/RuleTagsDialog.vue'
 import { buildV3ResponseRule } from './services/v3ResponseDraft.js'
 import { validateFunctionResponseDraft } from './services/v3FunctionResponseDraft.js'
-import { cloneV3RuleTemplate } from './services/v3RuleTemplateCatalog.js'
+import { cloneV3RuleTemplate, V3_RULE_TEMPLATE_CATALOG } from './services/v3RuleTemplateCatalog.js'
 import { createV3DiagnosticsCaptureStorage } from './services/v3DiagnosticsCaptureStorage.js'
 import { createActiveTabOriginService } from './services/activeTabOrigin.js'
 import { useThemePreference } from './services/useThemePreference.js'
@@ -63,6 +64,7 @@ const memoryOnly = ref(!globalThis.chrome?.runtime?.sendMessage)
 const loading = ref(true)
 const configReady = ref(false)
 const saving = ref(false)
+const clearingHitCounters = ref(false)
 const operationError = ref('')
 const editorOpen = ref(false)
 const editingRule = ref(null)
@@ -92,6 +94,7 @@ const config = ref(createEmptyConfig())
 const configRevision = ref('')
 const configConflict = ref(false)
 const hitCounters = ref({})
+const hasHitCounters = computed(() => Object.values(hitCounters.value).some((count) => count > 0))
 const recentMatches = ref([])
 const recentFunctionErrors = ref([])
 const noMatchCaptureArmed = ref(false)
@@ -168,6 +171,25 @@ const ruleTagsControl = ref(null)
 function ruleTagNames(rule) {
   const selected = new Set(rule.tagIds ?? [])
   return config.value.tags.filter((tag) => selected.has(tag.id)).map((tag) => tag.name)
+}
+
+function ruleDisplayName(rule) {
+  return rule?.title?.trim() || rule?.match?.url || rule?.id || ''
+}
+
+function ruleDisplayNameById(ruleId) {
+  const rule = config.value.rules.find((candidate) => candidate.id === ruleId)
+  return ruleDisplayName(rule) || ruleId
+}
+
+function ruleTitleById(ruleId) {
+  return config.value.rules.find((candidate) => candidate.id === ruleId)?.title ?? ''
+}
+
+function applyRuleTitle(rule, title) {
+  const cleanTitle = typeof title === 'string' ? title.trim() : ''
+  if (cleanTitle) rule.title = cleanTitle
+  else delete rule.title
 }
 
 function ruleActions(rule) {
@@ -339,6 +361,16 @@ function receiveExtensionMessage(message) {
     message.from !== NoticeFrom.SERVICE_WORKER ||
     message.to !== NoticeTo.PANELS
   ) {
+    return
+  }
+
+  if (message.key === NoticeKey.V3_HITS_CLEARED && isV3HitCountersCleared(message.value)) {
+    if (message.value.scope === 'all') hitCounters.value = {}
+    else {
+      const nextCounters = { ...hitCounters.value }
+      delete nextCounters[message.value.rule_id]
+      hitCounters.value = nextCounters
+    }
     return
   }
 
@@ -704,6 +736,28 @@ async function persistConfig(nextConfig) {
   return true
 }
 
+async function clearHitCounters(target) {
+  if (memoryOnly.value || clearingHitCounters.value || loading.value || saving.value) return
+  if (target.scope === 'all' && !globalThis.confirm(t('rules.confirmClearAllHits'))) return
+
+  clearingHitCounters.value = true
+  operationError.value = ''
+  try {
+    const result = await configService.clearHitCounters(target)
+    if (result.ok) {
+      hitCounters.value = result.hitCounters
+    } else {
+      operationError.value = t('rules.clearHitsFailed', {
+        error: result.issues?.[0]?.message ?? result.error ?? 'invalid-response',
+      })
+    }
+  } catch {
+    operationError.value = t('rules.clearHitsFailed', { error: 'message-failed' })
+  } finally {
+    clearingHitCounters.value = false
+  }
+}
+
 function openDialog(openState, trigger, event) {
   ruleFiltersOpen.value = false
   ruleTagFilterOpen.value = false
@@ -787,7 +841,13 @@ async function addRuleTemplate(templateId) {
   if (!ruleOperations || loading.value || saving.value) return
   const template = cloneV3RuleTemplate(templateId)
   if (!template) return
-  const rule = { ...template, id: createRuleId(config.value.rules), enabled: false }
+  const templateDefinition = V3_RULE_TEMPLATE_CATALOG.find((item) => item.templateId === templateId)
+  const rule = {
+    ...template,
+    id: createRuleId(config.value.rules),
+    enabled: false,
+    ...(templateDefinition ? { title: t(templateDefinition.titleKey) } : {}),
+  }
   const nextRules = ruleOperations.insertV3Rule(config.value.rules, rule, config.value.rules.length)
   if (nextRules === config.value.rules) return
   if (!(await persistConfig({ ...config.value, rules: [...nextRules] }))) return
@@ -949,6 +1009,7 @@ async function saveRedirectRule(fields) {
             },
     },
   }
+  applyRuleTitle(rule, fields.title)
   const nextRules = existing
     ? ruleOperations.replaceV3Rule(current.rules, id, rule)
     : ruleOperations.insertV3Rule(current.rules, rule, current.rules.length)
@@ -988,6 +1049,7 @@ async function saveResponseRule(fields) {
         replace: { code: validation.code },
       },
     }
+    applyRuleTitle(rule, fields.title)
     const nextRules = existing
       ? ruleOperations.replaceV3Rule(current.rules, id, rule)
       : ruleOperations.insertV3Rule(current.rules, rule, current.rules.length)
@@ -1021,6 +1083,7 @@ async function saveResponseRule(fields) {
   const rule = result.rule
   rule.enabled = fields.enabled
   rule.tagIds = [...(fields.tagIds ?? [])]
+  applyRuleTitle(rule, fields.title)
   const nextRules = existing
     ? ruleOperations.replaceV3Rule(current.rules, id, rule)
     : ruleOperations.insertV3Rule(current.rules, rule, current.rules.length)
@@ -1275,6 +1338,10 @@ async function duplicateRule(rule) {
   const duplicate = structuredClone(toRaw(rule))
   duplicate.id = createRuleId(current.rules)
   duplicate.enabled = false
+  if (duplicate.title) {
+    const suffix = t('rules.duplicateTitleSuffix')
+    duplicate.title = `${duplicate.title.slice(0, 120 - suffix.length)}${suffix}`
+  }
   const nextRules = ruleOperations.insertV3Rule(current.rules, duplicate, sourceIndex + 1)
   if (nextRules !== current.rules) await persistConfig({ ...current, rules: [...nextRules] })
 }
@@ -1301,7 +1368,7 @@ function editRuleAction(rule, action) {
 }
 
 async function deleteRule(rule) {
-  if (!window.confirm(t('editor.confirmDelete', { url: rule.match.url }))) return
+  if (!window.confirm(t('editor.confirmDelete', { url: ruleDisplayName(rule) }))) return
   const nextRules = ruleOperations.deleteV3Rule(config.value.rules, rule.id)
   await persistConfig({ ...config.value, rules: [...nextRules] })
 }
@@ -1452,6 +1519,13 @@ async function deleteRule(rule) {
               outlined
               :aria-pressed="pinnedOnly"
               @click="pinnedOnly = !pinnedOnly"
+            />
+            <AppButton
+              :label="t('rules.clearAllHits')"
+              severity="secondary"
+              outlined
+              :disabled="loading || saving || clearingHitCounters || !hasHitCounters || memoryOnly"
+              @click="clearHitCounters({ scope: 'all' })"
             />
             <AppButton
               :label="t('diagnostics.open')"
@@ -1643,7 +1717,10 @@ async function deleteRule(rule) {
               <p class="diagnostic-summary" role="status">
                 {{
                   diagnosticResult.selectedRuleId
-                    ? t('diagnostics.firstMatch', { id: diagnosticResult.selectedRuleId })
+                    ? t('diagnostics.firstMatch', {
+                        id: diagnosticResult.selectedRuleId,
+                        title: ruleDisplayNameById(diagnosticResult.selectedRuleId),
+                      })
                     : t('diagnostics.noMatch')
                 }}
               </p>
@@ -1659,6 +1736,7 @@ async function deleteRule(rule) {
                       t('diagnostics.ruleSummary', {
                         index: result.index + 1,
                         id: result.ruleId,
+                        title: ruleDisplayNameById(result.ruleId),
                         url:
                           config.rules.find((rule) => rule?.id === result.ruleId)?.match?.url ?? '',
                       })
@@ -1701,7 +1779,10 @@ async function deleteRule(rule) {
                       v-for="(rule, ruleIndex) in event.rules"
                       :key="`${rule.rule_id}-${ruleIndex}`"
                     >
-                      <code>{{ rule.rule_id }}</code>
+                      <code>{{ ruleDisplayNameById(rule.rule_id) }}</code>
+                      <span v-if="ruleTitleById(rule.rule_id)" class="rule-diagnostic-id"
+                        >({{ rule.rule_id }})</span
+                      >
                       <span>: {{ t(`diagnostics.reasons.${rule.reason}`) }}</span>
                       <span v-if="ruleIndex < event.rules.length - 1"> · </span>
                     </span>
@@ -1746,7 +1827,10 @@ async function deleteRule(rule) {
                 :key="`${event.correlation_id}-${event.stage}-${index}`"
               >
                 <div class="recent-match-copy">
-                  <code>{{ event.rule_id }}</code>
+                  <code>{{ ruleDisplayNameById(event.rule_id) }}</code>
+                  <small v-if="ruleTitleById(event.rule_id)" class="rule-diagnostic-id"
+                    >({{ event.rule_id }})</small
+                  >
                   <small>
                     {{ event.kind === 'v3-xhr-outcome' ? 'XHR' : 'Fetch' }} ·
                     {{ t(`diagnostics.outcomes.stage.${event.stage}`) }} ·
@@ -1794,6 +1878,9 @@ async function deleteRule(rule) {
                   <code>{{
                     t('rules.matchedRequest', { method: match.method, url: match.url })
                   }}</code>
+                  <small v-if="ruleTitleById(match.rule_id)">{{
+                    t('rules.ruleTitle', { title: ruleTitleById(match.rule_id) })
+                  }}</small>
                   <small>{{ t('rules.matchCondition', { url: match.match_url }) }}</small>
                   <small
                     v-if="match.response_mode === 'mock' && match.network_skipped === true"
@@ -1857,6 +1944,9 @@ async function deleteRule(rule) {
                 <small>{{
                   t('rules.functionErrorRule', { method: failure.method, url: failure.match_url })
                 }}</small>
+                <small v-if="ruleTitleById(failure.rule_id)">{{
+                  t('rules.ruleTitle', { title: ruleTitleById(failure.rule_id) })
+                }}</small>
               </li>
             </ul>
           </section>
@@ -1872,7 +1962,7 @@ async function deleteRule(rule) {
                 <input
                   type="checkbox"
                   :checked="selectedRuleIds.includes(rule.id)"
-                  :aria-label="t('rules.selectRule', { url: rule.match.url, id: rule.id })"
+                  :aria-label="t('rules.selectRule', { name: ruleDisplayName(rule), id: rule.id })"
                   :disabled="saving || loading"
                   @change="setRuleSelected(rule.id, $event.target.checked)"
                 />
@@ -1884,13 +1974,16 @@ async function deleteRule(rule) {
               </div>
               <ToggleSwitch
                 :model-value="rule.enabled"
-                :aria-label="t('rules.enableAria', { name: rule.match.url })"
+                :aria-label="t('rules.enableAria', { name: ruleDisplayName(rule) })"
                 :disabled="saving || loading"
                 @update:modelValue="setRuleEnabled(rule.id, $event)"
               />
               <div class="rule-main">
                 <div class="rule-title-line">
-                  <code>{{ rule.match.url }}</code>
+                  <div class="rule-heading-copy">
+                    <strong v-if="rule.title" class="rule-display-title">{{ rule.title }}</strong>
+                    <code :title="rule.match.url">{{ rule.match.url }}</code>
+                  </div>
                   <AppTag :value="rule.match.method ?? 'ANY'" severity="secondary" />
                   <AppTag
                     :value="
@@ -1944,10 +2037,25 @@ async function deleteRule(rule) {
               <div class="rule-actions">
                 <button
                   type="button"
+                  :aria-label="t('rules.clearHitForRule', { name: ruleDisplayName(rule) })"
+                  :title="t('rules.clearHit')"
+                  :disabled="
+                    saving ||
+                    loading ||
+                    clearingHitCounters ||
+                    memoryOnly ||
+                    !(hitCounters[rule.id] > 0)
+                  "
+                  @click="clearHitCounters({ scope: 'rule', ruleId: rule.id })"
+                >
+                  {{ t('rules.clearHit') }}
+                </button>
+                <button
+                  type="button"
                   :aria-label="
                     rule.pinned
-                      ? t('rules.unpin', { url: rule.match.url })
-                      : t('rules.pin', { url: rule.match.url })
+                      ? t('rules.unpin', { name: ruleDisplayName(rule) })
+                      : t('rules.pin', { name: ruleDisplayName(rule) })
                   "
                   :aria-pressed="Boolean(rule.pinned)"
                   :title="rule.pinned ? t('rules.unpinShort') : t('rules.pinShort')"
@@ -1958,7 +2066,7 @@ async function deleteRule(rule) {
                 </button>
                 <button
                   type="button"
-                  :aria-label="t('editor.moveUp', { url: rule.match.url })"
+                  :aria-label="t('editor.moveUp', { url: ruleDisplayName(rule) })"
                   :disabled="
                     !neighborRule(rule, -1) || saving || Boolean(search.trim()) || ruleFiltersActive
                   "
@@ -1971,7 +2079,7 @@ async function deleteRule(rule) {
                 </button>
                 <button
                   type="button"
-                  :aria-label="t('editor.moveDown', { url: rule.match.url })"
+                  :aria-label="t('editor.moveDown', { url: ruleDisplayName(rule) })"
                   :disabled="
                     !neighborRule(rule, 1) || saving || Boolean(search.trim()) || ruleFiltersActive
                   "

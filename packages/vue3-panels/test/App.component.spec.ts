@@ -386,7 +386,7 @@ describe('App search keyboard shortcut', () => {
 
   it('focuses search with either platform modifier and leaves other editors alone', async () => {
     const { wrapper } = await mountApp()
-    const searchInput = wrapper.get('input[placeholder="搜索 URL、method 或备注"]')
+    const searchInput = wrapper.get('input[placeholder="搜索标题、URL 或 method"]')
     const metaShortcut = new KeyboardEvent('keydown', {
       key: 'k',
       metaKey: true,
@@ -481,7 +481,7 @@ describe('App visible selection and bulk rule actions', () => {
     await flushPromises()
     expect(wrapper.get('.bulk-actions').text()).toContain('已选 1 条规则')
 
-    const search = wrapper.get('input[placeholder="搜索 URL、method 或备注"]')
+    const search = wrapper.get('input[placeholder="搜索标题、URL 或 method"]')
     await search.setValue('/api/hidden')
     await flushPromises()
     expect(wrapper.findAll('.rule-row').map((row) => row.text())).toHaveLength(1)
@@ -847,7 +847,7 @@ describe('App request rules pagination and pinning', () => {
       },
     })
 
-    await wrapper.get('input[placeholder="搜索 URL、method 或备注"]').setValue('pinned:true')
+    await wrapper.get('input[placeholder="搜索标题、URL 或 method"]').setValue('pinned:true')
     await buttonByText(wrapper, '创建规则').trigger('click')
     expect(wrapper.find('.create-rule-choice').exists()).toBe(false)
     await wrapper.get('.rule-editor input[autocomplete="off"]').setValue('/api/new-last')
@@ -861,7 +861,7 @@ describe('App request rules pagination and pinning', () => {
     expect(wrapper.findAll('.rule-row')).toHaveLength(1)
     expect(wrapper.get('.rule-row').text()).toContain('/api/new-last')
     expect(wrapper.get('.pagination').text()).toContain('第 2 / 2 页')
-    expect(wrapper.get('input[placeholder="搜索 URL、method 或备注"]').element.value).toBe('')
+    expect(wrapper.get('input[placeholder="搜索标题、URL 或 method"]').element.value).toBe('')
   })
 })
 
@@ -1696,7 +1696,7 @@ describe('App rule view navigation accessibility', () => {
       true
     )
 
-    await wrapper.get('input[placeholder="搜索 URL、method 或备注"]').setValue('/api/shared')
+    await wrapper.get('input[placeholder="搜索标题、URL 或 method"]').setValue('/api/shared')
     expect(wrapper.findAll('.rule-row')).toHaveLength(1)
     await redirectNavigation.trigger('click')
     expect(redirectNavigation.text()).toContain('重定向规则')
@@ -1705,7 +1705,7 @@ describe('App rule view navigation accessibility', () => {
     expect(wrapper.findAll('.rule-row')).toHaveLength(1)
     expect(wrapper.get('.rule-row').text()).toContain('/api/shared')
 
-    await wrapper.get('input[placeholder="搜索 URL、method 或备注"]').setValue('')
+    await wrapper.get('input[placeholder="搜索标题、URL 或 method"]').setValue('')
     expect(wrapper.findAll('.rule-row')).toHaveLength(2)
     expect(wrapper.findAll('.rule-row').some((row) => row.text().includes('/api/shared'))).toBe(
       true
