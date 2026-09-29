@@ -72,7 +72,7 @@ describe('V3 backup schema', () => {
     expect(validateV3Backup(exactBackup)).toMatchObject({ ok: true })
     expect(parseV3BackupJson(JSON.stringify(exactBackup))).toMatchObject({
       ok: true,
-      data: { formatVersion: 9, disabledOrigins: [], rules: [{ match: { type: 'exact' } }] },
+      data: { formatVersion: 10, disabledOrigins: [], rules: [{ match: { type: 'exact' } }] },
     })
 
     const unsupportedLegacyExactBackup = structuredClone(validBackup)
@@ -89,11 +89,11 @@ describe('V3 backup schema', () => {
       const validation = validateV3Backup(backup)
       expect(validation).toMatchObject({
         ok: true,
-        data: { formatVersion: 9, disabledOrigins: [] },
+        data: { formatVersion: 10, disabledOrigins: [] },
       })
       expect(parseV3BackupJson(JSON.stringify(backup))).toMatchObject({
         ok: true,
-        data: { formatVersion: 9, disabledOrigins: [] },
+        data: { formatVersion: 10, disabledOrigins: [] },
       })
     }
   })
@@ -106,11 +106,11 @@ describe('V3 backup schema', () => {
     }
     expect(validateV3Backup(backup)).toMatchObject({
       ok: true,
-      data: { formatVersion: 9, disabledOrigins: backup.disabledOrigins },
+      data: { formatVersion: 10, disabledOrigins: backup.disabledOrigins },
     })
     expect(parseV3BackupJson(JSON.stringify(backup))).toMatchObject({
       ok: true,
-      data: { formatVersion: 9, disabledOrigins: backup.disabledOrigins },
+      data: { formatVersion: 10, disabledOrigins: backup.disabledOrigins },
     })
   })
 
@@ -158,11 +158,11 @@ describe('V3 backup schema', () => {
     }
     expect(validateV3Backup(backup)).toMatchObject({
       ok: true,
-      data: { formatVersion: 9, rules: [{ request: backup.rules[0].request }] },
+      data: { formatVersion: 10, rules: [{ request: backup.rules[0].request }] },
     })
     expect(parseV3BackupJson(JSON.stringify(backup))).toMatchObject({
       ok: true,
-      data: { formatVersion: 9, rules: [{ request: backup.rules[0].request }] },
+      data: { formatVersion: 10, rules: [{ request: backup.rules[0].request }] },
     })
 
     for (const formatVersion of [3, 4, 5]) {
@@ -232,7 +232,7 @@ describe('V3 backup schema', () => {
     }
     expect(validateV3Backup(base)).toMatchObject({
       ok: true,
-      data: { formatVersion: 9, rules: [{ request: base.rules[0].request }] },
+      data: { formatVersion: 10, rules: [{ request: base.rules[0].request }] },
     })
 
     const maxLengthCode = structuredClone(base)
@@ -278,11 +278,11 @@ describe('V3 backup schema', () => {
     }
     expect(validateV3Backup(backup)).toMatchObject({
       ok: true,
-      data: { formatVersion: 9, rules: [{ request: backup.rules[0].request }] },
+      data: { formatVersion: 10, rules: [{ request: backup.rules[0].request }] },
     })
     expect(parseV3BackupJson(JSON.stringify(backup))).toMatchObject({
       ok: true,
-      data: { formatVersion: 9, rules: [{ request: backup.rules[0].request }] },
+      data: { formatVersion: 10, rules: [{ request: backup.rules[0].request }] },
     })
 
     for (const formatVersion of [3, 4, 5, 6, 7]) {
@@ -328,11 +328,11 @@ describe('V3 backup schema', () => {
     }
     expect(validateV3Backup(mock)).toMatchObject({
       ok: true,
-      data: { formatVersion: 9, rules: [{ response: { mode: 'mock' } }] },
+      data: { formatVersion: 10, rules: [{ response: { mode: 'mock' } }] },
     })
     expect(parseV3BackupJson(JSON.stringify(mock))).toMatchObject({
       ok: true,
-      data: { formatVersion: 9, rules: [{ response: { mode: 'mock' } }] },
+      data: { formatVersion: 10, rules: [{ response: { mode: 'mock' } }] },
     })
 
     const modeInV8 = structuredClone(mock)
