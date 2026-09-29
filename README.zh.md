@@ -80,6 +80,7 @@ pnpm build
 - [V3 配置备份与恢复](docs/V3-BACKUP-RESTORE.zh.md)
 - [V3 迁移状态与已知差异](docs/V3-PANEL-MIGRATION.zh.md)
 - [V3 浏览器兼容范围](docs/V3-BROWSER-COMPATIBILITY.zh.md)
+- [Ajax Proxy Playground](docs/PLAYGROUND.zh.md)
 - [自定义响应函数与 sandbox 限制](docs/V3-USER-FUNCTIONS.zh.md)
 - [权限和安全边界](docs/V3-PERMISSIONS.zh.md)
 - [更新日志](CHANGELOG.zh.md) · [Changelog in English](CHANGELOG.md)

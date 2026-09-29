@@ -1,0 +1,1090 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="Ajax Proxy Fetch、XMLHttpRequest、iframe 与 Worker 场景测试台"
+    />
+    <title>Ajax Proxy Playground</title>
+    <style>
+      :root {
+        color-scheme: light;
+        font-family:
+          Inter,
+          ui-sans-serif,
+          system-ui,
+          -apple-system,
+          BlinkMacSystemFont,
+          'Segoe UI',
+          sans-serif;
+        background: #f3f6f7;
+        color: #172529;
+        font-synthesis: none;
+        text-rendering: optimizeLegibility;
+        --ink: #172529;
+        --muted: #617176;
+        --line: #d9e2e4;
+        --paper: #fff;
+        --teal: #087e80;
+        --teal-soft: #e5f5f3;
+        --amber: #a45b08;
+        --amber-soft: #fff4df;
+        --red: #a83535;
+        --shadow: 0 10px 28px rgb(27 52 57 / 6%);
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        min-width: 320px;
+      }
+      button,
+      input,
+      select,
+      textarea {
+        font: inherit;
+      }
+      button {
+        min-height: 40px;
+        padding: 8px 14px;
+        border: 1px solid var(--teal);
+        border-radius: 9px;
+        background: var(--teal);
+        color: #fff;
+        cursor: pointer;
+        font-weight: 650;
+      }
+      button:hover {
+        background: #066b6d;
+      }
+      button.secondary {
+        background: #fff;
+        color: var(--teal);
+      }
+      button.secondary:hover {
+        background: var(--teal-soft);
+      }
+      button.subtle {
+        border-color: var(--line);
+        background: #fff;
+        color: var(--ink);
+      }
+      button.danger {
+        border-color: #e8c1bd;
+        background: #fff;
+        color: var(--red);
+      }
+      button:focus-visible,
+      input:focus-visible,
+      select:focus-visible,
+      textarea:focus-visible {
+        outline: 3px solid #60bfba;
+        outline-offset: 2px;
+      }
+      code,
+      pre,
+      .mono {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      }
+      .shell {
+        width: min(1120px, calc(100% - 32px));
+        margin: 0 auto;
+      }
+      header {
+        padding: 42px 0 24px;
+      }
+      .eyebrow {
+        color: var(--teal);
+        font-size: 12px;
+        font-weight: 800;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+      h1 {
+        margin: 9px 0 10px;
+        font-size: clamp(30px, 5vw, 46px);
+        letter-spacing: -0.04em;
+      }
+      .intro {
+        max-width: 760px;
+        margin: 0;
+        color: var(--muted);
+        font-size: 16px;
+        line-height: 1.65;
+      }
+      .origin-card {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-top: 24px;
+        padding: 14px 16px;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: var(--paper);
+        box-shadow: var(--shadow);
+      }
+      .origin-card code {
+        overflow-wrap: anywhere;
+        color: #22585a;
+        font-size: 13px;
+      }
+      .live-card {
+        grid-column: 1 / -1;
+        position: sticky;
+        top: 8px;
+        z-index: 5;
+        margin: 0;
+        border-color: #95c8c8;
+        background: #f5fbfb;
+        box-shadow: 0 8px 24px rgb(27 52 57 / 14%);
+      }
+      .live-card.is-expanded #live-body {
+        max-height: min(55vh, 520px);
+      }
+      .live-response-meta {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: 5px 12px;
+        margin-top: 12px;
+        font-size: 12px;
+      }
+      .live-response-meta strong {
+        color: var(--muted);
+      }
+      .live-response-meta code {
+        overflow-wrap: anywhere;
+      }
+      #live-status {
+        display: inline-flex;
+        align-items: center;
+        border-radius: 999px;
+        padding: 4px 9px;
+        background: #e5f4f0;
+        color: #176d5b;
+        font-size: 12px;
+        font-weight: 700;
+      }
+      #live-status.error {
+        background: #fff0ed;
+        color: var(--red);
+      }
+      #live-body {
+        max-height: 150px;
+        min-height: 58px;
+        margin: 12px 0 0;
+        overflow: auto;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 12px;
+        background: white;
+        color: #33474b;
+        font-size: 12px;
+        line-height: 1.55;
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+      }
+      .toolbar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+      main {
+        display: grid;
+        grid-template-columns: minmax(0, 1.35fr) minmax(270px, 0.65fr);
+        gap: 18px;
+        padding: 6px 0 48px;
+      }
+      .stack {
+        display: grid;
+        align-content: start;
+        gap: 16px;
+      }
+      .card {
+        min-width: 0;
+        padding: 20px;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: var(--paper);
+        box-shadow: var(--shadow);
+      }
+      .card h2 {
+        margin: 0;
+        font-size: 18px;
+        letter-spacing: -0.02em;
+      }
+      .card h3 {
+        margin: 0;
+        font-size: 15px;
+      }
+      .card-head {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 12px;
+      }
+      .card p {
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.55;
+      }
+      .tag {
+        flex: none;
+        padding: 4px 8px;
+        border-radius: 999px;
+        background: var(--teal-soft);
+        color: #075f61;
+        font-size: 11px;
+        font-weight: 750;
+      }
+      .tag.warn {
+        background: var(--amber-soft);
+        color: var(--amber);
+      }
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 14px;
+      }
+      .scenario-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+        margin-top: 16px;
+      }
+      .scenario {
+        min-width: 0;
+        padding: 15px;
+        border: 1px solid var(--line);
+        border-radius: 11px;
+        background: #fcfdfd;
+      }
+      .scenario p {
+        min-height: 40px;
+        margin: 7px 0 0;
+      }
+      .scenario code {
+        display: block;
+        margin-top: 8px;
+        overflow-wrap: anywhere;
+        color: #3d5c61;
+        font-size: 11px;
+        line-height: 1.5;
+      }
+      .scenario button {
+        margin-top: 12px;
+      }
+      .field-grid {
+        display: grid;
+        grid-template-columns: 1fr 140px;
+        gap: 10px;
+      }
+      label {
+        display: grid;
+        gap: 6px;
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 700;
+      }
+      input,
+      select,
+      textarea {
+        width: 100%;
+        min-height: 40px;
+        padding: 9px 10px;
+        border: 1px solid #cbd7da;
+        border-radius: 8px;
+        background: #fff;
+        color: var(--ink);
+      }
+      textarea {
+        min-height: 86px;
+        resize: vertical;
+      }
+      .hint {
+        padding: 11px 12px;
+        border-left: 3px solid #d39b41;
+        border-radius: 4px 8px 8px 4px;
+        background: var(--amber-soft);
+        color: #6d4b16;
+        font-size: 12px;
+        line-height: 1.55;
+      }
+      .hint code {
+        overflow-wrap: anywhere;
+      }
+      .fixture-list {
+        display: grid;
+        gap: 8px;
+        padding: 0;
+        list-style: none;
+      }
+      .fixture-list li {
+        display: grid;
+        gap: 3px;
+        padding: 9px 0;
+        border-bottom: 1px solid #edf1f2;
+      }
+      .fixture-list code {
+        color: #22585a;
+        font-size: 11px;
+        overflow-wrap: anywhere;
+      }
+      .fixture-list span {
+        color: var(--muted);
+        font-size: 12px;
+      }
+      .frame-wrap {
+        overflow: hidden;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+      }
+      iframe {
+        display: block;
+        width: 100%;
+        height: 230px;
+        border: 0;
+        background: #fbfdfd;
+      }
+      .log-card {
+        grid-column: 1 / -1;
+      }
+      .log-head {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+      }
+      #results {
+        display: grid;
+        gap: 8px;
+        margin-top: 14px;
+      }
+      .result {
+        overflow: hidden;
+        border: 1px solid var(--line);
+        border-radius: 9px;
+      }
+      .result summary {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px 12px;
+        padding: 10px 12px;
+        cursor: pointer;
+        font-size: 12px;
+        font-weight: 700;
+      }
+      .result summary .status {
+        margin-left: auto;
+        color: var(--teal);
+      }
+      .result summary .status.error {
+        color: var(--red);
+      }
+      .result pre {
+        max-height: 260px;
+        margin: 0;
+        overflow: auto;
+        padding: 12px;
+        border-top: 1px solid var(--line);
+        background: #f7f9fa;
+        color: #33474b;
+        font-size: 11px;
+        line-height: 1.55;
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+      }
+      .empty {
+        margin: 0;
+        padding: 20px;
+        border: 1px dashed var(--line);
+        border-radius: 9px;
+        color: var(--muted);
+        text-align: center;
+        font-size: 13px;
+      }
+      footer {
+        padding: 0 0 34px;
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 1.6;
+      }
+      footer a {
+        color: var(--teal);
+      }
+      @media (max-width: 800px) {
+        main {
+          grid-template-columns: 1fr;
+        }
+        .log-card {
+          grid-column: auto;
+        }
+      }
+      @media (max-width: 520px) {
+        .shell {
+          width: min(100% - 20px, 1120px);
+        }
+        header {
+          padding-top: 28px;
+        }
+        .card {
+          padding: 15px;
+        }
+        .scenario-grid,
+        .field-grid {
+          grid-template-columns: 1fr;
+        }
+        .scenario p {
+          min-height: 0;
+        }
+        .origin-card {
+          align-items: flex-start;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="shell">
+      <div class="eyebrow">Ajax Proxy · Playground</div>
+      <h1>Ajax Proxy Playground</h1>
+      <p class="intro">
+        在当前页面直接触发 Fetch、XMLHttpRequest、iframe 和 Worker 请求。先在 Ajax Proxy
+        中创建匹配规则，再点对应按钮；页面顶部会实时展示最新接口的实际响应。
+      </p>
+      <div class="origin-card">
+        <div><strong>当前测试站点</strong><br /><code id="current-origin">读取中…</code></div>
+        <div class="toolbar">
+          <button class="secondary" id="copy-origin" type="button">复制站点地址</button>
+          <button class="subtle" id="clear-results" type="button">清空结果</button>
+        </div>
+      </div>
+    </header>
+
+    <main class="shell">
+      <section class="card live-card" aria-labelledby="live-title" aria-live="polite">
+        <div class="card-head">
+          <div>
+            <h2 id="live-title">最新接口响应</h2>
+            <p id="live-description">点击任意测试按钮，实时查看页面收到的响应内容。</p>
+          </div>
+          <div class="toolbar">
+            <span id="live-status">等待请求</span>
+            <button
+              class="secondary"
+              id="toggle-live-body"
+              type="button"
+              aria-expanded="false"
+              aria-controls="live-body"
+            >
+              展开响应
+            </button>
+          </div>
+        </div>
+        <div class="live-response-meta">
+          <strong>请求</strong><code id="live-request">尚未发送</code> <strong>地址</strong
+          ><code id="live-url">—</code>
+        </div>
+        <pre id="live-body">
+这里会显示实际收到的响应。请把规则响应设置成明显不同于默认 fixture 的内容；点击请求后，如果这里显示规则配置的状态或响应体，就能直观看到替换效果。</pre>
+      </section>
+      <div class="stack">
+        <section class="card" aria-labelledby="basic-title">
+          <div class="card-head">
+            <div>
+              <h2 id="basic-title">基础请求</h2>
+              <p>适合先确认规则开关、URL 匹配、method 条件、响应替换和命中计数。</p>
+            </div>
+            <span class="tag">同源静态资源</span>
+          </div>
+          <div class="scenario-grid">
+            <article class="scenario">
+              <h3>Fetch · GET JSON</h3>
+              <p>读取固定 JSON 文件。可测试包含、正则、精确 URL 匹配及 JSON 响应替换。</p>
+              <code>GET /playground/fixtures/profile.json?case=fetch-get</code>
+              <button type="button" data-run="fetch-get">发送 Fetch GET</button>
+            </article>
+            <article class="scenario">
+              <h3>Fetch · POST JSON</h3>
+              <p>带 JSON body 的 POST。可测试 method 匹配、静态重定向、mock / replace。</p>
+              <code>POST /playground/fixtures/echo.json?case=fetch-post</code>
+              <button type="button" data-run="fetch-post">发送 Fetch POST</button>
+            </article>
+            <article class="scenario">
+              <h3>Fetch · Request 对象</h3>
+              <p>从 GET Request 实例发出 POST，由 init 覆盖 method 并添加 body。</p>
+              <code>GET /playground/fixtures/profile.json?case=request-override</code>
+              <button type="button" data-run="fetch-request">发送 Request</button>
+            </article>
+            <article class="scenario">
+              <h3>Fetch · 并发请求</h3>
+              <p>同时发出 5 个带不同 query 的请求，观察命中累计、并发处理和请求 URL。</p>
+              <code>GET profile.json?case=burst-1…5</code>
+              <button type="button" data-run="fetch-burst">并发发送 5 次</button>
+            </article>
+            <article class="scenario">
+              <h3>XHR · JSON responseType</h3>
+              <p>使用 responseType=json 读取资源。适合测试 XHR 命中、响应替换和回调事件。</p>
+              <code>GET /playground/fixtures/profile.json?case=xhr-json</code>
+              <button type="button" data-run="xhr-json">发送 XHR JSON</button>
+            </article>
+            <article class="scenario">
+              <h3>XHR · text responseType</h3>
+              <p>读取纯文本 fixture，观察 responseText 与 readyState / loadend 结果。</p>
+              <code>GET /playground/fixtures/message.txt?case=xhr-text</code>
+              <button type="button" data-run="xhr-text">发送 XHR Text</button>
+            </article>
+            <article class="scenario">
+              <h3>XHR · POST JSON</h3>
+              <p>发送 JSON 请求体。静态 Pages 没有 POST API，未命中时会显示站点的原始响应。</p>
+              <code>POST /playground/fixtures/echo.json?case=xhr-post</code>
+              <button type="button" data-run="xhr-post">发送 XHR POST</button>
+            </article>
+            <article class="scenario">
+              <h3>XHR · ArrayBuffer</h3>
+              <p>用二进制响应类型读取 JSON 字节。适合确认不支持的响应替换是否安全回退。</p>
+              <code>GET profile.json?case=xhr-arraybuffer</code>
+              <button type="button" data-run="xhr-arraybuffer">发送 XHR ArrayBuffer</button>
+            </article>
+          </div>
+        </section>
+
+        <section class="card" aria-labelledby="custom-title">
+          <div class="card-head">
+            <div>
+              <h2 id="custom-title">自定义请求</h2>
+              <p>填写你要验证的路径、method 和 transport。相对 URL 会按本页面地址解析。</p>
+            </div>
+            <span class="tag">可组合规则</span>
+          </div>
+          <div class="field-grid" style="margin-top: 14px">
+            <label
+              >请求 URL
+              <input
+                id="custom-url"
+                value="./fixtures/profile.json?case=custom"
+                autocomplete="url"
+              />
+            </label>
+            <label
+              >HTTP method
+              <select id="custom-method">
+                <option>GET</option>
+                <option>POST</option>
+                <option>PUT</option>
+                <option>PATCH</option>
+                <option>DELETE</option>
+              </select>
+            </label>
+          </div>
+          <label style="margin-top: 10px"
+            >JSON body（GET / DELETE 会忽略）
+            <textarea id="custom-body" spellcheck="false">
+{"source":"ajax-proxy-demo","message":"custom request"}</textarea>
+          </label>
+          <div class="field-grid" style="grid-template-columns: 1fr 1fr; margin-top: 10px">
+            <label
+              >请求方式
+              <select id="custom-transport">
+                <option value="fetch">Fetch</option>
+                <option value="xhr">XMLHttpRequest</option>
+              </select>
+            </label>
+            <label
+              >响应类型（仅 XHR）
+              <select id="custom-response-type">
+                <option value="">默认文本</option>
+                <option value="json">JSON</option>
+                <option value="arraybuffer">ArrayBuffer</option>
+                <option value="blob">Blob</option>
+              </select>
+            </label>
+          </div>
+          <div class="actions"><button id="run-custom" type="button">发送自定义请求</button></div>
+        </section>
+
+        <section class="card" aria-labelledby="frames-title">
+          <div class="card-head">
+            <div>
+              <h2 id="frames-title">iframe 与 frame 场景</h2>
+              <p>分别验证独立同源 iframe 和继承父页面 origin 的 srcdoc iframe。</p>
+            </div>
+            <span class="tag">all_frames</span>
+          </div>
+          <div class="scenario-grid" style="grid-template-columns: 1fr 1fr">
+            <article class="scenario">
+              <h3>独立页面 iframe</h3>
+              <p>frame.html 自己创建 Fetch / XHR 请求；父页面会收到执行结果。</p>
+              <div class="frame-wrap">
+                <iframe title="同源 iframe 测试区" src="./frame.html"></iframe>
+              </div>
+            </article>
+            <article class="scenario">
+              <h3>srcdoc iframe</h3>
+              <p>about:srcdoc 通过父页面继承 origin，测试相对 URL 解析与子 frame 注入。</p>
+              <div class="frame-wrap">
+                <iframe id="srcdoc-frame" title="srcdoc iframe 测试区"></iframe>
+              </div>
+            </article>
+          </div>
+          <p class="hint">
+            若顶层请求命中而 iframe 请求不命中，可在规则诊断中对照请求 URL
+            和发起页面，再检查扩展是否覆盖该 frame。
+          </p>
+        </section>
+      </div>
+
+      <aside class="stack">
+        <section class="card" aria-labelledby="rule-guide-title">
+          <h2 id="rule-guide-title">快速配置一条规则</h2>
+          <ol style="padding-left: 20px; color: var(--muted); font-size: 13px; line-height: 1.7">
+            <li>打开 Ajax Proxy 面板，创建一条响应规则。</li>
+            <li>
+              复制下方 URL 的路径片段作为匹配 URL，例如
+              <code>playground/fixtures/profile.json</code>。
+            </li>
+            <li>先选普通包含匹配，并启用规则；请求按钮可立即重复点击。</li>
+            <li>配置 JSON body / status 替换后，观察页面响应和命中计数。</li>
+          </ol>
+          <div class="hint">普通匹配 URL 不要求以斜杠开头。规则需启用，且全局 V3 开关已打开。</div>
+          <ul class="fixture-list">
+            <li>
+              <code>fixtures/profile.json</code
+              ><span>GET JSON；基本 Fetch / XHR 和静态响应替换。</span>
+            </li>
+            <li><code>fixtures/message.txt</code><span>GET text；XHR text responseType。</span></li>
+            <li>
+              <code>fixtures/redirect-target.json</code
+              ><span>重定向目标；可配置从 profile.json 跳转至此。</span>
+            </li>
+            <li>
+              <code>fixtures/echo.json</code
+              ><span>POST 目标；Pages 无后端，适合测试拦截响应或重定向。</span>
+            </li>
+          </ul>
+        </section>
+
+        <section class="card" aria-labelledby="boundary-title">
+          <div class="card-head">
+            <div>
+              <h2 id="boundary-title">边界与回退</h2>
+              <p>这些场景用来确认插件只在预期范围工作。</p>
+            </div>
+          </div>
+          <div class="scenario" style="margin-top: 14px">
+            <h3>404 原始响应</h3>
+            <p>请求不存在的静态文件。未命中时会显示 Pages 返回的 404；命中时可验证规则响应。</p>
+            <code>GET /playground/fixtures/not-found.json</code>
+            <button class="secondary" type="button" data-run="not-found">发送不存在的请求</button>
+          </div>
+          <div class="scenario" style="margin-top: 10px">
+            <h3>Dedicated Worker · Fetch</h3>
+            <p>
+              当前插件不拦截 Dedicated Worker 内的请求。此按钮只验证 Worker 原生 Fetch
+              可用，作为支持范围对照。
+            </p>
+            <code>worker.js → fixtures/profile.json</code>
+            <button class="secondary" type="button" data-run="worker-fetch">
+              发送 Worker 原生请求
+            </button>
+          </div>
+          <div class="scenario" style="margin-top: 10px">
+            <h3>跨源 CORS · Fetch</h3>
+            <p>可选地请求公开 JSON 示例站点。它依赖网络与对方 CORS 策略，不作为离线基线。</p>
+            <code>https://jsonplaceholder.typicode.com/todos/1</code>
+            <button class="secondary" type="button" data-run="cross-origin">发送跨源 GET</button>
+          </div>
+          <div class="scenario" style="margin-top: 10px">
+            <h3>method 不匹配</h3>
+            <p>对已有 GET fixture 发 DELETE。GET 规则不应因 URL 相同而匹配。</p>
+            <code>DELETE /playground/fixtures/profile.json</code>
+            <button class="secondary" type="button" data-run="method-mismatch">发送 DELETE</button>
+          </div>
+        </section>
+
+        <section class="card" aria-labelledby="quick-url-title">
+          <h2 id="quick-url-title">常用测试 URL</h2>
+          <p>使用包含匹配时复制路径片段；精确匹配时复制页面显示的完整 URL。</p>
+          <ul class="fixture-list">
+            <li><code id="url-fetch-profile">加载中…</code><span>GET JSON 基线。</span></li>
+            <li><code id="url-xhr-post">加载中…</code><span>POST 请求体和响应行为。</span></li>
+            <li><code id="url-srcdoc">加载中…</code><span>srcdoc 子 frame 请求。</span></li>
+          </ul>
+        </section>
+      </aside>
+
+      <section class="card log-card" aria-labelledby="results-title">
+        <div class="log-head">
+          <div>
+            <h2 id="results-title">请求记录</h2>
+            <p style="margin: 5px 0 0">记录仅保存在当前页面内存中；刷新页面会清空。</p>
+          </div>
+          <button class="danger" id="clear-log" type="button">清空记录</button>
+        </div>
+        <div id="results" aria-live="polite">
+          <p class="empty">还没有请求。先配置一条规则，再运行任意场景。</p>
+        </div>
+      </section>
+    </main>
+
+    <footer class="shell">
+      <p>
+        此页面是纯静态测试夹具，不上传请求记录，也不会自动发送网络请求。只有点击“跨源 GET”时才会向
+        JSONPlaceholder 发起公开测试请求。GitHub Pages 没有服务端 POST API；POST 的原始响应可能是
+        404 / 405。
+      </p>
+      <p>
+        源码位于 <code>pages/playground/</code>。测试约定见
+        <a href="../../docs/V3-TESTING.zh.md">V3 测试说明</a>。
+      </p>
+    </footer>
+
+    <script>
+      ;(() => {
+        const results = document.querySelector('#results')
+        const originText = document.querySelector('#current-origin')
+        const profileUrl = new URL('./fixtures/profile.json?case=fetch-get', document.baseURI).href
+        const postUrl = new URL('./fixtures/echo.json?case=xhr-post', document.baseURI).href
+        const srcdocUrl = new URL('./fixtures/profile.json?case=srcdoc', document.baseURI).href
+        let resultCount = 0
+
+        originText.textContent = location.origin
+        document.querySelector('#url-fetch-profile').textContent = profileUrl
+        document.querySelector('#url-xhr-post').textContent = postUrl
+        document.querySelector('#url-srcdoc').textContent = srcdocUrl
+
+        document.querySelector('#toggle-live-body').addEventListener('click', (event) => {
+          const button = event.currentTarget
+          const expanded = button.getAttribute('aria-expanded') !== 'true'
+          button.setAttribute('aria-expanded', String(expanded))
+          button.textContent = expanded ? '收起响应' : '展开响应'
+          document.querySelector('.live-card').classList.toggle('is-expanded', expanded)
+        })
+
+        function writeResult({ title, url, method, status, body, error, extra = {} }) {
+          const failed =
+            Boolean(error) || (typeof status === 'number' && status >= 400) || status === 0
+          const liveStatus = document.querySelector('#live-status')
+          liveStatus.textContent = error ? `请求失败 · ${status}` : `HTTP ${status}`
+          liveStatus.classList.toggle('error', failed)
+          document.querySelector('#live-description').textContent = title
+          document.querySelector('#live-request').textContent = method
+          document.querySelector('#live-url').textContent = url || '—'
+          document.querySelector('#live-body').textContent = JSON.stringify(
+            error ? { error, body } : { ...extra, body },
+            null,
+            2
+          )
+          if (resultCount === 0) results.replaceChildren()
+          resultCount += 1
+          const item = document.createElement('details')
+          item.className = 'result'
+          const summary = document.createElement('summary')
+          const name = document.createElement('span')
+          name.textContent = `${new Date().toLocaleTimeString()} · ${title}`
+          const verb = document.createElement('code')
+          verb.textContent = method
+          const state = document.createElement('span')
+          state.className = `status${failed ? ' error' : ''}`
+          state.textContent = error ? '请求失败' : `HTTP ${status}`
+          summary.append(name, verb, state)
+          const pre = document.createElement('pre')
+          pre.textContent = JSON.stringify(
+            { url, status, ...extra, ...(error ? { error } : {}), body },
+            null,
+            2
+          )
+          item.append(summary, pre)
+          item.open = resultCount === 1
+          results.prepend(item)
+        }
+
+        async function bodyOf(response) {
+          const text = await response.text()
+          try {
+            return JSON.parse(text)
+          } catch {
+            return text
+          }
+        }
+
+        async function runFetch(title, relativeUrl, init = {}) {
+          const requestUrl = relativeUrl instanceof Request ? relativeUrl.url : relativeUrl
+          const url = new URL(requestUrl, document.baseURI).href
+          const method = (
+            init.method || (relativeUrl instanceof Request ? relativeUrl.method : 'GET')
+          ).toUpperCase()
+          try {
+            const response = await fetch(url, init)
+            const body = await bodyOf(response)
+            writeResult({
+              title,
+              url,
+              method,
+              status: response.status,
+              body,
+              extra: {
+                ok: response.ok,
+                redirected: response.redirected,
+                responseUrl: response.url,
+                contentType: response.headers.get('content-type'),
+              },
+            })
+          } catch (error) {
+            writeResult({
+              title,
+              url,
+              method,
+              status: 'network-error',
+              body: null,
+              error: String(error),
+            })
+          }
+        }
+
+        function runXhr(
+          title,
+          relativeUrl,
+          { method = 'GET', responseType = '', body = null } = {}
+        ) {
+          const url = new URL(relativeUrl, document.baseURI).href
+          return new Promise((resolve) => {
+            const xhr = new XMLHttpRequest()
+            xhr.open(method, url, true)
+            if (responseType) xhr.responseType = responseType
+            if (body !== null) xhr.setRequestHeader('Content-Type', 'application/json')
+            xhr.onloadend = () => {
+              let response = xhr.response
+              if (responseType === 'arraybuffer' && response instanceof ArrayBuffer) {
+                response = {
+                  byteLength: response.byteLength,
+                  firstBytes: Array.from(new Uint8Array(response.slice(0, 24))),
+                }
+              } else if (responseType === 'blob' && response instanceof Blob) {
+                response = { size: response.size, type: response.type }
+              } else if (typeof response === 'string') {
+                try {
+                  response = JSON.parse(response)
+                } catch {}
+              }
+              const error =
+                xhr.status === 0
+                  ? `XHR completed with status 0 (readyState ${xhr.readyState})`
+                  : null
+              writeResult({
+                title,
+                url: xhr.responseURL || url,
+                method: method.toUpperCase(),
+                status: xhr.status,
+                body: response,
+                error,
+                extra: {
+                  readyState: xhr.readyState,
+                  responseType: xhr.responseType,
+                  statusText: xhr.statusText,
+                },
+              })
+              resolve()
+            }
+            try {
+              xhr.send(body)
+            } catch (error) {
+              writeResult({
+                title,
+                url,
+                method: method.toUpperCase(),
+                status: 'send-error',
+                body: null,
+                error: String(error),
+              })
+              resolve()
+            }
+          })
+        }
+
+        const jsonBody = () =>
+          JSON.stringify({
+            source: 'ajax-proxy-playground',
+            sentAt: new Date().toISOString(),
+            value: 42,
+          })
+        const runs = {
+          'fetch-get': () => runFetch('Fetch · GET JSON', './fixtures/profile.json?case=fetch-get'),
+          'fetch-post': () =>
+            runFetch('Fetch · POST JSON', './fixtures/echo.json?case=fetch-post', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: jsonBody(),
+            }),
+          'fetch-request': () => {
+            const request = new Request(
+              new URL('./fixtures/profile.json?case=request-override', document.baseURI),
+              { method: 'GET' }
+            )
+            return runFetch('Fetch · Request + init.method 覆盖', request, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: jsonBody(),
+            })
+          },
+          'fetch-burst': () =>
+            Promise.all(
+              Array.from({ length: 5 }, (_, index) =>
+                runFetch(
+                  `Fetch · 并发 ${index + 1}/5`,
+                  `./fixtures/profile.json?case=burst-${index + 1}`
+                )
+              )
+            ),
+          'xhr-json': () =>
+            runXhr('XHR · JSON', './fixtures/profile.json?case=xhr-json', { responseType: 'json' }),
+          'xhr-text': () => runXhr('XHR · Text', './fixtures/message.txt?case=xhr-text'),
+          'xhr-post': () =>
+            runXhr('XHR · POST JSON', './fixtures/echo.json?case=xhr-post', {
+              method: 'POST',
+              body: jsonBody(),
+            }),
+          'xhr-arraybuffer': () =>
+            runXhr('XHR · ArrayBuffer', './fixtures/profile.json?case=xhr-arraybuffer', {
+              responseType: 'arraybuffer',
+            }),
+          'not-found': () =>
+            runFetch('Fetch · 404 原始响应', './fixtures/not-found.json?case=not-found'),
+          'method-mismatch': () =>
+            runXhr('XHR · DELETE method mismatch', './fixtures/profile.json?case=method-mismatch', {
+              method: 'DELETE',
+            }),
+          'cross-origin': () =>
+            runFetch('Fetch · Cross-origin CORS', 'https://jsonplaceholder.typicode.com/todos/1'),
+          'worker-fetch': async () => {
+            if (!('Worker' in window)) {
+              writeResult({
+                title: 'Worker 不可用',
+                url: location.href,
+                method: 'N/A',
+                status: 'unsupported',
+                body: null,
+                error: '当前浏览器不支持 Dedicated Worker。',
+              })
+              return
+            }
+            const worker = new Worker('./worker.js')
+            const url = new URL('./fixtures/profile.json?case=worker-fetch', document.baseURI).href
+            worker.onmessage = (event) => {
+              worker.terminate()
+              writeResult({
+                title: 'Dedicated Worker · Fetch',
+                url: event.data.url,
+                method: 'GET',
+                status: event.data.status,
+                body: event.data.body,
+                error: event.data.error,
+                extra: {
+                  note: '这是 Worker 原生 Fetch 响应。Ajax Proxy 当前仅代理 document 主世界的 Fetch / XHR，不拦截 Dedicated Worker 请求。',
+                },
+              })
+            }
+            worker.onerror = (event) => {
+              worker.terminate()
+              writeResult({
+                title: 'Dedicated Worker · Fetch',
+                url,
+                method: 'GET',
+                status: 'worker-error',
+                body: null,
+                error: event.message || 'Worker 加载失败。',
+              })
+            }
+            worker.postMessage({ url })
+          },
+        }
+
+        document.querySelectorAll('[data-run]').forEach((button) => {
+          button.addEventListener('click', () => {
+            const action = runs[button.dataset.run]
+            if (action) void action()
+          })
+        })
+
+        document.querySelector('#run-custom').addEventListener('click', () => {
+          const relativeUrl = document.querySelector('#custom-url').value.trim()
+          const method = document.querySelector('#custom-method').value
+          const transport = document.querySelector('#custom-transport').value
+          const responseType = document.querySelector('#custom-response-type').value
+          if (!relativeUrl) {
+            writeResult({
+              title: '自定义请求',
+              url: '',
+              method,
+              status: 'invalid-input',
+              body: null,
+              error: '请求 URL 不能为空。',
+            })
+            return
+          }
+          if (transport === 'xhr')
+            return void runXhr('自定义 · XMLHttpRequest', relativeUrl, {
+              method,
+              responseType,
+              body: ['GET', 'DELETE'].includes(method)
+                ? null
+                : document.querySelector('#custom-body').value,
+            })
+          const init = { method }
+          if (!['GET', 'DELETE'].includes(method)) {
+            init.headers = { 'Content-Type': 'application/json' }
+            init.body = document.querySelector('#custom-body').value
+          }
+          return void runFetch('自定义 · Fetch', relativeUrl, init)
+        })
+
+        document.querySelector('#clear-log').addEventListener('click', () => {
+          resultCount = 0
+          results.replaceChildren(
+            Object.assign(document.createElement('p'), {
+              className: 'empty',
+              textContent: '记录已清空。',
+            })
+          )
+        })
+        document
+          .querySelector('#clear-results')
+          .addEventListener('click', () => document.querySelector('#clear-log').click())
+        document.querySelector('#copy-origin').addEventListener('click', async () => {
+          try {
+            await navigator.clipboard.writeText(location.origin)
+            document.querySelector('#copy-origin').textContent = '已复制'
+          } catch {
+            document.querySelector('#copy-origin').textContent = location.origin
+          }
+        })
+
+        window.addEventListener('message', (event) => {
+          if (
+            event.origin !== window.origin ||
+            !event.data ||
+            event.data.source !== 'ajax-proxy-frame-demo'
+          )
+            return
+          writeResult({
+            title: `${event.data.frame} · ${event.data.transport}`,
+            url: event.data.url,
+            method: event.data.method,
+            status: event.data.status,
+            body: event.data.body,
+            error: event.data.error,
+            extra: { frameOrigin: event.origin },
+          })
+        })
+
+        const srcdoc = `<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><style>body{font:14px system-ui,sans-serif;padding:14px;color:#172529}button{margin:4px;padding:8px 10px;border:1px solid #087e80;border-radius:7px;background:#087e80;color:#fff}p{color:#617176;font-size:12px}</style><strong>about:srcdoc 测试</strong><p>点击后从继承 origin 的 frame 发出相对 URL 请求。</p><button id="fetch">Fetch GET</button><button id="xhr">XHR GET</button><script>const url=new URL('./fixtures/profile.json?case=srcdoc',document.baseURI).href;function send(transport,status,body,error){parent.postMessage({source:'ajax-proxy-frame-demo',frame:'srcdoc iframe',transport,url,method:'GET',status,body,error},window.origin)}document.querySelector('#fetch').onclick=async()=>{try{const r=await fetch(url);const t=await r.text();let b=t;try{b=JSON.parse(t)}catch{}send('Fetch',r.status,b,null)}catch(e){send('Fetch','network-error',null,String(e))}};document.querySelector('#xhr').onclick=()=>{const x=new XMLHttpRequest();x.open('GET',url);x.responseType='json';x.onloadend=()=>send('XMLHttpRequest',x.status,x.response,x.status===0?'XHR status 0':null);x.send()}<\\/script></html>`
+        document.querySelector('#srcdoc-frame').srcdoc = srcdoc
+      })()
+    </script>
+  </body>
+</html>

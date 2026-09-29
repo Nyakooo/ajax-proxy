@@ -1,0 +1,10 @@
+{
+  "source": "ajax-proxy-playground",
+  "fixture": "profile",
+  "message": "This is the unmodified same-origin JSON response.",
+  "user": {
+    "id": 17,
+    "name": "Demo User",
+    "active": true
+  }
+}

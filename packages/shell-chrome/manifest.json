@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Ajax Proxy",
-  "version": "3.0.0",
+  "version": "3.0.1",
   "description": "Mock missing APIs, replace responses, and redirect browser requests.",
   "author": "Gj",
   "icons": {

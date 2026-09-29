@@ -1,5 +1,16 @@
 # Changelog
 
+## Ajax Proxy 3.0.1 — 2026-09-29
+
+### Added
+
+- Added a standalone Ajax Proxy Playground with Fetch, XHR, iframe, and response inspection scenarios, plus a GitHub Pages deployment workflow.
+
+### Fixed
+
+- Toolbar hit totals now include enabled rules only and update when rule enablement changes.
+- Clarified that Dedicated Worker requests are outside the extension's current interception scope.
+
 ## Ajax Proxy 3.0.0 — 2026-09-28
 
 ### Added

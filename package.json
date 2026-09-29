@@ -3,7 +3,7 @@
   "private": true,
   "packageManager": "pnpm@12.6.0",
   "description": "Mock missing APIs, replace browser responses, and redirect requests.",
-  "version": "3.0.0",
+  "version": "3.0.1",
   "scripts": {
     "watch": "run-p watch:protocol watch:utils watch:lib watch:chrome",
     "watch:protocol": "pnpm -C ./packages/protocol watch",
