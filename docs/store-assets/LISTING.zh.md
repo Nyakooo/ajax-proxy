@@ -39,12 +39,14 @@ Ajax Proxy 是面向 Web 开发者的本地浏览器工具。接口尚未开发�
 
 ## 宣传图片
 
-- Chrome 必需小型宣传图：`promo-small-440x280.jpg`
-- 可选顶部宣传图：`promo-large-1400x560.jpg`
+- 小型宣传图：`promo-small-440x280.png`
+- 可选大型宣传图：`promo-large-1400x560.png`
 - 商店图标：`../../packages/shell-chrome/icons/128.png`
 - Chrome 与 Edge 共用的 V3 实际界面截图：
-  - `screenshot-01-rules-1280x800.jpg` — 规则管理、搜索筛选与临时诊断
-  - `screenshot-02-json-mock-1280x800.jpg` — JSON Mock 规则编辑器
-  - `screenshot-03-redirect-1280x800.jpg` — 静态重定向编辑器
+  - `screenshot-01-rules-1280x800.png` — 规则管理、搜索筛选与临时诊断
+  - `screenshot-02-json-mock-1280x800.png` — JSON Mock 规则编辑器
+  - `screenshot-03-redirect-1280x800.png` — 静态重定向编辑器
+
+Microsoft Edge 合作伙伴中心要求促销磁贴使用 PNG；本目录中的 PNG 文件是按商店要求从相同 V3 宣传图与截图导出的版本。
 
 宣传插画与真实产品截图是不同素材；不要把宣传插画标成真实界面截图。
