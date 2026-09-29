@@ -88,6 +88,12 @@ pnpm build
 
 上方 Chrome 与 Edge 链接指向现有商店条目；商店审核期间，商店可用版本可能晚于 GitHub Release。
 
+## 在线 Playground
+
+打开 [Ajax Proxy Playground](https://nyakooo.github.io/ajax-proxy/playground/)，可在真实浏览器页面中测试 Fetch、XHR、iframe、srcdoc、Worker 对照及其他请求场景。每次点击后，页面会实时显示最新请求的 URL、状态和实际响应体，并保留请求历史，便于直接判断规则是否生效。
+
+建议先创建一条启用的 GET 规则，匹配 `playground/fixtures/profile.json`，并将响应体改成容易辨认的内容；然后在 Playground 点击 **发送 Fetch GET** 或 **发送 XHR JSON**，对照页面响应和扩展面板中的命中计数。Worker 场景仅作原生请求对照，当前不支持拦截 Dedicated Worker 内的请求。完整场景说明、规则配置示例和本地启动方法见 [Playground 测试指南](docs/PLAYGROUND.zh.md)。
+
 ## 演示
 
 下面的动图展示的是**旧版 V2 界面**，仅作历史演示；它不是 V3.0.0 的界面截图。

@@ -4,11 +4,11 @@
 
 ## 打开页面
 
-仓库目前尚未启用 GitHub Pages。启用后，仓库的 Pages 工作流会把 `pages/` 目录发布到：
+GitHub Pages 已启用，仓库的 Pages 工作流会把 `pages/` 目录发布到：
 
-`https://nyakooo.github.io/ajax-proxy/playground/`
+在线地址：[https://nyakooo.github.io/ajax-proxy/playground/](https://nyakooo.github.io/ajax-proxy/playground/)。站点根路径 [https://nyakooo.github.io/ajax-proxy/](https://nyakooo.github.io/ajax-proxy/) 会跳转到 Playground。
 
-首次发布前需要在 GitHub 仓库设置 **Settings → Pages → Build and deployment → Source** 选择 **GitHub Actions**。工作流定义在 [pages-demo.yml](../.github/workflows/pages-demo.yml)，只会在 `master` 上的 Pages 文件变化时自动部署，也可以手动运行。
+工作流定义在 [pages-demo.yml](../.github/workflows/pages-demo.yml)，会在 `master` 上的 Pages 文件变化时自动部署，也可以手动运行。
 
 本地运行时，在仓库根目录启动任一静态文件服务器，例如：
 

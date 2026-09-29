@@ -88,6 +88,12 @@ The production build is at `packages/shell-chrome/build`. V3.0.0 was functionall
 
 Most detailed design and implementation notes are currently maintained in Chinese. The Chrome and Edge links above point to the existing listings; store availability can lag behind the GitHub release while an update is under review.
 
+## Online Playground
+
+Open the [Ajax Proxy Playground](https://nyakooo.github.io/ajax-proxy/playground/) to try Fetch, XHR, iframe, srcdoc, Worker comparison, and other request scenarios in a real browser page. After each click, it shows the latest request URL, status, and response body, with request history kept below so you can check whether a rule took effect.
+
+For a quick check, create an enabled GET rule matching `playground/fixtures/profile.json`, set a clearly distinguishable response body, then click **Send Fetch GET** or **Send XHR JSON**. Compare the displayed response with the hit count in the extension panel. The Worker scenario is a native-request comparison; requests made inside Dedicated Workers are not currently intercepted. See the [Playground guide](docs/PLAYGROUND.zh.md) for all scenarios, rule examples, and local setup.
+
 ## Demo
 
 The animation below shows the **legacy V2 interface** and is kept for historical reference; it is not a screenshot of the V3.0.0 release.
