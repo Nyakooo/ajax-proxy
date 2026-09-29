@@ -78,6 +78,26 @@ function isSaveResponse(value) {
   }
 }
 
+function isClearHitCountersResponse(value) {
+  try {
+    if (!isRecord(value)) return false
+    if (value.ok === true) {
+      return (
+        hasExactlyKeys(value, ['ok', 'hitCounters']) &&
+        isRecord(value.hitCounters) &&
+        Object.values(value.hitCounters).every((count) => Number.isSafeInteger(count) && count >= 0)
+      )
+    }
+    return (
+      (hasExactlyKeys(value, ['ok', 'error']) &&
+        ['storage-read-failed', 'storage-write-failed', 'rule-not-found'].includes(value.error)) ||
+      (hasExactlyKeys(value, ['ok', 'issues']) && isIssueList(value.issues))
+    )
+  } catch {
+    return false
+  }
+}
+
 function unavailable(error) {
   return { ok: false, error }
 }
@@ -130,6 +150,26 @@ export function createV3ConfigService(runtime = globalThis.chrome?.runtime) {
           value: { config, expectedRevision },
         },
         isSaveResponse
+      )
+    },
+    clearHitCounters(target) {
+      const validTarget =
+        (isRecord(target) && hasExactlyKeys(target, ['scope']) && target.scope === 'all') ||
+        (isRecord(target) &&
+          hasExactlyKeys(target, ['scope', 'ruleId']) &&
+          target.scope === 'rule' &&
+          typeof target.ruleId === 'string' &&
+          target.ruleId.length > 0 &&
+          target.ruleId.length <= 256)
+      if (!validTarget) return Promise.resolve(unavailable('invalid-target'))
+      return send(
+        {
+          from: NoticeFrom.PANELS,
+          to: NoticeTo.SERVICE_WORKER,
+          key: V3PanelMessageKey.CLEAR_HIT_COUNTERS,
+          value: target,
+        },
+        isClearHitCountersResponse
       )
     },
   }

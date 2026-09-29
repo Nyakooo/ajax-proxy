@@ -11,6 +11,16 @@ import type { V3Hit } from '@proxy/protocol'
 
 let v3HitQueue = Promise.resolve()
 
+/** Serialize counter resets with incoming hit increments. */
+export function enqueueV3HitOperation<T>(operation: () => Promise<T>): Promise<T> {
+  const result = v3HitQueue.then(operation, operation)
+  v3HitQueue = result.then(
+    () => undefined,
+    () => undefined
+  )
+  return result
+}
+
 function getValidV3Backup(value: unknown): V3Backup | undefined {
   const result = validateV3Backup(value)
   return result.ok ? result.data : undefined
@@ -41,29 +51,26 @@ export async function renderActiveV3Badge() {
 
 /** Increment and render an isolated V3 counter after validating it against active config. */
 export function chromeBadgeV3(hit: V3Hit) {
-  v3HitQueue = v3HitQueue
-    .then(async () => {
-      const state = await readV3State()
-      if (state.status !== 'active') return
-      const result = recordV3Hit(state.backup, state.counters, hit)
-      if (!result) return
-      await setStorage(StorageKey.V3_HITS, result.counters)
-      renderV3Badge(result.counters, state.backup)
-      noticePanelsByServiceWorker(NoticeKey.V3_HIT, {
-        rule_id: hit.rule_id,
-        count: result.count,
-        match_url: hit.match_url,
-        method: hit.method,
-        url: hit.url ?? hit.match_url,
-        ...(hit.response_mode === 'mock' && {
-          response_mode: hit.response_mode,
-          status: hit.status,
-          network_skipped: hit.network_skipped,
-        }),
-      })
+  return enqueueV3HitOperation(async () => {
+    const state = await readV3State()
+    if (state.status !== 'active') return
+    const result = recordV3Hit(state.backup, state.counters, hit)
+    if (!result) return
+    await setStorage(StorageKey.V3_HITS, result.counters)
+    renderV3Badge(result.counters, state.backup)
+    noticePanelsByServiceWorker(NoticeKey.V3_HIT, {
+      rule_id: hit.rule_id,
+      count: result.count,
+      match_url: hit.match_url,
+      method: hit.method,
+      url: hit.url ?? hit.match_url,
+      ...(hit.response_mode === 'mock' && {
+        response_mode: hit.response_mode,
+        status: hit.status,
+        network_skipped: hit.network_skipped,
+      }),
     })
-    .catch((error) => {
-      console.error('[AjaxProxy] Could not update V3 hit counter', error)
-    })
-  return v3HitQueue
+  }).catch((error) => {
+    console.error('[AjaxProxy] Could not update V3 hit counter', error)
+  })
 }

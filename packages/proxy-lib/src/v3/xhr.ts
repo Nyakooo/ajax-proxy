@@ -100,7 +100,14 @@ function createCorrelationId(): string {
 }
 
 function absoluteUrl(value: string | URL): string {
-  const base = typeof location === 'undefined' ? 'http://localhost/' : location.href
+  // srcdoc frames have an about:srcdoc location but resolve relative requests
+  // against their inherited document base URL.
+  const base =
+    typeof document !== 'undefined' && document.baseURI
+      ? document.baseURI
+      : typeof location === 'undefined'
+        ? 'http://localhost/'
+        : location.href
   return new URL(String(value), base).href
 }
 

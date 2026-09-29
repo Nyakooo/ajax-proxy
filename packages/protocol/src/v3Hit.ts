@@ -24,6 +24,31 @@ export type V3HitNotice = {
   network_skipped?: true
 }
 
+export type V3HitCountersCleared = { scope: 'all' } | { scope: 'rule'; rule_id: string }
+
+/** Validate a service-worker event announcing a deliberate hit-counter reset. */
+export function isV3HitCountersCleared(value: unknown): value is V3HitCountersCleared {
+  try {
+    if (typeof value !== 'object' || value === null || Array.isArray(value)) return false
+    const prototype = Object.getPrototypeOf(value)
+    if (prototype !== Object.prototype && prototype !== null) return false
+    const data = value as Record<string, unknown>
+    const keys = Object.keys(data)
+    if (data.scope === 'all') return keys.length === 1 && keys[0] === 'scope'
+    return (
+      data.scope === 'rule' &&
+      keys.length === 2 &&
+      keys.includes('scope') &&
+      keys.includes('rule_id') &&
+      typeof data.rule_id === 'string' &&
+      data.rule_id.length > 0 &&
+      data.rule_id.length <= 256
+    )
+  } catch {
+    return false
+  }
+}
+
 const MOCK_KEYS = ['response_mode', 'status', 'network_skipped'] as const
 const HIT_NOTICE_REQUIRED_KEYS = ['rule_id', 'count', 'match_url', 'method', 'url'] as const
 const HIT_NOTICE_KEYS = [...HIT_NOTICE_REQUIRED_KEYS, ...MOCK_KEYS] as const

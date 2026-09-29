@@ -70,6 +70,8 @@ export enum NoticeKey {
   V3_CONFIG = 'ajax-proxy:notice:v3-config',
   /**V3 rule hit event */
   V3_HIT = 'ajax-proxy:notice:v3-hit',
+  /**V3 hit-counter reset event */
+  V3_HITS_CLEARED = 'ajax-proxy:notice:v3-hits-cleared',
   /** Temporary diagnostic capture toggle from content to document */
   V3_DIAGNOSTICS_ARMED = 'ajax-proxy:notice:v3-diagnostics-armed',
   /** Temporary Fetch outcome diagnostic toggle from content to document */

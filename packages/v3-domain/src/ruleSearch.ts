@@ -15,6 +15,7 @@ function searchText(rule: V3Rule, tags: readonly V3RuleSearchTag[]): string {
   const redirect = rule.request?.redirect
   const redirectUrl = redirect && 'url' in redirect ? redirect.url : ''
   const fields = [
+    rule.title ?? '',
     rule.id,
     rule.match.url,
     rule.match.method ?? '',
@@ -30,12 +31,13 @@ function searchText(rule: V3Rule, tags: readonly V3RuleSearchTag[]): string {
 
 /**
  * Match a rule against an AND-separated, case-insensitive search query.
- * Ordinary terms search URL, method, note/remark, rule ID, redirect target,
+ * Ordinary terms search title, URL, method, note/remark, rule ID, redirect target,
  * label, and supplied tag strings or referenced tag objects. Strings are
  * treated as prefiltered labels; objects are filtered by the rule's tag IDs.
  * Supported filters are
  * `method:`, `type:redirect|response`, `status:enabled|disabled`, and
- * `pinned:true|false`. Missing `pinned` is treated as false.
+ * `pinned:true|false`. `title:` searches the explicit rule title only.
+ * Missing `pinned` is treated as false.
  */
 export function matchesRuleSearch(
   rule: V3Rule,
@@ -51,6 +53,8 @@ export function matchesRuleSearch(
     const value = separator > 0 ? term.slice(separator + 1) : ''
     if (field === 'method') {
       if (!value || (rule.match.method ?? 'ANY').toLocaleLowerCase() !== value) return false
+    } else if (field === 'title') {
+      if (!value || !(rule.title ?? '').toLocaleLowerCase().includes(value)) return false
     } else if (field === 'type' && (value === 'redirect' || value === 'response')) {
       if (value === 'redirect' ? !rule.request : !rule.response) return false
     } else if (field === 'status' && (value === 'enabled' || value === 'disabled')) {

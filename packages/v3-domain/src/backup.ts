@@ -6,6 +6,7 @@ import {
   V3_BACKUP_PREVIOUS_VERSION,
   V3_BACKUP_REDIRECT_EXCLUSIONS_VERSION,
   V3_BACKUP_REDIRECT_FUNCTION_VERSION,
+  V3_BACKUP_RULE_TITLE_VERSION,
   V3_BACKUP_RESPONSE_MODE_VERSION,
   V3_BACKUP_STATIC_REDIRECT_HEADERS_VERSION,
   V3_BACKUP_VERSION,
@@ -23,6 +24,7 @@ export {
   V3_BACKUP_PREVIOUS_VERSION,
   V3_BACKUP_REDIRECT_EXCLUSIONS_VERSION,
   V3_BACKUP_REDIRECT_FUNCTION_VERSION,
+  V3_BACKUP_RULE_TITLE_VERSION,
   V3_BACKUP_RESPONSE_MODE_VERSION,
   V3_BACKUP_STATIC_REDIRECT_HEADERS_VERSION,
   V3_BACKUP_VERSION,
@@ -35,6 +37,7 @@ const MAX_TAGS = 500
 const MAX_DISABLED_ORIGINS = 1000
 const MAX_ID_LENGTH = 256
 const MAX_LABEL_LENGTH = 512
+const MAX_RULE_TITLE_LENGTH = 120
 const MAX_MATCH_URL_LENGTH = 4096
 const MAX_REDIRECT_URL_LENGTH = 4096
 const MAX_REDIRECT_EXCLUSIONS = 100
@@ -56,7 +59,7 @@ export type V3Language = 'zh-CN' | 'en'
 
 export interface V3Backup {
   format: typeof V3_BACKUP_FORMAT
-  formatVersion: 3 | 4 | 5 | 6 | 7 | 8 | 9
+  formatVersion: 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10
   settings: {
     globalEnabled: boolean
     mode: V3Mode
@@ -208,8 +211,32 @@ function validateRule(
     addIssue(issues, path, 'Expected a rule object.')
     return
   }
-  if (!hasOnlyKeys(value, ['id', 'enabled', 'pinned', 'tagIds', 'match', 'request', 'response'])) {
+  const allowedRuleFields = [
+    'id',
+    'enabled',
+    'pinned',
+    'tagIds',
+    ...(formatVersion >= V3_BACKUP_RULE_TITLE_VERSION ? ['title'] : []),
+    'match',
+    'request',
+    'response',
+  ]
+  if (!hasOnlyKeys(value, allowedRuleFields)) {
     addIssue(issues, path, 'Rule contains an unsupported field.')
+  }
+  if (
+    formatVersion >= V3_BACKUP_RULE_TITLE_VERSION &&
+    value.title !== undefined &&
+    (typeof value.title !== 'string' ||
+      value.title.trim() === '' ||
+      value.title !== value.title.trim() ||
+      value.title.length > MAX_RULE_TITLE_LENGTH)
+  ) {
+    addIssue(
+      issues,
+      `${path}.title`,
+      `Expected a non-empty title without outer whitespace up to ${MAX_RULE_TITLE_LENGTH} characters.`
+    )
   }
   if ('pinned' in value && typeof value.pinned !== 'boolean') {
     addIssue(issues, `${path}.pinned`, 'Expected a boolean.')
@@ -505,6 +532,8 @@ function validateV3BackupUnchecked(value: unknown): V3BackupValidation {
     value.formatVersion !== V3_BACKUP_DISABLED_ORIGINS_VERSION &&
     value.formatVersion !== V3_BACKUP_REDIRECT_EXCLUSIONS_VERSION &&
     value.formatVersion !== V3_BACKUP_STATIC_REDIRECT_HEADERS_VERSION &&
+    value.formatVersion !== V3_BACKUP_RESPONSE_MODE_VERSION &&
+    value.formatVersion !== V3_BACKUP_RULE_TITLE_VERSION &&
     value.formatVersion !== V3_BACKUP_LEGACY_VERSION
   ) {
     addIssue(
