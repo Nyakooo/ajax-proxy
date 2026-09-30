@@ -1,5 +1,7 @@
 # Ajax Proxy Privacy Policy
 
+Public HTML version for store listings: <https://nyakooo.github.io/ajax-proxy/privacy/>.
+
 **Last updated: September 29, 2026**
 
 Ajax Proxy is a browser extension for inspecting, mocking, modifying, and redirecting web requests according to rules configured by the user.
