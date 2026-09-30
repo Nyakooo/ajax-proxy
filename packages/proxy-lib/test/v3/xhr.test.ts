@@ -657,7 +657,7 @@ describe('createV3XHR', () => {
     xhr.open('POST', 'https://example.test/api/items', true, 'alice', 'secret')
     xhr.complete('native response')
 
-    expect(xhr.openArgs).toEqual(['POST', 'https://target.test/api', true, 'alice', 'secret'])
+    expect(xhr.openArgs).toEqual(['POST', 'https://target.test/api', true, null, null])
     expect(onMatched).toHaveBeenCalledExactlyOnceWith(selectedRule, 0, {
       url: 'https://example.test/api/items',
       method: 'POST',
@@ -1194,9 +1194,9 @@ describe('createV3XHR', () => {
     const xhr = makeXHR([selectedRule], undefined, undefined, outcome, true)
     FakeXHR.failRedirectOpenTarget = true
 
-    xhr.open('POST', 'https://example.test/api', true)
+    xhr.open('POST', 'https://example.test/api', true, 'alice', 'secret')
     expect(outcome).not.toHaveBeenCalled()
-    expect(xhr.openArgs[1]).toBe('https://example.test/api')
+    expect(xhr.openArgs).toEqual(['POST', 'https://example.test/api', true, 'alice', 'secret'])
     xhr.send()
     expect(outcome.mock.calls[0]?.slice(2)).toEqual(['request', 'fallback', 'redirect-open-failed'])
 

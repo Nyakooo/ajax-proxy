@@ -17,15 +17,15 @@
 
 ## 页面主世界的限制
 
-`window.postMessage` 和页面事件都能被同一页面的脚本伪造；`event.source` / `event.origin` 只能排除其他 frame 和跨 origin 消息，不能证明消息由 content script 生成。页面可以伪造本页代理配置消息或命中统计事件。因此接收的数据只影响当前页面的代理状态和受限统计，不触发权限操作或任意扩展消息转发。V3 命中消息会导致对应活动规则计数增加，所以页面可伪造计数；计数仅作诊断提示，不能用于授权、安全决策或可信审计。
+`window.postMessage` 和页面事件都能被同一页面的脚本伪造；`event.source` / `event.origin` 只能排除其他 frame 和跨 origin 消息，不能证明消息由 content script 生成。页面可以伪造本页代理配置消息或命中统计事件。因此接收的数据只影响当前页面的代理状态和受限统计，不触发权限操作或任意扩展消息转发。旧 V2 命中阈值不再触发系统通知。V3 命中消息会导致对应活动规则计数增加，所以页面可伪造计数；计数仅作诊断提示，不能用于授权、安全决策或可信审计。
 
 该边界无法靠共享 DOM 中的 token 修复，因为页面脚本能够观察 token 的发布和传递。若将来需要可信的页面到扩展操作，应改为由 isolated world / service worker 发起并校验的扩展 API 流程，而不是提升当前页面桥接消息的信任级别。
 
 ## 注入资源与规则数据
 
-`document.js` 由 manifest 作为 `world: "MAIN"` 的静态内容脚本，在 `document_start` 注入；`content.js` 保持在默认 isolated world。原先页面 `<script>` 标签加载 `chrome-extension://.../document.js` 的做法已移除，manifest 不再配置 `web_accessible_resources`，网页脚本无法将扩展代理文件当作可读资源获取。两个脚本仍按 `<all_urls>`、`all_frames` 匹配，这是任意站点与 iframe 请求代理的功能范围。
+`document.js` 由 manifest 作为 `world: "MAIN"` 的静态内容脚本，在 `document_start` 注入；`content.js` 保持在默认 isolated world。原先页面 `<script>` 标签加载 `chrome-extension://.../document.js` 的做法已移除，`web_accessible_resources` 仅开放 `v3-sandbox/sandbox.html`，不开放扩展代理脚本；沙箱采用独立不透明 origin 和受限 CSP，不具备扩展 API 权限。两个脚本仍按 `<all_urls>`、`all_frames` 匹配，这是任意站点与 iframe 请求代理的功能范围。
 
-开启全局代理时，content script 会把当前模式和规则快照发给当前 frame 的页面主世界，因为 Fetch / XHR 包装器需要这些规则来匹配请求。页面脚本可以观察或篡改这一快照；这与上一节描述的页面消息信任边界相同。当前扩展不把该快照用于扩展权限、存储写入或授权决策。`document.js` 不调用 Chrome 扩展 API。
+仅当全局代理和当前站点均启用时，content script 会把运行所需的已启用规则及动作发给当前 frame 的页面主世界；停用规则、停用动作和无关的站点停用列表不参与同步。关闭全局或停用当前站点时发送空的 V3 运行配置，仍保持 V3 模式，不回退旧 V2 规则。V3 配置存在时不广播历史 V2 规则；真正移除 V3 配置后才恢复 V2 同步。V2 初始化只同步四个运行配置键，不发送完整 storage。页面脚本可以观察或篡改这一快照；这与上一节描述的页面消息信任边界相同。当前扩展不把该快照用于扩展权限、存储写入或授权决策。`document.js` 不调用 Chrome 扩展 API。
 
 ## 验收
 

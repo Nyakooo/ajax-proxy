@@ -101,10 +101,7 @@ describe('chromeBadge rule selection', () => {
     expect(mocks.noticePanelsByServiceWorker).not.toHaveBeenCalled()
   })
 
-  it.each([
-    ['zh', '拦截次数过多'],
-    ['en', 'Too many interceptions'],
-  ])('sends a localized notice at 100 hits for %s', async (language, title) => {
+  it.each(['zh', 'en'])('counts 100 hits without a native notice for %s', async (language) => {
     const rule = {
       switch_on: true,
       match_url: '/api',
@@ -120,20 +117,19 @@ describe('chromeBadge rule selection', () => {
       if (key === 'language') return language
       return undefined
     })
+    const setBadgeText = vi.fn()
     vi.stubGlobal('chrome', {
-      action: { setBadgeText: vi.fn(), setBadgeBackgroundColor: vi.fn() },
+      action: { setBadgeText, setBadgeBackgroundColor: vi.fn() },
     })
 
     await chromeBadge({ match_url: '/api', method: 'GET' })
 
-    expect(chromeNativeNotice).toHaveBeenCalledWith({
-      title,
-      message: '/api\nimportant endpoint',
-    })
+    expect(chromeNativeNotice).not.toHaveBeenCalled()
     expect(rule.hit).toBe(100)
+    expect(setBadgeText).toHaveBeenLastCalledWith({ text: '+100' })
   })
 
-  it('repeats the fallback-language notice every twenty hits after the limit', async () => {
+  it('continues counting after 100 hits without repeat native notices', async () => {
     const matchingRule = {
       switch_on: true,
       match_url: '/api',
@@ -160,15 +156,7 @@ describe('chromeBadge rule selection', () => {
     }
 
     expect(matchingRule.hit).toBe(120)
-    expect(chromeNativeNotice).toHaveBeenCalledTimes(2)
-    expect(chromeNativeNotice).toHaveBeenNthCalledWith(1, {
-      title: 'Too many interceptions',
-      message: '/api\nimportant endpoint',
-    })
-    expect(chromeNativeNotice).toHaveBeenNthCalledWith(2, {
-      title: 'Too many interceptions',
-      message: '/api\nimportant endpoint',
-    })
+    expect(chromeNativeNotice).not.toHaveBeenCalled()
     expect(setBadgeText).toHaveBeenLastCalledWith({ text: '+122' })
   })
 

@@ -214,10 +214,16 @@ describe('content page-event bridge', () => {
   it('forwards local storage changes and manages the V3 function sandbox lifecycle', async () => {
     mocks.initStorage.mockResolvedValue(undefined)
     const enabledFunctionConfig = {
-      settings: { globalEnabled: true },
+      format: 'ajax-proxy-backup',
+      formatVersion: 10,
+      settings: { globalEnabled: true, mode: 'interceptor', language: 'en' },
+      tags: [],
+      disabledOrigins: [],
       rules: [
         {
+          id: 'response-function',
           enabled: true,
+          match: { url: '/api/items' },
           response: { enabled: true, replace: { code: 'return { body: "ok" }' } },
         },
       ],
@@ -227,10 +233,11 @@ describe('content page-event bridge', () => {
       mode: 'interceptor',
       'intercept-list': [{ url: '/api/items' }],
       'redirect-list': [],
-      'v3-config': enabledFunctionConfig,
+      'v3-config': null,
       'diagnostics-armed': true,
       'fetch-outcomes-armed': false,
     }
+    mocks.getStorageSnapshot.mockReturnValue(storedValues)
     mocks.getStorage.mockImplementation((key: string, fallback: unknown) =>
       Object.hasOwn(storedValues, key) ? storedValues[key] : fallback
     )
@@ -245,6 +252,15 @@ describe('content page-event bridge', () => {
 
     await importContent()
     await vi.waitFor(() => expect(mocks.onChangedAddListener).toHaveBeenCalledOnce())
+    expect(mocks.noticeDocumentByContent).toHaveBeenCalledWith(
+      'ajax-proxy:notice:refresh:global-state',
+      {
+        'global-switch': true,
+        mode: 'interceptor',
+        'intercept-list': [{ url: '/api/items' }],
+        'redirect-list': [],
+      }
+    )
     const onChanged = mocks.onChangedAddListener.mock.calls[0][0]
     mocks.noticeDocumentByContent.mockClear()
 
@@ -262,6 +278,7 @@ describe('content page-event bridge', () => {
       }
     )
 
+    storedValues['v3-config'] = enabledFunctionConfig
     onChanged({ 'v3-config': { newValue: enabledFunctionConfig } }, 'local')
     expect(document.getElementById('ajax-proxy-v3-function-sandbox')?.getAttribute('src')).toBe(
       'chrome-extension://test/v3-sandbox/sandbox.html'
@@ -297,10 +314,16 @@ describe('content page-event bridge', () => {
 
     const onChanged = mocks.onChangedAddListener.mock.calls[0][0]
     const enabledFunctionConfig = {
-      settings: { globalEnabled: true },
+      format: 'ajax-proxy-backup',
+      formatVersion: 10,
+      settings: { globalEnabled: true, mode: 'interceptor', language: 'en' },
+      tags: [],
+      disabledOrigins: [],
       rules: [
         {
+          id: 'request-function',
           enabled: true,
+          match: { url: '/api/items' },
           request: {
             enabled: true,
             redirect: { type: 'function', code: 'return url' },
@@ -365,10 +388,16 @@ describe('content page-event bridge', () => {
 
     const onChanged = mocks.onChangedAddListener.mock.calls[0][0]
     const redirectFunctionConfig = {
-      settings: { globalEnabled: true },
+      format: 'ajax-proxy-backup',
+      formatVersion: 10,
+      settings: { globalEnabled: true, mode: 'interceptor', language: 'en' },
+      tags: [],
+      disabledOrigins: [],
       rules: [
         {
+          id: 'request-function',
           enabled: true,
+          match: { url: '/api/items' },
           request: {
             enabled: true,
             redirect: { type: 'function', code: 'return url' },
@@ -383,6 +412,28 @@ describe('content page-event bridge', () => {
     expect(document.getElementById('ajax-proxy-v3-function-sandbox')?.getAttribute('src')).toBe(
       'chrome-extension://test/v3-sandbox/sandbox.html'
     )
+    const projectedConfig = mocks.noticeDocumentByContent.mock.calls
+      .filter(([key]) => key === 'v3-config')
+      .at(-1)?.[1]
+    expect(projectedConfig).toMatchObject({
+      format: 'ajax-proxy-backup',
+      formatVersion: 10,
+      settings: { globalEnabled: true, mode: 'interceptor', language: 'en' },
+      tags: [],
+      disabledOrigins: [],
+      rules: [
+        {
+          id: 'request-function',
+          enabled: true,
+          match: { url: '/api/items' },
+          request: {
+            enabled: true,
+            redirect: { type: 'function', code: 'return url' },
+          },
+        },
+      ],
+    })
+    expect(projectedConfig.rules[0]).not.toHaveProperty('response')
 
     const disabledFunctionConfig = {
       ...redirectFunctionConfig,
@@ -410,7 +461,7 @@ describe('content page-event bridge', () => {
       redirect: [{ redirect: 'https://target.test/' }],
       'v3-config': {
         format: 'ajax-proxy-backup',
-        formatVersion: 8,
+        formatVersion: 10,
         settings: { globalEnabled: true, mode: 'interceptor', language: 'en' },
         disabledOrigins: [],
         tags: [],

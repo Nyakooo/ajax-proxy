@@ -121,7 +121,12 @@ function resolveRedirect(value: string, originalUrl: string): string | undefined
   if (!value) return undefined
   try {
     const target = new URL(value, originalUrl)
-    if (target.protocol !== 'http:' && target.protocol !== 'https:') return undefined
+    if (
+      (target.protocol !== 'http:' && target.protocol !== 'https:') ||
+      target.username ||
+      target.password
+    )
+      return undefined
     return target.href
   } catch {
     return undefined
@@ -362,7 +367,7 @@ export function createV3XHR(NativeXHR: V3XHRConstructor, options: V3XHROptions):
         get(target, property) {
           if (property === 'open') {
             return (...args: Parameters<XMLHttpRequest['open']>) => {
-              const [method, url, async] = args
+              const [method, url, async, username, password] = args
               selected = undefined
               mockRequested = false
               clearMockTimers()
@@ -466,6 +471,10 @@ export function createV3XHR(NativeXHR: V3XHRConstructor, options: V3XHROptions):
               args[1] = targetUrl
               try {
                 stripSensitiveHeaders = new URL(targetUrl).origin !== new URL(originalUrl).origin
+                if (stripSensitiveHeaders) {
+                  if (args.length > 3) args[3] = null
+                  if (args.length > 4) args[4] = null
+                }
                 const result = target.open(...args)
                 redirectHeaders = configuredHeaders ? { ...configuredHeaders } : undefined
                 requestOutcome = { outcome: 'applied', reason: 'redirect-applied' }
@@ -473,6 +482,8 @@ export function createV3XHR(NativeXHR: V3XHRConstructor, options: V3XHROptions):
               } catch {
                 // open has not sent a request yet, so falling back is safe here.
                 args[1] = url
+                if (args.length > 3) args[3] = username
+                if (args.length > 4) args[4] = password
                 stripSensitiveHeaders = false
                 const result = target.open(...args)
                 requestOutcome = { outcome: 'fallback', reason: 'redirect-open-failed' }

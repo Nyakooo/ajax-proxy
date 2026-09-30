@@ -3,6 +3,10 @@ import type { V3Backup } from './backup'
 
 export type V3HitCounters = Record<string, number>
 
+function emptyCounterRecord(): V3HitCounters {
+  return Object.create(null) as V3HitCounters
+}
+
 function isCounterRecord(value: unknown): value is V3HitCounters {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) return false
   try {
@@ -15,11 +19,14 @@ function isCounterRecord(value: unknown): value is V3HitCounters {
 
 /** Keep only safe, non-negative counters for rules in the validated backup. */
 export function sanitizeV3HitCounters(value: unknown, backup: V3Backup): V3HitCounters {
-  if (!isCounterRecord(value)) return {}
+  if (!isCounterRecord(value)) return emptyCounterRecord()
   const knownIds = new Set(backup.rules.map((rule) => rule.id))
-  return Object.fromEntries(
-    Object.entries(value).filter(
-      ([id, count]) => knownIds.has(id) && Number.isSafeInteger(count) && count >= 0
+  return Object.assign(
+    emptyCounterRecord(),
+    Object.fromEntries(
+      Object.entries(value).filter(
+        ([id, count]) => knownIds.has(id) && Number.isSafeInteger(count) && count >= 0
+      )
     )
   )
 }
@@ -57,7 +64,13 @@ export function recordV3Hit(
     return undefined
 
   const counters = sanitizeV3HitCounters(countersValue, backup)
-  const count = counters[hit.rule_id] ?? 0
+  const storedCount: unknown = Object.prototype.hasOwnProperty.call(counters, hit.rule_id)
+    ? counters[hit.rule_id]
+    : undefined
+  const count =
+    typeof storedCount === 'number' && Number.isSafeInteger(storedCount) && storedCount >= 0
+      ? storedCount
+      : 0
   if (count < Number.MAX_SAFE_INTEGER) counters[hit.rule_id] = count + 1
   return { counters, count: counters[hit.rule_id] }
 }
