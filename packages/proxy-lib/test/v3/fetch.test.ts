@@ -16,6 +16,17 @@ function rule(id: string, options: Partial<V3Rule> = {}): V3Rule {
 }
 
 describe('createV3Fetch', () => {
+  it('expands issue #59 regex captures and preserves the query in static redirects', async () => {
+    const original = 'https://www.jingxuesiyingyu.com/api/user/list?page=1'
+    const selected = rule('issue59', {
+      match: { type: 'regex', url: '^https://www\\.jingxuesiyingyu\\.com/api/(.*)' },
+      request: { enabled: true, redirect: { url: 'https://api.prod.com/$1' } },
+    })
+    const fetcher = vi.fn(async () => new Response('ok'))
+    await createV3Fetch(fetcher, { getRules: () => [selected] })(original)
+    expect((fetcher.mock.calls[0][0] as Request).url).toBe('https://api.prod.com/user/list?page=1')
+  })
+
   it('returns a static mock for the selected rule without dispatching Fetch or redirect functions', async () => {
     const selectedRule = rule('static-mock', {
       request: {

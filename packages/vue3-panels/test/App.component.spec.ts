@@ -1528,7 +1528,7 @@ describe('App redirect exclusion persistence flow', () => {
       .setValue('/api')
     await wrapper
       .get('.rule-editor form')
-      .findAll('input:not([type="checkbox"]):not([type="radio"])')[1]
+      .findAll('input:not([type="checkbox"]):not([type="radio"])')[2]
       .setValue('/target')
     await wrapper.get('[data-testid="redirect-exclusions"]').setValue('/health\nskip=1')
     await wrapper
@@ -1588,7 +1588,7 @@ describe('App redirect exclusion persistence flow', () => {
     await buttonByText(wrapper.get('.rule-row'), '编辑重定向').trigger('click')
     await wrapper
       .get('.redirect-rule-editor form')
-      .findAll('input:not([type="checkbox"]):not([type="radio"])')[1]
+      .findAll('input:not([type="checkbox"]):not([type="radio"])')[2]
       .setValue('/new-target')
     await wrapper.get('.redirect-rule-editor form').trigger('submit')
     await flushPromises()
@@ -1639,7 +1639,7 @@ describe('RedirectRuleEditor static request headers', () => {
     await wrapper.get('input[name="redirect-mode"][value="static"]').setValue(true)
     const inputs = wrapper.findAll('input:not([type="checkbox"]):not([type="radio"])')
     await inputs[0].setValue('/api')
-    await inputs[1].setValue('/target')
+    await inputs[2].setValue('/target')
     await wrapper.get('[data-testid="redirect-headers"]').setValue('{bad')
     await wrapper.get('form').trigger('submit')
     expect(wrapper.get('[role="alert"]').text()).toContain('有效 JSON')

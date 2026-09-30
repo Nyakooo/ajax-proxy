@@ -1,4 +1,4 @@
-import { isV3RedirectExcluded, selectV3Rule } from '@proxy/v3-domain'
+import { isV3RedirectExcluded, resolveV3RedirectTarget, selectV3Rule } from '@proxy/v3-domain'
 import type { V3RedirectConfig, V3Rule } from '@proxy/v3-domain'
 import type { V3RuntimeHostOptions } from './runtimeOptions'
 import type { V3FetchOutcomeStage, V3FetchOutcomeStatus, V3XHROutcomeReason } from '@proxy/protocol'
@@ -118,6 +118,7 @@ function isFunctionRedirect(
 }
 
 function resolveRedirect(value: string, originalUrl: string): string | undefined {
+  if (!value) return undefined
   try {
     const target = new URL(value, originalUrl)
     if (target.protocol !== 'http:' && target.protocol !== 'https:') return undefined
@@ -447,7 +448,10 @@ export function createV3XHR(NativeXHR: V3XHRConstructor, options: V3XHROptions):
                 redirect?.enabled &&
                 !redirectExcluded &&
                 typeof redirectValue === 'string'
-                  ? resolveRedirect(redirectValue, originalUrl)
+                  ? resolveRedirect(
+                      resolveV3RedirectTarget(selected!, originalUrl, redirectValue) ?? '',
+                      originalUrl
+                    )
                   : undefined
               // XHR open() is synchronous, so dynamic redirect functions are unsupported.
               if (!targetUrl) {

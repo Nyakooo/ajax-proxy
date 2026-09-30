@@ -43,3 +43,14 @@ python3 -m http.server 8000 --directory pages
 所有默认请求都指向本 Pages 站点内的静态 fixture。页面不会自动发请求；请求记录只存在于当前页面内存中，刷新后清空。除用户主动点击跨源 CORS 场景外，不会向第三方发送请求。
 
 每个按钮完成后，页面顶部会更新最新请求的 URL、method、HTTP 状态和实际响应 body；页面底部保留可展开的请求历史。此处展示的是页面收到的结果。将规则响应设成明显不同于默认 fixture 的值，可以直接观察插件替换是否生效；命中计数仍可在扩展面板中交叉确认。Worker 对照场景、浏览器 CORS 和静态站点对非 GET method 的限制需要按文中边界解释。
+
+## 可直接导入的测试用例（3.0.2+）
+
+页面顶部按「选择用例 → 复制 / 下载规则 → 追加导入 → 发请求 → 对照预期」组织。规则是插件可识别的完整 JSON，自动按当前本地 / 线上地址生成。复制失败时自动展开并选中 JSON，也可下载文件导入。选择追加导入可保留原配置；全局开关和站点开关仍须开启。
+
+- [Mock 不存在的接口](https://nyakooo.github.io/ajax-proxy/playground/?case=mock#examples-title)：HTTP 200，`source = playground-mock`，不发送真实请求。
+- [替换 JSON 响应](https://nyakooo.github.io/ajax-proxy/playground/?case=replace#examples-title)：先发送 GET，再返回 HTTP 201、`source = playground-replace`。
+- [正则捕获组重定向](https://nyakooo.github.io/ajax-proxy/playground/?case=redirect#examples-title)：原请求 profile.json，目标 redirect-target.json；`$1` 保留 `?case=example-redirect&page=1`。Fetch / XHR 都应显示目标 fixture 和带 query 的实际响应 URL。
+- [method 不匹配](https://nyakooo.github.io/ajax-proxy/playground/?case=method#examples-title)：POST 规则对 GET 不生效，返回 profile 基线。
+
+每个用例都提供 Fetch / XHR 按钮和明确预期。示例不包含函数，不向第三方请求，不自动执行。规则使用不同地址以避免互相遮蔽；已有更高优先级规则仍可能影响结果。追加导入按 ID 跳过重复规则；要重置示例可先删除「Playground ·」规则，再导入。更多规范见[重定向说明](REDIRECT-RULES.zh.md)。

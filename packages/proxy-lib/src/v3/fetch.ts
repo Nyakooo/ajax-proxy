@@ -1,4 +1,4 @@
-import { isV3RedirectExcluded, selectV3Rule } from '@proxy/v3-domain'
+import { isV3RedirectExcluded, resolveV3RedirectTarget, selectV3Rule } from '@proxy/v3-domain'
 import type { V3RedirectConfig, V3Rule } from '@proxy/v3-domain'
 import type {
   V3FetchOutcomeReason,
@@ -253,7 +253,12 @@ export function createV3Fetch(fetcher: V3Fetch, options: V3FetchOptions): V3Fetc
           }
         }
       } else {
-        redirectTarget = redirect.redirect.url
+        redirectTarget = resolveV3RedirectTarget(
+          selection.rule,
+          originalRequest.url,
+          redirect.redirect.url
+        )
+        if (redirectTarget === undefined) redirectFailedBeforeNetwork = true
         redirectHeaders = redirect.redirect.headers
       }
       if (redirectFailedBeforeNetwork) {

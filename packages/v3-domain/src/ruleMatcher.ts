@@ -90,3 +90,21 @@ export function isV3RedirectExcluded(rule: V3Rule, url: string): boolean {
     (exclusion) => typeof exclusion === 'string' && exclusion.length > 0 && url.includes(exclusion)
   )
 }
+
+/** Resolve a regex replacement template without changing existing fixed destinations. */
+export function resolveV3RedirectTarget(
+  rule: V3Rule,
+  originalUrl: string,
+  target: string
+): string | undefined {
+  try {
+    if (rule.match.type !== 'regex' || !/\$(?:[1-9]|[&$`']|<)/.test(target)) return target
+    if (originalUrl.length > MAX_MATCH_INPUT_LENGTH) return undefined
+    const regex = getRegex(rule.match.url)
+    if (!regex) return undefined
+    const result = regex.matcher(originalUrl).replaceFirst(target)
+    return result.length <= MAX_MATCH_INPUT_LENGTH ? result : undefined
+  } catch {
+    return undefined
+  }
+}

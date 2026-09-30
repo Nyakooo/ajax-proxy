@@ -85,7 +85,7 @@ describe('Popup', () => {
   it('saves pinning and deletes only after an explicit confirmation', async () => {
     const { wrapper, service } = setup()
     await flushPromises()
-    await wrapper.get('[aria-label="Pin rule"]').trigger('click')
+    await wrapper.get('[aria-label="Pin rule: /api/profile"]').trigger('click')
     await flushPromises()
     expect(service.saveConfig).toHaveBeenCalledWith(
       expect.objectContaining({

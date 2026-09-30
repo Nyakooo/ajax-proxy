@@ -89,7 +89,7 @@ V3 备份使用独立标识，不通过字段猜测把旧文件转换成新格�
 
 1. 捕获原始 URL 与 method；method 转为大写，原 URL 在请求及响应两个阶段都保持不变。
 2. 按规则列表顺序检查规则启用状态、是否至少有一个 action 启用、URL matcher 与 method。未填写 method 或 `ANY` 匹配任意 method；其余 method 大小写无关地比较。选择第一条完整命中的规则；后续规则不再参与该请求。`normal` URL 条件按区分大小写的子串匹配，`regex` 按不区分大小写的 RE2 语义执行。若启用的 redirect action 排除列表命中且 response action 也未启用，则跳过该规则并检查下一条；如果 response action 已启用，仍选中这条组合规则。
-3. 一旦选中规则，锁定本次请求的 rule ID。规则的 request action 若启用且当前 URL 未被排除，则在网络请求发出前解析静态目标，或在 sandbox 中执行函数并以原始 URL / method 计算目标 URL；函数结果必须是无凭据的 HTTP(S) URL。命中排除项或函数失败时保留原始请求。排除只影响重定向，不会阻止同规则的 response action。
+3. 一旦选中规则，锁定本次请求的 rule ID。规则的 request action 若启用且当前 URL 未被排除，则在网络请求发出前解析静态目标（3.0.2 起正则目标模板支持捕获组替换，见 [重定向规范](REDIRECT-RULES.zh.md)），或在 sandbox 中执行函数并以原始 URL / method 计算目标 URL；函数结果必须是无凭据的 HTTP(S) URL。命中排除项或函数失败时保留原始请求。排除只影响重定向，不会阻止同规则的 response action。
 4. 请求只发送一次。收到响应后，使用同一条规则的 response action；若启用，则尝试拦截 / 替换。规则不会在重定向后的 URL 上重新匹配，也不会因 action 失败而转交给下一条规则。
 5. 选中规则时记录一次命中，并分别记录重定向与响应替换的状态，避免组合 action 导致重复计数。诊断至少区分 `matched`、`redirect-applied`、`response-replaced` 和 `failed-open`。
 

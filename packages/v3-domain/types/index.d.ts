@@ -3,7 +3,7 @@ export * from './backupVersion';
 export type { JsonValue, V3RedirectConfig, V3ResponseFunctionResult, V3Rule, V3Tag } from './rules';
 export { analyzeV3RuleMatches } from './ruleAnalysis';
 export type { V3RuleMatchAnalysis } from './ruleAnalysis';
-export { isV3RedirectExcluded } from './ruleMatcher';
+export { isV3RedirectExcluded, resolveV3RedirectTarget } from './ruleMatcher';
 export type { V3RequestMatchInput, V3RuleMatchReason } from './ruleMatcher';
 export { selectV3Rule } from './ruleMatching';
 export type { V3RuleSelection } from './ruleMatching';

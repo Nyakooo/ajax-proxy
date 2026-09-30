@@ -159,7 +159,7 @@ async function main() {
     const redirectEditor = panel.locator('.redirect-rule-editor')
     await redirectEditor.waitFor({ state: 'visible' })
     const matchUrlInput = redirectEditor.locator('label.editor-field').first().locator('input')
-    const targetUrlInput = redirectEditor.locator('label.editor-field input').nth(1)
+    const targetUrlInput = redirectEditor.getByLabel('Redirect target URL')
     assert.equal(await matchUrlInput.inputValue(), '/verify/45')
     assert.equal(await targetUrlInput.inputValue(), '/target')
     await panel.keyboard.press('Escape')
@@ -191,8 +191,8 @@ async function main() {
       }
       throw new Error('Popup rule toggle was not persisted')
     })
-    await row.getByRole('button', { name: 'Pin rule', exact: true }).click()
-    await row.getByRole('button', { name: 'Unpin rule', exact: true }).waitFor()
+    await row.getByRole('button', { name: 'Pin rule: /verify/34', exact: true }).click()
+    await row.getByRole('button', { name: 'Unpin rule: /verify/34', exact: true }).waitFor()
     await row.getByRole('button', { name: 'Edit rule: /verify/34', exact: true }).click()
     const editorPage = panel
     await editorPage
@@ -246,7 +246,7 @@ async function main() {
     await bulkActions.waitFor({ state: 'detached' })
     await row.getByRole('button', { name: 'Delete rule: /verify/34', exact: true }).click()
     await popup
-      .getByRole('group', { name: 'Delete this rule?' })
+      .getByRole('group', { name: 'Delete “/verify/34”?' })
       .getByRole('button', { name: 'Delete', exact: true })
       .click()
     await popup.getByText('No matching rules', { exact: true }).waitFor()
