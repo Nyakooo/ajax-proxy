@@ -16,7 +16,7 @@ V2 的响应覆写和重定向函数都通过 `window.eval()` 在网页主世界
 - 在扩展的 sandboxed unique-origin iframe 中运行；sandbox 内用专属 worker 执行动态代码。sandbox 仅通过结构化消息收发 action 输入与结果，不设置 `allow-same-origin`，不授予扩展 API，并以 CSP 阻止网络连接、外部脚本和页面导航。Chrome 官方文档建议用 sandbox iframe 将 `eval()` 与扩展高权限环境隔离，并通过消息交换数据。
 - 每次执行最多 5 秒；达到期限时终止 worker 并销毁 sandbox，确保同步死循环也能被中断。对单规则和全扩展的并发执行数设上限，避免函数堆积占满资源。
 - 函数 action 只接入 Fetch；XHR 的同步 `open()` / 响应接口不能等待 sandbox。XHR 命中函数重定向时保留原 URL 并报告不支持，命中函数响应时保留原响应。
-- 只将文本、JSON、XML 和表单请求/响应快照交给函数；单侧快照最多 512 KiB，总快照最多 1 MiB。二进制、无法按 UTF-8 解码或超限的内容保持原响应。
+- 只将文本、JSON、XML 和表单请求/响应快照交给函数；单侧快照最多 512 KiB，总快照最多 1 MiB。快照读取整体最多等待 5 秒，随后沙箱执行独立最多 5 秒；等待超时会取消未使用的克隆流并保留原响应。SSE（`text/event-stream`）、二进制、无法按 UTF-8 解码或超限的内容保持原响应。
 - 返回值只允许非空 `{ body?, status?, headers? }`，状态码为 200–599，结果最大 1 MiB。语法错误、拒绝、超时、无效结果和 sandbox 通信失败均 fail-open。失败不得静默改写响应，也不得让下一条规则接管该请求。
 - 保存函数代码前显示确认；启用函数 action 前另行确认。导入备份时提示函数 action 数量并要求确认；导入的函数重定向保留源码但停用 `request.enabled`，函数响应停用 `response.enabled`，同规则的其他 action 保持原状态。
 

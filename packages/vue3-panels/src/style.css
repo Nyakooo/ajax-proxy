@@ -89,14 +89,17 @@ input {
 }
 
 .shell {
-  width: min(1240px, calc(100vw - 56px));
-  min-height: min(790px, calc(100vh - 48px));
-  margin: 24px auto;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-height: max(560px, 100vh);
+  min-height: max(560px, 100dvh);
+  margin: 0;
   overflow: hidden;
-  border: 1px solid var(--ap-border);
-  border-radius: var(--ap-radius-panel);
+  border: 0;
+  border-radius: 0;
   background: var(--ap-card);
-  box-shadow: var(--ap-shadow);
+  box-shadow: none;
   transition:
     background-color 180ms ease,
     border-color 180ms ease;
@@ -115,6 +118,7 @@ input {
 
 .topbar {
   display: flex;
+  flex: 0 0 auto;
   min-height: 82px;
   align-items: center;
   gap: 36px;
@@ -251,7 +255,8 @@ input {
 
 .workspace {
   display: grid;
-  min-height: min(680px, calc(100vh - 132px));
+  flex: 1 0 auto;
+  min-height: 0;
   grid-template-columns: 220px minmax(0, 1fr);
 }
 
@@ -1801,11 +1806,6 @@ input {
 }
 
 @media (max-height: 850px) {
-  .shell {
-    margin-top: 12px;
-    margin-bottom: 0;
-  }
-
   .topbar {
     min-height: 74px;
   }
@@ -1827,12 +1827,6 @@ input {
 }
 
 @media (max-width: 900px) {
-  .shell {
-    width: calc(100vw - 24px);
-    min-height: calc(100vh - 24px);
-    margin: 12px;
-  }
-
   .topbar {
     gap: 15px;
     padding: 12px 16px;
@@ -1873,18 +1867,6 @@ input {
 }
 
 @media (max-width: 760px) {
-  body {
-    min-width: 360px;
-  }
-
-  .shell {
-    width: 100%;
-    min-height: 100vh;
-    margin: 0;
-    border: 0;
-    border-radius: 0;
-  }
-
   .topbar {
     flex-wrap: wrap;
     gap: 9px 18px;
@@ -1935,6 +1917,12 @@ input {
   .sidebar-tip,
   .sidebar-footer {
     display: none;
+  }
+
+  .sidebar nav {
+    display: flex;
+    flex: 1;
+    gap: 8px;
   }
 
   .nav-item {

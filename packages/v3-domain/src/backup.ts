@@ -405,6 +405,9 @@ function validateRule(
           if (!['http:', 'https:'].includes(target.protocol)) {
             addIssue(issues, `${payloadPath}.url`, 'Only HTTP(S) redirect URLs are allowed.')
           }
+          if (target.username || target.password) {
+            addIssue(issues, `${payloadPath}.url`, 'Redirect URLs must not contain credentials.')
+          }
         } catch {
           addIssue(issues, `${payloadPath}.url`, 'Expected a valid HTTP(S) or relative URL.')
         }

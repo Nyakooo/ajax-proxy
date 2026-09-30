@@ -72,6 +72,7 @@ async function stopPreview(previewProcess) {
 }
 
 async function assertPageFits(page, width, locale) {
+  const canvasWidth = Math.max(700, width)
   const layout = await page.evaluate(() => {
     const selectors = [
       '.shell',
@@ -92,8 +93,8 @@ async function assertPageFits(page, width, locale) {
       return [
         {
           selector,
-          left,
-          right,
+          left: left + window.scrollX,
+          right: right + window.scrollX,
           scrollWidth: element.scrollWidth,
           clientWidth: element.clientWidth,
         },
@@ -125,7 +126,7 @@ async function assertPageFits(page, width, locale) {
 
   assert.equal(layout.viewportWidth, width)
   assert.ok(
-    Math.max(layout.documentWidth, layout.bodyWidth) <= width,
+    Math.max(layout.documentWidth, layout.bodyWidth) <= canvasWidth,
     `${width}px ${locale} page has horizontal document overflow: ${JSON.stringify(layout)}`
   )
   assert.deepEqual(
@@ -135,7 +136,7 @@ async function assertPageFits(page, width, locale) {
   )
   for (const box of layout.boxes) {
     assert.ok(
-      box.left >= -1 && box.right <= width + 1,
+      box.left >= -1 && box.right <= canvasWidth + 1,
       `${width}px ${locale} ${box.selector} is outside the viewport: ${JSON.stringify(box)}`
     )
     assert.ok(
@@ -171,8 +172,8 @@ async function main() {
     for (const { width, height } of [
       { width: 1200, height: 900 },
       { width: 1200, height: 770 },
+      { width: 700, height: 560 },
       { width: 400, height: 560 },
-      { width: 360, height: 560 },
     ]) {
       const page = await browser.newPage({ viewport: { width, height } })
       const pageErrors = []
@@ -334,7 +335,7 @@ async function main() {
       await page.close()
     }
 
-    console.log(`${label} V3 panel 400px / 360px responsive smoke passed`)
+    console.log(`${label} V3 panel responsive layout and 700px minimum canvas smoke passed`)
   } finally {
     await browser?.close()
     await stopPreview(previewProcess)

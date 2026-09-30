@@ -12,6 +12,8 @@ import {
 } from '@proxy/shared-utils'
 import { CONNECT_NAME, INIT_CURRENT_TITLE, NOTICE_KEY_REFRESH_GLOBAL_STATE } from './consts'
 import { isPageBadgeHit } from './messageValidation'
+import { normalizeV3Origin, validateV3Backup } from '@proxy/v3-domain'
+import type { V3Backup, V3Rule } from '@proxy/v3-domain'
 import {
   isV3FetchOutcome,
   isV3FunctionError,
@@ -23,6 +25,56 @@ import {
 const V3_FUNCTION_SANDBOX_FRAME_ID = 'ajax-proxy-v3-function-sandbox'
 const V3_FUNCTION_SANDBOX_PATH = 'v3-sandbox/sandbox.html'
 let v3FunctionSandboxObserver: MutationObserver | undefined
+
+/** Project stored V3 state to the rules and actions this page can actually run. */
+function getRuntimeV3Config(value: unknown): V3Backup | null {
+  if (value === null || value === undefined) return null
+
+  const validation = validateV3Backup(value)
+  if (!validation.ok) return null
+
+  const backup = validation.data
+  // about:srcdoc inherits its parent's origin even though its URL is opaque.
+  const pageOrigin = normalizeV3Origin(window.origin)
+  const siteDisabled = pageOrigin !== null && backup.disabledOrigins.includes(pageOrigin)
+  const canRunRules = backup.settings.globalEnabled && pageOrigin !== null && !siteDisabled
+  const rules: V3Rule[] = canRunRules
+    ? backup.rules.flatMap((rule) => {
+        if (!rule.enabled) return []
+        const { request, response, ...metadata } = rule
+        const activeRequest = request?.enabled ? request : undefined
+        const activeResponse = response?.enabled ? response : undefined
+        if (!activeRequest && !activeResponse) return []
+        return [
+          {
+            ...metadata,
+            ...(activeRequest ? { request: activeRequest } : {}),
+            ...(activeResponse ? { response: activeResponse } : {}),
+          },
+        ]
+      })
+    : []
+  const referencedTagIds = new Set(rules.flatMap((rule) => rule.tagIds ?? []))
+
+  return {
+    ...backup,
+    // Keep only page-relevant site state; the rest of the disabled-origin list
+    // is private to the extension and is not needed by this document.
+    disabledOrigins: siteDisabled && pageOrigin !== null ? [pageOrigin] : [],
+    tags: backup.tags.filter((tag) => referencedTagIds.has(tag.id)),
+    rules,
+  }
+}
+
+function getLegacyRuntimeState(data: Record<string, unknown>) {
+  const { GLOBAL_SWITCH, MODE, INTERCEPT_LIST, REDIRECT_LIST } = StorageKey
+  return {
+    [GLOBAL_SWITCH]: data[GLOBAL_SWITCH] ?? false,
+    [MODE]: data[MODE] ?? 'interceptor',
+    [INTERCEPT_LIST]: data[INTERCEPT_LIST] ?? [],
+    [REDIRECT_LIST]: data[REDIRECT_LIST] ?? [],
+  }
+}
 
 function hasEnabledV3Function(value: unknown): boolean {
   try {
@@ -100,7 +152,10 @@ initStorage()
     chrome.storage.onChanged.addListener((changes, areaName) => {
       if (areaName !== 'local') return
       const changedKeys = new Set(Object.keys(changes))
-      if (legacyConfigKeys.some((key) => changedKeys.has(key))) {
+      if (
+        legacyConfigKeys.some((key) => changedKeys.has(key)) &&
+        getStorage(V3_CONFIG, null) === null
+      ) {
         const currentState = {
           [GLOBAL_SWITCH]: getStorage(GLOBAL_SWITCH, false),
           [MODE]: getStorage(MODE, 'interceptor'),
@@ -110,9 +165,15 @@ initStorage()
         noticeDocumentByContent(NOTICE_KEY_REFRESH_GLOBAL_STATE, currentState)
       }
       if (changedKeys.has(V3_CONFIG)) {
-        const currentV3Config = getStorage(V3_CONFIG, null)
-        updateV3FunctionSandbox(currentV3Config)
-        noticeDocumentByContent(NoticeKey.V3_CONFIG, currentV3Config)
+        const runtimeV3Config = getRuntimeV3Config(getStorage(V3_CONFIG, null))
+        updateV3FunctionSandbox(runtimeV3Config)
+        noticeDocumentByContent(NoticeKey.V3_CONFIG, runtimeV3Config)
+        if (getStorage(V3_CONFIG, null) === null) {
+          noticeDocumentByContent(
+            NOTICE_KEY_REFRESH_GLOBAL_STATE,
+            getLegacyRuntimeState(getStorageSnapshot())
+          )
+        }
       }
       if (changedKeys.has(StorageKey.V3_DIAGNOSTICS_ARMED)) {
         noticeDocumentByContent(
@@ -134,10 +195,12 @@ initStorage()
     // document.js 由 manifest 在主世界、document_start 阶段静态注入。
     // 主世界需要看到规则才能代理页面请求，因此同步内容仍按不可信页面输入处理。
     const data = getStorageSnapshot()
-    const globalSwitchOn = data[StorageKey.GLOBAL_SWITCH] || false
-    if (globalSwitchOn) noticeDocumentByContent(NOTICE_KEY_REFRESH_GLOBAL_STATE, data)
+    const legacyRuntimeState = getLegacyRuntimeState(data)
+    if (legacyRuntimeState[StorageKey.GLOBAL_SWITCH] && data[StorageKey.V3_CONFIG] == null) {
+      noticeDocumentByContent(NOTICE_KEY_REFRESH_GLOBAL_STATE, legacyRuntimeState)
+    }
     // V3 uses its own storage schema. Historical keys are neither converted nor removed.
-    const initialV3Config = data[StorageKey.V3_CONFIG] ?? null
+    const initialV3Config = getRuntimeV3Config(data[StorageKey.V3_CONFIG] ?? null)
     updateV3FunctionSandbox(initialV3Config)
     noticeDocumentByContent(NoticeKey.V3_CONFIG, initialV3Config)
     noticeDocumentByContent(

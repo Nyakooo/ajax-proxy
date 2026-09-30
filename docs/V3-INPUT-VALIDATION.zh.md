@@ -29,3 +29,9 @@ V3 使用纯 JavaScript 的 `re2js` 进行语法验证和匹配。RE2 引擎避�
 
 - 单测覆盖 RE2 嵌套量词匹配、RE2 不支持的语法、危险 URL scheme、HTTP method / header 校验、备份大小、规则数、函数源码和 JSON 深度限制。
 - Playwright Chromium 扩展 smoke 覆盖 Fetch、XHR、iframe、redirect 和 service worker 重启；Chrome Stable 154.0.8037.58 与 Edge Stable 153.0.4234.48 重载当前扩展并打开面板。RE2 pattern 的品牌浏览器页面请求行为尚未单独做端到端验证，语法拒绝和运行时安全性由单元测试覆盖。
+
+## 备份文件和发布包
+
+备份文件在读取前按 `file.size` 检查 5 MiB 上限，解析时仍检查 UTF-8 字节数。自定义规则 ID 可使用 `constructor`、`toString` 等字符串；命中计数使用无原型映射，避免读取继承属性。静态和函数重定向 URL 均不得嵌入用户名或密码。
+
+发布 ZIP 前必须确保 package、源 manifest、构建 manifest 的版本一致，并验证必需入口文件、图标、面板与沙箱及其本地引用资源。缺文件或版本不一致会失败退出；修改版本后必须重新构建。

@@ -2,7 +2,6 @@
 // 和徽章相关的函数
 
 import { NoticeKey, StorageKey, setStorage, getRealStorage, noticePanelsByServiceWorker } from "@proxy/shared-utils";
-import { chromeNativeNotice } from "./notice";
 import { renderActiveV3Badge } from './v3Hit'
 
 let legacyHitQueue = Promise.resolve()
@@ -35,27 +34,6 @@ async function syncRoutesAsHit(routes, match_url, method, rule_index?: number) {
                 const totalHit = target.hit ? target.hit + 1 : 1;
                 target.hit = totalHit;
                 counter += totalHit;
-
-                // 这里开始统计某个接口命中次数是否存在过多
-                const LIMIT = 100;
-                // 命中次数 太多，通知一下
-                let tooHigh = totalHit === LIMIT;
-                // 每隔20次提醒一下
-                if (!tooHigh && totalHit > LIMIT) {
-                    tooHigh = (totalHit - LIMIT) % 20 === 0;
-                }
-                if (tooHigh) {
-                    const message = [target.match_url, target.remark || ""].join("\n");
-                    const lang = await getRealStorage(StorageKey.LANGUAGE, "en");
-                    const i18n = {
-                        en: "Too many interceptions",
-                        zh: "拦截次数过多",
-                    };
-                    chromeNativeNotice({
-                        title: i18n[lang] || i18n.en,
-                        message,
-                    });
-                }
             } else if (target.hit) {
                 // 汇总其他match_url上 hit
                 counter += target.hit;

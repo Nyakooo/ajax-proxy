@@ -1,7 +1,7 @@
 <script setup>
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { formatV3ValidationIssues, parseV3BackupJson } from '@proxy/v3-domain'
+import { formatV3ValidationIssues, parseV3BackupJson, V3_BACKUP_MAX_BYTES } from '@proxy/v3-domain'
 
 const props = defineProps({
   open: { type: Boolean, default: false },
@@ -68,6 +68,15 @@ async function loadFile(event) {
   if (!file) return
   clearCandidate()
   source.value = ''
+  if (file.size > V3_BACKUP_MAX_BYTES) {
+    fileIssue.value = formatV3ValidationIssues([
+      {
+        path: '$',
+        message: `Backup JSON must not exceed ${V3_BACKUP_MAX_BYTES} UTF-8 bytes.`,
+      },
+    ]).join('\n')
+    return
+  }
   try {
     source.value = await file.text()
   } catch {

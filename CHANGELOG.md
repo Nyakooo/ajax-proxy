@@ -2,6 +2,11 @@
 
 ## Ajax Proxy 3.0.2 — 2026-09-30
 
+- Rejected embedded credentials in static redirect URLs and removed original XHR open() credentials when redirecting across origins.
+- Fixed body-bearing Fetch Request dispatch, bounded response-function snapshot reads, and hit counts for prototype-property rule IDs.
+- Stopped sending V3 rules when the proxy or current site is disabled; omitted disabled rules/actions and removed legacy hit-threshold desktop notifications.
+- Added a 5 MiB file check before reading backups and enforced release version, required-file and entry-resource checks before ZIP packaging.
+- Made the full panel fill its tab/window and resize responsively, preserving a 700 × 560 px minimum usable layout.
 - Fixed #59: regex capture templates now work in static Fetch and XHR redirects, including query strings, named captures and literal dollar escaping. Existing fixed destinations remain unchanged.
 - Added bilingual redirect guidance and a Playground scenario for both transports.
 - Fixed the production build command and refreshed release download links.

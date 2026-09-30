@@ -116,7 +116,11 @@ async function redirectRequest(
   configuredHeaders?: Record<string, string>
 ): Promise<Request> {
   const destination = new URL(targetUrl, request.url)
-  if (destination.protocol !== 'http:' && destination.protocol !== 'https:') {
+  if (
+    (destination.protocol !== 'http:' && destination.protocol !== 'https:') ||
+    destination.username ||
+    destination.password
+  ) {
     throw new TypeError('V3 redirect targets must use HTTP or HTTPS.')
   }
   const body = request.body
@@ -168,7 +172,9 @@ export function createV3Fetch(fetcher: V3Fetch, options: V3FetchOptions): V3Fetc
       } catch {
         // Diagnostics must not affect the native request.
       }
-      return fetcher(input, init)
+      return isRequestInput(input) || isReadableStreamBody(init?.body)
+        ? fetcher(originalRequest)
+        : fetcher(input, init)
     }
 
     if (selection.rule.response?.enabled && selection.rule.response.mode === 'mock') {
@@ -217,12 +223,10 @@ export function createV3Fetch(fetcher: V3Fetch, options: V3FetchOptions): V3Fetc
       options.onFetchOutcome !== undefined && (options.isFetchOutcomeDiagnosticsArmed?.() ?? true)
     const correlationId = outcomeArmed ? createCorrelationId() : undefined
     const redirect = selection.rule.request
-    let redirectAttempted = false
     let redirectFailedBeforeNetwork = false
     let redirectTarget: string | undefined
     let redirectHeaders: Record<string, string> | undefined
     if (redirect?.enabled && !isV3RedirectExcluded(selection.rule, originalRequest.url)) {
-      redirectAttempted = true
       if (isFunctionRedirect(redirect.redirect)) {
         let failureCode: V3FunctionErrorCode | undefined
         if (!options.executeRedirectFunction) {
@@ -283,7 +287,6 @@ export function createV3Fetch(fetcher: V3Fetch, options: V3FetchOptions): V3Fetc
       } catch {
         // A construction/body replay failure can safely fall back before network dispatch.
         requestForResponse = originalRequest
-        redirectFailedBeforeNetwork = true
         reportOutcome(
           options,
           selection.rule,
@@ -314,10 +317,9 @@ export function createV3Fetch(fetcher: V3Fetch, options: V3FetchOptions): V3Fetc
     } else {
       if (snapshotRequestBody) requestSnapshot = originalRequest.clone()
       try {
-        const useNormalizedRequest =
-          redirectAttempted &&
-          redirectFailedBeforeNetwork &&
-          (isRequestInput(input) || isReadableStreamBody(init?.body))
+        // Request construction transfers a Request/stream body. Dispatch that
+        // normalized request instead of trying to reuse the transferred input.
+        const useNormalizedRequest = isRequestInput(input) || isReadableStreamBody(init?.body)
         networkResponse = useNormalizedRequest
           ? await fetcher(originalRequest)
           : await fetcher(input, init)

@@ -11,11 +11,13 @@ import { getV3FunctionExecutionFailureCode } from './responseFunctionSandbox'
 
 const MAX_SNAPSHOT_BYTES = 1024 * 1024
 const MAX_SNAPSHOT_PART_BYTES = 512 * 1024
+const MAX_SNAPSHOT_MS = 5000
 
 function supportsTextSnapshot(headers: Headers): boolean {
   const contentType = headers.get('content-type')?.split(';', 1)[0]?.trim().toLowerCase()
   return Boolean(
     contentType &&
+    contentType !== 'text/event-stream' &&
     (contentType.startsWith('text/') ||
       contentType === 'application/json' ||
       contentType.endsWith('+json') ||
@@ -24,20 +26,32 @@ function supportsTextSnapshot(headers: Headers): boolean {
   )
 }
 
-async function readBoundedUtf8(body: ReadableStream<Uint8Array> | null): Promise<string> {
+async function readBoundedUtf8(
+  body: ReadableStream<Uint8Array> | null,
+  signal: AbortSignal
+): Promise<string> {
   if (!body) return ''
   const reader = body.getReader()
   const chunks: Uint8Array[] = []
   let length = 0
+  const cancel = () => {
+    void reader.cancel().catch(() => {})
+  }
+  signal.addEventListener('abort', cancel, { once: true })
   try {
     while (true) {
       const { done, value } = await reader.read()
+      if (signal.aborted) throw new Error('Snapshot timed out.')
       if (done) break
       length += value.byteLength
       if (length > MAX_SNAPSHOT_PART_BYTES) throw new Error('Snapshot body is too large.')
       chunks.push(value)
     }
+  } catch (error) {
+    cancel()
+    throw error
   } finally {
+    signal.removeEventListener('abort', cancel)
     reader.releaseLock()
   }
   const bytes = new Uint8Array(length)
@@ -69,35 +83,50 @@ async function createFunctionSnapshots(
 ): Promise<{ request: V3FunctionRequestSnapshot; response: V3FunctionResponseSnapshot }> {
   const requestHeaders = new Headers(request.headers)
   const responseHeaders = new Headers(response.headers)
-  if (
-    (request.body && !supportsTextSnapshot(requestHeaders)) ||
-    (response.body && !supportsTextSnapshot(responseHeaders))
-  ) {
-    throw new Error('Function snapshots support text and JSON responses only.')
-  }
-  const requestBody = request.body ? await readBoundedUtf8(requestSnapshot.body) : undefined
-  const responseBody = response.body ? await readBoundedUtf8(response.clone().body) : ''
-  const requestHeaderSnapshot = snapshotHeaders(requestHeaders)
-  const responseHeaderSnapshot = snapshotHeaders(responseHeaders)
-  const snapshotBytes =
-    new TextEncoder().encode(requestBody ?? '').length +
-    new TextEncoder().encode(responseBody).length +
-    new TextEncoder().encode(JSON.stringify(requestHeaderSnapshot)).length +
-    new TextEncoder().encode(JSON.stringify(responseHeaderSnapshot)).length
-  if (snapshotBytes > MAX_SNAPSHOT_BYTES) throw new Error('Function snapshots are too large.')
-  return {
-    request: {
-      url: request.url,
-      method: request.method,
-      headers: requestHeaderSnapshot,
-      ...(requestBody === undefined ? {} : { body: requestBody }),
-    },
-    response: {
-      status: response.status,
-      statusText: response.statusText,
-      headers: responseHeaderSnapshot,
-      body: responseBody,
-    },
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), MAX_SNAPSHOT_MS)
+  let responseSnapshot: Response | undefined
+  try {
+    if (
+      (request.body && !supportsTextSnapshot(requestHeaders)) ||
+      (response.body && !supportsTextSnapshot(responseHeaders))
+    ) {
+      throw new Error('Function snapshots support text and JSON responses only.')
+    }
+    const requestBody = request.body
+      ? await readBoundedUtf8(requestSnapshot.body, controller.signal)
+      : undefined
+    responseSnapshot = response.body ? response.clone() : undefined
+    const responseBody = responseSnapshot
+      ? await readBoundedUtf8(responseSnapshot.body, controller.signal)
+      : ''
+    const requestHeaderSnapshot = snapshotHeaders(requestHeaders)
+    const responseHeaderSnapshot = snapshotHeaders(responseHeaders)
+    const snapshotBytes =
+      new TextEncoder().encode(requestBody ?? '').length +
+      new TextEncoder().encode(responseBody).length +
+      new TextEncoder().encode(JSON.stringify(requestHeaderSnapshot)).length +
+      new TextEncoder().encode(JSON.stringify(responseHeaderSnapshot)).length
+    if (snapshotBytes > MAX_SNAPSHOT_BYTES) throw new Error('Function snapshots are too large.')
+    return {
+      request: {
+        url: request.url,
+        method: request.method,
+        headers: requestHeaderSnapshot,
+        ...(requestBody === undefined ? {} : { body: requestBody }),
+      },
+      response: {
+        status: response.status,
+        statusText: response.statusText,
+        headers: responseHeaderSnapshot,
+        body: responseBody,
+      },
+    }
+  } finally {
+    clearTimeout(timer)
+    // Cancelling a tee branch can wait for its native sibling; never await it.
+    if (requestSnapshot !== request) void requestSnapshot.body?.cancel().catch(() => {})
+    void responseSnapshot?.body?.cancel().catch(() => {})
   }
 }
 
@@ -116,6 +145,7 @@ function responseMetadataProxy(response: Response, original: Response): Response
 function snapshotFailureCode(error: unknown): V3FunctionErrorCode {
   const message = error instanceof Error ? error.message.toLowerCase() : ''
   if (message.includes('too large')) return 'snapshot-too-large'
+  if (message.includes('timed out')) return 'timeout'
   return 'snapshot-unsupported'
 }
 
@@ -175,6 +205,7 @@ export async function replaceFetchResponse(
   if (!rule.response?.enabled || !replace) return response
   if (typeof replace.code === 'string' && replace.code.trim() !== '') {
     if (!executeResponseFunction) {
+      if (requestSnapshot !== request) void requestSnapshot.body?.cancel().catch(() => {})
       reportFunctionError(onFunctionError, 'sandbox-unavailable')
       reportOutcome('unsupported', 'response-replacement-unsupported')
       return response

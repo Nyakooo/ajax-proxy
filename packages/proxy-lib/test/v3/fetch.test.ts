@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createV3Fetch } from '../../src/v3/fetch'
+import { replaceFetchResponse } from '../../src/v3/responseAction'
 import type { V3Rule } from '@proxy/v3-domain'
 
 afterEach(() => vi.restoreAllMocks())
@@ -1497,6 +1498,58 @@ describe('createV3Fetch', () => {
     expect([...new Uint8Array(await result.arrayBuffer())]).toEqual([1, 2, 3])
     expect(onFunctionError.mock.calls[0][2]).toBe('snapshot-unsupported')
   })
+
+  it('preserves native streaming responses instead of waiting indefinitely for function snapshots', async () => {
+    for (const contentType of ['text/event-stream', 'text/plain']) {
+      let controller!: ReadableStreamDefaultController<Uint8Array>
+      const native = new Response(
+        new ReadableStream<Uint8Array>({
+          start(value) {
+            controller = value
+            value.enqueue(new TextEncoder().encode('stream chunk'))
+          },
+        }),
+        { headers: { 'content-type': contentType } }
+      )
+      const executeResponseFunction = vi.fn(async () => ({ body: { replaced: true } }))
+      const wrapped = createV3Fetch(
+        async (input, init) => {
+          // Use native Request body semantics rather than a permissive mock.
+          expect(await new Request(input, init).text()).toBe('original request body')
+          return native
+        },
+        {
+          getRules: () => [
+            rule('stream', {
+              response: { enabled: true, replace: { code: 'return {body:{}}' } },
+            }),
+          ],
+          executeResponseFunction,
+        }
+      )
+      const result =
+        contentType === 'text/event-stream'
+          ? await replaceFetchResponse(
+              native,
+              new Request('https://example.test/api'),
+              rule('stream', {
+                response: { enabled: true, replace: { code: 'return {body:{}}' } },
+              }),
+              executeResponseFunction
+            )
+          : await wrapped(
+              new Request('https://example.test/api', {
+                method: 'POST',
+                body: 'original request body',
+                headers: { 'content-type': 'text/plain' },
+              })
+            )
+      expect(result).toBe(native)
+      expect(executeResponseFunction).not.toHaveBeenCalled()
+      controller.close()
+      expect(await result.text()).toBe('stream chunk')
+    }
+  }, 10000)
 
   it('fails open with the complete response when a function snapshot exceeds its size limit', async () => {
     const body = 'x'.repeat(512 * 1024 + 1)

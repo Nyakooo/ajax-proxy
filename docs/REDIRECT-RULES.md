@@ -5,7 +5,7 @@ V3 3.0.2 restores regex capture replacement for static Fetch and XHR redirects (
 - Normal / exact match: a fixed destination; no substring replacement or automatic path/query copying.
 - Regex without a replacement token: a fixed destination, preserving existing V3 behavior.
 - Regex with a token: replace the first match in the original full URL using RE2JS. Unmatched prefix/suffix remain; anchor full URLs with `^` and `$` to avoid unintended destinations.
-- Relative destinations resolve against the original request URL. Only HTTP(S) destinations are supported.
+- Relative destinations resolve against the original request URL. Only HTTP(S) destinations without embedded usernames or passwords are supported.
 
 Example: match `^https://www\.jingxuesiyingyu\.com/api/(.*)$`, destination `https://api.prod.com/$1`. A request to `https://www.jingxuesiyingyu.com/api/user/list?page=1` goes to `https://api.prod.com/user/list?page=1` in both Fetch and XHR. The capture includes the query; omitted query text is not copied automatically. Enter the pattern without slash delimiters; escape backslashes in JSON backups.
 
