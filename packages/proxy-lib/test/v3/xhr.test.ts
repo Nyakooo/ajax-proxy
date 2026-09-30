@@ -109,6 +109,18 @@ function makeXHR(
 }
 
 describe('createV3XHR', () => {
+  it('keeps the original XHR when capture expansion exceeds the URL limit', () => {
+    const original = 'https://example.test/' + 'a'.repeat(33000)
+    const xhr = makeXHR([
+      rule('oversized-capture', {
+        match: { type: 'regex', url: '^https://example\\.test/(.*)$' },
+        request: { enabled: true, redirect: { url: 'https://target.test/$1$1' } },
+      }),
+    ])
+    xhr.open('GET', original)
+    expect(xhr.openArgs[1]).toBe(original)
+  })
+
   it('expands issue #59 regex captures and preserves the query in static redirects', () => {
     const original = 'https://www.jingxuesiyingyu.com/api/user/list?page=1'
     const selected = rule('issue59', {

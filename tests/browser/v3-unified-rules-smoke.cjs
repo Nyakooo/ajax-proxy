@@ -159,7 +159,7 @@ async function main() {
     const redirectEditor = panel.locator('.redirect-rule-editor')
     await redirectEditor.waitFor({ state: 'visible' })
     const matchUrlInput = redirectEditor.locator('label.editor-field').first().locator('input')
-    const targetUrlInput = redirectEditor.locator('label.editor-field input').nth(1)
+    const targetUrlInput = redirectEditor.getByLabel('Redirect target URL')
     assert.equal(await matchUrlInput.inputValue(), '/verify/45')
     assert.equal(await targetUrlInput.inputValue(), '/target')
     await panel.keyboard.press('Escape')

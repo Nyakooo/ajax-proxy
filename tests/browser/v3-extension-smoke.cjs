@@ -2076,7 +2076,7 @@ async function main() {
       async (key) => (await chrome.storage.local.get(key))[key].formatVersion,
       'ajax-proxy:storage:v3-config'
     )
-    assert.equal(exactBackupVersion, 9, 'saving an exact matcher keeps the latest backup format')
+    assert.equal(exactBackupVersion, 10, 'saving an exact matcher keeps the latest backup format')
     assert.deepEqual(quickCreatedRule.response, {
       enabled: true,
       mode: 'replace',
@@ -2330,7 +2330,7 @@ async function main() {
         await chrome.storage.local.set({
           [key]: {
             ...config,
-            formatVersion: 9,
+            formatVersion: 10,
             disabledOrigins: [],
             rules: [...rules, ...config.rules],
           },
