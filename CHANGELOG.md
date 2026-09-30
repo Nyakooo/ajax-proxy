@@ -1,5 +1,11 @@
 # Changelog
 
+## Ajax Proxy 3.0.2 — 2026-09-30
+
+- Fixed #59: regex capture templates now work in static Fetch and XHR redirects, including query strings, named captures and literal dollar escaping. Existing fixed destinations remain unchanged.
+- Added bilingual redirect guidance and a Playground scenario for both transports.
+- Fixed the production build command and refreshed release download links.
+
 ## Ajax Proxy 3.0.1 — 2026-09-29
 
 ### Added

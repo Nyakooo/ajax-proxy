@@ -298,7 +298,8 @@ export const messages = {
       functionRedirect: '函数（仅 Fetch）',
       method: '请求方法',
       targetUrl: '跳转目标 URL',
-      targetUrlHelp: '可填写 HTTP(S) 完整地址或相对地址；匹配规则只把请求直接跳转到此目标。',
+      targetUrlHelp:
+        'HTTP(S) 完整地址或相对地址。正则模式支持 $1、$2、$<name> 捕获组替换；$$ 表示字面 $。无模板时直接跳转到固定目标，不自动保留路径或 query。',
       redirectHeaders: '请求 headers（JSON 对象）',
       redirectHeadersHelp:
         '只用于静态重定向。header 名称按大小写不敏感方式覆盖原请求；跨源重定向会剔除敏感 headers。跨源请求的 CORS 行为由浏览器决定。值必须是字符串，可使用空字符串。',
@@ -771,7 +772,7 @@ export const messages = {
       method: 'Request method',
       targetUrl: 'Redirect target URL',
       targetUrlHelp:
-        'Use an absolute HTTP(S) URL or a relative URL. A match redirects directly to this target.',
+        'HTTP(S) or relative URL. Regex mode supports $1, $2 and $<name> captures; $$ inserts a literal $. Without a template, this is a fixed destination; path and query are not copied.',
       redirectHeaders: 'Request headers (JSON object)',
       redirectHeadersHelp:
         'For static redirects only. Header names override original request headers case-insensitively; sensitive headers are removed on cross-origin redirects. The browser determines CORS behavior for cross-origin requests. Values must be strings; empty strings are allowed.',

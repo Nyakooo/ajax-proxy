@@ -8,3 +8,5 @@ export type V3RuleMatchReason = 'matched' | 'matched-request-excluded' | 'lower-
 export declare function getV3RuleMatchReason(rule: V3Rule, request: V3RequestMatchInput): V3RuleMatchReason;
 /** Whether a request matches one of the literal URL substrings excluded by its redirect action. */
 export declare function isV3RedirectExcluded(rule: V3Rule, url: string): boolean;
+/** Resolve a regex replacement template without changing existing fixed destinations. */
+export declare function resolveV3RedirectTarget(rule: V3Rule, originalUrl: string, target: string): string | undefined;

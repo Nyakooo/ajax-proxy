@@ -168,6 +168,8 @@ jobs:
           done
       - name: Install Chromium for extension E2E
         run: pnpm exec playwright install --with-deps chromium
+      - name: Verify importable Playground examples and responsive layout
+        run: pnpm playground:smoke
       - name: Verify V3 extension Fetch and XHR behavior
         run: pnpm v3:extension:smoke
       - name: Verify V3 rules workspace, popup and editor handoff

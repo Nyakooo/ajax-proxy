@@ -12,10 +12,10 @@
     <a href="https://microsoftedge.microsoft.com/addons/detail/ajax-proxy/iladajdkobpmadjfpeginhngnneaoefi"><img alt="Microsoft Edge 加载项" src="https://img.shields.io/badge/Edge%20Add--ons-available-0078D7?logo=microsoftedge&logoColor=white"></a>
   </p>
 
-  <p><strong>V3.0.0 正式版本 · Chrome 与 Microsoft Edge 稳定版</strong><br>Mock 尚不存在的接口、重定向请求，并在浏览器中调整支持的 Fetch 与 XHR 响应。</p>
-  <p><a href="https://github.com/Nyakooo/ajax-proxy/releases/tag/v3.0.0"><strong>下载 Ajax Proxy 3.0.0</strong></a> · <a href="https://chrome.google.com/webstore/detail/ajax-proxy/jbikjaejnjfbloojafllmdiknfndgljo">Chrome 网上应用店</a> · <a href="https://microsoftedge.microsoft.com/addons/detail/ajax-proxy/iladajdkobpmadjfpeginhngnneaoefi">Edge 加载项</a></p>
+  <p><strong>V3.0.2 正式版本 · Chrome 与 Microsoft Edge 稳定版</strong><br>Mock 尚不存在的接口、重定向请求，并在浏览器中调整支持的 Fetch 与 XHR 响应。</p>
+  <p><a href="https://github.com/Nyakooo/ajax-proxy/releases/tag/v3.0.2"><strong>下载 Ajax Proxy 3.0.2</strong></a> · <a href="https://chrome.google.com/webstore/detail/ajax-proxy/jbikjaejnjfbloojafllmdiknfndgljo">Chrome 网上应用店</a> · <a href="https://microsoftedge.microsoft.com/addons/detail/ajax-proxy/iladajdkobpmadjfpeginhngnneaoefi">Edge 加载项</a></p>
   <p>
-    <a href="#安装-v3-300"><strong>安装 V3.0.0</strong></a> ·
+    <a href="#安装-v3-302"><strong>安装 V3.0.2</strong></a> ·
     <a href="docs/V3-RULE-MODEL.zh.md">规则模型</a> ·
     <a href="docs/V3-BACKUP-RESTORE.zh.md">备份与恢复</a> ·
     <a href="https://github.com/Nyakooo/ajax-proxy/issues">问题反馈</a>
@@ -24,7 +24,7 @@
 </div>
 
 <p align="center">
-  <img src="media/ajax-proxy-v3-showcase.svg" alt="Ajax Proxy 3.0.0 匹配请求并返回已配置的 JSON Mock 响应" width="100%">
+  <img src="media/ajax-proxy-v3-showcase.svg" alt="Ajax Proxy 3.0.2 匹配请求并返回已配置的 JSON Mock 响应" width="100%">
 </p>
 
 ## 为什么使用 Ajax Proxy？
@@ -52,11 +52,11 @@ Ajax Proxy 以浏览器扩展形式运行，不需要 Ajax Proxy 账号或托管
 
 Mock 命中会在面板中标记“Mock 已跳过真实网络请求”，并显示返回状态码。它适用于接口尚不存在或需要固定响应的场景。若选择普通响应替换，扩展会先发送真实请求再替换返回值；函数响应也需要真实响应作为输入。函数响应目前只用于 Fetch。
 
-## 安装 V3 3.0.0
+## 安装 V3 3.0.2
 
 > **升级提示：** V2 与 V3 的规则和备份格式互不兼容，V3 不会自动迁移旧数据。升级前请导出并另存 V2 备份，再在 V3 中按需重新创建规则。
 
-从 [V3.0.0 GitHub Release](https://github.com/Nyakooo/ajax-proxy/releases/tag/v3.0.0) 下载 `ajax-proxy-3.0.0.zip` 并解压，然后在 Chrome（`chrome://extensions`）或 Edge（`edge://extensions`）中：
+从 [V3.0.2 GitHub Release](https://github.com/Nyakooo/ajax-proxy/releases/tag/v3.0.2) 下载 `ajax-proxy-3.0.2.zip` 并解压，然后在 Chrome（`chrome://extensions`）或 Edge（`edge://extensions`）中：
 
 1. 开启**开发者模式**。
 2. 选择**加载已解压的扩展程序**。
@@ -72,7 +72,7 @@ pnpm install --frozen-lockfile
 pnpm build
 ```
 
-生产构建位于 `packages/shell-chrome/build`。V3.0.0 已在 Chrome 与 Microsoft Edge 稳定版完成核心功能验收；详见[面板迁移说明](docs/V3-PANEL-MIGRATION.zh.md)、[浏览器兼容范围](docs/V3-BROWSER-COMPATIBILITY.zh.md)与[测试和验收记录](docs/V3-TESTING.zh.md)。扩展商店的更新可能需要等待平台审核。
+生产构建位于 `packages/shell-chrome/build`。V3 核心功能已在 Chrome 与 Microsoft Edge 稳定版完成验收；详见[面板迁移说明](docs/V3-PANEL-MIGRATION.zh.md)、[浏览器兼容范围](docs/V3-BROWSER-COMPATIBILITY.zh.md)与[测试和验收记录](docs/V3-TESTING.zh.md)。扩展商店的更新可能需要等待平台审核。
 
 ## 文档
 
@@ -94,9 +94,11 @@ pnpm build
 
 建议先创建一条启用的 GET 规则，匹配 `playground/fixtures/profile.json`，并将响应体改成容易辨认的内容；然后在 Playground 点击 **发送 Fetch GET** 或 **发送 XHR JSON**，对照页面响应和扩展面板中的命中计数。Worker 场景仅作原生请求对照，当前不支持拦截 Dedicated Worker 内的请求。完整场景说明、规则配置示例和本地启动方法见 [Playground 测试指南](docs/PLAYGROUND.zh.md)。
 
+正则重定向支持 `$1` / `$2` / `$<name>` 捕获组，Fetch 与 XHR 均适用。固定目标、相对 URL、转义和排错方法见[重定向使用规范](docs/REDIRECT-RULES.zh.md)。
+
 ## 演示
 
-下面的动图展示的是**旧版 V2 界面**，仅作历史演示；它不是 V3.0.0 的界面截图。
+下面的动图展示的是**旧版 V2 界面**，仅作历史演示；它不是 V3.0.2 的界面截图。
 
 <details>
   <summary>展开查看 V2 旧版演示</summary>

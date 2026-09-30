@@ -1114,7 +1114,9 @@ async function main() {
     assert.equal(outcomeTexts.length, 2)
     assert.ok(outcomeTexts.some((text) => /Request · Applied · Redirect applied/.test(text)))
     assert.ok(outcomeTexts.some((text) => /Response · Applied · Response replaced/.test(text)))
-    assert.ok(outcomeTexts.every((text) => !/outcome smoke|\/api\/echo|private/.test(text)))
+    // The configured rule label may be its matcher URL; request bodies remain absent.
+    assert.ok(outcomeTexts.every((text) => !/outcome smoke|private/.test(text)))
+    assert.equal(await outcomeItems.nth(0).locator('code').nth(0).innerText(), '/api/echo')
     const firstCorrelationId = await outcomeItems.nth(0).locator('code').nth(1).innerText()
     const secondCorrelationId = await outcomeItems.nth(1).locator('code').nth(1).innerText()
     assert.equal(firstCorrelationId, secondCorrelationId)
@@ -1143,7 +1145,7 @@ async function main() {
     const xhrOutcomeTexts = await xhrOutcomeItems.allTextContents()
     assert.ok(xhrOutcomeTexts.some((text) => /Request · Applied · Redirect applied/.test(text)))
     assert.ok(xhrOutcomeTexts.some((text) => /Response · Applied · Response replaced/.test(text)))
-    assert.ok(xhrOutcomeTexts.every((text) => !/private-xhr-outcome|\/api\/echo/.test(text)))
+    assert.ok(xhrOutcomeTexts.every((text) => !/private-xhr-outcome/.test(text)))
     const xhrCorrelationId = await xhrOutcomeItems
       .filter({ hasText: 'XHR · request' })
       .first()
@@ -1254,7 +1256,9 @@ async function main() {
       .fill(`http://127.0.0.1:${port}/api/v3-ui`)
     await diagnosticsPanel.getByTestId('diagnostic-method-select').selectOption('POST')
     await diagnosticsPanel.getByRole('button', { name: 'Analyze request' }).click()
-    await diagnosticsPanel.getByText(`Current first complete match: ${v3UiRule.id}`).waitFor()
+    await diagnosticsPanel
+      .getByText(`Current first complete match: ${v3UiRule.title || v3UiRule.match.url}`)
+      .waitFor()
     await diagnosticsPanel.getByText('First complete match', { exact: true }).waitFor()
     await diagnosticsPanel.getByTestId('diagnostic-method-select').selectOption('GET')
     await diagnosticsPanel.getByRole('button', { name: 'Analyze request' }).click()
@@ -2500,6 +2504,49 @@ async function main() {
       `http://127.0.0.1:${port}/api/v3-native-exclusion?skip=1`,
       'XHR should keep the original URL when every matching redirect is excluded'
     )
+
+    await restartedWorker.evaluate(
+      async ({ key, origin }) => {
+        const config = (await chrome.storage.local.get(key))[key]
+        await chrome.storage.local.set({
+          [key]: {
+            ...config,
+            settings: { ...config.settings, globalEnabled: true },
+            disabledOrigins: [],
+            rules: [
+              {
+                id: 'issue59-regex-redirect',
+                enabled: true,
+                match: {
+                  type: 'regex',
+                  url: '^http://127\\.0\\.0\\.1:[0-9]+/api/capture/(.*)$',
+                  method: 'GET',
+                },
+                request: { enabled: true, redirect: { url: origin + '/mock/$1' } },
+              },
+            ],
+          },
+        })
+      },
+      { key: 'ajax-proxy:storage:v3-config', origin: `http://127.0.0.1:${port}` }
+    )
+    await restartedPage.reload()
+    const captureTargets = await restartedPage.evaluate(async () => {
+      const response = await fetch('/api/capture/echo?page=1')
+      await response.text()
+      const xhrUrl = await new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest()
+        xhr.open('GET', '/api/capture/echo?page=1')
+        xhr.onload = () => resolve(xhr.responseURL)
+        xhr.onerror = () => reject(new Error('Capture redirect XHR failed'))
+        xhr.send()
+      })
+      return [response.url, xhrUrl]
+    })
+    assert.deepEqual(captureTargets, [
+      `http://127.0.0.1:${port}/mock/echo?page=1`,
+      `http://127.0.0.1:${port}/mock/echo?page=1`,
+    ])
 
     console.log(
       'Unpacked V3 extension panel persistence, static redirect Fetch/XHR header overrides, exact-origin site switches, safe rule templates, JSON and function Fetch interception, XHR, iframe, redirect, and service worker restart smoke passed'

@@ -90,11 +90,11 @@
         font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
       }
       .shell {
-        width: min(1120px, calc(100% - 32px));
+        width: min(1600px, calc(100% - 48px));
         margin: 0 auto;
       }
       header {
-        padding: 42px 0 24px;
+        padding: 24px 0 18px;
       }
       .eyebrow {
         color: var(--teal);
@@ -105,7 +105,7 @@
       }
       h1 {
         margin: 9px 0 10px;
-        font-size: clamp(30px, 5vw, 46px);
+        font-size: clamp(28px, 3vw, 38px);
         letter-spacing: -0.04em;
       }
       .intro {
@@ -121,7 +121,7 @@
         align-items: center;
         justify-content: space-between;
         gap: 12px;
-        margin-top: 24px;
+        margin-top: 16px;
         padding: 14px 16px;
         border: 1px solid var(--line);
         border-radius: 12px;
@@ -134,17 +134,41 @@
         font-size: 13px;
       }
       .live-card {
-        grid-column: 1 / -1;
+        grid-column: 2;
+        grid-row: 1 / 5;
         position: sticky;
-        top: 8px;
-        z-index: 5;
+        top: 16px;
+        align-self: start;
+        max-height: calc(100dvh - 32px);
+        overflow: auto;
         margin: 0;
-        border-color: #95c8c8;
-        background: #f5fbfb;
-        box-shadow: 0 8px 24px rgb(27 52 57 / 14%);
+      }
+      main > .stack {
+        grid-column: 1;
+      }
+      .history-panel {
+        margin-top: 20px;
+        padding-top: 18px;
+        border-top: 1px solid var(--line);
+      }
+      .history-panel #results {
+        max-height: min(32dvh, 320px);
+        overflow: auto;
+        overscroll-behavior: contain;
+      }
+      .guide-card > summary {
+        cursor: pointer;
+        font-weight: 650;
+      }
+      .guide-card[open] > summary {
+        margin-bottom: 16px;
+      }
+      .live-response-meta code {
+        max-height: 72px;
+        overflow: auto;
       }
       .live-card.is-expanded #live-body {
-        max-height: min(55vh, 520px);
+        max-height: min(48dvh, 520px);
       }
       .live-response-meta {
         display: grid;
@@ -174,7 +198,7 @@
         color: var(--red);
       }
       #live-body {
-        max-height: 150px;
+        max-height: min(30dvh, 260px);
         min-height: 58px;
         margin: 12px 0 0;
         overflow: auto;
@@ -195,7 +219,8 @@
       }
       main {
         display: grid;
-        grid-template-columns: minmax(0, 1.35fr) minmax(270px, 0.65fr);
+        grid-template-columns: minmax(0, 1.1fr) minmax(360px, 0.9fr);
+        align-items: start;
         gap: 18px;
         padding: 6px 0 48px;
       }
@@ -351,9 +376,7 @@
         border: 0;
         background: #fbfdfd;
       }
-      .log-card {
-        grid-column: 1 / -1;
-      }
+
       .log-head {
         display: flex;
         flex-wrap: wrap;
@@ -422,13 +445,21 @@
         main {
           grid-template-columns: 1fr;
         }
-        .log-card {
+        main > .stack,
+        .log-card,
+        .live-card {
           grid-column: auto;
+          grid-row: auto;
+        }
+        .live-card {
+          position: static;
+          max-height: none;
+          overflow: visible;
         }
       }
       @media (max-width: 520px) {
         .shell {
-          width: min(100% - 20px, 1120px);
+          width: calc(100% - 20px);
         }
         header {
           padding-top: 28px;
@@ -455,7 +486,7 @@
       <h1>Ajax Proxy Playground</h1>
       <p class="intro">
         在当前页面直接触发 Fetch、XMLHttpRequest、iframe 和 Worker 请求。先在 Ajax Proxy
-        中创建匹配规则，再点对应按钮；页面顶部会实时展示最新接口的实际响应。
+        中创建匹配规则，再点对应按钮；响应区会实时展示最新接口的实际响应。
       </p>
       <div class="origin-card">
         <div><strong>当前测试站点</strong><br /><code id="current-origin">读取中…</code></div>
@@ -467,6 +498,53 @@
     </header>
 
     <main class="shell">
+      <section class="card" aria-labelledby="examples-title">
+        <div class="card-head">
+          <div>
+            <h2 id="examples-title">从一个可运行用例开始</h2>
+            <p>
+              ① 选择用例 → ② 复制规则 → ③ 在插件「备份 / 恢复」粘贴并选择「追加导入」→ ④
+              确认全局开关已开启，发送请求。
+            </p>
+          </div>
+          <span class="tag">无需编写代码</span>
+        </div>
+        <label for="example-case">选择测试用例</label>
+        <select id="example-case" style="width: 100%; margin: 12px 0">
+          <option value="mock">Mock 不存在的接口 · 跳过真实请求</option>
+          <option value="replace">替换真实 JSON 响应 · 状态码 201</option>
+          <option value="redirect">正则捕获组重定向 · 保留 query（3.0.2+）</option>
+          <option value="method">method 不匹配 · 应保留原响应</option>
+        </select>
+        <p id="example-description"></p>
+        <p><strong>预期效果：</strong><span id="example-expected"></span></p>
+        <p>
+          <strong>请求地址：</strong><code id="example-url" style="overflow-wrap: anywhere"></code>
+        </p>
+        <div class="toolbar">
+          <button id="copy-example" type="button">复制此用例规则</button>
+          <button id="download-example" type="button" class="secondary">下载规则 JSON</button>
+          <span id="example-copy-status" role="status" aria-live="polite"></span>
+        </div>
+        <details style="margin: 12px 0">
+          <summary>查看 / 手动复制规则 JSON</summary>
+          <textarea
+            id="example-json"
+            readonly
+            aria-label="测试规则 JSON"
+            style="width: 100%; height: 240px; margin-top: 12px"
+            class="mono"
+          ></textarea>
+        </details>
+        <div class="toolbar">
+          <button type="button" data-run="example-fetch">发送本用例 Fetch</button>
+          <button type="button" data-run="example-xhr">发送本用例 XHR</button>
+        </div>
+        <p>
+          规则按当前站点生成，切换用例后需重新导入对应规则。示例使用不同地址，避免相互遮蔽；已有更高优先级规则或站点停用仍可能影响结果。追加导入保留你的配置；测试完可删除以「Playground
+          ·」开头的规则。
+        </p>
+      </section>
       <section class="card live-card" aria-labelledby="live-title" aria-live="polite">
         <div class="card-head">
           <div>
@@ -490,8 +568,19 @@
           <strong>请求</strong><code id="live-request">尚未发送</code> <strong>地址</strong
           ><code id="live-url">—</code>
         </div>
-        <pre id="live-body">
-这里会显示实际收到的响应。请把规则响应设置成明显不同于默认 fixture 的内容；点击请求后，如果这里显示规则配置的状态或响应体，就能直观看到替换效果。</pre>
+        <pre id="live-body">发送请求后，在这里对照用例的预期结果。</pre>
+        <section class="history-panel" aria-labelledby="results-title">
+          <div class="log-head">
+            <div>
+              <h2 id="results-title">请求记录</h2>
+              <p style="margin: 5px 0 0">记录仅保存在当前页面内存中；刷新页面会清空。</p>
+            </div>
+            <button class="danger" id="clear-log" type="button">清空记录</button>
+          </div>
+          <div id="results" aria-live="polite">
+            <p class="empty">还没有请求。先配置一条规则，再运行任意场景。</p>
+          </div>
+        </section>
       </section>
       <div class="stack">
         <section class="card" aria-labelledby="basic-title">
@@ -640,96 +729,92 @@
       </div>
 
       <aside class="stack">
-        <section class="card" aria-labelledby="rule-guide-title">
-          <h2 id="rule-guide-title">快速配置一条规则</h2>
-          <ol style="padding-left: 20px; color: var(--muted); font-size: 13px; line-height: 1.7">
-            <li>打开 Ajax Proxy 面板，创建一条响应规则。</li>
-            <li>
-              复制下方 URL 的路径片段作为匹配 URL，例如
-              <code>playground/fixtures/profile.json</code>。
-            </li>
-            <li>先选普通包含匹配，并启用规则；请求按钮可立即重复点击。</li>
-            <li>配置 JSON body / status 替换后，观察页面响应和命中计数。</li>
-          </ol>
-          <div class="hint">普通匹配 URL 不要求以斜杠开头。规则需启用，且全局 V3 开关已打开。</div>
-          <ul class="fixture-list">
-            <li>
-              <code>fixtures/profile.json</code
-              ><span>GET JSON；基本 Fetch / XHR 和静态响应替换。</span>
-            </li>
-            <li><code>fixtures/message.txt</code><span>GET text；XHR text responseType。</span></li>
-            <li>
-              <code>fixtures/redirect-target.json</code
-              ><span>重定向目标；可配置从 profile.json 跳转至此。</span>
-            </li>
-            <li>
-              <code>fixtures/echo.json</code
-              ><span>POST 目标；Pages 无后端，适合测试拦截响应或重定向。</span>
-            </li>
-          </ul>
-        </section>
-
-        <section class="card" aria-labelledby="boundary-title">
-          <div class="card-head">
-            <div>
-              <h2 id="boundary-title">边界与回退</h2>
-              <p>这些场景用来确认插件只在预期范围工作。</p>
+        <details class="card guide-card">
+          <summary>使用说明与支持边界</summary>
+          <section class="card" aria-labelledby="rule-guide-title">
+            <h2 id="rule-guide-title">快速配置一条规则</h2>
+            <ol style="padding-left: 20px; color: var(--muted); font-size: 13px; line-height: 1.7">
+              <li>打开 Ajax Proxy 面板，创建一条响应规则。</li>
+              <li>
+                复制下方 URL 的路径片段作为匹配 URL，例如
+                <code>playground/fixtures/profile.json</code>。
+              </li>
+              <li>先选普通包含匹配，并启用规则；请求按钮可立即重复点击。</li>
+              <li>配置 JSON body / status 替换后，观察页面响应和命中计数。</li>
+            </ol>
+            <div class="hint">
+              普通匹配 URL 不要求以斜杠开头。规则需启用，且全局 V3 开关已打开。
             </div>
-          </div>
-          <div class="scenario" style="margin-top: 14px">
-            <h3>404 原始响应</h3>
-            <p>请求不存在的静态文件。未命中时会显示 Pages 返回的 404；命中时可验证规则响应。</p>
-            <code>GET /playground/fixtures/not-found.json</code>
-            <button class="secondary" type="button" data-run="not-found">发送不存在的请求</button>
-          </div>
-          <div class="scenario" style="margin-top: 10px">
-            <h3>Dedicated Worker · Fetch</h3>
-            <p>
-              当前插件不拦截 Dedicated Worker 内的请求。此按钮只验证 Worker 原生 Fetch
-              可用，作为支持范围对照。
-            </p>
-            <code>worker.js → fixtures/profile.json</code>
-            <button class="secondary" type="button" data-run="worker-fetch">
-              发送 Worker 原生请求
-            </button>
-          </div>
-          <div class="scenario" style="margin-top: 10px">
-            <h3>跨源 CORS · Fetch</h3>
-            <p>可选地请求公开 JSON 示例站点。它依赖网络与对方 CORS 策略，不作为离线基线。</p>
-            <code>https://jsonplaceholder.typicode.com/todos/1</code>
-            <button class="secondary" type="button" data-run="cross-origin">发送跨源 GET</button>
-          </div>
-          <div class="scenario" style="margin-top: 10px">
-            <h3>method 不匹配</h3>
-            <p>对已有 GET fixture 发 DELETE。GET 规则不应因 URL 相同而匹配。</p>
-            <code>DELETE /playground/fixtures/profile.json</code>
-            <button class="secondary" type="button" data-run="method-mismatch">发送 DELETE</button>
-          </div>
-        </section>
+            <ul class="fixture-list">
+              <li>
+                <code>fixtures/profile.json</code
+                ><span>GET JSON；基本 Fetch / XHR 和静态响应替换。</span>
+              </li>
+              <li>
+                <code>fixtures/message.txt</code><span>GET text；XHR text responseType。</span>
+              </li>
+              <li>
+                <code>fixtures/redirect-target.json</code
+                ><span>重定向目标；可配置从 profile.json 跳转至此。</span>
+              </li>
+              <li>
+                <code>fixtures/echo.json</code
+                ><span>POST 目标；Pages 无后端，适合测试拦截响应或重定向。</span>
+              </li>
+            </ul>
+          </section>
 
-        <section class="card" aria-labelledby="quick-url-title">
-          <h2 id="quick-url-title">常用测试 URL</h2>
-          <p>使用包含匹配时复制路径片段；精确匹配时复制页面显示的完整 URL。</p>
-          <ul class="fixture-list">
-            <li><code id="url-fetch-profile">加载中…</code><span>GET JSON 基线。</span></li>
-            <li><code id="url-xhr-post">加载中…</code><span>POST 请求体和响应行为。</span></li>
-            <li><code id="url-srcdoc">加载中…</code><span>srcdoc 子 frame 请求。</span></li>
-          </ul>
-        </section>
+          <section class="card" aria-labelledby="boundary-title">
+            <div class="card-head">
+              <div>
+                <h2 id="boundary-title">边界与回退</h2>
+                <p>这些场景用来确认插件只在预期范围工作。</p>
+              </div>
+            </div>
+            <div class="scenario" style="margin-top: 14px">
+              <h3>404 原始响应</h3>
+              <p>请求不存在的静态文件。未命中时会显示 Pages 返回的 404；命中时可验证规则响应。</p>
+              <code>GET /playground/fixtures/not-found.json</code>
+              <button class="secondary" type="button" data-run="not-found">发送不存在的请求</button>
+            </div>
+            <div class="scenario" style="margin-top: 10px">
+              <h3>Dedicated Worker · Fetch</h3>
+              <p>
+                当前插件不拦截 Dedicated Worker 内的请求。此按钮只验证 Worker 原生 Fetch
+                可用，作为支持范围对照。
+              </p>
+              <code>worker.js → fixtures/profile.json</code>
+              <button class="secondary" type="button" data-run="worker-fetch">
+                发送 Worker 原生请求
+              </button>
+            </div>
+            <div class="scenario" style="margin-top: 10px">
+              <h3>跨源 CORS · Fetch</h3>
+              <p>可选地请求公开 JSON 示例站点。它依赖网络与对方 CORS 策略，不作为离线基线。</p>
+              <code>https://jsonplaceholder.typicode.com/todos/1</code>
+              <button class="secondary" type="button" data-run="cross-origin">发送跨源 GET</button>
+            </div>
+            <div class="scenario" style="margin-top: 10px">
+              <h3>method 不匹配</h3>
+              <p>对已有 GET fixture 发 DELETE。GET 规则不应因 URL 相同而匹配。</p>
+              <code>DELETE /playground/fixtures/profile.json</code>
+              <button class="secondary" type="button" data-run="method-mismatch">
+                发送 DELETE
+              </button>
+            </div>
+          </section>
+
+          <section class="card" aria-labelledby="quick-url-title">
+            <h2 id="quick-url-title">常用测试 URL</h2>
+            <p>使用包含匹配时复制路径片段；精确匹配时复制页面显示的完整 URL。</p>
+            <ul class="fixture-list">
+              <li><code id="url-fetch-profile">加载中…</code><span>GET JSON 基线。</span></li>
+              <li><code id="url-xhr-post">加载中…</code><span>POST 请求体和响应行为。</span></li>
+              <li><code id="url-srcdoc">加载中…</code><span>srcdoc 子 frame 请求。</span></li>
+            </ul>
+          </section>
+        </details>
       </aside>
-
-      <section class="card log-card" aria-labelledby="results-title">
-        <div class="log-head">
-          <div>
-            <h2 id="results-title">请求记录</h2>
-            <p style="margin: 5px 0 0">记录仅保存在当前页面内存中；刷新页面会清空。</p>
-          </div>
-          <button class="danger" id="clear-log" type="button">清空记录</button>
-        </div>
-        <div id="results" aria-live="polite">
-          <p class="empty">还没有请求。先配置一条规则，再运行任意场景。</p>
-        </div>
-      </section>
     </main>
 
     <footer class="shell">
@@ -740,7 +825,9 @@
       </p>
       <p>
         源码位于 <code>pages/playground/</code>。测试约定见
-        <a href="../../docs/V3-TESTING.zh.md">V3 测试说明</a>。
+        <a href="https://github.com/Nyakooo/ajax-proxy/blob/master/docs/REDIRECT-RULES.zh.md"
+          >重定向使用规范</a
+        >。
       </p>
     </footer>
 
@@ -824,11 +911,12 @@
             const body = await bodyOf(response)
             writeResult({
               title,
-              url,
+              url: response.url || url,
               method,
               status: response.status,
               body,
               extra: {
+                requestUrl: url,
                 ok: response.ok,
                 redirected: response.redirected,
                 responseUrl: response.url,
@@ -913,7 +1001,127 @@
             sentAt: new Date().toISOString(),
             value: 42,
           })
+        const fixture = (path) => new URL('./fixtures/' + path, location.href).href
+        const escapeRegex = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+        const examples = {
+          mock: {
+            title: 'Mock 不存在的接口',
+            url: fixture('missing.json?case=example-mock'),
+            description:
+              '无需后端：静态 JSON Mock 直接返回数据，不发送真实请求。未启用规则时返回 404。',
+            expected: 'HTTP 200，body.source = playground-mock；Network 不应发送此接口。',
+            response: {
+              enabled: true,
+              mode: 'mock',
+              replace: {
+                status: 200,
+                body: { source: 'playground-mock', items: [{ id: 1, name: '可用的模拟接口' }] },
+              },
+            },
+          },
+          replace: {
+            title: '替换 JSON 响应',
+            url: fixture('profile.json?case=example-replace'),
+            description:
+              '先发送真实 GET，再替换页面收到的 JSON 和状态码。未启用时返回 profile 基线。',
+            expected: 'HTTP 201，body.source = playground-replace。',
+            response: {
+              enabled: true,
+              replace: {
+                status: 201,
+                body: { source: 'playground-replace', user: { id: 17, name: '替换成功' } },
+              },
+            },
+          },
+          redirect: {
+            title: '正则捕获组重定向',
+            url: fixture('profile.json?case=example-redirect&page=1'),
+            description:
+              'Fetch / XHR 均使用静态 URL 模板；$1 保留 query，无需函数。固定目标不自动保留路径或 query，$$ 表示字面 $。',
+            expected:
+              'HTTP 200，body.fixture = redirect-target；响应 URL 以 redirect-target.json?case=example-redirect&page=1 结尾。',
+            match: {
+              type: 'regex',
+              url: '^' + escapeRegex(fixture('profile.json')) + '(\\?case=example-redirect.*)$',
+              method: 'GET',
+            },
+            request: { enabled: true, redirect: { url: fixture('redirect-target.json') + '$1' } },
+          },
+          method: {
+            title: 'method 不匹配',
+            url: fixture('profile.json?case=example-method'),
+            description: '规则仅匹配 POST，按钮发送 GET。用于确认未命中时正常回源。',
+            expected: 'HTTP 200，body.fixture = profile；不会出现 should-not-appear。',
+            method: 'POST',
+            response: { enabled: true, replace: { body: { source: 'should-not-appear' } } },
+          },
+        }
+        const currentExample = () => examples[document.getElementById('example-case').value]
+        function showExample() {
+          const key = document.getElementById('example-case').value
+          const item = currentExample()
+          const rule = {
+            id: 'playground-example-' + key,
+            title: 'Playground · ' + item.title,
+            enabled: true,
+            match: item.match || { type: 'exact', url: item.url, method: item.method || 'GET' },
+            ...(item.request ? { request: item.request } : {}),
+            ...(item.response ? { response: item.response } : {}),
+          }
+          const backup = {
+            format: 'ajax-proxy-backup',
+            formatVersion: 10,
+            settings: { globalEnabled: true, mode: 'interceptor', language: 'zh-CN' },
+            tags: [],
+            disabledOrigins: [],
+            rules: [rule],
+          }
+          document.getElementById('example-json').value = JSON.stringify(backup, null, 2)
+          document.getElementById('example-description').textContent = item.description
+          document.getElementById('example-expected').textContent = item.expected
+          document.getElementById('example-url').textContent = item.url
+          document.getElementById('example-copy-status').textContent = ''
+        }
+        document.getElementById('example-case').addEventListener('change', () => {
+          const url = new URL(location.href)
+          url.searchParams.set('case', document.getElementById('example-case').value)
+          history.replaceState(null, '', url)
+          showExample()
+        })
+        document.getElementById('copy-example').addEventListener('click', async () => {
+          const status = document.getElementById('example-copy-status')
+          try {
+            await navigator.clipboard.writeText(document.getElementById('example-json').value)
+            status.textContent = '已复制：到插件备份 / 恢复中粘贴，选择追加导入。'
+          } catch {
+            const input = document.getElementById('example-json')
+            input.closest('details').open = true
+            input.focus()
+            input.select()
+            status.textContent = '浏览器未允许剪贴板访问，已选中 JSON，请手动复制或下载。'
+          }
+        })
+        document.getElementById('download-example').addEventListener('click', () => {
+          const url = URL.createObjectURL(
+            new Blob([document.getElementById('example-json').value], { type: 'application/json' })
+          )
+          const link = document.createElement('a')
+          link.href = url
+          link.download =
+            'ajax-proxy-playground-' + document.getElementById('example-case').value + '.json'
+          link.click()
+          setTimeout(() => URL.revokeObjectURL(url), 1000)
+          document.getElementById('example-copy-status').textContent =
+            '已下载：在插件备份 / 恢复中选择文件，使用追加导入。'
+        })
+        const requestedExample = new URLSearchParams(location.search).get('case')
+        if (Object.hasOwn(examples, requestedExample))
+          document.getElementById('example-case').value = requestedExample
+        showExample()
         const runs = {
+          'example-fetch': () =>
+            runFetch(currentExample().title + ' · Fetch', currentExample().url),
+          'example-xhr': () => runXhr(currentExample().title + ' · XHR', currentExample().url),
           'fetch-get': () => runFetch('Fetch · GET JSON', './fixtures/profile.json?case=fetch-get'),
           'fetch-post': () =>
             runFetch('Fetch · POST JSON', './fixtures/echo.json?case=fetch-post', {

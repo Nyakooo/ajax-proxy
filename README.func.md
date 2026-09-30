@@ -19,7 +19,7 @@ function redirect(req) {
 }
 ```
 
-此功能通过 V2 的 `window.eval()` 在网页主世界运行，只能使用你信任的代码。函数抛错、拒绝、返回无效结果或超时会按 fail-open 继续原请求；同步死循环会阻塞页面线程，超时无法中断它。函数式重定向尚未迁移到 V3；V3 规则使用独立 schema 和受限 sandbox 函数响应能力。
+此功能通过 V2 的 `window.eval()` 在网页主世界运行，只能使用你信任的代码。函数抛错、拒绝、返回无效结果或超时会按 fail-open 继续原请求；同步死循环会阻塞页面线程，超时无法中断它。V3 使用独立 schema 和受限 sandbox，支持仅 Fetch 的函数重定向；Fetch / XHR 正则捕获组重定向可直接使用静态模板，见[重定向使用规范](docs/REDIRECT-RULES.zh.md)。
 
 ## 函数式响应
 

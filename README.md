@@ -12,10 +12,10 @@
     <a href="https://microsoftedge.microsoft.com/addons/detail/ajax-proxy/iladajdkobpmadjfpeginhngnneaoefi"><img alt="Microsoft Edge Add-ons" src="https://img.shields.io/badge/Edge%20Add--ons-available-0078D7?logo=microsoftedge&logoColor=white"></a>
   </p>
 
-  <p><strong>V3.0.0 stable release · Chrome and Microsoft Edge Stable</strong><br>Mock missing APIs, redirect requests, and shape supported Fetch and XHR responses in your browser.</p>
-  <p><a href="https://github.com/Nyakooo/ajax-proxy/releases/tag/v3.0.0"><strong>Download Ajax Proxy 3.0.0</strong></a> · <a href="https://chrome.google.com/webstore/detail/ajax-proxy/jbikjaejnjfbloojafllmdiknfndgljo">Chrome Web Store</a> · <a href="https://microsoftedge.microsoft.com/addons/detail/ajax-proxy/iladajdkobpmadjfpeginhngnneaoefi">Edge Add-ons</a></p>
+  <p><strong>V3.0.2 stable release · Chrome and Microsoft Edge Stable</strong><br>Mock missing APIs, redirect requests, and shape supported Fetch and XHR responses in your browser.</p>
+  <p><a href="https://github.com/Nyakooo/ajax-proxy/releases/tag/v3.0.2"><strong>Download Ajax Proxy 3.0.2</strong></a> · <a href="https://chrome.google.com/webstore/detail/ajax-proxy/jbikjaejnjfbloojafllmdiknfndgljo">Chrome Web Store</a> · <a href="https://microsoftedge.microsoft.com/addons/detail/ajax-proxy/iladajdkobpmadjfpeginhngnneaoefi">Edge Add-ons</a></p>
   <p>
-    <a href="#install-v3-300"><strong>Install V3.0.0</strong></a> ·
+    <a href="#install-v3-302"><strong>Install V3.0.2</strong></a> ·
     <a href="docs/V3-RULE-MODEL.zh.md">Rule model</a> ·
     <a href="docs/V3-BACKUP-RESTORE.zh.md">Backup &amp; restore</a> ·
     <a href="https://github.com/Nyakooo/ajax-proxy/issues">Issues</a>
@@ -24,7 +24,7 @@
 </div>
 
 <p align="center">
-  <img src="media/ajax-proxy-v3-showcase.svg" alt="Ajax Proxy 3.0.0 matching a request and returning a configured JSON mock response" width="100%">
+  <img src="media/ajax-proxy-v3-showcase.svg" alt="Ajax Proxy 3.0.2 matching a request and returning a configured JSON mock response" width="100%">
 </p>
 
 ## Why Ajax Proxy?
@@ -52,11 +52,11 @@ Ajax Proxy runs as a browser extension; it does not require an Ajax Proxy accoun
 
 The panel labels a mock hit **Mock skipped the real network request** and shows the returned status. Use this mode when an endpoint does not exist yet or when you need a fixed response. The regular response-replacement mode sends the real request first and then replaces its response; function responses also need a real response as input and currently apply to Fetch only.
 
-## Install V3 3.0.0
+## Install V3 3.0.2
 
 > **Upgrade note:** V2 and V3 rules and backup files use incompatible formats. V3 does not migrate old data. Export and keep a V2 backup before upgrading, then recreate the rules you still need.
 
-Download the `ajax-proxy-3.0.0.zip` asset from the [V3.0.0 GitHub release](https://github.com/Nyakooo/ajax-proxy/releases/tag/v3.0.0), unzip it, and load the extracted folder in Chrome (`chrome://extensions`) or Edge (`edge://extensions`):
+Download the `ajax-proxy-3.0.2.zip` asset from the [V3.0.2 GitHub release](https://github.com/Nyakooo/ajax-proxy/releases/tag/v3.0.2), unzip it, and load the extracted folder in Chrome (`chrome://extensions`) or Edge (`edge://extensions`):
 
 1. Turn on **Developer mode**.
 2. Select **Load unpacked**.
@@ -72,7 +72,7 @@ pnpm install --frozen-lockfile
 pnpm build
 ```
 
-The production build is at `packages/shell-chrome/build`. V3.0.0 was functionally validated on Chrome Stable and Microsoft Edge Stable; see the [migration notes](docs/V3-PANEL-MIGRATION.zh.md), [browser compatibility](docs/V3-BROWSER-COMPATIBILITY.zh.md), and [acceptance record](docs/V3-TESTING.zh.md). The store listings may show their previous package until their review is complete.
+The production build is at `packages/shell-chrome/build`. V3 core functionality was validated on Chrome Stable and Microsoft Edge Stable; see the [migration notes](docs/V3-PANEL-MIGRATION.zh.md), [browser compatibility](docs/V3-BROWSER-COMPATIBILITY.zh.md), and [acceptance record](docs/V3-TESTING.zh.md). The store listings may show their previous package until their review is complete.
 
 ## Documentation
 
@@ -94,9 +94,11 @@ Open the [Ajax Proxy Playground](https://nyakooo.github.io/ajax-proxy/playground
 
 For a quick check, create an enabled GET rule matching `playground/fixtures/profile.json`, set a clearly distinguishable response body, then click **Send Fetch GET** or **Send XHR JSON**. Compare the displayed response with the hit count in the extension panel. The Worker scenario is a native-request comparison; requests made inside Dedicated Workers are not currently intercepted. See the [Playground guide](docs/PLAYGROUND.zh.md) for all scenarios, rule examples, and local setup.
 
+Regex redirects support `$1`, `$2`, and `$<name>` captures for both Fetch and XHR. See the [redirect guide](docs/REDIRECT-RULES.md) for fixed targets, relative URLs, escaping, and troubleshooting.
+
 ## Demo
 
-The animation below shows the **legacy V2 interface** and is kept for historical reference; it is not a screenshot of the V3.0.0 release.
+The animation below shows the **legacy V2 interface** and is kept for historical reference; it is not a screenshot of the V3.0.2 release.
 
 <details>
   <summary>Show the legacy V2 demo</summary>
