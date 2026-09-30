@@ -2,6 +2,7 @@
 
 ## Ajax Proxy 3.0.2 — 2026-09-30
 
+- Rejected embedded credentials in static redirect URLs and removed original XHR open() credentials when redirecting across origins.
 - Fixed body-bearing Fetch Request dispatch, bounded response-function snapshot reads, and hit counts for prototype-property rule IDs.
 - Stopped sending V3 rules when the proxy or current site is disabled; omitted disabled rules/actions and removed legacy hit-threshold desktop notifications.
 - Added a 5 MiB file check before reading backups and enforced release version, required-file and entry-resource checks before ZIP packaging.
