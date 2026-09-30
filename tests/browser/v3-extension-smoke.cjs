@@ -1319,7 +1319,7 @@ async function main() {
     assert.equal(await priorityRows.nth(0).locator('span').innerText(), 'First complete match')
     assert.equal(
       await priorityRows.nth(0).locator('code').innerText(),
-      'Rule 1 · v3-diagnostic-pinned-smoke · /api/priority',
+      'Rule 1 · /api/priority · v3-diagnostic-pinned-smoke · /api/priority',
       'the pinned rule should appear first with its own ID and URL'
     )
     assert.equal(
@@ -1328,7 +1328,7 @@ async function main() {
     )
     assert.equal(
       await priorityRows.nth(1).locator('code').innerText(),
-      'Rule 2 · v3-diagnostic-unpinned-smoke · /api/later',
+      'Rule 2 · /api/later · v3-diagnostic-unpinned-smoke · /api/later',
       'a later non-match should keep its concrete reason and map to its own ID and URL'
     )
 
@@ -1354,7 +1354,7 @@ async function main() {
     assert.equal(await priorityRows.nth(0).locator('span').innerText(), 'First complete match')
     assert.equal(
       await priorityRows.nth(0).locator('code').innerText(),
-      'Rule 1 · v3-diagnostic-pinned-smoke · /api/priority'
+      'Rule 1 · /api/priority · v3-diagnostic-pinned-smoke · /api/priority'
     )
     assert.equal(
       await priorityRows.nth(1).locator('span').innerText(),
@@ -1362,7 +1362,7 @@ async function main() {
     )
     assert.equal(
       await priorityRows.nth(1).locator('code').innerText(),
-      'Rule 2 · v3-diagnostic-unpinned-smoke · /api/priority',
+      'Rule 2 · /api/priority · v3-diagnostic-unpinned-smoke · /api/priority',
       'an overlapping unpinned rule should be lower priority and retain its own identity'
     )
 
@@ -1910,11 +1910,7 @@ async function main() {
       .nth(0)
       .locator('input')
       .fill('/api/tagged-redirect')
-    await taggedRedirectEditor
-      .locator('label.editor-field')
-      .nth(3)
-      .locator('input')
-      .fill('/mock/echo')
+    await taggedRedirectEditor.getByLabel('Redirect target URL').fill('/mock/echo')
     await taggedRedirectEditor
       .locator('.rule-tag-picker label')
       .filter({ hasText: 'Smoke label' })
