@@ -71,6 +71,7 @@ describe('ResponseRuleEditor function response confirmation', () => {
     expect(wrapper.emitted('save')).toEqual([
       [
         {
+          title: '',
           enabled: true,
           match: { url: 'https://api.test/items', type: 'normal', method: 'ANY' },
           mode: 'function',

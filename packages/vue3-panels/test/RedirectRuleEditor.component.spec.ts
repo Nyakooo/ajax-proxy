@@ -19,7 +19,7 @@ async function mountEditor() {
   await flushPromises()
   const inputs = wrapper.findAll('input[autocomplete="off"]')
   await inputs[0].setValue('/api/items')
-  await inputs[1].setValue('https://api.test/items')
+  await inputs[2].setValue('https://api.test/items')
   return wrapper
 }
 

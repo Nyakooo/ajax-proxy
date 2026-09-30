@@ -96,7 +96,7 @@ describe('ResponseRuleEditor', () => {
     await nextTick()
     await wrapper.get('.editor-field input').setValue(' /api ')
     await wrapper.get('form').trigger('submit')
-    expect(wrapper.get('[role="alert"]').text()).toBe('匹配 URL 不能为空，且不能包含首尾空格。')
+    expect(wrapper.get('[role="alert"]').text()).toBe('匹配 URL 前后有空格，请删除空格后再保存。')
 
     await wrapper.get('.editor-field input').setValue('/api')
     await wrapper.get('input[type="number"]').setValue('199')
@@ -124,6 +124,7 @@ describe('ResponseRuleEditor', () => {
     expect(wrapper.emitted('save')).toEqual([
       [
         {
+          title: '',
           enabled: true,
           match: { url: '/api', type: 'normal', method: 'ANY' },
           mode: 'function',
@@ -148,6 +149,7 @@ describe('ResponseRuleEditor', () => {
     expect(wrapper.emitted('save')).toEqual([
       [
         {
+          title: '',
           enabled: true,
           match: { url: '/api', type: 'normal', method: 'ANY' },
           status: 200,
@@ -247,7 +249,7 @@ describe('RedirectRuleEditor', () => {
     await nextTick()
     const inputs = wrapper.findAll('input:not([type="checkbox"]):not([type="radio"])')
     const matchUrl = inputs[0]
-    const targetUrl = inputs[1]
+    const targetUrl = inputs[2]
     const selects = wrapper.findAll('select')
 
     await wrapper.get('form').trigger('submit')
@@ -257,7 +259,7 @@ describe('RedirectRuleEditor', () => {
     await matchUrl.setValue(' /api ')
     await targetUrl.setValue('https://target.test/redirect')
     await wrapper.get('form').trigger('submit')
-    expect(wrapper.get('[role="alert"]').text()).toBe('URL 前后不能包含空格。')
+    expect(wrapper.get('[role="alert"]').text()).toBe('匹配 URL 前后有空格，请删除空格后再保存。')
     expect(wrapper.emitted('save')).toBeUndefined()
 
     await matchUrl.setValue('/api')
@@ -270,6 +272,7 @@ describe('RedirectRuleEditor', () => {
     expect(wrapper.emitted('save')).toEqual([
       [
         {
+          title: '',
           enabled: true,
           match: { url: '/api', type: 'regex', method: 'POST' },
           redirectMode: 'static',
@@ -317,7 +320,7 @@ describe('RedirectRuleEditor', () => {
     await flushPromises()
 
     expect(inputs[0].element.value).toBe('/second')
-    expect(inputs[1].element.value).toBe('https://second.test/')
+    expect(inputs[2].element.value).toBe('https://second.test/')
     expect(wrapper.get('[data-testid="redirect-exclusions"]').element.value).toBe('/second-skip')
     expect(wrapper.findAll('select')[0].element.value).toBe('exact')
     expect(wrapper.findAll('select')[1].element.value).toBe('POST')
@@ -327,6 +330,7 @@ describe('RedirectRuleEditor', () => {
     await wrapper.get('form').trigger('submit')
 
     expect(wrapper.emitted('save')?.at(-1)?.[0]).toEqual({
+      title: '',
       enabled: true,
       match: { url: '/second', type: 'exact', method: 'POST' },
       redirectMode: 'static',
@@ -360,6 +364,7 @@ describe('RedirectRuleEditor', () => {
     await wrapper.get('form').trigger('submit')
     expect(confirm).toHaveBeenCalledTimes(2)
     expect(wrapper.emitted('save')?.at(-1)?.[0]).toEqual({
+      title: '',
       enabled: true,
       match: { url: '/api', type: 'normal', method: 'ANY' },
       redirectMode: 'function',
