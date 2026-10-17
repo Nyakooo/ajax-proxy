@@ -1,0 +1,14 @@
+{
+    "i18n-ally.displayLanguage": "zh",
+    "i18n-ally.dirStructure": "auto",
+    "i18n-ally.disablePathParsing": false,
+    "i18n-ally.localesPaths": [
+        "src/lang"
+    ],
+    "i18n-ally.enabledParsers": [
+        "js"
+    ],
+    "i18n-ally.annotationInPlace": false,
+    "i18n-ally.autoDetection": true,
+    "i18n-ally.keystyle": "nested"
+}

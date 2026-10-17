@@ -1,9 +1,9 @@
 import { IRedirectHeader } from './types';
-type Req = {
+declare type Req = {
     url: string;
     method: string;
 };
-type Next = {
+declare type Next = {
     url: string;
     headers?: {
         [key: IRedirectHeader['key']]: IRedirectHeader['value'];

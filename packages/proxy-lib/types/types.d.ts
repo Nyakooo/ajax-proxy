@@ -1,19 +1,18 @@
 /**请求协议 */
-export type IRequestMethod = 'ANY' | 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
+export declare type IRequestMethod = "ANY" | "GET" | "POST" | "PUT" | "DELETE" | "PATCH";
 /**规则 */
-export type IFilterType = 'normal' | 'regex';
+export declare type IFilterType = "normal" | "regex";
 /**模式 */
-export type IMode = 'interceptor' | 'redirector';
+export declare type IMode = "interceptor" | "redirector";
 /**全局状态结构体 */
-export type RefGlobalState<T = IGlobalState> = {
+export declare type RefGlobalState<T = IGlobalState> = {
     value: T;
-    v3_active?: boolean;
 };
 /**响应式类型 */
-export type OverrideType = 'json' | 'function';
+export declare type OverrideType = 'json' | 'function';
 /**重定向类型 */
-export type RedirectType = 'text' | 'function';
-type CommonContent = {
+export declare type RedirectType = 'text' | 'function';
+declare type CommonContent = {
     /**是否需要匹配 */
     switch_on: boolean;
     /**匹配规则 */
@@ -24,7 +23,7 @@ type CommonContent = {
     remark?: string;
 };
 /**拦截器对象 */
-export type IMatchInterceptorContent = {
+export declare type IMatchInterceptorContent = {
     /**匹配目标URL */
     match_url: string;
     /**需要覆盖的内容 */
@@ -32,20 +31,20 @@ export type IMatchInterceptorContent = {
     /**命中率 */
     hit?: number;
     /**状态码 */
-    status_code?: string | number;
+    status_code?: string;
     /**响应式类型 */
     override_type?: OverrideType;
     /**函数响应 */
     override_func?: string;
 } & CommonContent;
 /**重定向头部结构体 */
-export type IRedirectHeader = {
+export declare type IRedirectHeader = {
     key: string;
     value: string;
     description?: string;
 };
 /**重定向对象结构体 */
-export type IMatchRedirectContent = {
+export declare type IMatchRedirectContent = {
     /**域名 */
     domain: string;
     /**重定向地址 */
@@ -59,7 +58,7 @@ export type IMatchRedirectContent = {
     /**函数响应 */
     redirect_func?: string;
 } & CommonContent;
-export type IGlobalState = {
+export declare type IGlobalState = {
     /**全局开关 */
     global_on: boolean;
     /**模式 */

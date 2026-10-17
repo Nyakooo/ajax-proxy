@@ -1,4 +1,4 @@
-type Ctx = {
+declare type Ctx = {
     req: {
         url: string;
         method: string;
@@ -10,7 +10,7 @@ type Ctx = {
         response: any;
     };
 };
-type Next = {
+declare type Next = {
     override?: string;
     status?: string | number;
 };
